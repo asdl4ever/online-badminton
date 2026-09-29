@@ -1,30 +1,37 @@
 import Phaser from 'phaser';
 import {
+  CONTACT_R,
   COURT_LEFT,
   COURT_RIGHT,
   GROUND_Y,
-  NET_TOP,
   NET_TICK_HZ,
   NET_X,
   NET_INPUT_HZ,
   PLAYER_H,
-  RACKET_REACH,
-  SWING_DURATION,
   VIEW_H,
   VIEW_W,
 } from '../constants';
 import type { SimEvent } from '../types';
-import { EMPTY_INPUT, type MatchRole, type PlayerInput, type World } from '../types';
+import {
+  EMPTY_INPUT,
+  type MatchRole,
+  type PlayerInput,
+  type PlayerState,
+  type World,
+} from '../types';
 import {
   applySnapshot,
   createWorld,
   lerpWorld,
+  racketHead,
   serializeWorld,
+  shoulderPoint,
   stepPlayerLocal,
   stepWorld,
 } from '../simulation';
 import { AIController, type Difficulty } from '../ai';
 import { createControls, readControls, type ControlKeys } from '../input';
+import { RacketTracker } from '../racket';
 import type { NetMessage, NetSession } from '../../net/session';
 
 export interface HudState {
@@ -34,6 +41,7 @@ export interface HudState {
   localIndex: 0 | 1;
   roomCode: string;
   opponentConnected: boolean;
+  server: 0 | 1;
 }
 
 export interface MatchConfig {
@@ -54,6 +62,7 @@ export class GameScene extends Phaser.Scene {
   private target!: World;
   private controls!: ControlKeys;
   private ai!: AIController;
+  private racket!: RacketTracker;
 
   private accum = 0;
   private netAccum = 0;
@@ -62,6 +71,7 @@ export class GameScene extends Phaser.Scene {
   private lastHud = '';
   private trail: { x: number; y: number }[] = [];
   private flashes: { x: number; y: number; life: number }[] = [];
+  private tmp = new Phaser.Math.Vector2();
 
   private dynamic!: Phaser.GameObjects.Graphics;
   private scoreLeft!: Phaser.GameObjects.Text;
@@ -89,7 +99,9 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.controls = createControls(this);
     this.ai = new AIController(this.cfg.difficulty, 1);
-    this.input.keyboard?.addCapture('SPACE,UP,DOWN,LEFT,RIGHT,W,A,S,D,J');
+    this.racket = new RacketTracker();
+    this.input.keyboard?.addCapture('UP,DOWN,LEFT,RIGHT,W,A,S,D');
+    this.input.mouse?.disableContextMenu();
 
     const bg = this.add.graphics();
     this.drawCourt(bg);
@@ -105,7 +117,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreLeft = this.add.text(VIEW_W / 2 - 90, 40, '0', style).setOrigin(0.5, 0);
     this.scoreRight = this.add.text(VIEW_W / 2 + 90, 40, '0', style).setOrigin(0.5, 0);
     this.message = this.add
-      .text(VIEW_W / 2, VIEW_H / 2 - 90, '', {
+      .text(VIEW_W / 2, VIEW_H / 2 - 110, '', {
         fontFamily: 'Segoe UI, Arial, sans-serif',
         fontSize: '44px',
         color: '#ffe066',
@@ -113,7 +125,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.subMessage = this.add
-      .text(VIEW_W / 2, VIEW_H / 2 - 30, '', {
+      .text(VIEW_W / 2, VIEW_H / 2 - 46, '', {
         fontFamily: 'Segoe UI, Arial, sans-serif',
         fontSize: '24px',
         color: '#d9f2ff',
@@ -145,6 +157,7 @@ export class GameScene extends Phaser.Scene {
     this.world = createWorld();
     this.target = createWorld();
     this.hasSnapshot = false;
+    this.racket.reset();
     this.publishHud(true);
   }
 
@@ -158,8 +171,26 @@ export class GameScene extends Phaser.Scene {
     this.resetWorld();
   }
 
-  private localInput(): PlayerInput {
-    return readControls(this.controls);
+  private localIndex(): 0 | 1 {
+    return this.cfg.role === 'guest' ? 1 : 0;
+  }
+
+  private buildLocalInput(dt: number): PlayerInput {
+    const p = this.world.players[this.localIndex()];
+    const shoulder = shoulderPoint(p);
+    const pointer = this.input.activePointer;
+    this.cameras.main.getWorldPoint(pointer.x, pointer.y, this.tmp);
+    const racket = this.racket.update(this.tmp.x, this.tmp.y, shoulder.x, shoulder.y, dt);
+    const b = readControls(this.controls);
+    return {
+      left: b.left,
+      right: b.right,
+      jump: b.jump,
+      rx: racket.rx,
+      ry: racket.ry,
+      rvx: racket.rvx,
+      rvy: racket.rvy,
+    };
   }
 
   update(_time: number, deltaMs: number): void {
@@ -177,35 +208,8 @@ export class GameScene extends Phaser.Scene {
     this.publishHud(false);
   }
 
-  private refreshMessages(): void {
-    const w = this.world;
-    const local = this.cfg.role === 'guest' ? 1 : 0;
-    this.scoreLeft.setText(String(w.score[0]));
-    this.scoreRight.setText(String(w.score[1]));
-
-    if (w.phase === 'gameover') {
-      const won = w.winner === local;
-      this.message.setText(won ? '你赢了！' : '你输了');
-      this.message.setColor(won ? '#8ef58e' : '#ff8a8a');
-      this.subMessage.setText('按 R 再来一局');
-    } else if (w.phase === 'point') {
-      this.message.setText('');
-      this.subMessage.setText('');
-    } else if (w.phase === 'serve') {
-      this.message.setText('');
-      if (w.server === local) {
-        this.subMessage.setText('你的发球 — 按 空格');
-      } else {
-        this.subMessage.setText('等待对方发球…');
-      }
-    } else {
-      this.message.setText('');
-      this.subMessage.setText('');
-    }
-  }
-
   private updateSimulated(dt: number, role: MatchRole): void {
-    const human = this.localInput();
+    const human = this.buildLocalInput(dt);
 
     if (role === 'host') {
       this.netAccum += dt;
@@ -232,7 +236,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateGuest(dt: number): void {
-    const input = this.localInput();
+    const input = this.buildLocalInput(dt);
     this.netAccum += dt;
     if (this.netAccum >= 1 / NET_INPUT_HZ) {
       this.netAccum = 0;
@@ -243,9 +247,6 @@ export class GameScene extends Phaser.Scene {
     const k = 1 - Math.exp(-22 * dt);
     lerpWorld(this.world, this.target, k);
 
-    // Client-side prediction: drive our own player locally so the controls
-    // feel instant, then bleed off the error against the authoritative
-    // snapshot instead of snapping to it.
     const me = this.world.players[1];
     const auth = this.target.players[1];
     const kc = 1 - Math.exp(-10 * dt);
@@ -253,9 +254,7 @@ export class GameScene extends Phaser.Scene {
     me.y += (auth.y - me.y) * kc;
     me.vy = auth.vy;
     me.onGround = auth.onGround;
-    me.swingTimer = auth.swingTimer;
-    me.swingCooldown = auth.swingCooldown;
-    me.hitUsed = auth.hitUsed;
+    me.hitCooldown = auth.hitCooldown;
     stepPlayerLocal(me, 1, input, dt);
 
     this.flushEvents();
@@ -276,17 +275,40 @@ export class GameScene extends Phaser.Scene {
     const w = this.world;
     const roomCode = this.cfg.session?.roomCode ?? '';
     const opponentConnected = this.cfg.role !== 'single' ? !!this.cfg.session?.connected : true;
-    const key = `${w.score[0]}:${w.score[1]}:${w.phase}:${w.winner}:${roomCode}:${opponentConnected}`;
+    const key = `${w.score[0]}:${w.score[1]}:${w.phase}:${w.winner}:${w.server}:${roomCode}:${opponentConnected}`;
     if (!force && key === this.lastHud) return;
     this.lastHud = key;
     this.cfg.onHud({
       score: [w.score[0], w.score[1]],
       phase: w.phase,
       winner: w.winner,
-      localIndex: this.cfg.role === 'guest' ? 1 : 0,
+      localIndex: this.localIndex(),
       roomCode,
       opponentConnected,
+      server: w.server,
     });
+  }
+
+  private refreshMessages(): void {
+    const w = this.world;
+    const local = this.localIndex();
+    this.scoreLeft.setText(String(w.score[0]));
+    this.scoreRight.setText(String(w.score[1]));
+
+    if (w.phase === 'gameover') {
+      const won = w.winner === local;
+      this.message.setText(won ? '你赢了！' : '你输了');
+      this.message.setColor(won ? '#8ef58e' : '#ff8a8a');
+      this.subMessage.setText('按 R 再来一局');
+    } else if (w.phase === 'serve') {
+      this.message.setText('');
+      this.subMessage.setText(
+        w.server === local ? '你的发球 — 快速挥动鼠标' : '等待对方发球…',
+      );
+    } else {
+      this.message.setText('');
+      this.subMessage.setText('');
+    }
   }
 
   // ---- rendering ---------------------------------------------------------
@@ -297,7 +319,6 @@ export class GameScene extends Phaser.Scene {
     g.fillGradientStyle(0x0c1a2c, 0x0c1a2c, 0x1b3b5c, 0x1b3b5c, 1, 1, 1, 1);
     g.fillRect(0, 0, VIEW_W, GROUND_Y);
 
-    // stands
     g.fillStyle(0x0a1523, 1);
     g.fillRect(0, GROUND_Y - 160, VIEW_W, 160);
     for (let i = 0; i < 150; i++) {
@@ -309,7 +330,6 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0x0a1523, 1);
     g.fillRect(0, GROUND_Y - 6, VIEW_W, 6);
 
-    // floor
     g.fillStyle(0x1d4e3f, 1);
     g.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
     g.fillStyle(0x2b6b56, 1);
@@ -323,40 +343,42 @@ export class GameScene extends Phaser.Scene {
     g.lineStyle(3, 0xffffff, 0.75);
     g.lineBetween(COURT_LEFT, GROUND_Y, COURT_RIGHT, GROUND_Y);
 
-    // net posts + mesh
+    const netTop = GROUND_Y - 108;
     g.fillStyle(0xcfd8e3, 1);
-    g.fillRect(NET_X - 9, NET_TOP - 4, 5, GROUND_Y - NET_TOP + 4);
-    g.fillRect(NET_X + 4, NET_TOP - 4, 5, GROUND_Y - NET_TOP + 4);
+    g.fillRect(NET_X - 9, netTop - 4, 5, GROUND_Y - netTop + 4);
+    g.fillRect(NET_X + 4, netTop - 4, 5, GROUND_Y - netTop + 4);
     g.fillStyle(0x0a0a0a, 0.55);
-    g.fillRect(NET_X - 6, NET_TOP, 12, GROUND_Y - NET_TOP);
+    g.fillRect(NET_X - 6, netTop, 12, GROUND_Y - netTop);
     g.lineStyle(1, 0xffffff, 0.4);
-    for (let y = NET_TOP + 6; y < GROUND_Y; y += 9) {
+    for (let y = netTop + 6; y < GROUND_Y; y += 9) {
       g.lineBetween(NET_X - 6, y, NET_X + 6, y);
     }
     for (let x = NET_X - 4; x <= NET_X + 4; x += 4) {
-      g.lineBetween(x, NET_TOP, x, GROUND_Y);
+      g.lineBetween(x, netTop, x, GROUND_Y);
     }
     g.fillStyle(0xffffff, 0.95);
-    g.fillRect(NET_X - 8, NET_TOP - 7, 16, 6);
+    g.fillRect(NET_X - 8, netTop - 7, 16, 6);
   }
 
   private drawDynamic(): void {
     const g = this.dynamic;
-    const w = this.world;
     g.clear();
 
-    if (this.cfg.role === 'guest' && !this.hasSnapshot) {
-      return;
-    }
+    if (this.cfg.role === 'guest' && !this.hasSnapshot) return;
 
     this.drawServeHint(g);
     for (let i = 0; i < 2; i++) this.drawPlayer(g, i as 0 | 1);
     this.drawShuttle(g);
     this.drawEffects(g);
 
-    const local = this.cfg.role === 'guest' ? 1 : 0;
+    const local = this.localIndex();
     g.lineStyle(3, 0x6ff0ff, 0.5);
-    g.lineBetween(w.players[local].x - 26, GROUND_Y + 6, w.players[local].x + 26, GROUND_Y + 6);
+    g.lineBetween(
+      this.world.players[local].x - 26,
+      GROUND_Y + 6,
+      this.world.players[local].x + 26,
+      GROUND_Y + 6,
+    );
   }
 
   private drawEffects(g: Phaser.GameObjects.Graphics): void {
@@ -379,57 +401,59 @@ export class GameScene extends Phaser.Scene {
     if (w.phase !== 'serve') return;
     const server = w.players[w.server];
     g.lineStyle(3, 0xffe066, 0.5);
-    g.strokeCircle(server.x, server.y - PLAYER_H - 26, 12);
+    g.strokeCircle(server.x, server.y - PLAYER_H - 30, 12);
     g.lineStyle(3, 0xffe066, 0.9);
-    g.lineBetween(server.x - 7, server.y - PLAYER_H - 26, server.x + 7, server.y - PLAYER_H - 26);
+    g.lineBetween(server.x - 7, server.y - PLAYER_H - 30, server.x + 7, server.y - PLAYER_H - 30);
   }
 
   private drawPlayer(g: Phaser.GameObjects.Graphics, i: 0 | 1): void {
     const p = this.world.players[i];
-    const dir = p.facing;
     const color = i === 0 ? 0x4ea3ff : 0xff7a59;
     const topY = p.y - PLAYER_H;
 
     g.fillStyle(0x000000, 0.18);
     g.fillEllipse(p.x, GROUND_Y + 2, 54, 12);
 
-    const bodyH = PLAYER_H - 34;
     g.fillStyle(color, 1);
-    g.fillRoundedRect(p.x - 17, topY + 30, 34, bodyH, 12);
+    g.fillRoundedRect(p.x - 17, topY + 30, 34, PLAYER_H - 34, 12);
     g.fillStyle(0xf2c9a0, 1);
     g.fillCircle(p.x, topY + 18, 15);
 
-    const shoulderX = p.x + dir * 6;
-    const shoulderY = p.y - PLAYER_H * 0.72;
-    let armAngle = -1.0;
-    if (p.swingTimer > 0) {
-      const phase = 1 - p.swingTimer / SWING_DURATION;
-      const eased = 1 - Math.pow(1 - phase, 3);
-      armAngle = -2.3 + (0.4 - -2.3) * eased;
+    this.drawRacket(g, p, color);
+  }
+
+  private drawRacket(g: Phaser.GameObjects.Graphics, p: PlayerState, color: number): void {
+    const shoulder = shoulderPoint(p);
+    const head = racketHead(p);
+    const ang = Math.atan2(head.y - shoulder.y, head.x - shoulder.x);
+
+    const speed = Math.hypot(p.rvx, p.rvy);
+    const hot = Math.min(1, speed / 1400);
+    if (hot > 0.08 && this.world.shuttle.live) {
+      const reach = Math.hypot(head.x - shoulder.x, head.y - shoulder.y);
+      g.lineStyle(6 + 10 * hot, color, 0.18 + 0.3 * hot);
+      g.beginPath();
+      g.arc(shoulder.x, shoulder.y, reach, ang - 0.55, ang, false, 0);
+      g.strokePath();
     }
-    const armLen = 44;
-    const handX = shoulderX + Math.cos(armAngle) * armLen * dir;
-    const handY = shoulderY + Math.sin(armAngle) * armLen;
 
+    const hx = head.x - Math.cos(ang) * 14;
+    const hy = head.y - Math.sin(ang) * 14;
     g.lineStyle(7, 0xf2c9a0, 1);
-    g.lineBetween(shoulderX, shoulderY, handX, handY);
+    g.lineBetween(shoulder.x, shoulder.y, hx, hy);
 
-    const racketRotation = dir === 1 ? armAngle : Math.PI - armAngle;
     g.save();
-    g.translateCanvas(handX, handY);
-    g.rotateCanvas(racketRotation);
-    g.lineStyle(3, 0xf5f5f5, 0.95);
-    g.strokeEllipse(16, 0, 34, 24);
-    g.lineStyle(3, 0xd0d0d0, 0.9);
-    g.lineBetween(0, 0, 6, 0);
+    g.translateCanvas(head.x, head.y);
+    g.rotateCanvas(ang);
+    g.lineStyle(7, 0xd9dde3, 0.95);
+    g.lineBetween(-14, 0, -2, 0);
+    g.lineStyle(3, 0xffffff, 0.95);
+    g.strokeEllipse(11, 0, 40, 32);
     g.restore();
 
-    if (p.swingTimer > 0) {
-      const phase = 1 - p.swingTimer / SWING_DURATION;
-      g.lineStyle(3, 0xffffff, 0.3 * (1 - phase));
-      g.beginPath();
-      g.arc(shoulderX, shoulderY, RACKET_REACH * 0.72, armAngle - 0.9, armAngle, false, 0);
-      g.strokePath();
+    if (hot > 0.15) {
+      g.lineStyle(2, 0xffffff, 0.1 + 0.25 * hot);
+      g.strokeCircle(head.x, head.y, CONTACT_R);
     }
   }
 
@@ -437,7 +461,6 @@ export class GameScene extends Phaser.Scene {
     const s = this.world.shuttle;
     const angle = s.live ? Math.atan2(s.vy, s.vx) : Math.PI / 2;
 
-    // keep a short motion trail
     this.trail.push({ x: s.x, y: s.y });
     if (this.trail.length > 14) this.trail.shift();
     for (let i = 0; i < this.trail.length; i++) {
@@ -447,18 +470,15 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(p.x, p.y, 1 + t * 4);
     }
 
-    // ground shadow helps judge the landing spot
     const height = Phaser.Math.Clamp((GROUND_Y - s.y) / 420, 0, 1);
     g.fillStyle(0x000000, 0.32 * (1 - height));
     g.fillEllipse(s.x, GROUND_Y - 2, 26 * (1 - height * 0.5), 7 * (1 - height * 0.5));
 
-    // soft halo so the shuttle never gets lost against the background
     g.fillStyle(0xffffff, 0.14);
     g.fillCircle(s.x, s.y, 15);
     g.fillStyle(0xffffff, 0.22);
     g.fillCircle(s.x, s.y, 10);
 
-    // feathers trailing behind the cork
     g.lineStyle(2, 0xf2f2f2, 0.9);
     for (let k = -1; k <= 1; k++) {
       const a = angle + Math.PI + k * 0.4;

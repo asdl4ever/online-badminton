@@ -19,17 +19,8 @@ export const PLAYER_ACCEL = 4200;
 export const PLAYER_JUMP_V = -760;
 export const PLAYER_GRAVITY = 2200;
 
-export const RACKET_OFFSET_X = 28;
-export const RACKET_OFFSET_Y = 0.85; // fraction of PLAYER_H above the feet
-export const RACKET_REACH = 95;
-
-export const SWING_DURATION = 0.24;
-export const SWING_COOLDOWN = 0.28;
-export const SWING_ACTIVE_START = 0.02;
-export const SWING_ACTIVE_END = 0.16;
-
-// how far either side of the net a player may travel
-export const PLAYER_MARGIN = 70;
+export const SHOULDER_DY = 0.72; // fraction of PLAYER_H above the feet
+export const SHOULDER_DX = 8;
 
 // ---- shuttle -------------------------------------------------------------
 export const SHUTTLE_R = 7;
@@ -37,18 +28,42 @@ export const SHUTTLE_GRAVITY = 1350;
 export const SHUTTLE_DRAG = 0.0011;
 export const SHUTTLE_MAX_SPEED = 2400;
 
+// ---- racket --------------------------------------------------------------
+/** how far the racket head may reach from the shoulder */
+export const RACKET_MAX = 130;
+/** radius of the racket head's sweet spot */
+export const RACKET_HEAD_R = 36;
+/** racket head radius + shuttle radius, i.e. actual contact distance */
+export const CONTACT_R = RACKET_HEAD_R + SHUTTLE_R;
+
+/** pointer jumps larger than this in one frame are treated as re-centring */
+export const RACKET_TELEPORT = 110;
+/** measured racket speed is smoothed with this factor (0..1, higher = snappier) */
+export const RACKET_SMOOTH = 0.55;
+/** hard cap on measurable racket speed */
+export const RACKET_SPEED_CAP = 3200;
+
+/** launch elevation is clamped into this band */
+export const AIM_HARD_MIN = -0.45;
+export const AIM_HARD_MAX = 1.35;
+
+// ---- shot power ----------------------------------------------------------
+/** the shuttle's launch speed equals the racket speed times this */
+export const SHOT_SPEED_GAIN = 1.0;
+export const SHOT_SPEED_MIN = 800;
+export const SHOT_SPEED_MAX = 2100;
+export const HIT_COOLDOWN = 0.12;
+/** racket must be moving at least this fast to release a serve */
+export const SERVE_SPEED_MIN = 620;
+
+// how far either side of the net a player may travel
+export const PLAYER_MARGIN = 70;
+
 // ---- match ---------------------------------------------------------------
 export const WIN_SCORE = 11;
 export const POINT_PAUSE = 1.4;
 export const SERVE_PAUSE = 0.6;
 
-// ---- shot classification (relative to the player's head) ------------------
-// d = headY - shuttle.y ; larger = higher contact
-export const OVERHEAD_D = -10;
-export const DRIVE_D = -70;
-// a contact above this line (higher up) can be attacked flat
-export const NET_ATTACK_Y = NET_TOP - 20;
-
 // ---- netcode -------------------------------------------------------------
 export const NET_TICK_HZ = 30;
-export const NET_INPUT_HZ = 40;
+export const NET_INPUT_HZ = 60;

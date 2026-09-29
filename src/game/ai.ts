@@ -1,15 +1,37 @@
-import { NET_X, PLAYER_H, RACKET_REACH, SHUTTLE_R } from './constants';
-import { simulateTrajectory } from './physics';
-import { homeX, racketPoint } from './simulation';
+import { NET_TOP, NET_X, PLAYER_H, RACKET_MAX, SERVE_SPEED_MIN } from './constants';
+import { clamp, simulateTrajectory } from './physics';
+import { homeX, shoulderPoint } from './simulation';
 import type { PlayerInput, World } from './types';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
-const TUNING: Record<Difficulty, { error: number; reaction: number; leap: number; speed: number }> = {
-  easy: { error: 150, reaction: 0.26, leap: 0.55, speed: 300 },
-  normal: { error: 80, reaction: 0.16, leap: 0.75, speed: 400 },
-  hard: { error: 30, reaction: 0.08, leap: 0.9, speed: 430 },
+interface Tuning {
+  posError: number;
+  reaction: number;
+  aimError: number;
+  contactError: number;
+  speedScale: number;
+}
+
+const TUNING: Record<Difficulty, Tuning> = {
+  easy: { posError: 160, reaction: 0.26, aimError: 0.42, contactError: 72, speedScale: 0.78 },
+  normal: { posError: 95, reaction: 0.16, aimError: 0.22, contactError: 38, speedScale: 0.9 },
+  hard: { posError: 32, reaction: 0.08, aimError: 0.07, contactError: 8, speedScale: 1.0 },
 };
+
+const SWING_COMMIT = 0.14;
+
+function readyInput(facing: 1 | -1): PlayerInput {
+  return {
+    left: false,
+    right: false,
+    jump: false,
+    rx: 44 * facing,
+    ry: -70,
+    rvx: 0,
+    rvy: 0,
+  };
+}
 
 export class AIController {
   private difficulty: Difficulty;
@@ -17,6 +39,8 @@ export class AIController {
   private errorOffset = 0;
   private reactionTimer = 0;
   private targetX: number;
+  private swingTimer = 0;
+  private swing: { rx: number; ry: number; rvx: number; rvy: number } | null = null;
 
   constructor(difficulty: Difficulty = 'normal', side: 0 | 1 = 1) {
     this.difficulty = difficulty;
@@ -31,41 +55,29 @@ export class AIController {
     const cfg = TUNING[this.difficulty];
     const p = world.players[me];
     const shuttle = world.shuttle;
-    const input: PlayerInput = {
-      left: false,
-      right: false,
-      jump: false,
-      swing: false,
-      down: false,
-    };
+    const dir = p.facing;
+    const mySide = me === 0 ? -1 : 1;
+    const input = readyInput(dir);
 
     this.reactionTimer -= dt;
     this.errorTimer -= dt;
     if (this.errorTimer <= 0) {
       this.errorTimer = 0.45 + Math.random() * 0.5;
-      this.errorOffset = (Math.random() * 2 - 1) * cfg.error;
+      this.errorOffset = (Math.random() * 2 - 1) * cfg.posError;
     }
 
-    const mySide = me === 0 ? -1 : 1;
-
+    // --- where should the body go -----------------------------------------
     if (world.phase === 'serve') {
-      if (world.server === me) {
-        this.targetX = homeX(me);
-        if (world.phaseTimer <= 0.05) input.swing = true;
-      } else {
-        this.targetX = homeX(me);
-      }
+      this.targetX = homeX(me);
     } else if (world.phase === 'rally' && shuttle.live) {
-      const dir = shuttle.vx >= 0 ? 1 : -1;
-      const traj = simulateTrajectory(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy, dir);
+      const travel = shuttle.vx >= 0 ? 1 : -1;
+      const traj = simulateTrajectory(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy, travel);
       const incoming = mySide < 0 ? traj.landX < NET_X : traj.landX > NET_X;
       if (incoming) {
         if (this.reactionTimer <= 0) {
           this.reactionTimer = cfg.reaction;
-          const side = me === 0 ? -1 : 1;
           let tx = traj.landX + this.errorOffset;
-          if (side < 0) tx = Math.min(tx, NET_X - 40);
-          else tx = Math.max(tx, NET_X + 40);
+          tx = mySide < 0 ? Math.min(tx, NET_X - 40) : Math.max(tx, NET_X + 40);
           this.targetX = tx;
         }
       } else {
@@ -79,19 +91,81 @@ export class AIController {
     if (dx > 12) input.right = true;
     else if (dx < -12) input.left = true;
 
-    // decide whether to leap for a high shuttle
-    if (shuttle.live && world.phase === 'rally') {
-      const headY = p.y - PLAYER_H;
-      const near = Math.abs(shuttle.x - p.x) < 90;
-      const high = shuttle.y < headY - 10 && shuttle.y > headY - 190;
-      if (near && high && p.onGround && Math.random() < cfg.leap) input.jump = true;
+    // --- serve ------------------------------------------------------------
+    if (world.phase === 'serve') {
+      if (world.server === me && world.phaseTimer < 0.2) {
+        const speed = SERVE_SPEED_MIN + 220;
+        input.rvx = dir * speed * Math.cos(0.68);
+        input.rvy = -speed * Math.sin(0.68);
+      }
+      return input;
     }
 
-    // swing when the shuttle is within reach
-    if (shuttle.live && world.phase !== 'gameover') {
-      const r = racketPoint(p);
-      const d = Math.hypot(shuttle.x - r.x, shuttle.y - r.y);
-      if (d < RACKET_REACH * 0.92 + SHUTTLE_R) input.swing = true;
+    // --- racket -----------------------------------------------------------
+    if (world.phase === 'rally' && shuttle.live) {
+      const sh = shoulderPoint(p);
+      const sdx = shuttle.x - sh.x;
+      const sdy = shuttle.y - sh.y;
+      const dist = Math.hypot(sdx, sdy);
+
+      if (p.onGround && shuttle.y < p.y - PLAYER_H * 0.95 && dist < 190 && Math.random() < 0.5) {
+        input.jump = true;
+      }
+
+      const incoming = mySide < 0 ? shuttle.x < NET_X : shuttle.x > NET_X;
+
+      if (this.swingTimer > 0 && this.swing) {
+        this.swingTimer -= dt;
+        input.rx = this.swing.rx;
+        input.ry = this.swing.ry;
+        input.rvx = this.swing.rvx;
+        input.rvy = this.swing.rvy;
+        input.left = false;
+        input.right = false;
+        return input;
+      }
+
+      if (incoming && dist > 1 && dist < 150) {
+        const high = shuttle.y < NET_TOP - 30;
+        const nearNet = Math.abs(p.x - NET_X) < 340;
+        let elevation: number;
+        let speed: number;
+        if (high && nearNet) {
+          elevation = -0.16;
+          speed = 1950;
+        } else if (high) {
+          elevation = 0.62;
+          speed = 1380;
+        } else if (shuttle.y > NET_TOP + 55) {
+          elevation = 0.85;
+          speed = 1240;
+        } else {
+          elevation = 0.22;
+          speed = 1320;
+        }
+        elevation += (Math.random() * 2 - 1) * cfg.aimError;
+        speed *= cfg.speedScale * (1 + (Math.random() * 2 - 1) * 0.12);
+        elevation = clamp(elevation, -0.42, 1.2);
+
+        const reach = Math.min(dist, RACKET_MAX);
+        const err = cfg.contactError;
+        const rx = (sdx / dist) * reach + (Math.random() * 2 - 1) * err;
+        const ry = (sdy / dist) * reach + (Math.random() * 2 - 1) * err;
+        this.swing = {
+          rx,
+          ry,
+          rvx: dir * speed * Math.cos(elevation),
+          rvy: -speed * Math.sin(elevation),
+        };
+        this.swingTimer = SWING_COMMIT;
+        input.rx = this.swing.rx;
+        input.ry = this.swing.ry;
+        input.rvx = this.swing.rvx;
+        input.rvy = this.swing.rvy;
+        input.left = false;
+        input.right = false;
+        return input;
+      }
     }
 
     return input;

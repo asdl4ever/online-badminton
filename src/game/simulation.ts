@@ -1,7 +1,11 @@
 import {
+  AIM_HARD_MAX,
+  AIM_HARD_MIN,
+  CONTACT_R,
   COURT_LEFT,
   COURT_RIGHT,
   GROUND_Y,
+  HIT_COOLDOWN,
   NET_HALF_W,
   NET_TOP,
   NET_X,
@@ -12,27 +16,20 @@ import {
   PLAYER_MARGIN,
   PLAYER_SPEED,
   POINT_PAUSE,
-  RACKET_OFFSET_X,
-  RACKET_OFFSET_Y,
-  RACKET_REACH,
   SERVE_PAUSE,
+  SERVE_SPEED_MIN,
+  SHOT_SPEED_GAIN,
+  SHOT_SPEED_MAX,
+  SHOT_SPEED_MIN,
+  SHOULDER_DX,
+  SHOULDER_DY,
   SHUTTLE_DRAG,
   SHUTTLE_GRAVITY,
   SHUTTLE_MAX_SPEED,
   SHUTTLE_R,
-  SWING_ACTIVE_END,
-  SWING_ACTIVE_START,
-  SWING_COOLDOWN,
-  SWING_DURATION,
   WIN_SCORE,
 } from './constants';
-import {
-  SHOT_SPEED_MIN,
-  SHOT_TABLE,
-  classifyShot,
-  mirroredTarget,
-  solveLaunchSpeed,
-} from './physics';
+import { clamp, classifyShot, minReleaseFor } from './physics';
 import type {
   PlayerInput,
   PlayerState,
@@ -43,6 +40,10 @@ import type {
 
 const SUB_DT = 1 / 240;
 
+export function homeX(index: 0 | 1): number {
+  return index === 0 ? NET_X - 300 : NET_X + 300;
+}
+
 export function makePlayer(index: 0 | 1): PlayerState {
   const facing: 1 | -1 = index === 0 ? 1 : -1;
   return {
@@ -52,21 +53,21 @@ export function makePlayer(index: 0 | 1): PlayerState {
     vy: 0,
     onGround: true,
     facing,
-    swingTimer: 0,
-    swingCooldown: 0,
-    hitUsed: false,
+    hitCooldown: 0,
+    rx: 46 * facing,
+    ry: -70,
+    rvx: 0,
+    rvy: 0,
   };
 }
 
-export function homeX(index: 0 | 1): number {
-  return index === 0 ? NET_X - 300 : NET_X + 300;
+export function shoulderPoint(p: PlayerState): { x: number; y: number } {
+  return { x: p.x + p.facing * SHOULDER_DX, y: p.y - PLAYER_H * SHOULDER_DY };
 }
 
-export function racketPoint(p: PlayerState): { x: number; y: number } {
-  return {
-    x: p.x + p.facing * RACKET_OFFSET_X,
-    y: p.y - PLAYER_H * RACKET_OFFSET_Y,
-  };
+export function racketHead(p: PlayerState): { x: number; y: number } {
+  const s = shoulderPoint(p);
+  return { x: s.x + p.rx, y: s.y + p.ry };
 }
 
 export function createWorld(): World {
@@ -85,23 +86,10 @@ export function createWorld(): World {
   };
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
-}
-
 function bounds(index: number): [number, number] {
   return index === 0
     ? [COURT_LEFT - PLAYER_MARGIN, NET_X - 30]
     : [NET_X + 30, COURT_RIGHT + PLAYER_MARGIN];
-}
-
-export function stepPlayerLocal(
-  p: PlayerState,
-  index: 0 | 1,
-  input: PlayerInput,
-  dt: number,
-): void {
-  stepPlayer(p, index, input, dt);
 }
 
 function stepPlayer(p: PlayerState, index: 0 | 1, input: PlayerInput, dt: number): void {
@@ -133,52 +121,77 @@ function stepPlayer(p: PlayerState, index: 0 | 1, input: PlayerInput, dt: number
     p.onGround = true;
   }
 
-  if (p.swingCooldown > 0) p.swingCooldown -= dt;
-  if (p.swingTimer > 0) p.swingTimer = Math.max(0, p.swingTimer - dt);
-  if (input.swing && p.swingTimer <= 0 && p.swingCooldown <= 0) {
-    p.swingTimer = SWING_DURATION;
-    p.swingCooldown = SWING_COOLDOWN;
-    p.hitUsed = false;
-  }
+  p.rx = input.rx;
+  p.ry = input.ry;
+  p.rvx = input.rvx;
+  p.rvy = input.rvy;
+  if (p.hitCooldown > 0) p.hitCooldown -= dt;
 }
 
-function swingActive(p: PlayerState): boolean {
-  if (p.swingTimer <= 0) return false;
-  const elapsed = SWING_DURATION - p.swingTimer;
-  return elapsed >= SWING_ACTIVE_START && elapsed <= SWING_ACTIVE_END;
+export function stepPlayerLocal(
+  p: PlayerState,
+  index: 0 | 1,
+  input: PlayerInput,
+  dt: number,
+): void {
+  stepPlayer(p, index, input, dt);
 }
 
-function applyHit(world: World, index: 0 | 1, kind: keyof typeof SHOT_TABLE, aimShort: boolean): void {
+/**
+ * Converts the racket's motion into a shuttle launch.
+ * Direction comes from where the racket is travelling, power from how fast.
+ */
+function releaseShuttle(world: World, index: 0 | 1): void {
   const p = world.players[index];
   const shuttle = world.shuttle;
-  const dir = p.facing;
-  const spec = SHOT_TABLE[kind];
 
-  let target = aimShort ? spec.shortTarget : spec.target;
-  target += (Math.random() - 0.5) * 50;
-  target = clamp(target, NET_X + 80, COURT_RIGHT - 20);
-  const absoluteTarget = dir === 1 ? target : mirroredTarget(target);
+  let vx = p.rvx;
+  let vy = p.rvy;
+  let raw = Math.hypot(vx, vy);
+  if (raw < 1) {
+    vx = p.facing;
+    vy = 0;
+    raw = 1;
+  }
 
-  const r = racketPoint(p);
-  const solved = solveLaunchSpeed(r.x, r.y, absoluteTarget, spec.angle, dir);
-  const speed = Math.max(SHOT_SPEED_MIN, Math.min(solved, 2200));
-  const rad = (spec.angle * Math.PI) / 180;
+  // forward-relative elevation of the swing
+  const forward = vx * p.facing;
+  const up = -vy;
+  let elevation: number;
+  if (forward <= 0.05) elevation = up >= 0 ? Math.PI / 2 : -Math.PI / 2;
+  else elevation = Math.atan2(up, forward);
+  elevation = clamp(elevation, AIM_HARD_MIN, AIM_HARD_MAX);
+  elevation = Math.max(elevation, minReleaseFor(shuttle.x, shuttle.y));
 
-  shuttle.x = r.x;
-  shuttle.y = r.y;
+  const speed = clamp(raw * SHOT_SPEED_GAIN, SHOT_SPEED_MIN, SHOT_SPEED_MAX);
+
+  shuttle.vx = p.facing * speed * Math.cos(elevation);
+  shuttle.vy = -speed * Math.sin(elevation);
   shuttle.live = true;
-  shuttle.vx = dir * speed * Math.cos(rad);
-  shuttle.vy = -speed * Math.sin(rad);
 
+  p.hitCooldown = HIT_COOLDOWN;
   world.lastHitter = index;
   world.rallyHits++;
-  world.events.push({ type: 'hit', player: index, kind });
+  world.events.push({ type: 'hit', player: index, kind: classifyShot(elevation) });
+}
+
+function tryHit(world: World, index: 0 | 1): void {
+  if (world.phase !== 'rally') return;
+  const p = world.players[index];
+  if (p.hitCooldown > 0) return;
+  if (world.lastHitter === index) return;
+  const head = racketHead(p);
+  const dx = world.shuttle.x - head.x;
+  const dy = world.shuttle.y - head.y;
+  if (dx * dx + dy * dy > CONTACT_R * CONTACT_R) return;
+  releaseShuttle(world, index);
 }
 
 function startServe(world: World): void {
   world.phase = 'serve';
   world.phaseTimer = SERVE_PAUSE;
   world.rallyHits = 0;
+  world.lastHitter = -1;
   for (let i = 0; i < 2; i++) {
     const p = world.players[i];
     p.x = homeX(i as 0 | 1);
@@ -186,9 +199,11 @@ function startServe(world: World): void {
     p.vx = 0;
     p.vy = 0;
     p.onGround = true;
-    p.swingTimer = 0;
-    p.swingCooldown = 0;
-    p.hitUsed = false;
+    p.hitCooldown = 0;
+    p.rvx = 0;
+    p.rvy = 0;
+    p.rx = 46 * p.facing;
+    p.ry = -70;
   }
   world.shuttle.live = false;
   world.shuttle.vx = 0;
@@ -216,72 +231,9 @@ function resolveLanding(world: World, x: number): void {
     scorePoint(world, 1 - world.lastHitter);
     return;
   }
-  const side = x < NET_X ? 0 : 1;
-  scorePoint(world, 1 - side);
+  scorePoint(world, x < NET_X ? 1 : 0);
 }
 
-function stepHits(world: World): void {
-  if (world.phase !== 'rally') return;
-  for (let i = 0; i < 2; i++) {
-    const p = world.players[i];
-    if (p.hitUsed || !swingActive(p)) continue;
-    if (world.lastHitter === i) continue;
-    const r = racketPoint(p);
-    const dx = world.shuttle.x - r.x;
-    const dy = world.shuttle.y - r.y;
-    const reach = RACKET_REACH + SHUTTLE_R;
-    if (dx * dx + dy * dy > reach * reach) continue;
-    const headY = p.y - PLAYER_H;
-    const kind = classifyShot(headY, world.shuttle.y);
-    const aimShort = p.facing === 1 ? p.vx < -40 : p.vx > 40;
-    applyHit(world, i as 0 | 1, kind, aimShort);
-    p.hitUsed = true;
-  }
-}
-
-export function stepWorld(world: World, inputs: [PlayerInput, PlayerInput], dt: number): void {
-  world.events.length = 0;
-  world.time += dt;
-
-  const frozen = world.phase === 'gameover';
-  if (!frozen) {
-    stepPlayer(world.players[0], 0, inputs[0], dt);
-    stepPlayer(world.players[1], 1, inputs[1], dt);
-  }
-
-  if (world.phase === 'serve') {
-    if (world.phaseTimer > 0) world.phaseTimer -= dt;
-    const server = world.players[world.server];
-    if (!world.shuttle.live) {
-      const r = racketPoint(server);
-      world.shuttle.x = r.x;
-      world.shuttle.y = r.y;
-    }
-    if (swingActive(server)) {
-      if (world.server === 0) {
-        applyHit(world, 0, 'serve', false);
-      } else {
-        applyHit(world, 1, 'serve', false);
-      }
-      world.phase = 'rally';
-      world.events.push({ type: 'serve', player: world.server });
-    }
-  } else if (world.phase === 'rally') {
-    let remain = dt;
-    while (remain > 1e-6) {
-      const slice = Math.min(SUB_DT, remain);
-      stepShuttleSlice(world, slice);
-      remain -= slice;
-      if (world.phase !== 'rally') break;
-    }
-    if (world.phase === 'rally') stepHits(world);
-  } else if (world.phase === 'point') {
-    world.phaseTimer -= dt;
-    if (world.phaseTimer <= 0) startServe(world);
-  }
-}
-
-/** one fixed slice of shuttle motion (keeps integration stable) */
 function stepShuttleSlice(world: World, dt: number): void {
   const shuttle = world.shuttle;
   if (!shuttle.live) return;
@@ -331,6 +283,45 @@ function stepShuttleSlice(world: World, dt: number): void {
   }
 }
 
+export function stepWorld(world: World, inputs: [PlayerInput, PlayerInput], dt: number): void {
+  world.events.length = 0;
+  world.time += dt;
+
+  if (world.phase !== 'gameover') {
+    stepPlayer(world.players[0], 0, inputs[0], dt);
+    stepPlayer(world.players[1], 1, inputs[1], dt);
+  }
+
+  if (world.phase === 'serve') {
+    if (world.phaseTimer > 0) world.phaseTimer -= dt;
+    const server = world.players[world.server];
+    const head = racketHead(server);
+    world.shuttle.x = head.x;
+    world.shuttle.y = head.y;
+    const racketSpeed = Math.hypot(server.rvx, server.rvy);
+    if (racketSpeed >= SERVE_SPEED_MIN && world.phaseTimer < SERVE_PAUSE - 0.05) {
+      releaseShuttle(world, world.server);
+      world.phase = 'rally';
+      world.events.push({ type: 'serve', player: world.server });
+    }
+  } else if (world.phase === 'rally') {
+    let remain = dt;
+    while (remain > 1e-6) {
+      const slice = Math.min(SUB_DT, remain);
+      stepShuttleSlice(world, slice);
+      remain -= slice;
+      if (world.phase !== 'rally') break;
+    }
+    if (world.phase === 'rally') {
+      tryHit(world, 0);
+      tryHit(world, 1);
+    }
+  } else if (world.phase === 'point') {
+    world.phaseTimer -= dt;
+    if (world.phaseTimer <= 0) startServe(world);
+  }
+}
+
 // ---- serialisation -------------------------------------------------------
 
 export function serializeWorld(w: World): WorldSnapshot {
@@ -341,9 +332,11 @@ export function serializeWorld(w: World): WorldSnapshot {
     p.vy,
     p.onGround ? 1 : 0,
     p.facing,
-    p.swingTimer,
-    p.swingCooldown,
-    p.hitUsed ? 1 : 0,
+    p.hitCooldown,
+    p.rx,
+    p.ry,
+    p.rvx,
+    p.rvy,
   ];
   return {
     s: [w.shuttle.x, w.shuttle.y, w.shuttle.vx, w.shuttle.vy, w.shuttle.live],
@@ -374,9 +367,11 @@ export function applySnapshot(world: World, snap: WorldSnapshot): void {
     p.vy = src[3];
     p.onGround = !!src[4];
     p.facing = src[5] as 1 | -1;
-    p.swingTimer = src[6];
-    p.swingCooldown = src[7];
-    p.hitUsed = !!src[8];
+    p.hitCooldown = src[6];
+    p.rx = src[7];
+    p.ry = src[8];
+    p.rvx = src[9];
+    p.rvy = src[10];
   }
   world.score[0] = snap.sc[0];
   world.score[1] = snap.sc[1];
@@ -404,9 +399,11 @@ export function lerpWorld(dst: World, src: World, t: number): void {
     a.vy = b.vy;
     a.onGround = b.onGround;
     a.facing = b.facing;
-    a.swingTimer = b.swingTimer;
-    a.swingCooldown = b.swingCooldown;
-    a.hitUsed = b.hitUsed;
+    a.hitCooldown = b.hitCooldown;
+    a.rx = b.rx;
+    a.ry = b.ry;
+    a.rvx = b.rvx;
+    a.rvy = b.rvy;
   }
   dst.score[0] = src.score[0];
   dst.score[1] = src.score[1];

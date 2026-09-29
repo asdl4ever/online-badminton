@@ -2,21 +2,34 @@ export interface PlayerInput {
   left: boolean;
   right: boolean;
   jump: boolean;
-  swing: boolean;
-  /** held to aim a shot short (drop shot) */
-  down: boolean;
+  /** racket head position relative to the shoulder (world axes) */
+  rx: number;
+  ry: number;
+  /** racket head velocity in px/s (world axes) */
+  rvx: number;
+  rvy: number;
 }
 
 export const EMPTY_INPUT: PlayerInput = {
   left: false,
   right: false,
   jump: false,
-  swing: false,
-  down: false,
+  rx: 60,
+  ry: -60,
+  rvx: 0,
+  rvy: 0,
 };
 
 export function cloneInput(i: PlayerInput): PlayerInput {
-  return { left: i.left, right: i.right, jump: i.jump, swing: i.swing, down: i.down };
+  return {
+    left: i.left,
+    right: i.right,
+    jump: i.jump,
+    rx: i.rx,
+    ry: i.ry,
+    rvx: i.rvx,
+    rvy: i.rvy,
+  };
 }
 
 export interface PlayerState {
@@ -26,9 +39,13 @@ export interface PlayerState {
   vy: number;
   onGround: boolean;
   facing: 1 | -1; // towards the opponent
-  swingTimer: number; // counts down while swinging
-  swingCooldown: number;
-  hitUsed: boolean;
+  hitCooldown: number;
+  /** racket head offset from the shoulder */
+  rx: number;
+  ry: number;
+  /** racket head velocity */
+  rvx: number;
+  rvy: number;
 }
 
 export interface ShuttleState {
