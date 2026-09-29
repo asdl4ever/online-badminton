@@ -5,12 +5,12 @@ import { GameScene, type HudState, type MatchConfig } from '../game/scenes/GameS
 import { VIEW_H, VIEW_W } from '../game/constants';
 import type { Difficulty } from '../game/ai';
 import type { MatchRole, SimEvent } from '../game/types';
-import type { NetSession } from '../net/session';
+import type { NetLink } from '../net/link';
 
 const props = defineProps<{
   role: MatchRole;
   difficulty: Difficulty;
-  session: NetSession | null;
+  session: NetLink | null;
 }>();
 
 const emit = defineEmits<{

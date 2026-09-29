@@ -32,7 +32,7 @@ import {
 import { AIController, type Difficulty } from '../ai';
 import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
-import type { NetMessage, NetSession } from '../../net/session';
+import type { NetLink, NetMessage } from '../../net/link';
 
 export interface HudState {
   score: [number, number];
@@ -47,7 +47,7 @@ export interface HudState {
 export interface MatchConfig {
   role: MatchRole;
   difficulty: Difficulty;
-  session: NetSession | null;
+  session: NetLink | null;
   onHud: (state: HudState) => void;
   onDisconnect: (message: string) => void;
   onEvent: (event: SimEvent) => void;

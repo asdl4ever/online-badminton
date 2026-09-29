@@ -1,8 +1,8 @@
-import { defineStore } from 'pinia';
+﻿import { defineStore } from 'pinia';
 import { ref, shallowRef } from 'vue';
 import type { Difficulty } from '../game/ai';
 import type { MatchRole } from '../game/types';
-import type { NetSession } from '../net/session';
+import type { NetLink, NetStatus } from '../net/link';
 
 export type ConnState =
   | 'idle'
@@ -17,8 +17,10 @@ export const useGameStore = defineStore('game', () => {
   const difficulty = ref<Difficulty>('normal');
   const connState = ref<ConnState>('idle');
   const roomCode = ref('');
+  const transport = ref('');
   const netError = ref('');
-  const session = shallowRef<NetSession | null>(null);
+  const netStatus = ref<NetStatus | null>(null);
+  const session = shallowRef<NetLink | null>(null);
 
   function reset(): void {
     session.value?.destroy();
@@ -26,8 +28,20 @@ export const useGameStore = defineStore('game', () => {
     role.value = 'single';
     connState.value = 'idle';
     roomCode.value = '';
+    transport.value = '';
     netError.value = '';
+    netStatus.value = null;
   }
 
-  return { role, difficulty, connState, roomCode, netError, session, reset };
+  return {
+    role,
+    difficulty,
+    connState,
+    roomCode,
+    transport,
+    netError,
+    netStatus,
+    session,
+    reset,
+  };
 });
