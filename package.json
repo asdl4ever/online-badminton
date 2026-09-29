@@ -10,9 +10,6 @@
     "start": "node server/index.mjs",
     "serve": "npm run build && node server/index.mjs"
   },
-  "engines": {
-    "node": ">=20"
-  },
   "dependencies": {
     "howler": "^2.2.4",
     "peerjs": "^1.5.5",

@@ -1,6 +1,18 @@
 import type { NetLink, NetMessage, NetRole, NetStatus } from './link';
 
 /**
+ * Relay endpoint. Defaults to `/relay` on the same origin as the page, which
+ * is what the bundled server (server/index.mjs) provides. Set VITE_RELAY_URL
+ * to point at a relay hosted somewhere else.
+ */
+function relayUrl(): string {
+  const override = import.meta.env.VITE_RELAY_URL;
+  if (override) return String(override);
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}/relay`;
+}
+
+/**
  * Duplex link over the WebSocket relay attached to the app's own server.
  * Works through any NAT because both players dial out to the server.
  */
@@ -44,8 +56,7 @@ export class RelaySession implements NetLink {
     return new Promise((resolve, reject) => {
       let url: string;
       try {
-        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        url = `${proto}//${window.location.host}/relay`;
+        url = relayUrl();
       } catch {
         reject(new Error('无法推导中继地址'));
         return;
