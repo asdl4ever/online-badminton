@@ -34,25 +34,11 @@ const BODY_R = 30;
 const SHOULDER_UP = Math.round(PLAYER_H * SHOULDER_DY - BODY_R);
 const BODY_DENSITY = 0.0022;
 /** the racket is a long, heavy stick — the length is the mechanical advantage */
-const ROD_LEN = 130;
+const ROD_LEN = 150;
 const ROD_W = 11;
 const ROD_DENSITY = 0.005;
 /** the racket head is drawn bigger than on court, so it reads as a climbing hook */
 const HEAD_SCALE = 2;
-/**
- * The arm, unlike the racket, is not a fixed-length rod: it stretches and pulls
- * in exactly like the swing on the court, where the head reaches out to a
- * distant pointer and comes back in when the pointer is close.
- *
- * Implemented as a variable-length constraint from shoulder to grip — Matter
- * re-reads `constraint.length` every solve, so easing it moves the hand without
- * any impulse spike.
- */
-/** grip → head centre, along the racket */
-const ROD_REACH = ROD_LEN - 6 - 17 * HEAD_SCALE;
-/** how far the hand may sit from the shoulder */
-const ARM_MIN = 0;
-const ARM_MAX = 130;
 /**
  * The arm is driven as a torque, expressed as a real angular acceleration.
  * Matter accumulates rotation as `Δω = torque / inertia · Δt²` with an internal
@@ -116,8 +102,6 @@ function rockCorners(r: Rock): Phaser.Math.Vector2[] {
 export class ClimbScene extends Phaser.Scene {
   private pot!: MatterJS.BodyType;
   private rod!: MatterJS.BodyType;
-  /** shoulder → grip; its `length` is the extend/retract */
-  private arm!: MatterJS.ConstraintType;
   private follower!: Phaser.GameObjects.Zone;
   private bg!: Phaser.GameObjects.Graphics;
   private fg!: Phaser.GameObjects.Graphics;
@@ -258,8 +242,7 @@ export class ClimbScene extends Phaser.Scene {
 
     // the pin: the character's shoulder to the racket's grip. A stiff joint
     // keeps the arm solid while still letting the solver bend it under load.
-    // `length` starts collapsed and is driven by the pointer every frame.
-    this.arm = this.matter.add.constraint(this.pot, this.rod, ARM_MIN, 0.9, {
+    this.matter.add.constraint(this.pot, this.rod, 0, 0.9, {
       pointA: { x: 0, y: -SHOULDER_UP },
       pointB: { x: -ROD_LEN / 2 + 6, y: 0 },
       damping: 0.12,
@@ -302,22 +285,11 @@ export class ClimbScene extends Phaser.Scene {
     });
 
     // ---- the arm chases the pointer as a torque, not as an angle override ---
-    const shoulder = { x: pos.x, y: pos.y - SHOULDER_UP };
-    const want = Math.atan2(
-      this.pointerWorld.y - shoulder.y,
-      this.pointerWorld.x - shoulder.x,
-    );
+    const want = Math.atan2(this.pointerWorld.y - pos.y, this.pointerWorld.x - pos.x);
     const diff = Phaser.Math.Angle.Wrap(want - this.rod.angle);
     const drive = Phaser.Math.Clamp(ARM_KP * diff, -ARM_ALPHA, ARM_ALPHA);
     const brake = Phaser.Math.Clamp(-ARM_KD * this.rod.angularVelocity, -BRAKE_ALPHA, BRAKE_ALPHA);
     this.rod.torque += ((drive + brake) * this.rod.inertia) / TORQUE_SCALE;
-
-    // ---- the arm stretches out to a distant pointer and pulls in to a close
-    // one, exactly like the racket does on the court. Eased, not snapped, so
-    // the solver never sees a sudden rest-length jump.
-    const dist = Math.hypot(this.pointerWorld.x - shoulder.x, this.pointerWorld.y - shoulder.y);
-    const armLen = Phaser.Math.Clamp(dist - ROD_REACH, ARM_MIN, ARM_MAX);
-    this.arm.length += (armLen - this.arm.length) * Math.min(1, dt * 14);
 
     // safety net: a spinning arm would otherwise never come back
     if (Math.abs(this.rod.angularVelocity) > MAX_SPIN) {
@@ -397,20 +369,12 @@ export class ClimbScene extends Phaser.Scene {
 
     // the character, anchored so the collider's bottom is where the feet are
     const pos = this.pot.position;
-    const shoulder = { x: pos.x, y: pos.y - SHOULDER_UP };
     drawCharacter(g, now, this.cos, {
       x: pos.x,
       feetY: pos.y + BODY_R,
       facing: this.pointerWorld.x >= pos.x ? 1 : -1,
       color: P.player0,
     }, { face: this.face, shadow: pos.y + BODY_R >= GROUND_Y - 2 });
-
-    // the arm, shoulder to grip — drawn so the stretch actually reads
-    const ra = this.rod.angle;
-    const gripX = this.rod.position.x + (-ROD_LEN / 2 + 6) * Math.cos(ra);
-    const gripY = this.rod.position.y + (-ROD_LEN / 2 + 6) * Math.sin(ra);
-    g.lineStyle(6, P.skin, 1);
-    g.lineBetween(shoulder.x, shoulder.y, gripX, gripY);
 
     // The racket: a long shaft out to the tip, with the court racket's head on
     // the end, scaled up enough to read as a climbing hook. The head's far
