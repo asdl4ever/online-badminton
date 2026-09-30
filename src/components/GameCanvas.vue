@@ -10,6 +10,7 @@ import type { NetLink } from '../net/link';
 import type { Cosmetic } from '../game/cosmetics';
 import type { ThemeId } from '../game/theme';
 import type { TierId } from '../game/ranks';
+import type { PartyState } from '../game/config';
 
 const props = defineProps<{
   role: MatchRole;
@@ -20,6 +21,8 @@ const props = defineProps<{
   localRank: TierId;
   theme: ThemeId;
   autoCycleTheme: boolean;
+  /** run the round-based fun mode (vote → play → scoreboard) */
+  party: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -29,6 +32,7 @@ const emit = defineEmits<{
   metrics: [NetMetrics];
   editmode: [boolean];
   themechange: [ThemeId];
+  party: [PartyState];
 }>();
 
 const container = ref<HTMLDivElement | null>(null);
@@ -46,7 +50,15 @@ function sendEmote(id: string): void {
   scene()?.sendEmote(id);
 }
 
-defineExpose({ toggleEditMode, sendEmote });
+function voteParty(optionId: string): void {
+  scene()?.voteParty(optionId);
+}
+
+function nextPartyRound(): void {
+  scene()?.nextPartyRound();
+}
+
+defineExpose({ toggleEditMode, sendEmote, voteParty, nextPartyRound });
 
 onMounted(async () => {
   // Phaser renders text with the canvas 2D API, which does not re-flow when a
@@ -72,6 +84,8 @@ onMounted(async () => {
     theme: props.theme,
     autoCycleTheme: props.autoCycleTheme,
     onThemeChange: (t) => emit('themechange', t),
+    party: props.party,
+    onParty: (s) => emit('party', s),
   };
 
   game = new Phaser.Game({

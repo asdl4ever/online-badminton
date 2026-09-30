@@ -1,40 +1,28 @@
 import {
-  AIM_HARD_MAX,
-  AIM_HARD_MIN,
-  CONTACT_R,
   COURT_LEFT,
   COURT_RIGHT,
   GROUND_Y,
-  HIT_COOLDOWN,
   NET_HALF_W,
   NET_TOP,
   NET_X,
-  PLAYER_ACCEL,
-  PLAYER_GRAVITY,
   PLAYER_H,
-  PLAYER_JUMP_V,
   PLAYER_MARGIN,
-  PLAYER_SPEED,
-  POINT_PAUSE,
-  SERVE_ARM_DELAY,
-  SERVE_FORWARD_MIN,
-  SERVE_NET_MARGIN,
-  SERVE_PAUSE,
-  SERVE_SPEED_MIN,
-  SHOT_LAND_SLACK,
-  SHOT_SPEED_GAIN,
-  SHOT_SPEED_MAX,
-  SHOT_SPEED_MIN,
   SHOULDER_DX,
   SHOULDER_DY,
-  SHUTTLE_DRAG,
-  SHUTTLE_GRAVITY,
-  SHUTTLE_MAX_SPEED,
-  SHUTTLE_R,
-  WIN_SCORE,
 } from './constants';
+import {
+  configFor,
+  contactRadius,
+  DEFAULT_CONFIG,
+  DEFAULT_OPTION_ID,
+  JUGGLE_TURN_TIME,
+  modeFor,
+  type WorldConfig,
+  type WorldMode,
+} from './config';
 import { clamp, classifyShot, minReleaseFor } from './physics';
 import type {
+  JuggleState,
   PlayerInput,
   PlayerState,
   SimEvent,
@@ -74,20 +62,59 @@ export function racketHead(p: PlayerState): { x: number; y: number } {
   return { x: s.x + p.rx, y: s.y + p.ry };
 }
 
-export function createWorld(): World {
+function freshJuggle(): JuggleState {
+  return { count: [0, 0], turn: 0, timeLeft: JUGGLE_TURN_TIME, done: [false, false] };
+}
+
+export function createWorld(optionId: string = DEFAULT_OPTION_ID): World {
+  const cfg = configFor(optionId);
+  const mode: WorldMode = modeFor(optionId);
   return {
     shuttle: { x: NET_X, y: GROUND_Y - 300, vx: 0, vy: 0, live: false },
     players: [makePlayer(0), makePlayer(1)],
     score: [0, 0],
     server: 0,
     phase: 'serve',
-    phaseTimer: SERVE_PAUSE,
+    phaseTimer: mode === 'juggle' ? 1.6 : cfg.servePause,
     lastHitter: -1,
     winner: -1,
     time: 0,
     rallyHits: 0,
     events: [],
+    config: cfg,
+    configId: optionId,
+    mode,
+    juggle: freshJuggle(),
   };
+}
+
+/** swap the world onto a different party option (keeps players where they are) */
+export function setWorldOption(world: World, optionId: string): void {
+  world.configId = optionId;
+  world.config = configFor(optionId);
+  world.mode = modeFor(optionId);
+  world.juggle = freshJuggle();
+  world.score[0] = 0;
+  world.score[1] = 0;
+  world.winner = -1;
+  world.rallyHits = 0;
+  world.lastHitter = -1;
+  world.shuttle.live = false;
+  world.phase = 'serve';
+  world.phaseTimer = world.mode === 'juggle' ? 1.6 : world.config.servePause;
+  for (let i = 0; i < 2; i++) {
+    const p = world.players[i];
+    p.x = homeX(i as 0 | 1);
+    p.y = GROUND_Y;
+    p.vx = 0;
+    p.vy = 0;
+    p.onGround = true;
+    p.hitCooldown = 0;
+    p.rvx = 0;
+    p.rvy = 0;
+    p.rx = 46 * p.facing;
+    p.ry = -70;
+  }
 }
 
 function bounds(index: number, netMargin = 0): [number, number] {
@@ -101,12 +128,13 @@ function stepPlayer(
   index: 0 | 1,
   input: PlayerInput,
   dt: number,
+  cfg: WorldConfig,
   /** extra distance from the net the player is not allowed to cross */
   netMargin = 0,
 ): void {
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const targetVx = dir * PLAYER_SPEED;
-  const dv = PLAYER_ACCEL * dt;
+  const targetVx = dir * cfg.playerSpeed;
+  const dv = cfg.playerAccel * dt;
   if (p.vx < targetVx) p.vx = Math.min(targetVx, p.vx + dv);
   else if (p.vx > targetVx) p.vx = Math.max(targetVx, p.vx - dv);
   p.x += p.vx * dt;
@@ -121,10 +149,10 @@ function stepPlayer(
   }
 
   if (input.jump && p.onGround) {
-    p.vy = PLAYER_JUMP_V;
+    p.vy = cfg.playerJumpV;
     p.onGround = false;
   }
-  p.vy += PLAYER_GRAVITY * dt;
+  p.vy += cfg.playerGravity * dt;
   p.y += p.vy * dt;
   if (p.y >= GROUND_Y) {
     p.y = GROUND_Y;
@@ -144,9 +172,10 @@ export function stepPlayerLocal(
   index: 0 | 1,
   input: PlayerInput,
   dt: number,
+  cfg: WorldConfig = DEFAULT_CONFIG,
   netMargin = 0,
 ): void {
-  stepPlayer(p, index, input, dt, netMargin);
+  stepPlayer(p, index, input, dt, cfg, netMargin);
 }
 
 /**
@@ -155,19 +184,25 @@ export function stepPlayerLocal(
  * (same SUB_DT) so the prediction matches the real trajectory; it is only
  * used to size a launch, never to advance the shuttle.
  */
-function predictLandingX(x: number, y: number, vx: number, vy: number): number {
+function predictLandingX(
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  cfg: WorldConfig,
+): number {
   const dt = SUB_DT;
-  const floor = GROUND_Y - SHUTTLE_R;
+  const floor = GROUND_Y - cfg.shuttleR;
   for (let i = 0; i < 900; i++) {
     const s = Math.hypot(vx, vy);
-    const drag = SHUTTLE_DRAG * s;
+    const drag = cfg.shuttleDrag * s;
     vx -= vx * drag * dt;
     vy -= vy * drag * dt;
-    vy += SHUTTLE_GRAVITY * dt;
+    vy += cfg.shuttleGravity * dt;
     const sp = Math.hypot(vx, vy);
-    if (sp > SHUTTLE_MAX_SPEED) {
-      vx = (vx / sp) * SHUTTLE_MAX_SPEED;
-      vy = (vy / sp) * SHUTTLE_MAX_SPEED;
+    if (sp > cfg.shuttleMaxSpeed) {
+      vx = (vx / sp) * cfg.shuttleMaxSpeed;
+      vy = (vy / sp) * cfg.shuttleMaxSpeed;
     }
     x += vx * dt;
     y += vy * dt;
@@ -187,12 +222,13 @@ function trimShotToLand(
   launch: { vx: number; vy: number },
   limit: number,
   towardRight: boolean,
+  cfg: WorldConfig,
 ): void {
   let lo = 0;
   let hi = 1;
   for (let i = 0; i < 18; i++) {
     const mid = (lo + hi) / 2;
-    const land = predictLandingX(x, y, launch.vx * mid, launch.vy * mid);
+    const land = predictLandingX(x, y, launch.vx * mid, launch.vy * mid, cfg);
     if (towardRight ? land > limit : land < limit) hi = mid;
     else lo = mid;
   }
@@ -205,6 +241,7 @@ function trimShotToLand(
  * Direction comes from where the racket is travelling, power from how fast.
  */
 function releaseShuttle(world: World, index: 0 | 1): void {
+  const cfg = world.config;
   const p = world.players[index];
   const shuttle = world.shuttle;
 
@@ -223,10 +260,13 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   let elevation: number;
   if (forward <= 0.05) elevation = up >= 0 ? Math.PI / 2 : -Math.PI / 2;
   else elevation = Math.atan2(up, forward);
-  elevation = clamp(elevation, AIM_HARD_MIN, AIM_HARD_MAX);
-  elevation = Math.max(elevation, minReleaseFor(shuttle.x, shuttle.y));
+  elevation = clamp(elevation, cfg.aimMin, cfg.aimMax);
+  // juggling is played straight up against no net, so skip the net-clear clamp
+  if (world.mode !== 'juggle') {
+    elevation = Math.max(elevation, minReleaseFor(shuttle.x, shuttle.y, cfg));
+  }
 
-  const speed = clamp(raw * SHOT_SPEED_GAIN, SHOT_SPEED_MIN, SHOT_SPEED_MAX);
+  const speed = clamp(raw * cfg.shotSpeedGain, cfg.shotSpeedMin, cfg.shotSpeedMax);
 
   shuttle.vx = p.facing * speed * Math.cos(elevation);
   shuttle.vy = -speed * Math.sin(elevation);
@@ -234,20 +274,26 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   // Trim the power so a full swing does not sail past the opponent's back
   // line. Only the host (authority) runs this and ships the resulting
   // velocity in its snapshot, so guests stay in sync automatically.
-  const towardRight = p.facing > 0;
-  const limit =
-    (towardRight ? COURT_RIGHT : COURT_LEFT) + (towardRight ? SHOT_LAND_SLACK : -SHOT_LAND_SLACK);
-  const predicted = predictLandingX(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy);
-  if (towardRight ? predicted > limit : predicted < limit) {
-    trimShotToLand(shuttle.x, shuttle.y, shuttle, limit, towardRight);
+  if (world.mode !== 'juggle') {
+    const towardRight = p.facing > 0;
+    const limit =
+      (towardRight ? COURT_RIGHT : COURT_LEFT) + (towardRight ? cfg.shotLandSlack : -cfg.shotLandSlack);
+    const predicted = predictLandingX(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy, cfg);
+    if (towardRight ? predicted > limit : predicted < limit) {
+      trimShotToLand(shuttle.x, shuttle.y, shuttle, limit, towardRight, cfg);
+    }
   }
 
   shuttle.live = true;
 
-  p.hitCooldown = HIT_COOLDOWN;
+  p.hitCooldown = cfg.hitCooldown;
   world.lastHitter = index;
   world.rallyHits++;
-  world.events.push({ type: 'hit', player: index, kind: classifyShot(elevation) });
+  if (world.mode === 'juggle') {
+    world.juggle.count[index]++;
+  } else {
+    world.events.push({ type: 'hit', player: index, kind: classifyShot(elevation) });
+  }
 }
 
 function tryHit(
@@ -256,9 +302,11 @@ function tryHit(
   sample?: { x: number; y: number } | null,
 ): void {
   if (world.phase !== 'rally') return;
+  if (world.mode === 'juggle' && world.juggle.turn !== index) return;
   const p = world.players[index];
   if (p.hitCooldown > 0) return;
-  if (world.lastHitter === index) return;
+  // a rally forbids hitting your own shot twice; juggling is exactly that
+  if (world.lastHitter === index && world.mode !== 'juggle') return;
   const head = racketHead(p);
   // `sample` lets the host judge a laggy swing against where the shuttle was
   // when that player actually saw it; the launch still happens from the
@@ -266,45 +314,86 @@ function tryHit(
   const probe = sample ?? world.shuttle;
   const dx = probe.x - head.x;
   const dy = probe.y - head.y;
-  if (dx * dx + dy * dy > CONTACT_R * CONTACT_R) return;
+  const reach = contactRadius(world.config);
+  if (dx * dx + dy * dy > reach * reach) return;
   releaseShuttle(world, index);
+}
+
+function resetPlayer(world: World, index: 0 | 1): void {
+  const p = world.players[index];
+  p.x = homeX(index);
+  p.y = GROUND_Y;
+  p.vx = 0;
+  p.vy = 0;
+  p.onGround = true;
+  p.hitCooldown = 0;
+  p.rvx = 0;
+  p.rvy = 0;
+  p.rx = 46 * p.facing;
+  p.ry = -70;
 }
 
 function startServe(world: World): void {
   world.phase = 'serve';
-  world.phaseTimer = SERVE_PAUSE;
+  world.phaseTimer = world.config.servePause;
   world.rallyHits = 0;
   world.lastHitter = -1;
-  for (let i = 0; i < 2; i++) {
-    const p = world.players[i];
-    p.x = homeX(i as 0 | 1);
-    p.y = GROUND_Y;
-    p.vx = 0;
-    p.vy = 0;
-    p.onGround = true;
-    p.hitCooldown = 0;
-    p.rvx = 0;
-    p.rvy = 0;
-    p.rx = 46 * p.facing;
-    p.ry = -70;
-  }
+  resetPlayer(world, 0);
+  resetPlayer(world, 1);
   world.shuttle.live = false;
   world.shuttle.vx = 0;
   world.shuttle.vy = 0;
 }
 
+/** toss the shuttle up so the current juggler can start their run */
+function startJuggleTurn(world: World): void {
+  const turn = world.juggle.turn;
+  resetPlayer(world, turn);
+  const p = world.players[turn];
+  const s = world.shuttle;
+  s.x = p.x + p.facing * 24;
+  // tossed from racket height so the very first juggle needs no jump
+  s.y = GROUND_Y - 130;
+  s.vx = p.facing * 10;
+  s.vy = -430;
+  s.live = true;
+  // the player may hit their own toss immediately, so clear the guard
+  world.lastHitter = -1;
+  world.phase = 'rally';
+  world.phaseTimer = 0;
+  world.juggle.timeLeft = JUGGLE_TURN_TIME;
+}
+
+function endJuggleTurn(world: World): void {
+  const j = world.juggle;
+  j.done[j.turn] = true;
+  world.shuttle.live = false;
+  const other = (1 - j.turn) as 0 | 1;
+  if (!j.done[other]) {
+    j.turn = other;
+    startJuggleTurn(world);
+    return;
+  }
+  const [a, b] = j.count;
+  world.winner = a === b ? -1 : a > b ? 0 : 1;
+  world.phase = 'gameover';
+  world.phaseTimer = 0;
+  world.events.push({ type: 'gameover', scorer: world.winner });
+}
+
 function scorePoint(world: World, scorer: number): void {
+  const cfg = world.config;
   world.score[scorer]++;
   world.server = scorer as 0 | 1;
   world.events.push({ type: 'point', scorer });
-  if (world.score[scorer] >= WIN_SCORE) {
+  if (world.score[scorer] >= cfg.winScore) {
     world.phase = 'gameover';
     world.winner = scorer;
     world.phaseTimer = 0;
     world.events.push({ type: 'gameover', scorer });
   } else {
     world.phase = 'point';
-    world.phaseTimer = POINT_PAUSE;
+    world.phaseTimer = cfg.pointPause;
   }
 }
 
@@ -320,24 +409,25 @@ function resolveLanding(world: World, x: number): void {
 function stepShuttleSlice(world: World, dt: number): void {
   const shuttle = world.shuttle;
   if (!shuttle.live) return;
+  const cfg = world.config;
 
   const prevX = shuttle.x;
   const s = Math.hypot(shuttle.vx, shuttle.vy);
-  const drag = SHUTTLE_DRAG * s;
+  const drag = cfg.shuttleDrag * s;
   shuttle.vx -= shuttle.vx * drag * dt;
   shuttle.vy -= shuttle.vy * drag * dt;
-  shuttle.vy += SHUTTLE_GRAVITY * dt;
+  shuttle.vy += cfg.shuttleGravity * dt;
   const sp = Math.hypot(shuttle.vx, shuttle.vy);
-  if (sp > SHUTTLE_MAX_SPEED) {
-    shuttle.vx = (shuttle.vx / sp) * SHUTTLE_MAX_SPEED;
-    shuttle.vy = (shuttle.vy / sp) * SHUTTLE_MAX_SPEED;
+  if (sp > cfg.shuttleMaxSpeed) {
+    shuttle.vx = (shuttle.vx / sp) * cfg.shuttleMaxSpeed;
+    shuttle.vy = (shuttle.vy / sp) * cfg.shuttleMaxSpeed;
   }
   shuttle.x += shuttle.vx * dt;
   shuttle.y += shuttle.vy * dt;
 
   const crossedNet =
     (prevX < NET_X && shuttle.x >= NET_X) || (prevX > NET_X && shuttle.x <= NET_X);
-  if (crossedNet && shuttle.y >= NET_TOP) {
+  if (cfg.netEnabled && world.mode !== 'juggle' && crossedNet && shuttle.y >= NET_TOP) {
     const side = prevX < NET_X ? -1 : 1;
     shuttle.x = NET_X + side * (NET_HALF_W + 1);
     shuttle.vx = -shuttle.vx * 0.15;
@@ -346,18 +436,20 @@ function stepShuttleSlice(world: World, dt: number): void {
     return;
   }
 
-  if (shuttle.y >= GROUND_Y - SHUTTLE_R) {
-    shuttle.y = GROUND_Y - SHUTTLE_R;
+  if (shuttle.y >= GROUND_Y - cfg.shuttleR) {
+    shuttle.y = GROUND_Y - cfg.shuttleR;
     shuttle.live = false;
     world.events.push({ type: 'land', x: shuttle.x });
-    resolveLanding(world, shuttle.x);
+    if (world.mode === 'juggle') endJuggleTurn(world);
+    else resolveLanding(world, shuttle.x);
     return;
   }
 
   if (shuttle.x < COURT_LEFT - 200 || shuttle.x > COURT_RIGHT + 200) {
     shuttle.live = false;
     world.events.push({ type: 'land', x: shuttle.x });
-    scorePoint(world, 1 - world.lastHitter);
+    if (world.mode === 'juggle') endJuggleTurn(world);
+    else scorePoint(world, 1 - world.lastHitter);
     return;
   }
   if (shuttle.y < -900) {
@@ -373,18 +465,24 @@ export function stepWorld(
   /** optional rewound shuttle positions used only for the contact test */
   hitSamples?: [{ x: number; y: number } | null, { x: number; y: number } | null],
 ): void {
+  const cfg = world.config;
   world.events.length = 0;
   world.time += dt;
 
   if (world.phase !== 'gameover') {
     // nobody may crowd the net while a serve is being set up
-    const netMargin = world.phase === 'serve' ? SERVE_NET_MARGIN : 0;
-    stepPlayer(world.players[0], 0, inputs[0], dt, netMargin);
-    stepPlayer(world.players[1], 1, inputs[1], dt, netMargin);
+    const netMargin =
+      world.phase === 'serve' && world.mode === 'match' ? cfg.serveNetMargin : 0;
+    stepPlayer(world.players[0], 0, inputs[0], dt, cfg, netMargin);
+    stepPlayer(world.players[1], 1, inputs[1], dt, cfg, netMargin);
   }
 
   if (world.phase === 'serve') {
     if (world.phaseTimer > 0) world.phaseTimer -= dt;
+    if (world.mode === 'juggle') {
+      if (world.phaseTimer <= 0) startJuggleTurn(world);
+      return;
+    }
     const server = world.players[world.server];
     const head = racketHead(server);
     world.shuttle.x = head.x;
@@ -392,16 +490,23 @@ export function stepWorld(
 
     // A serve only fires on a deliberate swing: the racket must have settled
     // after the reset, and be travelling towards the opponent (or upwards).
-    const armed = world.phaseTimer < SERVE_PAUSE - SERVE_ARM_DELAY;
+    const armed = world.phaseTimer < cfg.servePause - cfg.serveArmDelay;
     const racketSpeed = Math.hypot(server.rvx, server.rvy);
     const forward = server.rvx * server.facing;
-    const aimed = forward > SERVE_FORWARD_MIN || server.rvy < 0;
-    if (armed && aimed && racketSpeed >= SERVE_SPEED_MIN) {
+    const aimed = forward > cfg.serveForwardMin || server.rvy < 0;
+    if (armed && aimed && racketSpeed >= cfg.serveSpeedMin) {
       releaseShuttle(world, world.server);
       world.phase = 'rally';
       world.events.push({ type: 'serve', player: world.server });
     }
   } else if (world.phase === 'rally') {
+    if (world.mode === 'juggle') {
+      world.juggle.timeLeft -= dt;
+      if (world.juggle.timeLeft <= 0) {
+        endJuggleTurn(world);
+        return;
+      }
+    }
     let remain = dt;
     while (remain > 1e-6) {
       const slice = Math.min(SUB_DT, remain);
@@ -427,16 +532,17 @@ export function stepWorld(
 export function integrateShuttle(
   s: { x: number; y: number; vx: number; vy: number },
   dt: number,
+  cfg: WorldConfig = DEFAULT_CONFIG,
 ): void {
   const speed = Math.hypot(s.vx, s.vy);
-  const drag = SHUTTLE_DRAG * speed;
+  const drag = cfg.shuttleDrag * speed;
   s.vx -= s.vx * drag * dt;
   s.vy -= s.vy * drag * dt;
-  s.vy += SHUTTLE_GRAVITY * dt;
+  s.vy += cfg.shuttleGravity * dt;
   const sp = Math.hypot(s.vx, s.vy);
-  if (sp > SHUTTLE_MAX_SPEED) {
-    s.vx = (s.vx / sp) * SHUTTLE_MAX_SPEED;
-    s.vy = (s.vy / sp) * SHUTTLE_MAX_SPEED;
+  if (sp > cfg.shuttleMaxSpeed) {
+    s.vx = (s.vx / sp) * cfg.shuttleMaxSpeed;
+    s.vy = (s.vy / sp) * cfg.shuttleMaxSpeed;
   }
   s.x += s.vx * dt;
   s.y += s.vy * dt;
@@ -469,11 +575,28 @@ export function serializeWorld(w: World, events?: SimEvent[]): WorldSnapshot {
     w: w.winner,
     t: w.time,
     rh: w.rallyHits,
+    cfg: w.configId,
+    md: w.mode,
+    jg: [
+      w.juggle.count[0],
+      w.juggle.count[1],
+      w.juggle.turn,
+      w.juggle.timeLeft,
+      w.juggle.done[0] ? 1 : 0,
+      w.juggle.done[1] ? 1 : 0,
+    ],
     ev: events && events.length ? events : undefined,
   };
 }
 
 export function applySnapshot(world: World, snap: WorldSnapshot): void {
+  // the host owns the rules; follow whatever option it is simulating with
+  if (snap.cfg && snap.cfg !== world.configId) {
+    world.configId = snap.cfg;
+    world.config = configFor(snap.cfg);
+  }
+  if (snap.md) world.mode = snap.md;
+
   world.shuttle.x = snap.s[0];
   world.shuttle.y = snap.s[1];
   world.shuttle.vx = snap.s[2];
@@ -503,6 +626,14 @@ export function applySnapshot(world: World, snap: WorldSnapshot): void {
   world.winner = snap.w;
   world.time = snap.t;
   world.rallyHits = snap.rh;
+  if (snap.jg) {
+    world.juggle.count[0] = snap.jg[0];
+    world.juggle.count[1] = snap.jg[1];
+    world.juggle.turn = snap.jg[2] as 0 | 1;
+    world.juggle.timeLeft = snap.jg[3];
+    world.juggle.done[0] = !!snap.jg[4];
+    world.juggle.done[1] = !!snap.jg[5];
+  }
 }
 
 export function lerpWorld(dst: World, src: World, t: number): void {
@@ -540,6 +671,15 @@ export function lerpWorld(dst: World, src: World, t: number): void {
   dst.winner = src.winner;
   dst.time = src.time;
   dst.rallyHits = src.rallyHits;
+  dst.configId = src.configId;
+  dst.config = src.config;
+  dst.mode = src.mode;
+  dst.juggle.count[0] = src.juggle.count[0];
+  dst.juggle.count[1] = src.juggle.count[1];
+  dst.juggle.turn = src.juggle.turn;
+  dst.juggle.timeLeft = src.juggle.timeLeft;
+  dst.juggle.done[0] = src.juggle.done[0];
+  dst.juggle.done[1] = src.juggle.done[1];
 }
 
 export type { SimEvent };

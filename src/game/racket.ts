@@ -1,4 +1,4 @@
-import { RACKET_MAX, RACKET_SMOOTH, RACKET_SPEED_CAP, RACKET_TELEPORT } from './constants';
+import { DEFAULT_CONFIG, type WorldConfig } from './config';
 
 export interface RacketState {
   rx: number;
@@ -35,13 +35,14 @@ export class RacketTracker {
     shoulderY: number,
     dt: number,
     freezeVelocity = false,
+    cfg: WorldConfig = DEFAULT_CONFIG,
   ): RacketState {
     let ox = targetX - shoulderX;
     let oy = targetY - shoulderY;
     const d = Math.hypot(ox, oy);
-    if (d > RACKET_MAX) {
-      ox = (ox / d) * RACKET_MAX;
-      oy = (oy / d) * RACKET_MAX;
+    if (d > cfg.racketMax) {
+      ox = (ox / d) * cfg.racketMax;
+      oy = (oy / d) * cfg.racketMax;
     }
 
     // Differentiate the *offset*, not the world position, so simply running
@@ -51,22 +52,22 @@ export class RacketTracker {
     if (!freezeVelocity && this.has && dt > 1e-4) {
       const mx = ox - this.prevOx;
       const my = oy - this.prevOy;
-      if (Math.hypot(mx, my) <= RACKET_TELEPORT) {
+      if (Math.hypot(mx, my) <= cfg.racketTeleport) {
         vx = mx / dt;
         vy = my / dt;
       }
     }
     const sp = Math.hypot(vx, vy);
-    if (sp > RACKET_SPEED_CAP) {
-      vx = (vx / sp) * RACKET_SPEED_CAP;
-      vy = (vy / sp) * RACKET_SPEED_CAP;
+    if (sp > cfg.racketSpeedCap) {
+      vx = (vx / sp) * cfg.racketSpeedCap;
+      vy = (vy / sp) * cfg.racketSpeedCap;
     }
     if (freezeVelocity) {
       this.svx = 0;
       this.svy = 0;
     } else {
-      this.svx += (vx - this.svx) * RACKET_SMOOTH;
-      this.svy += (vy - this.svy) * RACKET_SMOOTH;
+      this.svx += (vx - this.svx) * cfg.racketSmooth;
+      this.svy += (vy - this.svy) * cfg.racketSmooth;
     }
     this.prevOx = ox;
     this.prevOy = oy;

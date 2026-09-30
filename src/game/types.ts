@@ -1,3 +1,5 @@
+import type { WorldConfig, WorldMode } from './config';
+
 export interface PlayerInput {
   left: boolean;
   right: boolean;
@@ -69,6 +71,18 @@ export interface SimEvent {
   scorer?: number;
 }
 
+/** keepy-uppy challenge state (only meaningful when world.mode === 'juggle') */
+export interface JuggleState {
+  /** successful hits per player */
+  count: [number, number];
+  /** whose turn it is */
+  turn: 0 | 1;
+  /** seconds left in the current turn */
+  timeLeft: number;
+  /** which players have finished their run */
+  done: [boolean, boolean];
+}
+
 export interface World {
   shuttle: ShuttleState;
   players: [PlayerState, PlayerState];
@@ -81,6 +95,12 @@ export interface World {
   time: number;
   rallyHits: number;
   events: SimEvent[];
+  /** runtime-tunable physics / rules (see config.ts) */
+  config: WorldConfig;
+  /** id of the party option the config came from */
+  configId: string;
+  mode: WorldMode;
+  juggle: JuggleState;
 }
 
 /** serialised world sent over the wire */
@@ -95,6 +115,12 @@ export interface WorldSnapshot {
   w: number;
   t: number;
   rh: number;
+  /** party option id the host is simulating with */
+  cfg: string;
+  /** world mode */
+  md: WorldMode;
+  /** [count0, count1, turn, timeLeft, done0, done1] */
+  jg: [number, number, number, number, number, number];
   /** this tick's sim events, so the guest can play hit sounds too */
   ev?: SimEvent[];
 }

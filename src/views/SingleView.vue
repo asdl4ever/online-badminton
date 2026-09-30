@@ -106,6 +106,7 @@ onBeforeUnmount(() => {
           :local-rank="progress.tier.id"
           :theme="customize.theme"
           :auto-cycle-theme="customize.autoCycle"
+          :party="false"
           @hud="onHud"
           @sim="onEvent"
           @editmode="editing = $event"

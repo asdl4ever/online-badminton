@@ -11,6 +11,20 @@ export type NetMessage =
   | { t: 'leave' }
   /** a reaction bubble the opponent should show above the sender */
   | { t: 'emote'; id: string; ts: number }
+  /** fun-mode: this player's pick for the round's option */
+  | { t: 'vote'; round: number; option: string }
+  /** fun-mode: host announces the round plan / the result scoreboard */
+  | {
+      t: 'party';
+      round: number;
+      kind: 'vote' | 'play' | 'result' | 'done';
+      options?: string[];
+      option?: string;
+      scores?: [number, number];
+      label?: string;
+      detail?: string;
+      winner?: number;
+    }
   /** latency probe — the sender stamps it and measures its own round trip */
   | { t: 'ping'; ts: number }
   | { t: 'pong'; ts: number };

@@ -24,11 +24,17 @@ const showRank = ref(false);
 const showBag = ref(false);
 const showChest = ref(false);
 const showEgg = ref(false);
+/** the little tool icons live behind a toggle to the right of the main buttons */
+const toolsOpen = ref(false);
 
 /** pending friend requests + invites, shown as a badge on the friends icon */
 const friendBadge = computed(() => lobby.requests.length + lobby.invites.length);
 /** reached tiers that have not been claimed yet */
 const rankBadge = computed(() => progress.claimable.length);
+/** something is waiting behind the collapsed drawer */
+const toolBadge = computed(
+  () => rankBadge.value + friendBadge.value + (progress.tenTickets > 0 ? 1 : 0),
+);
 
 function go(path: string) {
   sfx.unlock();
@@ -36,9 +42,22 @@ function go(path: string) {
   void router.push(path);
 }
 
+function toggleTools() {
+  sfx.unlock();
+  sfx.click();
+  toolsOpen.value = !toolsOpen.value;
+}
+
 function openChestFromBag() {
   showBag.value = false;
   showChest.value = true;
+}
+
+/** fun mode only exists online, so entering it also opens the lobby */
+function goParty() {
+  sfx.unlock();
+  sfx.click();
+  void router.push({ path: '/online', query: { party: '1' } });
 }
 
 function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
@@ -56,130 +75,6 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
 <template>
   <div class="page page--narrow">
     <div class="shell">
-      <div class="home-tools">
-        <button class="tool" type="button" title="段位" @click="open('rank')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span>段位</span>
-          <span v-if="rankBadge" class="tool__badge">{{ rankBadge }}</span>
-        </button>
-
-        <button class="tool" type="button" title="外观自定义" @click="open('look')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.2 0-.9.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-            />
-            <circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" />
-            <circle cx="12" cy="7.5" r="1.2" fill="currentColor" />
-            <circle cx="16.5" cy="10.5" r="1.2" fill="currentColor" />
-          </svg>
-          <span>外观</span>
-        </button>
-
-        <button class="tool" type="button" title="背包" @click="open('bag')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M5 8h14l-1.2 11a1.5 1.5 0 0 1-1.5 1.3H7.7A1.5 1.5 0 0 1 6.2 19z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M9 8V6.5a3 3 0 0 1 6 0V8"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span>背包</span>
-        </button>
-
-        <button class="tool" type="button" title="宝箱" @click="open('chest')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect
-              x="3"
-              y="9"
-              width="18"
-              height="11"
-              rx="2"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-            />
-            <path
-              d="M3 11.5h18M12 9v11"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-            <path
-              d="M5 9V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5V9"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-            />
-          </svg>
-          <span>宝箱</span>
-          <span v-if="progress.tenTickets > 0" class="tool__badge">礼</span>
-        </button>
-
-        <button class="tool" type="button" title="宠物蛋" @click="open('egg')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M12 3c3.3 0 6 4.4 6 8.6A6 6 0 0 1 6 11.6C6 7.4 8.7 3 12 3z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M9.4 12.4l2.2 1.8-2 1.6 2.4 1.7"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span>宠物蛋</span>
-        </button>
-
-        <button class="tool" type="button" title="好友" @click="open('friends')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
-            <path
-              d="M3.5 19a5.5 5.5 0 0 1 11 0"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-            <path
-              d="M16 6.5a3 3 0 0 1 0 5.6M17 19a5.4 5.4 0 0 0-1.6-3.8"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span>好友</span>
-          <span v-if="friendBadge" class="tool__badge">{{ friendBadge }}</span>
-        </button>
-      </div>
-
       <Panel>
         <div class="hero">
           <svg class="hero__mark" viewBox="0 0 64 64" aria-hidden="true">
@@ -211,9 +106,164 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
           <p class="muted hero__sub">
             2D 侧视角单打 · 球拍跟着指针走 · WebRTC 直连，打不通自动走中继
           </p>
+
           <div class="hero__actions">
             <Button variant="primary" size="lg" @click="go('/single')">单机练习</Button>
             <Button size="lg" @click="go('/online')">联机对战</Button>
+            <Button size="lg" @click="goParty">乐趣模式</Button>
+
+            <div class="tools">
+              <button
+                class="tool tools__toggle"
+                :class="{ 'is-open': toolsOpen }"
+                type="button"
+                :aria-expanded="toolsOpen"
+                :title="toolsOpen ? '收起' : '段位 / 外观 / 背包 / 宝箱 / 宠物蛋 / 好友'"
+                @click="toggleTools"
+              >
+                <svg
+                  class="tools__chevron"
+                  :class="{ 'is-open': toolsOpen }"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M6 9l6 6 6-6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <span>更多</span>
+                <span v-if="toolBadge && !toolsOpen" class="tool__badge">{{ toolBadge }}</span>
+              </button>
+
+              <div v-if="toolsOpen" class="tools__list">
+                <button class="tool" type="button" title="段位" @click="open('rank')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <span>段位</span>
+                  <span v-if="rankBadge" class="tool__badge">{{ rankBadge }}</span>
+                </button>
+
+                <button class="tool" type="button" title="外观自定义" @click="open('look')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.2 0-.9.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
+                    <circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" />
+                    <circle cx="12" cy="7.5" r="1.2" fill="currentColor" />
+                    <circle cx="16.5" cy="10.5" r="1.2" fill="currentColor" />
+                  </svg>
+                  <span>外观</span>
+                </button>
+
+                <button class="tool" type="button" title="背包" @click="open('bag')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M5 8h14l-1.2 11a1.5 1.5 0 0 1-1.5 1.3H7.7A1.5 1.5 0 0 1 6.2 19z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M9 8V6.5a3 3 0 0 1 6 0V8"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <span>背包</span>
+                </button>
+
+                <button class="tool" type="button" title="宝箱" @click="open('chest')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect
+                      x="3"
+                      y="9"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M3 11.5h18M12 9v11"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                    />
+                    <path
+                      d="M5 9V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5V9"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                  <span>宝箱</span>
+                  <span v-if="progress.tenTickets > 0" class="tool__badge">礼</span>
+                </button>
+
+                <button class="tool" type="button" title="宠物蛋" @click="open('egg')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 3c3.3 0 6 4.4 6 8.6A6 6 0 0 1 6 11.6C6 7.4 8.7 3 12 3z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M9.4 12.4l2.2 1.8-2 1.6 2.4 1.7"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <span>宠物蛋</span>
+                </button>
+
+                <button class="tool" type="button" title="好友" @click="open('friends')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
+                    <path
+                      d="M3.5 19a5.5 5.5 0 0 1 11 0"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                    />
+                    <path
+                      d="M16 6.5a3 3 0 0 1 0 5.6M17 19a5.4 5.4 0 0 0-1.6-3.8"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <span>好友</span>
+                  <span v-if="friendBadge" class="tool__badge">{{ friendBadge }}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </Panel>
@@ -226,7 +276,7 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
             <span class="kbd">A</span><span class="kbd">D</span> 或
             <span class="kbd">←</span><span class="kbd">→</span> 左右移动
           </div>
-          <div><span class="kbd">W</span> 或 <span class="kbd">↑</span> 起跳</div>
+          <div><span class="kbd">空格</span> 或 <span class="kbd">K</span> 起跳</div>
           <div><span class="kbd">R</span> 结束后再来一局</div>
         </div>
         <p class="muted" style="margin-top: var(--s4)">
@@ -260,21 +310,13 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
       <PetEggPanel />
     </AppModal>
 
-    <AppModal v-if="showFriends" title="好友" max-width="560px" @close="showFriends = false">
+    <AppModal v-if="showFriends" title="好友" max-width="720px" @close="showFriends = false">
       <FriendsPanel room-code="" :can-invite="false" bare />
     </AppModal>
   </div>
 </template>
 
 <style scoped>
-.home-tools {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: var(--s3);
-  margin-bottom: var(--s3);
-}
-
 .tool {
   position: relative;
   display: inline-flex;
@@ -315,7 +357,50 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
   text-align: center;
 }
 
+/* ---- collapsible tool dock pinned to the panel's top-right corner, stacked vertically ---- */
+.tools {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: max-content;
+  z-index: 4;
+}
+
+.tools__toggle.is-open {
+  color: var(--text);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.tools__chevron {
+  transition: transform 0.2s ease;
+}
+
+.tools__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.tools__list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  animation: tools-in 0.2s ease both;
+}
+
+@keyframes tools-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
 .hero {
+  position: relative;
   text-align: center;
   padding: var(--s4) var(--s2) var(--s1);
 }
@@ -341,6 +426,7 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
   display: flex;
   gap: var(--s4);
   justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
   margin-top: var(--s5);
 }
@@ -368,6 +454,21 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
 
   .hero__actions {
     margin-top: var(--s4);
+  }
+
+  /* phones have no room for labels — the dock becomes a column of icon squares */
+  .tools,
+  .tools__list {
+    gap: 6px;
+  }
+
+  .tools .tool {
+    justify-content: center;
+    padding: 7px;
+  }
+
+  .tools .tool > span:not(.tool__badge) {
+    display: none;
   }
 }
 </style>

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useClipboard, useIntervalFn } from '@vueuse/core';
 import { VProgressCircular, VTextField } from 'vuetify/components';
 import GameCanvas from '../components/GameCanvas.vue';
+import PartyOverlay from '../components/PartyOverlay.vue';
 import TopBar from '../components/ui/TopBar.vue';
 import ScoreLine from '../components/ui/ScoreLine.vue';
 import Panel from '../components/ui/Panel.vue';
@@ -16,6 +17,7 @@ import type { SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
+import { emptyPartyState, type PartyState } from '../game/config';
 import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
 import { useLobbyStore } from '../stores/lobby';
@@ -24,6 +26,7 @@ import { useProgressStore } from '../stores/progress';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
+const route = useRoute();
 const store = useGameStore();
 const lobby = useLobbyStore();
 const customize = useCustomizeStore();
@@ -38,6 +41,10 @@ const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
 const editing = ref(false);
 const emoteOpen = ref(false);
 const touch = isTouchDevice();
+
+/** fun mode: entered from the home page, driven by the host */
+const partyMode = ref(route.query.party === '1');
+const partyState = ref<PartyState>(emptyPartyState());
 
 function pickEmote(id: string) {
   sfx.click();
@@ -263,6 +270,10 @@ onBeforeUnmount(() => {
         </template>
       </TopBar>
 
+      <div v-if="partyMode && !playing" class="muted party-hint">
+        乐趣模式已开启：一局 3 轮，每轮开始前投票选玩法
+      </div>
+
       <template v-if="playing">
         <div class="stage">
           <GameCanvas
@@ -275,16 +286,32 @@ onBeforeUnmount(() => {
             :local-rank="progress.tier.id"
             :theme="customize.theme"
             :auto-cycle-theme="customize.autoCycle"
+            :party="partyMode"
             @hud="onHud"
             @sim="onEvent"
             @metrics="onMetrics"
             @editmode="editing = $event"
             @disconnect="onDisconnect"
             @themechange="customize.theme = $event"
+            @party="partyState = $event"
+          />
+          <PartyOverlay
+            :state="partyState"
+            :local-name="lobby.playerName"
+            remote-name="对手"
+            @vote="canvas?.voteParty($event)"
+            @next="canvas?.nextPartyRound()"
           />
         </div>
         <ScoreLine>
-          <div class="muted">
+          <div v-if="partyState.active" class="muted">
+            第 {{ partyState.round }} / {{ partyState.total }} 轮 · 积分
+            <b class="num" style="color: var(--accent)">{{ partyState.scores[0] }}</b>
+            :
+            <b class="num" style="color: var(--accent-2)">{{ partyState.scores[1] }}</b>
+            &nbsp;·&nbsp; 每轮投票选玩法
+          </div>
+          <div v-else class="muted">
             比分 <b class="num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
             :
             <b class="num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
@@ -372,7 +399,7 @@ onBeforeUnmount(() => {
           </p>
         </Panel>
 
-        <FriendsPanel :room-code="store.roomCode" :can-invite="waiting" />
+        <FriendsPanel variant="invite" :room-code="store.roomCode" :can-invite="waiting" />
       </template>
     </div>
   </div>
@@ -383,6 +410,15 @@ onBeforeUnmount(() => {
   width: 17px;
   height: 17px;
   margin-right: 6px;
+}
+
+.party-hint {
+  padding: 8px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-size: 13px;
+  text-align: center;
 }
 
 .code {

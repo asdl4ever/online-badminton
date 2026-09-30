@@ -1,15 +1,5 @@
-import {
-  AIM_HARD_MAX,
-  AIM_HARD_MIN,
-  COURT_LEFT,
-  COURT_RIGHT,
-  GROUND_Y,
-  NET_TOP,
-  NET_X,
-  SHUTTLE_DRAG,
-  SHUTTLE_GRAVITY,
-  SHUTTLE_R,
-} from './constants';
+import { COURT_LEFT, COURT_RIGHT, GROUND_Y, NET_TOP, NET_X } from './constants';
+import type { WorldConfig } from './config';
 import type { ShotKind } from './types';
 
 const SUB_DT = 1 / 240;
@@ -33,6 +23,7 @@ export function simulateTrajectory(
   vx: number,
   vy: number,
   dir: 1 | -1,
+  cfg: WorldConfig,
 ): Trajectory {
   let x = x0;
   let y = y0;
@@ -47,10 +38,10 @@ export function simulateTrajectory(
   for (let i = 0; i < 240 * 8; i++) {
     prevX = x;
     const speed = Math.hypot(cvx, cvy);
-    const drag = SHUTTLE_DRAG * speed;
+    const drag = cfg.shuttleDrag * speed;
     cvx -= cvx * drag * SUB_DT;
     cvy -= cvy * drag * SUB_DT;
-    cvy += SHUTTLE_GRAVITY * SUB_DT;
+    cvy += cfg.shuttleGravity * SUB_DT;
     x += cvx * SUB_DT;
     y += cvy * SUB_DT;
     t += SUB_DT;
@@ -61,7 +52,7 @@ export function simulateTrajectory(
     ) {
       netY = y;
     }
-    if (y >= GROUND_Y - SHUTTLE_R) {
+    if (y >= GROUND_Y - cfg.shuttleR) {
       return { landX: x, time: t, netY, clearedNet: netY !== null && netY < NET_TOP, out: false };
     }
     if ((dir > 0 && x > limit) || (dir < 0 && x < limit)) {
@@ -82,13 +73,14 @@ export function mirroredTarget(x: number): number {
  * more the release is forced upward. Stops players from spiking the shuttle
  * straight into their own floor when scooping up a low ball.
  */
-export function minReleaseFor(x: number, y: number): number {
+export function minReleaseFor(x: number, y: number, cfg: WorldConfig): number {
+  if (!cfg.netEnabled) return cfg.aimMin;
   const dxNet = Math.max(Math.abs(NET_X - x), 6);
   const needY = NET_TOP - 10;
-  if (y <= needY) return AIM_HARD_MIN;
+  if (y <= needY) return cfg.aimMin;
   const rise = y - needY;
   const geom = Math.atan2(rise, dxNet);
-  return Math.min(1.25, Math.max(AIM_HARD_MIN, geom * 1.06 + 0.05));
+  return Math.min(cfg.aimMax, Math.max(cfg.aimMin, geom * 1.06 + 0.05));
 }
 
 export function clamp(v: number, lo: number, hi: number): number {
@@ -102,5 +94,3 @@ export function classifyShot(elevation: number): ShotKind {
   if (elevation < 0.72) return 'clear';
   return 'lift';
 }
-
-export { AIM_HARD_MAX, AIM_HARD_MIN };

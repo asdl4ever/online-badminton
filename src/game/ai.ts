@@ -1,4 +1,4 @@
-import { NET_TOP, NET_X, PLAYER_H, RACKET_MAX, SERVE_SPEED_MIN } from './constants';
+import { NET_TOP, NET_X, PLAYER_H } from './constants';
 import { clamp, simulateTrajectory } from './physics';
 import { homeX, shoulderPoint } from './simulation';
 import type { PlayerInput, World } from './types';
@@ -52,7 +52,8 @@ export class AIController {
   }
 
   update(world: World, me: 0 | 1, dt: number): PlayerInput {
-    const cfg = TUNING[this.difficulty];
+    const tune = TUNING[this.difficulty];
+    const wc = world.config;
     const p = world.players[me];
     const shuttle = world.shuttle;
     const dir = p.facing;
@@ -63,19 +64,21 @@ export class AIController {
     this.errorTimer -= dt;
     if (this.errorTimer <= 0) {
       this.errorTimer = 0.45 + Math.random() * 0.5;
-      this.errorOffset = (Math.random() * 2 - 1) * cfg.posError;
+      this.errorOffset = (Math.random() * 2 - 1) * tune.posError;
     }
 
     // --- where should the body go -----------------------------------------
-    if (world.phase === 'serve') {
+    if (world.mode === 'juggle') {
+      this.targetX = world.juggle.turn === me ? shuttle.x : homeX(me);
+    } else if (world.phase === 'serve') {
       this.targetX = homeX(me);
     } else if (world.phase === 'rally' && shuttle.live) {
       const travel = shuttle.vx >= 0 ? 1 : -1;
-      const traj = simulateTrajectory(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy, travel);
+      const traj = simulateTrajectory(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy, travel, wc);
       const incoming = mySide < 0 ? traj.landX < NET_X : traj.landX > NET_X;
       if (incoming) {
         if (this.reactionTimer <= 0) {
-          this.reactionTimer = cfg.reaction;
+          this.reactionTimer = tune.reaction;
           let tx = traj.landX + this.errorOffset;
           tx = mySide < 0 ? Math.min(tx, NET_X - 40) : Math.max(tx, NET_X + 40);
           this.targetX = tx;
@@ -91,10 +94,33 @@ export class AIController {
     if (dx > 12) input.right = true;
     else if (dx < -12) input.left = true;
 
+    // --- juggle challenge: keep the shuttle up, never let it drop ---------
+    if (world.mode === 'juggle') {
+      if (world.juggle.turn !== me || world.phase !== 'rally') {
+        input.left = false;
+        input.right = false;
+        return input;
+      }
+      const sh = shoulderPoint(p);
+      const sdx = shuttle.x - sh.x;
+      const sdy = shuttle.y - sh.y;
+      const dist = Math.hypot(sdx, sdy);
+      if (dist < 180) {
+        const reach = Math.min(dist, wc.racketMax);
+        input.rx = dist > 1 ? (sdx / dist) * reach : 0;
+        input.ry = dist > 1 ? (sdy / dist) * reach : -reach;
+        input.rvx = dir * 120;
+        input.rvy = -950;
+        input.left = false;
+        input.right = false;
+      }
+      return input;
+    }
+
     // --- serve ------------------------------------------------------------
     if (world.phase === 'serve') {
       if (world.server === me && world.phaseTimer < 0.2) {
-        const speed = SERVE_SPEED_MIN + 220;
+        const speed = wc.serveSpeedMin + 220;
         input.rvx = dir * speed * Math.cos(0.68);
         input.rvy = -speed * Math.sin(0.68);
       }
@@ -143,12 +169,12 @@ export class AIController {
           elevation = 0.22;
           speed = 1320;
         }
-        elevation += (Math.random() * 2 - 1) * cfg.aimError;
-        speed *= cfg.speedScale * (1 + (Math.random() * 2 - 1) * 0.12);
-        elevation = clamp(elevation, -0.42, 1.2);
+        elevation += (Math.random() * 2 - 1) * tune.aimError;
+        speed *= tune.speedScale * (1 + (Math.random() * 2 - 1) * 0.12);
+        elevation = clamp(elevation, wc.aimMin, wc.aimMax);
 
-        const reach = Math.min(dist, RACKET_MAX);
-        const err = cfg.contactError;
+        const reach = Math.min(dist, wc.racketMax);
+        const err = tune.contactError;
         const rx = (sdx / dist) * reach + (Math.random() * 2 - 1) * err;
         const ry = (sdy / dist) * reach + (Math.random() * 2 - 1) * err;
         this.swing = {

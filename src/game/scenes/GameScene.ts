@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import {
-  CONTACT_R,
   COURT_LEFT,
   COURT_RIGHT,
   GROUND_Y,
@@ -9,14 +8,21 @@ import {
   NET_X,
   NET_INPUT_HZ,
   PLAYER_H,
-  RACKET_MAX,
-  SERVE_NET_MARGIN,
-  SHUTTLE_R,
   SHOULDER_DX,
   SHOULDER_DY,
   VIEW_H,
   VIEW_W,
 } from '../constants';
+import {
+  contactRadius,
+  emptyPartyState,
+  optionLabel,
+  PARTY_ROUND_SCORE,
+  PARTY_ROUNDS,
+  PARTY_VOTE_MS,
+  pickCandidates,
+  type PartyState,
+} from '../config';
 import type { ShotKind, SimEvent } from '../types';
 import {
   EMPTY_INPUT,
@@ -31,6 +37,7 @@ import {
   integrateShuttle,
   lerpWorld,
   serializeWorld,
+  setWorldOption,
   shoulderPoint,
   stepPlayerLocal,
   stepWorld,
@@ -109,6 +116,10 @@ export interface MatchConfig {
   /** rotate the court theme once a match finishes */
   autoCycleTheme?: boolean;
   onThemeChange?: (theme: ThemeId) => void;
+  /** run the round-based fun mode (vote → play → scoreboard) */
+  party?: boolean;
+  /** fun-mode state, mirrored to the Vue overlay */
+  onParty?: (state: PartyState) => void;
 }
 
 /** a transient hit effect, drawn with the hitter's chosen style/colour */
@@ -309,6 +320,10 @@ export class GameScene extends Phaser.Scene {
   private readonly replayW = 280;
   private readonly replayH = 78;
 
+  /** fun mode: vote → play → scoreboard, repeated PARTY_ROUNDS times */
+  private party: PartyState = emptyPartyState();
+  private partyRoundScored = false;
+
   constructor() {
     super('GameScene');
   }
@@ -461,6 +476,146 @@ export class GameScene extends Phaser.Scene {
         this.touchControls = null;
       });
     }
+
+    if (this.cfg.party) this.startParty();
+  }
+
+  // ---- fun mode -----------------------------------------------------------
+
+  /** called from the Vue overlay to cast this round's vote */
+  voteParty(optionId: string): void {
+    const st = this.party;
+    if (!st.active || st.stage !== 'vote' || !st.options.includes(optionId)) return;
+    const me = this.localIndex();
+    if (st.votes[me]) return;
+    st.votes[me] = optionId;
+    if (this.cfg.role === 'single') {
+      st.votes[1] = st.options[Math.floor(Math.random() * st.options.length)];
+    } else {
+      this.cfg.session?.send({ t: 'vote', round: st.round, option: optionId });
+    }
+    this.maybeResolveVote();
+    this.pushParty();
+  }
+
+  /** called from the Vue overlay to move past the scoreboard */
+  nextPartyRound(): void {
+    const st = this.party;
+    if (!st.active || st.stage !== 'result' || !st.localCanAdvance) return;
+    if (st.round >= st.total) {
+      st.stage = 'done';
+      this.cfg.session?.send({ t: 'party', round: st.round, kind: 'done', scores: st.scores });
+      this.pushParty();
+      return;
+    }
+    this.beginVote();
+  }
+
+  private startParty(): void {
+    this.party = emptyPartyState(PARTY_ROUNDS);
+    this.party.active = true;
+    this.partyRoundScored = false;
+    if (this.cfg.role === 'host' || this.cfg.role === 'single') this.beginVote();
+    else this.pushParty();
+  }
+
+  private beginVote(): void {
+    const st = this.party;
+    st.round += 1;
+    st.stage = 'vote';
+    st.votes = [null, null];
+    st.chosen = null;
+    st.options = pickCandidates(3).map((o) => o.id);
+    st.voteEndsAt = performance.now() + PARTY_VOTE_MS;
+    this.cfg.session?.send({ t: 'party', round: st.round, kind: 'vote', options: st.options });
+    this.pushParty();
+  }
+
+  /** host / single only: settle the vote once both picks are in (or time is up) */
+  private maybeResolveVote(): void {
+    const st = this.party;
+    if (st.stage !== 'vote' || !st.localCanAdvance) return;
+    const [a, b] = st.votes;
+    if (!a || !b) {
+      if (performance.now() < st.voteEndsAt) return;
+      for (let i = 0; i < 2; i++) {
+        if (!st.votes[i]) st.votes[i] = st.options[Math.floor(Math.random() * st.options.length)];
+      }
+    }
+    const [va, vb] = st.votes as [string, string];
+    const chosen = va === vb ? va : Math.random() < 0.5 ? va : vb;
+    this.startRound(chosen);
+    this.cfg.session?.send({ t: 'party', round: st.round, kind: 'play', option: chosen });
+  }
+
+  private startRound(optionId: string): void {
+    const st = this.party;
+    st.stage = 'play';
+    st.chosen = optionId;
+    setWorldOption(this.world, optionId);
+    setWorldOption(this.target, optionId);
+    // party badminton rounds are short
+    if (this.world.mode === 'match') {
+      this.world.config.winScore = PARTY_ROUND_SCORE;
+      this.target.config.winScore = PARTY_ROUND_SCORE;
+    }
+    this.hasSnapshot = false;
+    this.partyRoundScored = false;
+    this.racket.reset();
+    this.touchControls?.reset();
+    this.pushParty();
+  }
+
+  /** host / single only: bank the round once the world hits gameover */
+  private checkPartyRoundEnd(): void {
+    const st = this.party;
+    if (!st.active || st.stage !== 'play' || !st.localCanAdvance) return;
+    if (this.partyRoundScored) return;
+    const w = this.world;
+    if (w.phase !== 'gameover') return;
+    this.partyRoundScored = true;
+
+    const winner = w.winner;
+    if (winner === 0 || winner === 1) st.scores[winner] += 1;
+    const detail =
+      w.mode === 'juggle'
+        ? `颠球 ${w.juggle.count[0]} : ${w.juggle.count[1]}`
+        : `比分 ${w.score[0]} : ${w.score[1]}`;
+    st.results.push({
+      round: st.round,
+      optionId: st.chosen ?? '',
+      label: optionLabel(st.chosen ?? ''),
+      detail,
+      winner,
+    });
+    st.stage = 'result';
+    this.cfg.session?.send({
+      t: 'party',
+      round: st.round,
+      kind: 'result',
+      option: st.chosen ?? '',
+      scores: st.scores,
+      label: optionLabel(st.chosen ?? ''),
+      detail,
+      winner,
+    });
+    this.pushParty();
+  }
+
+  private pushParty(): void {
+    const st = this.party;
+    st.localCanAdvance = this.cfg.role !== 'guest';
+    // the overlay always treats index 0 as "me", so mirror the host's view
+    if (this.cfg.role === 'guest') {
+      this.cfg.onParty?.({
+        ...st,
+        votes: [st.votes[1], st.votes[0]],
+        scores: [st.scores[1], st.scores[0]],
+        results: st.results.map((r) => ({ ...r, winner: r.winner < 0 ? -1 : 1 - r.winner })),
+      });
+      return;
+    }
+    this.cfg.onParty?.(st);
   }
 
   private handleNetMessage(m: NetMessage): void {
@@ -487,7 +642,58 @@ export class GameScene extends Phaser.Scene {
       this.telemetry.onPong(m.ts, performance.now());
     } else if (m.t === 'rematch') {
       this.resetWorld();
+    } else if (m.t === 'vote') {
+      const st = this.party;
+      if (st.active && m.round === st.round && st.stage === 'vote') {
+        st.votes[this.cfg.role === 'host' ? 1 : 0] = m.option;
+        this.maybeResolveVote();
+        this.pushParty();
+      }
+    } else if (m.t === 'party') {
+      this.applyPartyMessage(m);
     }
+  }
+
+  /** guest side of the fun-mode handshake */
+  private applyPartyMessage(m: Extract<NetMessage, { t: 'party' }>): void {
+    const st = this.party;
+    st.active = true;
+    if (m.kind === 'vote') {
+      st.round = m.round;
+      st.stage = 'vote';
+      st.options = m.options ?? [];
+      st.votes = [null, null];
+      st.chosen = null;
+      st.voteEndsAt = performance.now() + PARTY_VOTE_MS;
+    } else if (m.kind === 'play' && m.option) {
+      st.chosen = m.option;
+      st.stage = 'play';
+      if (this.cfg.role === 'guest') {
+        setWorldOption(this.world, m.option);
+        setWorldOption(this.target, m.option);
+        if (this.world.mode === 'match') this.world.config.winScore = PARTY_ROUND_SCORE;
+        this.hasSnapshot = false;
+        this.racket.reset();
+        this.touchControls?.reset();
+      }
+      this.partyRoundScored = false;
+    } else if (m.kind === 'result') {
+      st.stage = 'result';
+      if (m.scores) st.scores = [m.scores[0], m.scores[1]];
+      if (typeof m.winner === 'number') {
+        st.results.push({
+          round: m.round,
+          optionId: m.option ?? '',
+          label: m.label ?? optionLabel(m.option ?? ''),
+          detail: m.detail ?? '',
+          winner: m.winner,
+        });
+      }
+    } else if (m.kind === 'done') {
+      st.stage = 'done';
+      if (m.scores) st.scores = [m.scores[0], m.scores[1]];
+    }
+    this.pushParty();
   }
 
   private buildReplayButton(): void {
@@ -546,6 +752,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private resetWorld(): void {
+    // fun mode drives its own round flow, so a manual reset would desync it
+    if (this.party.active && this.party.stage !== 'done') return;
     this.world = createWorld();
     this.target = createWorld();
     this.hasSnapshot = false;
@@ -746,16 +954,33 @@ export class GameScene extends Phaser.Scene {
 
     if (this.touchControls) {
       const tc = this.touchControls;
-      const targetX = shoulder.x + tc.joyX * RACKET_MAX;
-      const targetY = shoulder.y + tc.joyY * RACKET_MAX;
+      const rmax = this.world.config.racketMax;
+      const targetX = shoulder.x + tc.joyX * rmax;
+      const targetY = shoulder.y + tc.joyY * rmax;
       // while the stick is released the racket snaps home -- that return motion
       // must not be read as a swing, so freeze the measured velocity
-      racket = this.racket.update(targetX, targetY, shoulder.x, shoulder.y, dt, !tc.joyActive);
+      racket = this.racket.update(
+        targetX,
+        targetY,
+        shoulder.x,
+        shoulder.y,
+        dt,
+        !tc.joyActive,
+        this.world.config,
+      );
       buttons = tc.read();
     } else {
       const pointer = this.input.activePointer;
       this.cameras.main.getWorldPoint(pointer.x, pointer.y, this.tmp);
-      racket = this.racket.update(this.tmp.x, this.tmp.y, shoulder.x, shoulder.y, dt);
+      racket = this.racket.update(
+        this.tmp.x,
+        this.tmp.y,
+        shoulder.x,
+        shoulder.y,
+        dt,
+        false,
+        this.world.config,
+      );
       buttons = readControls(this.controls);
     }
 
@@ -771,8 +996,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, deltaMs: number): void {
-    const dt = Math.min(deltaMs / 1000, 0.05);
-    this.frameDt = dt;
+    const rawDt = Math.min(deltaMs / 1000, 0.05);
+    // fun-mode "slow motion" scales the whole simulation; both sides agree on
+    // the factor through their config so the steps stay deterministic
+    const dt = rawDt * (this.world.config.timeScale || 1);
+    this.frameDt = rawDt;
     const role = this.cfg.role;
     const editing = this.touchControls?.editing ?? false;
 
@@ -802,6 +1030,11 @@ export class GameScene extends Phaser.Scene {
       }
       if (role === 'guest') this.telemetry.sampleShuttle(this.renderShuttle(), this.target.shuttle);
       else this.telemetry.sampleShuttle(this.world.shuttle, this.world.shuttle);
+    }
+
+    if (this.party.active) {
+      if (this.party.stage === 'vote') this.maybeResolveVote();
+      else if (this.party.stage === 'play') this.checkPartyRoundEnd();
     }
 
     this.drawDynamic();
@@ -939,7 +1172,16 @@ export class GameScene extends Phaser.Scene {
     me.vy = auth.vy;
     me.onGround = auth.onGround;
     me.hitCooldown = auth.hitCooldown;
-    stepPlayerLocal(me, 1, input, dt, this.world.phase === 'serve' ? SERVE_NET_MARGIN : 0);
+    stepPlayerLocal(
+      me,
+      1,
+      input,
+      dt,
+      this.world.config,
+      this.world.phase === 'serve' && this.world.mode === 'match'
+        ? this.world.config.serveNetMargin
+        : 0,
+    );
 
     this.stepPrediction(dt);
     this.flushEvents();
@@ -956,9 +1198,10 @@ export class GameScene extends Phaser.Scene {
    */
   private stepPrediction(dt: number): void {
     if (this.predShuttle.live) {
-      integrateShuttle(this.predShuttle, dt);
-      if (this.predShuttle.y >= GROUND_Y - SHUTTLE_R) {
-        this.predShuttle.y = GROUND_Y - SHUTTLE_R;
+      integrateShuttle(this.predShuttle, dt, this.world.config);
+      const floor = GROUND_Y - this.world.config.shuttleR;
+      if (this.predShuttle.y >= floor) {
+        this.predShuttle.y = floor;
         this.predShuttle.vx = 0;
         this.predShuttle.vy = 0;
         this.predShuttle.live = false;
@@ -1053,9 +1296,45 @@ export class GameScene extends Phaser.Scene {
   private refreshMessages(): void {
     const w = this.world;
     const local = this.localIndex();
+
+    // the keepy-uppy challenge reuses the big score digits for its hit counts
+    if (w.mode === 'juggle') {
+      this.scoreLeft.setText(String(w.juggle.count[0]));
+      this.scoreRight.setText(String(w.juggle.count[1]));
+      this.pointMsg.setVisible(false);
+      this.setReplayVisible(false);
+      this.subMessage.setY(VIEW_H / 2 - 46);
+      if (w.phase === 'gameover') {
+        const won = w.winner === local;
+        this.message.setText(w.winner < 0 ? '平局！' : won ? '你赢了！' : '你输了');
+        this.message.setColor(won ? P.msgWin : P.msgLose);
+        this.subMessage.setText(`颠球 ${w.juggle.count[0]} : ${w.juggle.count[1]}`);
+      } else if (w.phase === 'serve') {
+        this.message.setText('');
+        this.subMessage.setText(w.juggle.turn === local ? '准备颠球…' : '等待对手…');
+      } else {
+        this.message.setText('');
+        const left = Math.max(0, Math.ceil(w.juggle.timeLeft));
+        this.subMessage.setText(
+          w.juggle.turn === local ? `轮到你颠球 · 剩 ${left}s` : `对手颠球中 · 剩 ${left}s`,
+        );
+      }
+      return;
+    }
+
     this.scoreLeft.setText(String(w.score[0]));
     this.scoreRight.setText(String(w.score[1]));
     this.pointMsg.setVisible(false);
+
+    // in fun mode the replay button would skip the party flow, so hide it
+    if (this.party.active && w.phase === 'gameover') {
+      this.message.setText('本轮结束');
+      this.message.setColor(P.msgWin);
+      this.setReplayVisible(false);
+      this.subMessage.setY(VIEW_H / 2 + 30);
+      this.subMessage.setText('等待下一轮…');
+      return;
+    }
 
     if (w.phase === 'gameover') {
       const won = w.winner === local;
@@ -2556,6 +2835,17 @@ export class GameScene extends Phaser.Scene {
     g.strokeCircle(s.x, s.y - PLAYER_H - 26, 10);
     g.lineStyle(3, P.serveHint, 0.95);
     g.lineBetween(s.x - 6, s.y - PLAYER_H - 26, s.x + 6, s.y - PLAYER_H - 26);
+
+    // the dashed line nobody may cross while a serve is being set up
+    if (w.mode !== 'match') return;
+    const back = NET_X - 30 - w.config.serveNetMargin;
+    const front = NET_X + 30 + w.config.serveNetMargin;
+    g.lineStyle(2, P.serveHint, 0.4);
+    for (const bx of [back, front]) {
+      for (let y = GROUND_Y; y > GROUND_Y - 160; y -= 16) {
+        g.lineBetween(bx, y, bx, y - 9);
+      }
+    }
   }
 
   private drawNamePlates(g: Phaser.GameObjects.Graphics): void {
@@ -4030,7 +4320,7 @@ export class GameScene extends Phaser.Scene {
 
     if (hot > 0.15) {
       g.lineStyle(2, frameColor, 0.12 + 0.28 * hot);
-      g.strokeCircle(head.x, head.y, CONTACT_R);
+      g.strokeCircle(head.x, head.y, contactRadius(this.world.config));
     }
   }
 
@@ -4366,19 +4656,23 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(P.shadow, 0.3 * (1 - height));
     g.fillEllipse(s.x, GROUND_Y - 2, 26 * (1 - height * 0.5), 7 * (1 - height * 0.5));
 
-    g.fillStyle(P.shuttleHalo, 0.1);
-    g.fillCircle(s.x, s.y, 15);
-    g.fillStyle(P.shuttleHalo, 0.16);
-    g.fillCircle(s.x, s.y, 10);
+    // draw size follows the fun-mode config, so "giant shuttle" really looks big
+    const dot = Math.max(3, this.world.config.shuttleR * 0.79);
+    const feather = dot * 2.9;
 
-    g.lineStyle(2, P.shuttleFeather, 0.95);
+    g.fillStyle(P.shuttleHalo, 0.1);
+    g.fillCircle(s.x, s.y, dot * 2.7);
+    g.fillStyle(P.shuttleHalo, 0.16);
+    g.fillCircle(s.x, s.y, dot * 1.8);
+
+    g.lineStyle(Math.max(1.5, dot * 0.36), P.shuttleFeather, 0.95);
     for (let k = -1; k <= 1; k++) {
       const a = angle + Math.PI + k * 0.4;
-      g.lineBetween(s.x, s.y, s.x + Math.cos(a) * 16, s.y + Math.sin(a) * 16);
+      g.lineBetween(s.x, s.y, s.x + Math.cos(a) * feather, s.y + Math.sin(a) * feather);
     }
     g.fillStyle(P.shuttle, 1);
-    g.fillCircle(s.x, s.y, 5.5);
+    g.fillCircle(s.x, s.y, dot);
     g.lineStyle(2, P.floorEdge, 0.9);
-    g.strokeCircle(s.x, s.y, 5.5);
+    g.strokeCircle(s.x, s.y, dot);
   }
 }

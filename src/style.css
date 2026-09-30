@@ -326,22 +326,32 @@ button {
     gap: var(--s3);
   }
 
-  /* once a match is running the court takes over the whole screen.
+  /* once a match is running the court takes over the whole screen: one page,
+     one row of controls, nothing to scroll.
      Selectors are deliberately 3 classes deep so they outrank the scoped
      component styles, which are injected later in the cascade. */
   .page--playing {
     padding: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   .page--playing .shell {
     max-width: none;
     width: 100%;
+    height: 100%;
     gap: 0;
+  }
+
+  .page--playing .stage {
+    height: 100%;
   }
 
   .page--playing .stage .game-canvas {
     aspect-ratio: auto;
-    height: 100vh;
+    height: 100%;
     border-radius: 0;
     box-shadow: none;
   }
@@ -350,12 +360,30 @@ button {
     position: fixed;
     inset: 0 0 auto 0;
     z-index: 10;
-    gap: var(--s2);
-    padding: var(--s1) var(--s2);
+    flex-wrap: nowrap;
+    gap: var(--s1);
+    padding: 3px var(--s2);
     border: none;
     border-radius: 0;
     background: linear-gradient(180deg, rgba(238, 243, 250, 0.94), rgba(238, 243, 250, 0));
     box-shadow: none;
+  }
+
+  /* every control stays on that single row */
+  .page--playing .topbar__aside {
+    flex-wrap: nowrap;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .page--playing .topbar.hud-bar {
+    max-width: 100vw;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .page--playing .topbar.hud-bar::-webkit-scrollbar {
+    display: none;
   }
 
   .page--playing .scoreline.hud-foot {
@@ -366,11 +394,11 @@ button {
     display: none;
   }
 
-  /* touch targets: keep every control at or above 44px */
+  /* compact but still thumb-sized */
   .page--playing .v-btn.soft-btn {
-    font-size: 13px;
-    min-height: 44px;
-    padding: 0 var(--s3);
+    font-size: 12px;
+    min-height: 38px;
+    padding: 0 10px;
   }
 }
 

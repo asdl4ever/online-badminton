@@ -20,8 +20,9 @@ const KNOB_RATIO = 0.42;
 /** extra grab radius so the sticks are not fiddly to catch */
 const GRAB_PAD = 44;
 const DEADZONE = 0.26;
-/** the jump button's size, as a fraction of the move stick's radius */
-const JUMP_RATIO = 0.62;
+/** push this far up on the move stick to jump, and release past OFF to re-arm */
+const JUMP_ON = 0.55;
+const JUMP_OFF = 0.3;
 const MIN_R = 46;
 const MAX_R = 130;
 
@@ -82,8 +83,8 @@ interface DragState {
 
 /**
  * On-screen sticks, drawn inside the Phaser canvas so they scale with the
- * game. Left stick moves, a dedicated button jumps, the right stick aims the
- * racket — push further to reach further, snap it to swing harder.
+ * game. Left stick moves (push up to jump), right stick aims the racket —
+ * push further to reach further, snap it to swing harder.
  *
  * `editing` puts the whole thing into a drag-to-arrange overlay where the
  * player can restyle the layout; the result is kept in localStorage.
@@ -106,9 +107,10 @@ export class TouchControls {
 
   private movePointer = -1;
   private racketPointer = -1;
-  private jumpPointer = -1;
   private moveX = 0;
+  private moveY = 0;
   private jumpQueued = false;
+  private jumpArmed = true;
 
   private knob = { move: { x: 0, y: 0 }, racket: { x: 0, y: 0 } };
   private drag: DragState | null = null;
@@ -163,9 +165,10 @@ export class TouchControls {
   reset(): void {
     this.movePointer = -1;
     this.racketPointer = -1;
-    this.jumpPointer = -1;
     this.moveX = 0;
+    this.moveY = 0;
     this.jumpQueued = false;
+    this.jumpArmed = true;
     this.joyX = 0;
     this.joyY = 0;
     this.joyActive = false;
@@ -233,13 +236,6 @@ export class TouchControls {
     return Math.abs(px - b.x) <= BTN_W / 2 && Math.abs(py - b.y) <= BTN_H / 2;
   }
 
-  /** the dedicated jump button sits beside the move stick and follows it */
-  private jumpButton(): { x: number; y: number; r: number } {
-    const s = this.layout.move;
-    const r = Math.max(34, Math.min(56, s.r * JUMP_RATIO));
-    return { x: s.x + s.r + r + 16, y: s.y + s.r * 0.2, r };
-  }
-
   // ---- input ------------------------------------------------------------
 
   private onDown(pointer: Phaser.Input.Pointer): void {
@@ -271,12 +267,6 @@ export class TouchControls {
     }
 
     if (!this.enabled) return;
-    const jb = this.jumpButton();
-    if (this.jumpPointer < 0 && Math.hypot(pointer.x - jb.x, pointer.y - jb.y) <= jb.r + GRAB_PAD) {
-      this.jumpPointer = pointer.id;
-      this.jumpQueued = true;
-      return;
-    }
     if (this.movePointer < 0 && this.inStick('move', pointer.x, pointer.y)) {
       this.movePointer = pointer.id;
       this.updateMove(pointer);
@@ -330,13 +320,11 @@ export class TouchControls {
       }
       return;
     }
-    if (pointer.id === this.jumpPointer) {
-      this.jumpPointer = -1;
-      return;
-    }
     if (pointer.id === this.movePointer) {
       this.movePointer = -1;
       this.moveX = 0;
+      this.moveY = 0;
+      this.jumpArmed = true;
       this.knob.move.x = 0;
       this.knob.move.y = 0;
       return;
@@ -355,9 +343,19 @@ export class TouchControls {
     const s = this.stick('move');
     const v = this.vector(s, pointer.x, pointer.y);
     this.moveX = v.x;
+    this.moveY = v.y;
     const max = this.maxTravel(s);
     this.knob.move.x = v.x * max;
     this.knob.move.y = v.y * max;
+
+    // push up to jump, edge triggered, re-armed once released past JUMP_OFF
+    const up = -v.y;
+    if (this.jumpArmed && up > JUMP_ON) {
+      this.jumpQueued = true;
+      this.jumpArmed = false;
+    } else if (!this.jumpArmed && up < JUMP_OFF) {
+      this.jumpArmed = true;
+    }
   }
 
   private updateRacket(pointer: Phaser.Input.Pointer): void {
@@ -436,11 +434,6 @@ export class TouchControls {
       this.drawEditOverlay(g);
       this.drawStick(g, 'move', true, P.knobLive);
       this.drawStick(g, 'racket', true, P.knobLive);
-      const jb = this.jumpButton();
-      g.fillStyle(P.editLine, 0.14);
-      g.fillCircle(jb.x, jb.y, jb.r);
-      g.lineStyle(3, P.editLine, 0.9);
-      g.strokeCircle(jb.x, jb.y, jb.r);
       return;
     }
 
@@ -449,17 +442,17 @@ export class TouchControls {
     this.drawStick(g, 'move', this.movePointer >= 0, P.knobLive);
     this.drawStick(g, 'racket', this.racketPointer >= 0, P.knobLive);
 
-    // dedicated jump button -- jump no longer rides on the move stick
-    const jb = this.jumpButton();
-    const live = this.jumpPointer >= 0;
-    g.fillStyle(P.stickFill, live ? 0.3 : 0.16);
-    g.fillCircle(jb.x, jb.y, jb.r);
-    g.lineStyle(2.5, P.jumpCue, live ? 1 : 0.55);
-    g.strokeCircle(jb.x, jb.y, jb.r);
-    g.fillStyle(P.jumpCue, live ? 1 : 0.75);
-    g.fillTriangle(jb.x, jb.y - 11, jb.x - 10, jb.y + 3, jb.x + 10, jb.y + 3);
-    g.fillRect(jb.x - 10, jb.y + 7, 20, 5);
+    // "push up to jump" cue on the move stick
+    const s = this.stick('move');
+    const lit = this.jumpArmed === false || -this.moveY > JUMP_ON - 0.1;
+    g.lineStyle(4, P.jumpCue, lit ? 1 : 0.4);
+    g.beginPath();
+    g.arc(s.x, s.y, s.r - 12, -Math.PI * 0.75, -Math.PI * 0.25, false, 0);
+    g.strokePath();
+    const ty = s.y - s.r + 24;
+    g.fillStyle(P.jumpCue, lit ? 1 : 0.55);
+    g.fillTriangle(s.x, ty - 9, s.x - 9, ty + 4, s.x + 9, ty + 4);
 
-    this.hint.setPosition(jb.x, jb.y + jb.r + 20).setText('跳').setVisible(true);
+    this.hint.setPosition(s.x, s.y + s.r + 20).setText('推上跳').setVisible(true);
   }
 }
