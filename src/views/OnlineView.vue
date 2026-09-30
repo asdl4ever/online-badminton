@@ -11,6 +11,7 @@ import GlassButton from '../components/ui/GlassButton.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
+import type { NetMetrics } from '../game/telemetry';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
 import { useGameStore } from '../stores/game';
@@ -136,6 +137,10 @@ function onHud(state: HudState) {
   hud.value = state;
 }
 
+function onMetrics(m: NetMetrics) {
+  store.metrics = m;
+}
+
 function onEvent(e: SimEvent) {
   if (e.type === 'hit') sfx.hit(e.kind ?? 'drive');
   else if (e.type === 'net') sfx.net();
@@ -185,6 +190,7 @@ onBeforeUnmount(() => {
             :session="store.session"
             @hud="onHud"
             @sim="onEvent"
+            @metrics="onMetrics"
             @disconnect="onDisconnect"
           />
         </div>

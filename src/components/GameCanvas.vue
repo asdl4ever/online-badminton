@@ -5,6 +5,7 @@ import { GameScene, type HudState, type MatchConfig } from '../game/scenes/GameS
 import { VIEW_H, VIEW_W } from '../game/constants';
 import type { Difficulty } from '../game/ai';
 import type { MatchRole, SimEvent } from '../game/types';
+import type { NetMetrics } from '../game/telemetry';
 import type { NetLink } from '../net/link';
 
 const props = defineProps<{
@@ -17,6 +18,7 @@ const emit = defineEmits<{
   hud: [HudState];
   disconnect: [string];
   sim: [SimEvent];
+  metrics: [NetMetrics];
 }>();
 
 const container = ref<HTMLDivElement | null>(null);
@@ -30,6 +32,7 @@ onMounted(() => {
     onHud: (s) => emit('hud', s),
     onDisconnect: (m) => emit('disconnect', m),
     onEvent: (e) => emit('sim', e),
+    onMetrics: (m) => emit('metrics', m),
   };
 
   game = new Phaser.Game({

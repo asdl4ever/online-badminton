@@ -3,6 +3,7 @@ import { shallowRef, ref } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
 import type { Difficulty } from '../game/ai';
 import type { MatchRole } from '../game/types';
+import type { NetMetrics } from '../game/telemetry';
 import type { NetLink, NetStatus } from '../net/link';
 
 export type ConnState =
@@ -22,6 +23,8 @@ export const useGameStore = defineStore('game', () => {
   const transport = ref('');
   const netError = ref('');
   const netStatus = ref<NetStatus | null>(null);
+  /** netcode telemetry snapshot, pushed by the scene at 2Hz */
+  const metrics = ref<NetMetrics | null>(null);
   const session = shallowRef<NetLink | null>(null);
 
   function reset(): void {
@@ -33,6 +36,7 @@ export const useGameStore = defineStore('game', () => {
     transport.value = '';
     netError.value = '';
     netStatus.value = null;
+    metrics.value = null;
   }
 
   return {
@@ -43,6 +47,7 @@ export const useGameStore = defineStore('game', () => {
     transport,
     netError,
     netStatus,
+    metrics,
     session,
     reset,
   };

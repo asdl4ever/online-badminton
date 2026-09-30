@@ -24,3 +24,12 @@ export function relayOnly(): boolean {
     return false;
   }
 }
+
+/** `?debug=1` shows the netcode telemetry overlay inside the canvas. */
+export function debugOverlayEnabled(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('debug') === '1';
+  } catch {
+    return false;
+  }
+}

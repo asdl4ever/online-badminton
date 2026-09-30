@@ -7,7 +7,10 @@ export type NetMessage =
   | { t: 'input'; i: PlayerInput }
   | { t: 'snap'; s: WorldSnapshot }
   | { t: 'rematch' }
-  | { t: 'leave' };
+  | { t: 'leave' }
+  /** latency probe — the sender stamps it and measures its own round trip */
+  | { t: 'ping'; ts: number }
+  | { t: 'pong'; ts: number };
 
 export interface NetStatus {
   /** 'connecting' | 'open' | 'failed' */

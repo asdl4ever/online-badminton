@@ -34,6 +34,8 @@ import { AIController, type Difficulty } from '../ai';
 import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { debugOverlayEnabled } from '../device';
+import { Telemetry, type NetMetrics } from '../telemetry';
 import type { NetLink, NetMessage } from '../../net/link';
 
 export interface HudState {
@@ -53,9 +55,13 @@ export interface MatchConfig {
   onHud: (state: HudState) => void;
   onDisconnect: (message: string) => void;
   onEvent: (event: SimEvent) => void;
+  /** throttled netcode telemetry, for the debug panel and the Pinia store */
+  onMetrics?: (metrics: NetMetrics) => void;
 }
 
 const FIXED_DT = 1 / 60;
+const PING_INTERVAL = 0.5;
+const METRICS_INTERVAL = 0.5;
 const MAX_ACCUM = 0.25;
 
 export class GameScene extends Phaser.Scene {
@@ -66,6 +72,10 @@ export class GameScene extends Phaser.Scene {
   private ai!: AIController;
   private racket!: RacketTracker;
   private touchControls: TouchControls | null = null;
+  private telemetry = new Telemetry();
+  private pingAccum = 0;
+  private metricsAccum = 0;
+  private debugText: Phaser.GameObjects.Text | null = null;
 
   private accum = 0;
   private netAccum = 0;
@@ -104,6 +114,12 @@ export class GameScene extends Phaser.Scene {
     this.lastHud = '';
     this.trail = [];
     this.flashes = [];
+    this.telemetry.reset();
+    this.telemetry.role =
+      this.cfg.role === 'single' ? '单机' : this.cfg.role === 'host' ? '房主(本地权威)' : '访客';
+    this.telemetry.transport = this.cfg.session?.kind ?? '';
+    this.pingAccum = 0;
+    this.metricsAccum = 0;
   }
 
   create(): void {
@@ -115,6 +131,19 @@ export class GameScene extends Phaser.Scene {
 
     const bg = this.add.graphics();
     this.drawCourt(bg);
+
+    if (debugOverlayEnabled()) {
+      this.debugText = this.add
+        .text(14, 14, '', {
+          fontFamily: 'Consolas, ui-monospace, monospace',
+          fontSize: '16px',
+          color: '#9fdcff',
+          backgroundColor: 'rgba(4,10,18,0.68)',
+          padding: { x: 12, y: 10 },
+          lineSpacing: 5,
+        })
+        .setDepth(30);
+    }
 
     this.dynamic = this.add.graphics();
 
@@ -159,6 +188,7 @@ export class GameScene extends Phaser.Scene {
       // the HTML bar overlays the top of the canvas, so drop the score below it
       this.scoreLeft.setY(126);
       this.scoreRight.setY(126);
+      this.debugText?.setY(132);
       this.events.once('shutdown', () => {
         this.touchControls?.destroy();
         this.touchControls = null;
@@ -172,6 +202,11 @@ export class GameScene extends Phaser.Scene {
     } else if (m.t === 'snap' && this.cfg.role === 'guest') {
       applySnapshot(this.target, m.s);
       this.hasSnapshot = true;
+      this.telemetry.onSnapshot(performance.now());
+    } else if (m.t === 'ping') {
+      this.cfg.session?.send({ t: 'pong', ts: m.ts });
+    } else if (m.t === 'pong') {
+      this.telemetry.onPong(m.ts, performance.now());
     } else if (m.t === 'rematch') {
       this.resetWorld();
     }
@@ -298,10 +333,52 @@ export class GameScene extends Phaser.Scene {
       this.updateSimulated(dt, role);
     }
 
+    if (role !== 'single') {
+      this.pingAccum += dt;
+      if (this.pingAccum >= PING_INTERVAL) {
+        this.pingAccum = 0;
+        this.cfg.session?.send({ t: 'ping', ts: performance.now() });
+      }
+      if (role === 'guest') this.telemetry.sampleShuttle(this.world.shuttle, this.target.shuttle);
+      else {
+        // the host is authoritative, so there is nothing to trail
+        this.telemetry.sampleShuttle(this.world.shuttle, this.world.shuttle);
+      }
+    }
+
     this.drawDynamic();
     this.touchControls?.draw();
     this.refreshMessages();
     this.publishHud(false);
+    this.publishMetrics(dt);
+  }
+
+  private publishMetrics(dt: number): void {
+    this.metricsAccum += dt;
+    if (this.metricsAccum < METRICS_INTERVAL) return;
+    this.metricsAccum = 0;
+
+    this.telemetry.fps = this.game.loop.actualFps;
+    const m = this.telemetry.read();
+    this.cfg.onMetrics?.(m);
+    if (this.debugText) this.debugText.setText(this.formatMetrics(m));
+  }
+
+  private formatMetrics(m: NetMetrics): string {
+    if (m.role === '单机') return '单机模式';
+    const transport = this.cfg.session?.kind ?? '—';
+    const head = `${m.role} · ${transport} · ${m.fps.toFixed(0)}fps`;
+    if (m.role !== '访客') return `${head}\nRTT ${m.rttMs.toFixed(0)}ms ±${m.jitterMs.toFixed(0)}`;
+
+    const net = m.rttMs / 2;
+    const ball = m.ballSpeed > 80 ? `${m.ballTrailPx.toFixed(0)}px @ ${m.ballSpeed.toFixed(0)}px/s` : '静止';
+    return [
+      head,
+      `RTT   ${m.rttMs.toFixed(0)}ms  ±${m.jitterMs.toFixed(0)}`,
+      `快照  ${m.snapIntervalMs.toFixed(0)}ms (${m.snapHz.toFixed(0)}Hz)`,
+      `球滞后 ${m.ballTotalLagMs.toFixed(0)}ms = 网络 ${net.toFixed(0)} + 渲染 ${m.ballRenderLagMs.toFixed(0)}`,
+      `      ${ball}`,
+    ].join('\n');
   }
 
   private updateSimulated(dt: number, role: MatchRole): void {
