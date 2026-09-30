@@ -2,6 +2,7 @@ import vue from '@vitejs/plugin-vue'
 import vuetify from 'vite-plugin-vuetify'
 import { defineConfig } from 'vite'
 import { attachRelay } from './server/relay.mjs'
+import { attachLobby } from './server/lobby.mjs'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -14,10 +15,16 @@ export default defineConfig({
       // Mount the same WebSocket relay the production server uses, so dev and
       // preview behave identically.
       configureServer(server) {
-        if (server.httpServer) attachRelay(server.httpServer)
+        if (server.httpServer) {
+          attachRelay(server.httpServer)
+          attachLobby(server.httpServer)
+        }
       },
       configurePreviewServer(server) {
-        if (server.httpServer) attachRelay(server.httpServer)
+        if (server.httpServer) {
+          attachRelay(server.httpServer)
+          attachLobby(server.httpServer)
+        }
       },
     },
   ],

@@ -10,6 +10,7 @@ import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
 import EmotePicker from '../components/ui/EmotePicker.vue';
+import FriendsPanel from '../components/FriendsPanel.vue';
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
@@ -17,10 +18,12 @@ import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
 import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
+import { useLobbyStore } from '../stores/lobby';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
 const store = useGameStore();
+const lobby = useLobbyStore();
 
 const joinCode = ref('');
 const hud = ref<HudState | null>(null);
@@ -138,6 +141,21 @@ async function joinRoom() {
     phaseText.value = '';
   }
 }
+
+// a friend invite (accepted in the global toast) hands over a room code to
+// auto-join; consume it once when this view is on screen
+watch(
+  () => lobby.pendingJoin,
+  (code) => {
+    if (!code) return;
+    const c = lobby.takePendingJoin();
+    if (c && !playing.value) {
+      joinCode.value = c;
+      void joinRoom();
+    }
+  },
+  { immediate: true },
+);
 
 function handlePeerLeft(reason = '对手已离开对局') {
   if (leaving.value) return;
@@ -341,6 +359,8 @@ onBeforeUnmount(() => {
             会先尝试 WebRTC 点对点直连（延迟更低）；如果双方网络打不通，自动切换到本服务器的 WebSocket 中继。
           </p>
         </Panel>
+
+        <FriendsPanel :room-code="store.roomCode" :can-invite="waiting" />
       </template>
     </div>
   </div>

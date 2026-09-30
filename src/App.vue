@@ -1,13 +1,51 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
+import { RouterView, useRouter } from 'vue-router';
 import { useMobileShell } from './composables/useMobileShell';
+import { useLobbyStore, type FriendRequest, type Invite } from './stores/lobby';
+import Button from './components/ui/Button.vue';
 
 // requests fullscreen + landscape lock on the first tap (touch devices only)
 useMobileShell();
+
+const router = useRouter();
+const lobby = useLobbyStore();
+
+function acceptInvite(inv: Invite) {
+  lobby.acceptInvite(inv);
+  void router.push('/online');
+}
+
+function acceptRequest(req: FriendRequest) {
+  lobby.acceptRequest(req);
+}
 </script>
 
 <template>
   <RouterView />
+
+  <div class="toasts">
+    <div v-for="inv in lobby.invites" :key="`inv-${inv.from}`" class="toast">
+      <p class="toast__title">
+        <b>{{ inv.name }}</b> 邀请你加入对局
+      </p>
+      <p class="toast__sub num">房间 {{ inv.code }}</p>
+      <div class="toast__actions">
+        <Button size="sm" variant="primary" @click="acceptInvite(inv)">接受</Button>
+        <Button size="sm" variant="quiet" @click="lobby.declineInvite(inv)">拒绝</Button>
+      </div>
+    </div>
+
+    <div v-for="req in lobby.requests" :key="`req-${req.from}`" class="toast">
+      <p class="toast__title">
+        <b>{{ req.name }}</b> 请求加你为好友
+      </p>
+      <p class="toast__sub num">{{ req.from }}</p>
+      <div class="toast__actions">
+        <Button size="sm" variant="primary" @click="acceptRequest(req)">接受</Button>
+        <Button size="sm" variant="quiet" @click="lobby.declineRequest(req)">忽略</Button>
+      </div>
+    </div>
+  </div>
 
   <div class="rotate-hint">
     <div>
@@ -44,5 +82,43 @@ useMobileShell();
   display: block;
   margin: 0 auto var(--s3);
   color: var(--text-dim);
+}
+
+.toasts {
+  position: fixed;
+  top: var(--s4);
+  right: var(--s4);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  max-width: min(320px, calc(100vw - var(--s5)));
+}
+
+.toast {
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2, var(--surface));
+  box-shadow: var(--e2, var(--e1));
+}
+
+.toast__title {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.toast__sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+
+.toast__actions {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s3);
 }
 </style>

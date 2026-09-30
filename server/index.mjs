@@ -4,6 +4,7 @@ import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { attachRelay } from './relay.mjs';
+import { attachLobby } from './lobby.mjs';
 
 const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const PORT = Number(process.env.PORT || 4173);
@@ -61,6 +62,9 @@ const server = createServer(async (req, res) => {
 
 const wss = attachRelay(server);
 console.log(`[relay] listening on /relay (${wss.options.path ?? '/'})`);
+
+const lobby = attachLobby(server);
+console.log(`[lobby] listening on /lobby (${lobby.options.path ?? '/'})`);
 
 server.listen(PORT, () => {
   console.log(`[server] http://0.0.0.0:${PORT}  serving ${DIST}`);

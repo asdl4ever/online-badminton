@@ -11,6 +11,7 @@ import '@fontsource/chakra-petch/latin-700.css';
 import './style.css';
 import App from './App.vue';
 import { router } from './router';
+import { useLobbyStore } from './stores/lobby';
 
 /**
  * Custom dark theme. Colours are kept in sync with the game's palette so the
@@ -46,4 +47,11 @@ const vuetify = createVuetify({
   },
 });
 
-createApp(App).use(createPinia()).use(router).use(vuetify).mount('#app');
+const pinia = createPinia();
+const app = createApp(App).use(pinia).use(router).use(vuetify);
+
+// keep the presence socket open for the whole session, so friends can see us
+// online and reach us with an invite even from the lobby / home screen.
+useLobbyStore(pinia).connect();
+
+app.mount('#app');
