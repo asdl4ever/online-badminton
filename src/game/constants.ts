@@ -58,7 +58,21 @@ export const SHOT_SPEED_MIN = 800;
 export const SHOT_SPEED_MAX = 2100;
 export const HIT_COOLDOWN = 0.12;
 /** racket must be moving at least this fast to release a serve */
-export const SERVE_SPEED_MIN = 620;
+export const SERVE_SPEED_MIN = 700;
+/**
+ * After a serve resets the players, the racket has to settle for this long
+ * before it is allowed to release. Without it, re-positioning the mouse on the
+ * frame after the reset counts as a swing and serves by accident.
+ */
+export const SERVE_ARM_DELAY = 0.3;
+/**
+ * A serve must also travel in a sane direction: the racket has to be moving
+ * towards the opponent or upwards. Pulling the racket back to re-aim no longer
+ * fires a serve.
+ */
+export const SERVE_FORWARD_MIN = 60;
+/** both players are kept at least this far from the net while a serve is set */
+export const SERVE_NET_MARGIN = 170;
 /**
  * A shot that would sail past the opponent's back line has its power trimmed
  * so it drops in. This is how far past the line it is still allowed to land

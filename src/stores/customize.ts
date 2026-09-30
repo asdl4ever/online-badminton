@@ -4,13 +4,17 @@ import { useLocalStorage } from '@vueuse/core';
 import {
   fromHex,
   type AuraId,
+  type CapeId,
   type Cosmetic,
+  type HatId,
   type HitStyle,
+  type PetId,
   type RacketSkinId,
-  type TitleId,
+  type TrailId,
   type WingId,
 } from '../game/cosmetics';
 import type { ThemeId } from '../game/theme';
+import { useProgressStore } from './progress';
 
 /**
  * The player's look, stored locally and applied to both single and online
@@ -18,14 +22,18 @@ import type { ThemeId } from '../game/theme';
  * just so their client can draw us the same way.
  */
 export const useCustomizeStore = defineStore('customize', () => {
+  const progress = useProgressStore();
   const emoji = useLocalStorage('bmt-emoji', '🙂');
   const racketHex = useLocalStorage('bmt-racket', '#44586f');
   const trailHex = useLocalStorage('bmt-trail', '#6f9fce');
   const effect = useLocalStorage<HitStyle>('bmt-effect', 'ring');
   const wings = useLocalStorage<WingId>('bmt-wings', 'none');
+  const cape = useLocalStorage<CapeId>('bmt-cape', 'none');
   const aura = useLocalStorage<AuraId>('bmt-aura', 'none');
+  const hat = useLocalStorage<HatId>('bmt-hat', 'none');
+  const pet = useLocalStorage<PetId>('bmt-pet', 'none');
   const racketSkin = useLocalStorage<RacketSkinId>('bmt-racket-skin', 'default');
-  const title = useLocalStorage<TitleId>('bmt-title', 'none');
+  const trailStyle = useLocalStorage<TrailId>('bmt-trail-style', 'classic');
   const theme = useLocalStorage<ThemeId>('bmt-theme', 'day');
   /** rotate the court theme automatically once a match is over */
   const autoCycle = useLocalStorage('bmt-theme-auto', true);
@@ -36,9 +44,13 @@ export const useCustomizeStore = defineStore('customize', () => {
     trail: fromHex(trailHex.value),
     effect: effect.value,
     wings: wings.value,
+    cape: cape.value,
     aura: aura.value,
+    hat: hat.value,
+    pet: pet.value,
+    petStar: pet.value === 'none' ? 1 : progress.petStar(pet.value) || 1,
     racketSkin: racketSkin.value,
-    title: title.value,
+    trailStyle: trailStyle.value,
   }));
 
   return {
@@ -47,9 +59,12 @@ export const useCustomizeStore = defineStore('customize', () => {
     trailHex,
     effect,
     wings,
+    cape,
     aura,
+    hat,
+    pet,
     racketSkin,
-    title,
+    trailStyle,
     theme,
     autoCycle,
     cosmetic,

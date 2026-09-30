@@ -8,6 +8,8 @@ import CustomizePanel from '../components/CustomizePanel.vue';
 import FriendsPanel from '../components/FriendsPanel.vue';
 import RankPanel from '../components/RankPanel.vue';
 import BackpackPanel from '../components/BackpackPanel.vue';
+import ChestPanel from '../components/ChestPanel.vue';
+import PetEggPanel from '../components/PetEggPanel.vue';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 import { sfx } from '../game/audio';
@@ -20,6 +22,8 @@ const showLook = ref(false);
 const showFriends = ref(false);
 const showRank = ref(false);
 const showBag = ref(false);
+const showChest = ref(false);
+const showEgg = ref(false);
 
 /** pending friend requests + invites, shown as a badge on the friends icon */
 const friendBadge = computed(() => lobby.requests.length + lobby.invites.length);
@@ -32,12 +36,19 @@ function go(path: string) {
   void router.push(path);
 }
 
-function open(which: 'look' | 'friends' | 'rank' | 'bag') {
+function openChestFromBag() {
+  showBag.value = false;
+  showChest.value = true;
+}
+
+function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
   sfx.unlock();
   sfx.click();
   if (which === 'look') showLook.value = true;
   else if (which === 'friends') showFriends.value = true;
   else if (which === 'bag') showBag.value = true;
+  else if (which === 'chest') showChest.value = true;
+  else if (which === 'egg') showEgg.value = true;
   else showRank.value = true;
 }
 </script>
@@ -93,6 +104,57 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag') {
             />
           </svg>
           <span>背包</span>
+        </button>
+
+        <button class="tool" type="button" title="宝箱" @click="open('chest')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect
+              x="3"
+              y="9"
+              width="18"
+              height="11"
+              rx="2"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <path
+              d="M3 11.5h18M12 9v11"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+            <path
+              d="M5 9V7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5V9"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+          </svg>
+          <span>宝箱</span>
+          <span v-if="progress.tenTickets > 0" class="tool__badge">礼</span>
+        </button>
+
+        <button class="tool" type="button" title="宠物蛋" @click="open('egg')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 3c3.3 0 6 4.4 6 8.6A6 6 0 0 1 6 11.6C6 7.4 8.7 3 12 3z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M9.4 12.4l2.2 1.8-2 1.6 2.4 1.7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>宠物蛋</span>
         </button>
 
         <button class="tool" type="button" title="好友" @click="open('friends')">
@@ -186,8 +248,16 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag') {
       <CustomizePanel />
     </AppModal>
 
-    <AppModal v-if="showBag" title="背包 · 宝箱" max-width="760px" @close="showBag = false">
-      <BackpackPanel />
+    <AppModal v-if="showBag" title="背包" max-width="760px" @close="showBag = false">
+      <BackpackPanel @open-chest="openChestFromBag" />
+    </AppModal>
+
+    <AppModal v-if="showChest" title="宝箱" max-width="540px" @close="showChest = false">
+      <ChestPanel />
+    </AppModal>
+
+    <AppModal v-if="showEgg" title="宠物蛋" max-width="480px" @close="showEgg = false">
+      <PetEggPanel />
     </AppModal>
 
     <AppModal v-if="showFriends" title="好友" max-width="560px" @close="showFriends = false">

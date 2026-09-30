@@ -16,6 +16,9 @@ import {
   PLAYER_MARGIN,
   PLAYER_SPEED,
   POINT_PAUSE,
+  SERVE_ARM_DELAY,
+  SERVE_FORWARD_MIN,
+  SERVE_NET_MARGIN,
   SERVE_PAUSE,
   SERVE_SPEED_MIN,
   SHOT_LAND_SLACK,
@@ -87,13 +90,20 @@ export function createWorld(): World {
   };
 }
 
-function bounds(index: number): [number, number] {
+function bounds(index: number, netMargin = 0): [number, number] {
   return index === 0
-    ? [COURT_LEFT - PLAYER_MARGIN, NET_X - 30]
-    : [NET_X + 30, COURT_RIGHT + PLAYER_MARGIN];
+    ? [COURT_LEFT - PLAYER_MARGIN, NET_X - 30 - netMargin]
+    : [NET_X + 30 + netMargin, COURT_RIGHT + PLAYER_MARGIN];
 }
 
-function stepPlayer(p: PlayerState, index: 0 | 1, input: PlayerInput, dt: number): void {
+function stepPlayer(
+  p: PlayerState,
+  index: 0 | 1,
+  input: PlayerInput,
+  dt: number,
+  /** extra distance from the net the player is not allowed to cross */
+  netMargin = 0,
+): void {
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   const targetVx = dir * PLAYER_SPEED;
   const dv = PLAYER_ACCEL * dt;
@@ -101,7 +111,7 @@ function stepPlayer(p: PlayerState, index: 0 | 1, input: PlayerInput, dt: number
   else if (p.vx > targetVx) p.vx = Math.max(targetVx, p.vx - dv);
   p.x += p.vx * dt;
 
-  const [lo, hi] = bounds(index);
+  const [lo, hi] = bounds(index, netMargin);
   if (p.x < lo) {
     p.x = lo;
     p.vx = 0;
@@ -134,8 +144,9 @@ export function stepPlayerLocal(
   index: 0 | 1,
   input: PlayerInput,
   dt: number,
+  netMargin = 0,
 ): void {
-  stepPlayer(p, index, input, dt);
+  stepPlayer(p, index, input, dt, netMargin);
 }
 
 /**
@@ -366,8 +377,10 @@ export function stepWorld(
   world.time += dt;
 
   if (world.phase !== 'gameover') {
-    stepPlayer(world.players[0], 0, inputs[0], dt);
-    stepPlayer(world.players[1], 1, inputs[1], dt);
+    // nobody may crowd the net while a serve is being set up
+    const netMargin = world.phase === 'serve' ? SERVE_NET_MARGIN : 0;
+    stepPlayer(world.players[0], 0, inputs[0], dt, netMargin);
+    stepPlayer(world.players[1], 1, inputs[1], dt, netMargin);
   }
 
   if (world.phase === 'serve') {
@@ -376,8 +389,14 @@ export function stepWorld(
     const head = racketHead(server);
     world.shuttle.x = head.x;
     world.shuttle.y = head.y;
+
+    // A serve only fires on a deliberate swing: the racket must have settled
+    // after the reset, and be travelling towards the opponent (or upwards).
+    const armed = world.phaseTimer < SERVE_PAUSE - SERVE_ARM_DELAY;
     const racketSpeed = Math.hypot(server.rvx, server.rvy);
-    if (racketSpeed >= SERVE_SPEED_MIN && world.phaseTimer < SERVE_PAUSE - 0.05) {
+    const forward = server.rvx * server.facing;
+    const aimed = forward > SERVE_FORWARD_MIN || server.rvy < 0;
+    if (armed && aimed && racketSpeed >= SERVE_SPEED_MIN) {
       releaseShuttle(world, world.server);
       world.phase = 'rally';
       world.events.push({ type: 'serve', player: world.server });

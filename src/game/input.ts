@@ -16,7 +16,8 @@ export function createControls(scene: Phaser.Scene): ControlKeys {
   return {
     left: keysOf(scene, ['LEFT', 'A']),
     right: keysOf(scene, ['RIGHT', 'D']),
-    jump: keysOf(scene, ['UP', 'W']),
+    // jump lives on its own keys so steering can never fire it by accident
+    jump: keysOf(scene, ['SPACE', 'K', 'W']),
   };
 }
 
