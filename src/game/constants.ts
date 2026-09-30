@@ -8,8 +8,8 @@ export const NET_HEIGHT = 108;
 export const NET_TOP = GROUND_Y - NET_HEIGHT;
 export const NET_HALF_W = 5;
 
-export const COURT_LEFT = 64;
-export const COURT_RIGHT = 1216;
+export const COURT_LEFT = 0;
+export const COURT_RIGHT = VIEW_W;
 
 // ---- players -------------------------------------------------------------
 export const PLAYER_W = 32;
@@ -25,7 +25,9 @@ export const SHOULDER_DX = 7;
 // ---- shuttle -------------------------------------------------------------
 export const SHUTTLE_R = 7;
 export const SHUTTLE_GRAVITY = 1350;
-export const SHUTTLE_DRAG = 0.0011;
+// quadratic air drag: stronger = the shuttle bleeds speed faster and drops
+// shorter. Tuned so a full clear from mid-court still reaches the far line.
+export const SHUTTLE_DRAG = 0.0016;
 export const SHUTTLE_MAX_SPEED = 2400;
 
 // ---- racket --------------------------------------------------------------
@@ -62,8 +64,9 @@ export const SERVE_SPEED_MIN = 620;
  */
 export const SHOT_LAND_SLACK = 30;
 
-// how far either side of the net a player may travel
-export const PLAYER_MARGIN = 70;
+// how far past each back line a player may travel (the back lines are now the
+// screen edges, so 0 keeps everyone on screen)
+export const PLAYER_MARGIN = 0;
 
 // ---- match ---------------------------------------------------------------
 export const WIN_SCORE = 11;
