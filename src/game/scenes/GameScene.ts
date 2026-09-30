@@ -8,6 +8,7 @@ import {
   NET_X,
   NET_INPUT_HZ,
   PLAYER_H,
+  RACKET_MAX,
   VIEW_H,
   VIEW_W,
 } from '../constants';
@@ -32,6 +33,7 @@ import {
 import { AIController, type Difficulty } from '../ai';
 import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
+import { TouchControls, enterMobileFullscreen, isTouchDevice } from '../touch';
 import type { NetLink, NetMessage } from '../../net/link';
 
 export interface HudState {
@@ -63,6 +65,8 @@ export class GameScene extends Phaser.Scene {
   private controls!: ControlKeys;
   private ai!: AIController;
   private racket!: RacketTracker;
+  private touchControls: TouchControls | null = null;
+  private touchAsked = false;
 
   private accum = 0;
   private netAccum = 0;
@@ -140,6 +144,23 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.input.keyboard?.on('keydown-R', () => this.requestRematch());
+
+    if (isTouchDevice()) {
+      this.input.addPointer(3);
+      this.touchControls = new TouchControls(this);
+      // the HTML bar overlays the top of the canvas, so drop the score below it
+      this.scoreLeft.setY(126);
+      this.scoreRight.setY(126);
+      this.input.on('pointerdown', () => {
+        if (this.touchAsked) return;
+        this.touchAsked = true;
+        void enterMobileFullscreen();
+      });
+      this.events.once('shutdown', () => {
+        this.touchControls?.destroy();
+        this.touchControls = null;
+      });
+    }
   }
 
   private handleNetMessage(m: NetMessage): void {
@@ -158,6 +179,7 @@ export class GameScene extends Phaser.Scene {
     this.target = createWorld();
     this.hasSnapshot = false;
     this.racket.reset();
+    this.touchControls?.reset();
     this.publishHud(true);
   }
 
@@ -178,14 +200,29 @@ export class GameScene extends Phaser.Scene {
   private buildLocalInput(dt: number): PlayerInput {
     const p = this.world.players[this.localIndex()];
     const shoulder = shoulderPoint(p);
-    const pointer = this.input.activePointer;
-    this.cameras.main.getWorldPoint(pointer.x, pointer.y, this.tmp);
-    const racket = this.racket.update(this.tmp.x, this.tmp.y, shoulder.x, shoulder.y, dt);
-    const b = readControls(this.controls);
+
+    let racket;
+    let buttons: { left: boolean; right: boolean; jump: boolean };
+
+    if (this.touchControls) {
+      const tc = this.touchControls;
+      const targetX = shoulder.x + tc.joyX * RACKET_MAX;
+      const targetY = shoulder.y + tc.joyY * RACKET_MAX;
+      // while the stick is released the racket snaps home -- that return motion
+      // must not be read as a swing, so freeze the measured velocity
+      racket = this.racket.update(targetX, targetY, shoulder.x, shoulder.y, dt, !tc.joyActive);
+      buttons = tc.read();
+    } else {
+      const pointer = this.input.activePointer;
+      this.cameras.main.getWorldPoint(pointer.x, pointer.y, this.tmp);
+      racket = this.racket.update(this.tmp.x, this.tmp.y, shoulder.x, shoulder.y, dt);
+      buttons = readControls(this.controls);
+    }
+
     return {
-      left: b.left,
-      right: b.right,
-      jump: b.jump,
+      left: buttons.left,
+      right: buttons.right,
+      jump: buttons.jump,
       rx: racket.rx,
       ry: racket.ry,
       rvx: racket.rvx,
@@ -204,6 +241,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.drawDynamic();
+    this.touchControls?.draw();
     this.refreshMessages();
     this.publishHud(false);
   }
@@ -302,9 +340,8 @@ export class GameScene extends Phaser.Scene {
       this.subMessage.setText('按 R 再来一局');
     } else if (w.phase === 'serve') {
       this.message.setText('');
-      this.subMessage.setText(
-        w.server === local ? '你的发球 — 快速挥动鼠标' : '等待对方发球…',
-      );
+      const how = this.touchControls ? '拨动摇杆' : '挥动鼠标';
+      this.subMessage.setText(w.server === local ? `你的发球 — 快速${how}` : '等待对方发球…');
     } else {
       this.message.setText('');
       this.subMessage.setText('');

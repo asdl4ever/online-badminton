@@ -29,14 +29,15 @@ export class RacketTracker {
   }
 
   update(
-    mouseX: number,
-    mouseY: number,
+    targetX: number,
+    targetY: number,
     shoulderX: number,
     shoulderY: number,
     dt: number,
+    freezeVelocity = false,
   ): RacketState {
-    let ox = mouseX - shoulderX;
-    let oy = mouseY - shoulderY;
+    let ox = targetX - shoulderX;
+    let oy = targetY - shoulderY;
     const d = Math.hypot(ox, oy);
     if (d > RACKET_MAX) {
       ox = (ox / d) * RACKET_MAX;
@@ -47,7 +48,7 @@ export class RacketTracker {
     // sideways does not count as a swing.
     let vx = 0;
     let vy = 0;
-    if (this.has && dt > 1e-4) {
+    if (!freezeVelocity && this.has && dt > 1e-4) {
       const mx = ox - this.prevOx;
       const my = oy - this.prevOy;
       if (Math.hypot(mx, my) <= RACKET_TELEPORT) {
@@ -60,8 +61,13 @@ export class RacketTracker {
       vx = (vx / sp) * RACKET_SPEED_CAP;
       vy = (vy / sp) * RACKET_SPEED_CAP;
     }
-    this.svx += (vx - this.svx) * RACKET_SMOOTH;
-    this.svy += (vy - this.svy) * RACKET_SMOOTH;
+    if (freezeVelocity) {
+      this.svx = 0;
+      this.svy = 0;
+    } else {
+      this.svx += (vx - this.svx) * RACKET_SMOOTH;
+      this.svy += (vy - this.svy) * RACKET_SMOOTH;
+    }
     this.prevOx = ox;
     this.prevOy = oy;
     this.has = true;

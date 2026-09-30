@@ -215,3 +215,70 @@ input:focus {
   font-size: 14px;
   color: var(--text-dim);
 }
+
+/* ---- portrait warning -------------------------------------------------- */
+.rotate-hint {
+  display: none;
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  .rotate-hint {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: var(--bg);
+  }
+}
+
+/* ---- touch devices: let the court own the screen ----------------------- */
+@media (pointer: coarse) {
+  .page {
+    padding: 0;
+  }
+
+  .shell {
+    max-width: none;
+    width: 100%;
+    gap: 0;
+  }
+
+  .game-canvas {
+    aspect-ratio: auto;
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* keep only a slim translucent bar over the top of the canvas */
+  .hud-bar {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 10;
+    gap: 8px;
+    padding: 4px 8px;
+    border: none;
+    background: linear-gradient(180deg, rgba(7, 13, 22, 0.82), rgba(7, 13, 22, 0));
+  }
+
+  .hud-bar h2 {
+    font-size: 15px;
+  }
+
+  .hud-foot {
+    display: none;
+  }
+
+  .btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .card {
+    margin: 12px;
+  }
+}
+

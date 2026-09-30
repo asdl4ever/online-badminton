@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
@@ -56,7 +56,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="page">
     <div class="shell">
-      <div class="topbar">
+      <div class="topbar hud-bar">
         <button class="btn btn-ghost" @click="back">← 返回</button>
         <div style="display: flex; align-items: center; gap: 10px">
           <span class="muted">难度</span>
@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <div class="topbar">
+      <div class="topbar hud-foot">
         <div class="muted">
           比分 <b style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
           :

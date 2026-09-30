@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="page">
     <div class="shell">
-      <div class="topbar">
+      <div class="topbar hud-bar">
         <button class="btn btn-ghost" @click="back">← 返回</button>
         <h2 style="font-size: 20px">联机对战</h2>
         <div class="chip">
@@ -170,7 +170,7 @@ onBeforeUnmount(() => {
             @disconnect="onDisconnect"
           />
         </div>
-        <div class="topbar">
+        <div class="topbar hud-foot">
           <div class="muted">
             比分 <b style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
             :
@@ -210,7 +210,11 @@ onBeforeUnmount(() => {
           </p>
         </div>
 
-        <div v-else-if="store.connState === 'creating' || store.connState === 'connecting'" class="card" style="text-align: center; padding: 40px">
+        <div
+          v-else-if="store.connState === 'creating' || store.connState === 'connecting'"
+          class="card"
+          style="text-align: center; padding: 40px"
+        >
           <p class="muted">{{ phaseText || '正在连接…' }}</p>
           <p v-if="store.netStatus?.note" class="muted" style="margin-top: 8px; color: var(--warn)">
             {{ store.netStatus.note }}
