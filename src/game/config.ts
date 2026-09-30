@@ -13,6 +13,8 @@
 import {
   AIM_HARD_MAX,
   AIM_HARD_MIN,
+  COURT_RIGHT,
+  GROUND_Y,
   PLAYER_ACCEL,
   PLAYER_GRAVITY,
   PLAYER_JUMP_V,
@@ -74,6 +76,17 @@ export interface WorldConfig {
   // --- match ---
   winScore: number;
   pointPause: number;
+  // --- ball machine (offline practice only) ---
+  /** seconds between feeds */
+  machineInterval: number;
+  /** launch speed out of the machine, used when machineAimAt is off */
+  machineSpeed: number;
+  /** launch elevation, radians above horizontal */
+  machineAngle: number;
+  /** how far the aim target wanders, in px */
+  machineSpread: number;
+  /** solve the launch speed so the feed lands near the player */
+  machineAimAt: boolean;
   // --- world ---
   /** false = the shuttle passes straight through the net */
   netEnabled: boolean;
@@ -109,6 +122,11 @@ export const DEFAULT_CONFIG: WorldConfig = {
   servePause: SERVE_PAUSE,
   winScore: WIN_SCORE,
   pointPause: POINT_PAUSE,
+  machineInterval: 1.1,
+  machineSpeed: 1500,
+  machineAngle: 0.22,
+  machineSpread: 190,
+  machineAimAt: true,
   netEnabled: true,
   timeScale: 1,
 };
@@ -120,7 +138,11 @@ export function contactRadius(cfg: WorldConfig): number {
 
 // ---- party mode ----------------------------------------------------------
 
-export type WorldMode = 'match' | 'juggle';
+export type WorldMode = 'match' | 'juggle' | 'machine';
+
+/** where the ball machine stands, and how high it fires from */
+export const MACHINE_X = COURT_RIGHT - 220;
+export const MACHINE_Y = GROUND_Y - 250;
 
 /** how many rounds a party session runs for */
 export const PARTY_ROUNDS = 3;
@@ -196,8 +218,39 @@ export const PARTY_OPTIONS: PartyOption[] = [
 
 export const JUGGLE_OPTION_ID = 'juggle';
 
+/**
+ * Solo practice presets. These are *not* in PARTY_OPTIONS: a party round ends
+ * when someone reaches winScore, and the machine mode has no score at all, so
+ * it would never terminate a round.
+ */
+export const PRACTICE_OPTIONS: PartyOption[] = [
+  {
+    id: 'machineEasy',
+    label: '发球机 · 简单',
+    desc: '喂球慢，落点规矩',
+    mode: 'machine',
+    patch: { machineInterval: 1.7, machineSpeed: 1150, machineSpread: 110 },
+  },
+  {
+    id: 'machine',
+    label: '发球机 · 普通',
+    desc: '节奏适中，会追着你喂',
+    mode: 'machine',
+    patch: { machineInterval: 1.1, machineSpeed: 1450, machineSpread: 190 },
+  },
+  {
+    id: 'machineHard',
+    label: '发球机 · 困难',
+    desc: '又快又刁，落点到处跑',
+    mode: 'machine',
+    patch: { machineInterval: 0.7, machineSpeed: 1750, machineSpread: 290, machineAngle: 0.16 },
+  },
+];
+
+const ALL_OPTIONS: PartyOption[] = [...PARTY_OPTIONS, ...PRACTICE_OPTIONS];
+
 export function optionById(id: string): PartyOption | undefined {
-  return PARTY_OPTIONS.find((o) => o.id === id);
+  return ALL_OPTIONS.find((o) => o.id === id);
 }
 
 export function optionLabel(id: string): string {

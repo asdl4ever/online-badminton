@@ -111,8 +111,9 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
             <Button variant="primary" size="lg" @click="go('/single')">单机练习</Button>
             <Button size="lg" @click="go('/online')">联机对战</Button>
             <Button size="lg" @click="goParty">乐趣模式</Button>
+            <Button size="lg" @click="go('/climb')">攀爬挑战</Button>
 
-            <div class="tools">
+            <div class="tools" :class="{ 'is-open': toolsOpen }">
               <button
                 class="tool tools__toggle"
                 :class="{ 'is-open': toolsOpen }"
@@ -290,27 +291,27 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
       </Panel>
     </div>
 
-    <AppModal v-if="showRank" title="段位" max-width="600px" @close="showRank = false">
+    <AppModal v-model="showRank" title="段位" max-width="600px">
       <RankPanel />
     </AppModal>
 
-    <AppModal v-if="showLook" title="外观自定义" @close="showLook = false">
+    <AppModal v-model="showLook" title="外观自定义">
       <CustomizePanel />
     </AppModal>
 
-    <AppModal v-if="showBag" title="背包" max-width="760px" @close="showBag = false">
+    <AppModal v-model="showBag" title="背包" max-width="760px">
       <BackpackPanel @open-chest="openChestFromBag" />
     </AppModal>
 
-    <AppModal v-if="showChest" title="宝箱" max-width="540px" @close="showChest = false">
+    <AppModal v-model="showChest" title="宝箱" max-width="540px">
       <ChestPanel />
     </AppModal>
 
-    <AppModal v-if="showEgg" title="宠物蛋" max-width="480px" @close="showEgg = false">
+    <AppModal v-model="showEgg" title="宠物蛋" max-width="480px">
       <PetEggPanel />
     </AppModal>
 
-    <AppModal v-if="showFriends" title="好友" max-width="720px" @close="showFriends = false">
+    <AppModal v-model="showFriends" title="好友" max-width="720px">
       <FriendsPanel room-code="" :can-invite="false" bare />
     </AppModal>
   </div>
@@ -365,9 +366,25 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   width: max-content;
   z-index: 4;
+  border-radius: var(--r-lg);
+  border: 1px solid transparent;
+  transition:
+    background var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+
+/* expanded, it becomes a floating card so spilling past the panel reads
+   as a dropdown rather than as broken layout */
+.tools.is-open {
+  padding: 6px;
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--e2);
+  backdrop-filter: blur(10px);
 }
 
 .tools__toggle.is-open {
@@ -388,7 +405,7 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   animation: tools-in 0.2s ease both;
 }
 

@@ -44,6 +44,22 @@ export const BASE = {
   serveHint: 0xc07f00,
   flash: 0x1f6fd0,
 
+  // --- ball machine -----------------------------------------------------
+  machineFrame: 0x44586f,
+  machineBody: 0xdce6f2,
+  machineBarrel: 0x8fa3bd,
+  machineLamp: 0xe8a33d,
+
+  // --- climb mode -------------------------------------------------------
+  climbSky: 0x101a2c,
+  climbFog: 0x1a2740,
+  climbRock: 0x415068,
+  climbRockTop: 0x6d839f,
+  climbRod: 0xc07f00,
+  climbRodTip: 0xf0c060,
+  climbPot: 0x2a7ad4,
+  climbFlag: 0xe8a33d,
+
   // --- on-canvas HUD ----------------------------------------------------
   msgWin: '#17804a',
   msgLose: '#c02c2c',

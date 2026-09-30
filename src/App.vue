@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { RouterView, useRouter } from 'vue-router';
+import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import { useMobileShell } from './composables/useMobileShell';
 import { useLobbyStore, type FriendRequest, type Invite } from './stores/lobby';
 import { useProgressStore } from './stores/progress';
 import Button from './components/ui/Button.vue';
+import AppToast from './components/ui/AppToast.vue';
 
 // requests fullscreen + landscape lock on the first tap (touch devices only)
 useMobileShell();
@@ -25,7 +27,9 @@ function acceptRequest(req: FriendRequest) {
 <template>
   <RouterView />
 
-  <div class="toasts">
+  <AppToast />
+
+  <div v-auto-animate="{ duration: 220 }" class="toasts">
     <div v-if="progress.notice" class="toast toast--accent">
       <p class="toast__title">{{ progress.notice }}</p>
     </div>

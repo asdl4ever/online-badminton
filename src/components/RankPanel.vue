@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { useProgressStore } from '../stores/progress';
-import { POINT_RULES, TIERS } from '../game/ranks';
+import { POINT_RULES, TIERS, type TierId } from '../game/ranks';
 import { toHex } from '../game/cosmetics';
+import { celebrate } from '../composables/celebrate';
+import { toastGood } from '../composables/useToast';
 import Button from './ui/Button.vue';
 
 const progress = useProgressStore();
+
+function claim(id: TierId): void {
+  const tier = TIERS.find((t) => t.id === id);
+  progress.claim(id);
+  if (!tier) return;
+  toastGood(`已领取：${tier.reward}`);
+  celebrate(1, [toHex(tier.color), '#ffffff', '#ffd45c']);
+}
 </script>
 
 <template>
@@ -55,7 +65,7 @@ const progress = useProgressStore();
           v-else-if="progress.points >= t.points"
           size="sm"
           variant="primary"
-          @click="progress.claim(t.id)"
+          @click="claim(t.id)"
         >
           领取
         </Button>

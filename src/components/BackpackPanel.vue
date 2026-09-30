@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import CharacterPreview from './CharacterPreview.vue';
 import Stars from './ui/Stars.vue';
 import Button from './ui/Button.vue';
+import { toastGood, toastWarn } from '../composables/useToast';
 import { useCustomizeStore } from '../stores/customize';
 import { useProgressStore } from '../stores/progress';
 import {
@@ -117,7 +119,18 @@ function equip(item: Item): void {
 }
 
 function onCell(item: Item | null): void {
-  if (item) equip(item);
+  if (!item) return;
+  if (isEquipped(item)) {
+    toastWarn(`已经装备着「${item.label}」`);
+    return;
+  }
+  equip(item);
+  toastGood(`已装备「${item.label}」`);
+}
+
+/** stable identity for the grid so auto-animate can FLIP reordering */
+function cellKey(item: Item | null, idx: number): string {
+  return item ? `${item.slot}:${item.ref}` : `empty:${idx}`;
 }
 
 /** label of whatever is equipped in a slot (shown on the character side) */
@@ -163,10 +176,10 @@ function equippedLabel(slot: ItemSlot): string {
 
       <div class="bp__collect muted">已收集 {{ ownedCount }} / {{ ITEMS.length }}</div>
 
-      <div class="bp__grid" :style="{ '--cols': COLS }">
+      <div v-auto-animate="{ duration: 220 }" class="bp__grid" :style="{ '--cols': COLS }">
         <button
           v-for="(item, idx) in cells"
-          :key="idx"
+          :key="cellKey(item, idx)"
           class="bp__cell"
           :class="{ 'is-empty': !item, 'is-equipped': item && isEquipped(item) }"
           :style="item ? { '--rarity': RARITY_META[item.rarity].color } : undefined"

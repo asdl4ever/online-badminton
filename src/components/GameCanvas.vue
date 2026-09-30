@@ -23,6 +23,8 @@ const props = defineProps<{
   autoCycleTheme: boolean;
   /** run the round-based fun mode (vote → play → scoreboard) */
   party: boolean;
+  /** world option to build the initial world from (e.g. a ball-machine preset) */
+  optionId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -86,6 +88,7 @@ onMounted(async () => {
     onThemeChange: (t) => emit('themechange', t),
     party: props.party,
     onParty: (s) => emit('party', s),
+    optionId: props.optionId,
   };
 
   game = new Phaser.Game({

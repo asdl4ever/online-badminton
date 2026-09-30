@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import TopBar from '../components/ui/TopBar.vue';
@@ -12,7 +12,7 @@ import type { SimEvent } from '../game/types';
 import type { Difficulty } from '../game/ai';
 import { sfx } from '../game/audio';
 import { isTouchDevice } from '../game/device';
-import { useGameStore } from '../stores/game';
+import { useGameStore, type PracticeMode } from '../stores/game';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
@@ -34,9 +34,31 @@ const difficulties: Choice[] = [
   { value: 'hard', label: '困难' },
 ];
 
+const practices: Choice[] = [
+  { value: 'ai', label: '对战 AI' },
+  { value: 'machine', label: '发球机' },
+];
+
+/** the ball machine has one preset per difficulty */
+const MACHINE_OPTION: Record<Difficulty, string> = {
+  easy: 'machineEasy',
+  normal: 'machine',
+  hard: 'machineHard',
+};
+
+const isMachine = computed(() => store.practice === 'machine');
+const optionId = computed(() => (isMachine.value ? MACHINE_OPTION[store.difficulty] : undefined));
+/** the scene builds its world once, so the mode switch has to remount it */
+const canvasKey = computed(() => `${store.practice}-${store.difficulty}`);
+
 function setDifficulty(value: string) {
   sfx.click();
   store.difficulty = value as Difficulty;
+}
+
+function setPractice(value: string) {
+  sfx.click();
+  store.practice = value as PracticeMode;
 }
 
 function onHud(state: HudState) {
@@ -73,9 +95,15 @@ onBeforeUnmount(() => {
         <template #title>单机练习</template>
         <template #aside>
           <SegmentedChoice
+            :model-value="store.practice"
+            :options="practices"
+            label="模式"
+            @update:model-value="setPractice"
+          />
+          <SegmentedChoice
             :model-value="store.difficulty"
             :options="difficulties"
-            label="难度"
+            :label="isMachine ? '喂球' : '难度'"
             @update:model-value="setDifficulty"
           />
           <Button v-if="touch" size="sm" @click="canvas?.toggleEditMode()">
@@ -97,9 +125,11 @@ onBeforeUnmount(() => {
 
       <div class="stage">
         <GameCanvas
+          :key="canvasKey"
           ref="canvas"
           role="single"
           :difficulty="store.difficulty"
+          :option-id="optionId"
           :session="null"
           :cosmetic="customize.cosmetic"
           :local-name="lobby.playerName"
@@ -115,7 +145,13 @@ onBeforeUnmount(() => {
       </div>
 
       <ScoreLine>
-        <div class="muted">
+        <div v-if="hud?.machine" class="muted">
+          连击 <b class="num" style="color: var(--accent)">{{ hud.machine.streak }}</b>
+          &nbsp;·&nbsp; 最高
+          <b class="num" style="color: var(--accent-2)">{{ hud.machine.best }}</b>
+          &nbsp;·&nbsp; 接球 {{ hud.machine.returns }} / 失误 {{ hud.machine.misses }}
+        </div>
+        <div v-else class="muted">
           比分 <b class="num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
           :
           <b class="num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>

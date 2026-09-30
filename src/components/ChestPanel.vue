@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import Stars from './ui/Stars.vue';
 import Button from './ui/Button.vue';
+import { celebrate, RARITY_LEVEL } from '../composables/celebrate';
+import { toastWarn } from '../composables/useToast';
 import { useProgressStore, type PullResult } from '../stores/progress';
 import {
   CHEST_COST,
@@ -33,15 +35,41 @@ function cellColor(r: PullResult): string {
   return r.kind === 'item' ? RARITY_META[r.item.rarity].color : '#e8a33d';
 }
 
+/** everything this pull produced, single or ten */
+function pulled(): PullResult[] {
+  if (mode.value === 'ten') return results.value;
+  return result.value ? [result.value] : [];
+}
+
+/** the most exciting item decides how loud the confetti is */
+function bestRarity(): { level: number; color: string } {
+  let level = 0;
+  let color = '#e8a33d';
+  for (const r of pulled()) {
+    if (r.kind !== 'item') continue;
+    const lv = RARITY_LEVEL[r.item.rarity] ?? 0;
+    if (lv > level) {
+      level = lv;
+      color = RARITY_META[r.item.rarity].color;
+    }
+  }
+  return { level, color };
+}
+
 function reveal(): void {
   phase.value = 'opening';
   window.setTimeout(() => {
     phase.value = 'revealed';
+    const best = bestRarity();
+    celebrate(best.level, [best.color, '#ffffff', '#ffd45c']);
   }, 760);
 }
 
 function openSingle(): void {
-  if (!canSingle.value) return;
+  if (!canSingle.value) {
+    toastWarn(`金币不足，还差 ${CHEST_COST - progress.coins}`);
+    return;
+  }
   const r = progress.pull();
   if (!r) return;
   mode.value = 'single';
@@ -51,7 +79,11 @@ function openSingle(): void {
 }
 
 function openTen(useTicket: boolean): void {
-  if (useTicket ? !canFreeTen.value : !canTen.value) return;
+  if (!useTicket && !canTen.value) {
+    toastWarn(`金币不足，还差 ${TEN_PULL_COST - progress.coins}`);
+    return;
+  }
+  if (useTicket && !canFreeTen.value) return;
   const r = progress.pullTen(useTicket);
   if (!r) return;
   mode.value = 'ten';

@@ -101,6 +101,23 @@ export interface World {
   configId: string;
   mode: WorldMode;
   juggle: JuggleState;
+  machine: MachineState;
+}
+
+/** endless practice against the feeder (only when world.mode === 'machine') */
+export interface MachineState {
+  /** seconds until the next feed */
+  timer: number;
+  /** feeds fired this session */
+  feeds: number;
+  /** consecutive successful returns; a dropped feed resets it */
+  streak: number;
+  /** best streak of the session */
+  best: number;
+  /** total returns landed */
+  returns: number;
+  /** total feeds the player let drop */
+  misses: number;
 }
 
 /** serialised world sent over the wire */

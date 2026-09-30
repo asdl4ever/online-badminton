@@ -20,9 +20,17 @@ const KNOB_RATIO = 0.42;
 /** extra grab radius so the sticks are not fiddly to catch */
 const GRAB_PAD = 44;
 const DEADZONE = 0.26;
-/** push this far up on the move stick to jump, and release past OFF to re-arm */
-const JUMP_ON = 0.55;
-const JUMP_OFF = 0.3;
+/**
+ * Jumping lives in a wedge at the top of the move stick: push the knob at
+ * least `JUMP_DEPTH` of the way out, and stay within `JUMP_HALF_ANGLE` of
+ * straight up. The `_RELEASE_` values are the hysteresis that has to be
+ * crossed the other way before it can fire again — otherwise the knob
+ * jittering on the boundary would machine-gun the jump.
+ */
+const JUMP_DEPTH = 0.55;
+const JUMP_HALF_ANGLE = (42 * Math.PI) / 180;
+const JUMP_RELEASE_DEPTH = 0.3;
+const JUMP_RELEASE_ANGLE = (58 * Math.PI) / 180;
 const MIN_R = 46;
 const MAX_R = 130;
 
@@ -83,8 +91,9 @@ interface DragState {
 
 /**
  * On-screen sticks, drawn inside the Phaser canvas so they scale with the
- * game. Left stick moves (push up to jump), right stick aims the racket —
- * push further to reach further, snap it to swing harder.
+ * game. Left stick moves (push the knob into the top wedge to jump), right
+ * stick aims the racket — push further to reach further, snap it to swing
+ * harder.
  *
  * `editing` puts the whole thing into a drag-to-arrange overlay where the
  * player can restyle the layout; the result is kept in localStorage.
@@ -108,9 +117,10 @@ export class TouchControls {
   private movePointer = -1;
   private racketPointer = -1;
   private moveX = 0;
-  private moveY = 0;
   private jumpQueued = false;
   private jumpArmed = true;
+  /** knob is currently inside the jump wedge — drives the highlight */
+  private jumpHot = false;
 
   private knob = { move: { x: 0, y: 0 }, racket: { x: 0, y: 0 } };
   private drag: DragState | null = null;
@@ -166,9 +176,9 @@ export class TouchControls {
     this.movePointer = -1;
     this.racketPointer = -1;
     this.moveX = 0;
-    this.moveY = 0;
     this.jumpQueued = false;
     this.jumpArmed = true;
+    this.jumpHot = false;
     this.joyX = 0;
     this.joyY = 0;
     this.joyActive = false;
@@ -323,8 +333,8 @@ export class TouchControls {
     if (pointer.id === this.movePointer) {
       this.movePointer = -1;
       this.moveX = 0;
-      this.moveY = 0;
       this.jumpArmed = true;
+      this.jumpHot = false;
       this.knob.move.x = 0;
       this.knob.move.y = 0;
       return;
@@ -343,17 +353,20 @@ export class TouchControls {
     const s = this.stick('move');
     const v = this.vector(s, pointer.x, pointer.y);
     this.moveX = v.x;
-    this.moveY = v.y;
     const max = this.maxTravel(s);
     this.knob.move.x = v.x * max;
     this.knob.move.y = v.y * max;
 
-    // push up to jump, edge triggered, re-armed once released past JUMP_OFF
-    const up = -v.y;
-    if (this.jumpArmed && up > JUMP_ON) {
+    // jump wedge: deep enough AND pointing up-ish. Edge triggered, with
+    // separate in/out thresholds on both depth and angle.
+    const depth = this.jumpArmed ? JUMP_DEPTH : JUMP_RELEASE_DEPTH;
+    const half = this.jumpArmed ? JUMP_HALF_ANGLE : JUMP_RELEASE_ANGLE;
+    const inZone = v.k >= depth && Math.abs(Math.atan2(v.x, -v.y)) <= half;
+    this.jumpHot = inZone;
+    if (this.jumpArmed && inZone) {
       this.jumpQueued = true;
       this.jumpArmed = false;
-    } else if (!this.jumpArmed && up < JUMP_OFF) {
+    } else if (!this.jumpArmed && !inZone) {
       this.jumpArmed = true;
     }
   }
@@ -442,15 +455,36 @@ export class TouchControls {
     this.drawStick(g, 'move', this.movePointer >= 0, P.knobLive);
     this.drawStick(g, 'racket', this.racketPointer >= 0, P.knobLive);
 
-    // "push up to jump" cue on the move stick
+    // the jump wedge, drawn as a real region so it is obvious where to aim
     const s = this.stick('move');
-    const lit = this.jumpArmed === false || -this.moveY > JUMP_ON - 0.1;
-    g.lineStyle(4, P.jumpCue, lit ? 1 : 0.4);
+    const r = s.r - 12;
+    const a0 = -Math.PI / 2 - JUMP_HALF_ANGLE;
+    const a1 = -Math.PI / 2 + JUMP_HALF_ANGLE;
+    const hot = this.jumpHot;
+
+    g.fillStyle(P.jumpCue, hot ? 0.32 : 0.11);
     g.beginPath();
-    g.arc(s.x, s.y, s.r - 12, -Math.PI * 0.75, -Math.PI * 0.25, false, 0);
+    g.moveTo(s.x, s.y);
+    g.arc(s.x, s.y, r, a0, a1, false, 0);
+    g.closePath();
+    g.fillPath();
+
+    g.lineStyle(hot ? 4 : 3, P.jumpCue, hot ? 1 : 0.5);
+    g.beginPath();
+    g.moveTo(s.x, s.y);
+    g.arc(s.x, s.y, r, a0, a1, false, 0);
+    g.closePath();
     g.strokePath();
-    const ty = s.y - s.r + 24;
-    g.fillStyle(P.jumpCue, lit ? 1 : 0.55);
+
+    // the depth the knob has to reach before the wedge fires
+    const inner = this.maxTravel(s) * JUMP_DEPTH;
+    g.lineStyle(2, P.jumpCue, hot ? 0.75 : 0.3);
+    g.beginPath();
+    g.arc(s.x, s.y, inner, a0, a1, false, 0);
+    g.strokePath();
+
+    const ty = s.y - r + 18;
+    g.fillStyle(P.jumpCue, hot ? 1 : 0.55);
     g.fillTriangle(s.x, ty - 9, s.x - 9, ty + 4, s.x + 9, ty + 4);
 
     this.hint.setPosition(s.x, s.y + s.r + 20).setText('推上跳').setVisible(true);

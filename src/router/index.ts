@@ -15,6 +15,11 @@ export const router = createRouter({
       name: 'online',
       component: () => import('../views/OnlineView.vue'),
     },
+    {
+      path: '/climb',
+      name: 'climb',
+      component: () => import('../views/ClimbView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });

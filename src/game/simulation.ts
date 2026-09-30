@@ -16,13 +16,16 @@ import {
   DEFAULT_CONFIG,
   DEFAULT_OPTION_ID,
   JUGGLE_TURN_TIME,
+  MACHINE_X,
+  MACHINE_Y,
   modeFor,
   type WorldConfig,
   type WorldMode,
 } from './config';
-import { clamp, classifyShot, minReleaseFor } from './physics';
+import { clamp, classifyShot, minReleaseFor, simulateTrajectory } from './physics';
 import type {
   JuggleState,
+  MachineState,
   PlayerInput,
   PlayerState,
   SimEvent,
@@ -66,16 +69,22 @@ function freshJuggle(): JuggleState {
   return { count: [0, 0], turn: 0, timeLeft: JUGGLE_TURN_TIME, done: [false, false] };
 }
 
+function freshMachine(): MachineState {
+  return { timer: 1.2, feeds: 0, streak: 0, best: 0, returns: 0, misses: 0 };
+}
+
 export function createWorld(optionId: string = DEFAULT_OPTION_ID): World {
   const cfg = configFor(optionId);
   const mode: WorldMode = modeFor(optionId);
+  const machine = freshMachine();
   return {
     shuttle: { x: NET_X, y: GROUND_Y - 300, vx: 0, vy: 0, live: false },
     players: [makePlayer(0), makePlayer(1)],
     score: [0, 0],
     server: 0,
-    phase: 'serve',
-    phaseTimer: mode === 'juggle' ? 1.6 : cfg.servePause,
+    // the machine mode never enters serve/point: the feeder drives everything
+    phase: mode === 'machine' ? 'rally' : 'serve',
+    phaseTimer: mode === 'juggle' ? 1.6 : mode === 'machine' ? 0 : cfg.servePause,
     lastHitter: -1,
     winner: -1,
     time: 0,
@@ -85,6 +94,7 @@ export function createWorld(optionId: string = DEFAULT_OPTION_ID): World {
     configId: optionId,
     mode,
     juggle: freshJuggle(),
+    machine,
   };
 }
 
@@ -94,14 +104,16 @@ export function setWorldOption(world: World, optionId: string): void {
   world.config = configFor(optionId);
   world.mode = modeFor(optionId);
   world.juggle = freshJuggle();
+  world.machine = freshMachine();
   world.score[0] = 0;
   world.score[1] = 0;
   world.winner = -1;
   world.rallyHits = 0;
   world.lastHitter = -1;
   world.shuttle.live = false;
-  world.phase = 'serve';
-  world.phaseTimer = world.mode === 'juggle' ? 1.6 : world.config.servePause;
+  world.phase = world.mode === 'machine' ? 'rally' : 'serve';
+  world.phaseTimer =
+    world.mode === 'juggle' ? 1.6 : world.mode === 'machine' ? 0 : world.config.servePause;
   for (let i = 0; i < 2; i++) {
     const p = world.players[i];
     p.x = homeX(i as 0 | 1);
@@ -293,6 +305,12 @@ function releaseShuttle(world: World, index: 0 | 1): void {
     world.juggle.count[index]++;
   } else {
     world.events.push({ type: 'hit', player: index, kind: classifyShot(elevation) });
+    if (world.mode === 'machine' && index === 0) {
+      const m = world.machine;
+      m.returns++;
+      m.streak++;
+      if (m.streak > m.best) m.best = m.streak;
+    }
   }
 }
 
@@ -381,6 +399,85 @@ function endJuggleTurn(world: World): void {
   world.events.push({ type: 'gameover', scorer: world.winner });
 }
 
+// ---- ball machine (offline practice) -------------------------------------
+
+/**
+ * Solve the launch speed that makes a feed at the config's fixed elevation land
+ * on `targetX`. Range grows monotonically with speed at a fixed angle, so a
+ * bisection is enough — and unlike solving for the *angle*, it cannot fall off
+ * the far side of the 45° peak. Uses the same integrator the sim runs, so the
+ * landing point genuinely matches.
+ */
+function solveFeedVelocity(
+  fromX: number,
+  fromY: number,
+  targetX: number,
+  cfg: WorldConfig,
+): { vx: number; vy: number } {
+  const dir: 1 | -1 = targetX < fromX ? -1 : 1;
+  const cos = Math.cos(cfg.machineAngle);
+  const sin = Math.sin(cfg.machineAngle);
+  let lo = 80;
+  let hi = cfg.shuttleMaxSpeed;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    const land = simulateTrajectory(fromX, fromY, dir * mid * cos, -mid * sin, dir, cfg).landX;
+    if (dir < 0 ? land <= targetX : land >= targetX) hi = mid;
+    else lo = mid;
+  }
+  const v = (lo + hi) / 2;
+  return { vx: dir * v * cos, vy: -v * sin };
+}
+
+function feedShuttle(world: World): void {
+  const cfg = world.config;
+  const s = world.shuttle;
+  const p = world.players[0];
+  s.x = MACHINE_X;
+  s.y = MACHINE_Y;
+
+  const jitter = (Math.random() - 0.5) * 2 * cfg.machineSpread;
+  const aimed = clamp(
+    (cfg.machineAimAt ? p.x : NET_X - 260) + jitter,
+    COURT_LEFT + 70,
+    NET_X - 80,
+  );
+  const v = cfg.machineAimAt
+    ? solveFeedVelocity(s.x, s.y, aimed, cfg)
+    : {
+        vx: -cfg.machineSpeed * Math.cos(cfg.machineAngle),
+        vy: -cfg.machineSpeed * Math.sin(cfg.machineAngle),
+      };
+  s.vx = v.vx;
+  s.vy = v.vy;
+  s.live = true;
+
+  // nobody has touched it yet, so a drop from here counts as a miss
+  world.lastHitter = -1;
+  world.machine.feeds++;
+  world.events.push({ type: 'serve', player: 1 });
+}
+
+/** the feeder's own clock: feed, let it play out, feed again */
+function stepMachine(world: World, dt: number): void {
+  const m = world.machine;
+  if (world.shuttle.live) return;
+  m.timer -= dt;
+  if (m.timer <= 0) feedShuttle(world);
+}
+
+/** a fed ball died: either the player returned it, or they let it drop */
+function onMachineLanding(world: World, x: number): void {
+  const m = world.machine;
+  const returned = world.lastHitter === 0 && x >= NET_X;
+  if (!returned) {
+    m.streak = 0;
+    m.misses++;
+  }
+  m.timer = world.config.machineInterval;
+  world.lastHitter = -1;
+}
+
 function scorePoint(world: World, scorer: number): void {
   const cfg = world.config;
   world.score[scorer]++;
@@ -441,6 +538,7 @@ function stepShuttleSlice(world: World, dt: number): void {
     shuttle.live = false;
     world.events.push({ type: 'land', x: shuttle.x });
     if (world.mode === 'juggle') endJuggleTurn(world);
+    else if (world.mode === 'machine') onMachineLanding(world, shuttle.x);
     else resolveLanding(world, shuttle.x);
     return;
   }
@@ -449,6 +547,7 @@ function stepShuttleSlice(world: World, dt: number): void {
     shuttle.live = false;
     world.events.push({ type: 'land', x: shuttle.x });
     if (world.mode === 'juggle') endJuggleTurn(world);
+    else if (world.mode === 'machine') onMachineLanding(world, shuttle.x);
     else scorePoint(world, 1 - world.lastHitter);
     return;
   }
@@ -474,8 +573,13 @@ export function stepWorld(
     const netMargin =
       world.phase === 'serve' && world.mode === 'match' ? cfg.serveNetMargin : 0;
     stepPlayer(world.players[0], 0, inputs[0], dt, cfg, netMargin);
-    stepPlayer(world.players[1], 1, inputs[1], dt, cfg, netMargin);
+    // the feeder has no body on court, so slot 1 is left parked
+    if (world.mode !== 'machine') {
+      stepPlayer(world.players[1], 1, inputs[1], dt, cfg, netMargin);
+    }
   }
+
+  if (world.mode === 'machine') stepMachine(world, dt);
 
   if (world.phase === 'serve') {
     if (world.phaseTimer > 0) world.phaseTimer -= dt;
@@ -516,7 +620,7 @@ export function stepWorld(
     }
     if (world.phase === 'rally') {
       tryHit(world, 0, hitSamples?.[0]);
-      tryHit(world, 1, hitSamples?.[1]);
+      if (world.mode !== 'machine') tryHit(world, 1, hitSamples?.[1]);
     }
   } else if (world.phase === 'point') {
     world.phaseTimer -= dt;

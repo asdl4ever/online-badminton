@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import Stars from './ui/Stars.vue';
 import Button from './ui/Button.vue';
+import { celebrate, starLevel } from '../composables/celebrate';
+import { toastWarn } from '../composables/useToast';
 import { useProgressStore, type HatchResult } from '../stores/progress';
 import { PET_EGGS, PET_STAR_META, PETS } from '../game/items';
 
@@ -26,13 +29,20 @@ const hatched = computed(() =>
 
 function hatch(eggId: string): void {
   const egg = PET_EGGS.find((e) => e.id === eggId);
-  if (!egg || !canHatch(egg.cost)) return;
+  if (!egg) return;
+  if (progress.coins < egg.cost) {
+    toastWarn(`金币不足，还差 ${egg.cost - progress.coins}`);
+    return;
+  }
+  if (phase.value === 'hatching') return;
   const r = progress.hatch(eggId);
   if (!r) return;
   result.value = r;
   phase.value = 'hatching';
   window.setTimeout(() => {
     phase.value = 'revealed';
+    const meta = PET_STAR_META[r.star];
+    celebrate(starLevel(r.star), [meta.color, '#ffffff', '#ffd45c']);
   }, 760);
 }
 </script>
@@ -86,7 +96,7 @@ function hatch(eggId: string): void {
 
     <div v-if="hatched.length" class="pe__owned">
       <div class="muted pe__owned-title">已孵出 {{ hatched.length }} / {{ PETS.length }} 只</div>
-      <div class="pe__owned-list">
+      <div v-auto-animate="{ duration: 240 }" class="pe__owned-list">
         <span
           v-for="h in hatched"
           :key="h.pet.id"

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useClipboard } from '@vueuse/core';
+import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import { VTextField } from 'vuetify/components';
 import Panel from './ui/Panel.vue';
 import Button from './ui/Button.vue';
 import StatusChip from './ui/StatusChip.vue';
+import { toastBad, toastGood } from '../composables/useToast';
 import { useLobbyStore } from '../stores/lobby';
 
 const props = withDefaults(
@@ -42,16 +44,23 @@ const statusLabel = () => {
 
 function copyId() {
   void copy(store.playerId);
+  toastGood('好友码已复制');
 }
 
 function addFriend() {
   store.requestFriend(addCode.value);
-  if (!store.lastError) addCode.value = '';
+  if (store.lastError) {
+    toastBad(store.lastError);
+    return;
+  }
+  addCode.value = '';
+  toastGood('好友请求已发送');
 }
 
 function commitName() {
   store.rename(nameDraft.value);
   nameDraft.value = store.playerName;
+  toastGood('昵称已保存');
 }
 
 function invite(id: string) {
@@ -70,7 +79,7 @@ function invite(id: string) {
         </StatusChip>
       </div>
 
-      <ul class="fp__list">
+      <ul v-auto-animate="{ duration: 220 }" class="fp__list">
         <li v-for="f in store.friends" :key="f.id" class="fp__friend">
           <span class="fp__dot" :class="{ 'fp__dot--on': store.isOnline(f.id) }" aria-hidden="true" />
           <span class="fp__name">{{ f.name }}</span>
@@ -104,7 +113,7 @@ function invite(id: string) {
           </StatusChip>
         </div>
 
-        <ul class="fp__list">
+        <ul v-auto-animate="{ duration: 220 }" class="fp__list">
           <li v-for="f in store.friends" :key="f.id" class="fp__friend">
             <span
               class="fp__dot"
@@ -131,7 +140,7 @@ function invite(id: string) {
 
         <template v-if="store.requests.length">
           <p class="fp__subtitle">好友请求</p>
-          <ul class="fp__list">
+          <ul v-auto-animate="{ duration: 220 }" class="fp__list">
             <li v-for="r in store.requests" :key="r.from" class="fp__friend">
               <span class="fp__name">{{ r.name }}</span>
               <span class="num fp__friend-id">{{ r.from }}</span>

@@ -297,6 +297,79 @@ button {
   --v-field-border-opacity: 1;
 }
 
+/* ---- dialogs (components/ui/AppModal.vue) ----------------------------- */
+/* the overlay is teleported to body, so these rules must stay global */
+
+.app-dialog .v-overlay__scrim {
+  background: #0c1626;
+  backdrop-filter: blur(3px);
+}
+
+.app-dialog .v-overlay__content {
+  width: 100%;
+}
+
+.am-enter-active,
+.am-leave-active {
+  transition:
+    opacity var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease);
+}
+
+.am-enter-from,
+.am-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+
+/* respect users who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  .am-enter-active,
+  .am-leave-active {
+    transition-duration: 1ms;
+  }
+
+  .am-enter-from,
+  .am-leave-to {
+    transform: none;
+  }
+}
+
+/* ---- toasts (composables/useToast.ts + components/ui/AppToast.vue) ---- */
+/* the overlay is teleported to body, so these rules must stay global.
+   note: `.v-overlay__content` and `.v-snackbar__wrapper` are the SAME element
+   in Vuetify 4, hence the flat compound selector rather than a descendant one.
+   three classes beat the two on `.v-snackbar--variant-*`, so order does not
+   matter either. */
+
+.v-snackbar .v-snackbar__wrapper.app-toast--info,
+.v-snackbar .v-snackbar__wrapper.app-toast--good,
+.v-snackbar .v-snackbar__wrapper.app-toast--warn,
+.v-snackbar .v-snackbar__wrapper.app-toast--bad {
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--e3);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+
+.v-snackbar .v-snackbar__wrapper.app-toast--good {
+  border-color: #a8dcc0;
+  background: #eefaf3;
+}
+
+.v-snackbar .v-snackbar__wrapper.app-toast--warn {
+  border-color: #f0dca8;
+  background: #fdf6e5;
+}
+
+.v-snackbar .v-snackbar__wrapper.app-toast--bad {
+  border-color: #eeb8b8;
+  background: #fdeeee;
+}
+
 /* ==========================================================================
    Touch devices
    ========================================================================== */

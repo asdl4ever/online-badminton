@@ -1,81 +1,69 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed } from 'vue';
+import { VDialog } from 'vuetify/components';
 
+/**
+ * Thin wrapper around VDialog so every modal in the app gets Vuetify's
+ * machinery for free: enter/leave transitions, focus trap, scrim
+ * click-to-close, Escape handling and background scroll locking.
+ *
+ * Two ways to drive it:
+ *   <AppModal v-model="show" ... />            preferred
+ *   <AppModal v-if="show" @close="show=false" /> legacy, still supported
+ */
 const props = defineProps<{
+  modelValue?: boolean;
   title?: string;
-  /** teleport target; keep default unless nesting */
   maxWidth?: string;
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean];
+  close: [];
+}>();
 
-const open = ref(true);
-
-function close() {
-  emit('close');
-}
-
-function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') close();
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', onKey);
-});
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKey);
-});
-
-// stop the page scrolling behind the modal
-watch(
-  open,
-  (v) => {
-    document.body.style.overflow = v ? 'hidden' : '';
+const open = computed({
+  // `?? true` keeps the old `v-if` usage working: the component only exists
+  // when it should be visible, so absent modelValue means "open".
+  get: () => props.modelValue ?? true,
+  set: (v: boolean) => {
+    emit('update:modelValue', v);
+    if (!v) emit('close');
   },
-  { immediate: true },
-);
-
-onBeforeUnmount(() => {
-  document.body.style.overflow = '';
 });
+
+/** matches the app's soft-surface motion instead of Vuetify's default pop */
+const transition = {
+  enterActiveClass: 'am-enter-active',
+  leaveActiveClass: 'am-leave-active',
+  enterFromClass: 'am-enter-from',
+  leaveToClass: 'am-leave-to',
+};
 </script>
 
 <template>
-  <Teleport to="body">
-    <div class="am-backdrop" @click.self="close">
-      <div
-        class="am-modal"
-        role="dialog"
-        aria-modal="true"
-        :style="{ maxWidth: props.maxWidth ?? '760px' }"
-      >
-        <header class="am-head">
-          <h3 v-if="title" class="am-title">{{ title }}</h3>
-          <span v-else class="am-title" />
-          <button class="am-close" type="button" aria-label="关闭" @click="close">×</button>
-        </header>
-        <div class="am-body">
-          <slot />
-        </div>
+  <VDialog
+    v-model="open"
+    class="app-dialog"
+    :max-width="props.maxWidth ?? '760px'"
+    :opacity="0.42"
+    :transition="transition"
+  >
+    <div class="am-modal" role="dialog" aria-modal="true">
+      <header class="am-head">
+        <h3 v-if="title" class="am-title">{{ title }}</h3>
+        <span v-else class="am-title" />
+        <button class="am-close" type="button" aria-label="关闭" @click="open = false">×</button>
+      </header>
+      <div class="am-body">
+        <slot />
       </div>
     </div>
-  </Teleport>
+  </VDialog>
 </template>
 
 <style scoped>
-.am-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--s4);
-  background: rgba(12, 22, 38, 0.45);
-  backdrop-filter: blur(3px);
-  animation: am-fade 0.14s ease-out;
-}
-
+/* inside .v-overlay__content, which already handles centring + max-width */
 .am-modal {
   width: 100%;
   max-height: calc(100vh - var(--s5) * 2);
@@ -84,9 +72,8 @@ onBeforeUnmount(() => {
   border-radius: var(--r-lg);
   border: 1px solid var(--line);
   background: var(--surface);
-  box-shadow: var(--e2);
+  box-shadow: var(--e3);
   overflow: hidden;
-  animation: am-pop 0.16s ease-out;
 }
 
 .am-head {
@@ -96,6 +83,7 @@ onBeforeUnmount(() => {
   gap: var(--s3);
   padding: var(--s4) var(--s5);
   border-bottom: 1px solid var(--line);
+  flex: none;
 }
 
 .am-title {
@@ -114,27 +102,18 @@ onBeforeUnmount(() => {
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease);
 }
 
 .am-close:hover {
   color: var(--text);
+  background: var(--surface-3);
 }
 
 .am-body {
   padding: var(--s4) var(--s5) var(--s5);
   overflow: auto;
-}
-
-@keyframes am-fade {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes am-pop {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.99);
-  }
 }
 </style>
