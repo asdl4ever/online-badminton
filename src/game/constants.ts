@@ -65,5 +65,8 @@ export const POINT_PAUSE = 1.4;
 export const SERVE_PAUSE = 0.6;
 
 // ---- netcode -------------------------------------------------------------
-export const NET_TICK_HZ = 30;
+export const NET_TICK_HZ = 60;
 export const NET_INPUT_HZ = 60;
+
+/** how far back the host rewinds the shuttle when judging a remote swing */
+export const LAG_COMP_MAX_MS = 200;

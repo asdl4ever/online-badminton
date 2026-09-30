@@ -1,39 +1,66 @@
 /* ==========================================================================
-   Design tokens
+   Soft UI Evolution — light
+   Soft multi-layer shadows, measured contrast, 8-12px radii, 200-300ms motion.
+   The court is light too, so the shuttle is drawn dark (see game/theme.ts).
    ========================================================================== */
 :root {
-  /* palette — shared with the game so menu and court read as one product */
-  --bg: #070d16;
-  --accent: #4ea3ff;
-  --accent-2: #ff7a59;
-  --good: #58d68d;
-  --warn: #ffd166;
-  --text: #dbe9f7;
-  --text-dim: #8ba3bd;
+  /* --- palette ---------------------------------------------------------- */
+  --bg: #eef3fa;
+  --bg-glow: #dbe7f6;
+  --surface: #ffffff;
+  --surface-2: #f2f6fb;
+  --surface-3: #e6eef8;
+  --line: #d5e0ee;
+  --line-strong: #bccce0;
 
-  /* liquid glass material */
-  --glass-tint: rgba(255, 255, 255, 0.055);
-  --glass-tint-2: rgba(255, 255, 255, 0.1);
-  --glass-line: rgba(255, 255, 255, 0.13);
-  --glass-sheen: rgba(255, 255, 255, 0.32);
-  --glass-shadow: rgba(0, 0, 0, 0.5);
-  --glass-blur: 22px;
-  --glass-sat: 150%;
-  --glass-sheen-gradient: radial-gradient(
-    130% 90% at 14% -12%,
-    rgba(255, 255, 255, 0.16),
-    transparent 58%
-  );
+  --text: #17233a;
+  --text-dim: #52678a;
 
-  --r-lg: 26px;
-  --r-md: 16px;
-  --r-sm: 10px;
+  /* team colours — these carry gameplay meaning, do not repurpose.
+     Darker than the on-canvas fills so they still pass 4.5:1 as text. */
+  --accent: #1f6fd0;
+  --accent-2: #c9451f;
+  --good: #1f9d55;
+  --warn: #a86a00;
+  --danger: #c02c2c;
 
-  --sans: 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* alias kept for templates that reference it */
+  --border: var(--line);
 
-  font-family: var(--sans);
-  color-scheme: dark;
+  /* --- soft elevation (tinted, so shadows never look dirty) ------------- */
+  --e1: 0 1px 2px rgba(23, 35, 58, 0.06), 0 2px 6px -2px rgba(23, 35, 58, 0.1);
+  --e2: 0 2px 4px rgba(23, 35, 58, 0.07), 0 12px 26px -12px rgba(23, 35, 58, 0.16);
+  --e3: 0 4px 10px rgba(23, 35, 58, 0.08), 0 26px 56px -22px rgba(23, 35, 58, 0.24);
+  --hairline: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  /* --- shape ------------------------------------------------------------- */
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  /* --- motion ------------------------------------------------------------ */
+  --dur-1: 180ms;
+  --dur-2: 240ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* --- 4/8 spacing rhythm ------------------------------------------------ */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  /* Chakra Petch carries Latin and numerals; Chinese falls through to the
+     platform CJK face, which is the only sane approach for a zh-CN UI */
+  --font-ui:
+    'Chakra Petch', system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+    'Noto Sans SC', sans-serif;
+  --font-num: 'Chakra Petch', ui-monospace, Consolas, monospace;
+
+  font-family: var(--font-ui);
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -53,8 +80,7 @@ body {
 
 body {
   background:
-    radial-gradient(1100px 640px at 50% -12%, #16304f 0%, transparent 62%),
-    radial-gradient(760px 520px at 88% 108%, #1d2b45 0%, transparent 58%),
+    radial-gradient(1100px 620px at 50% -14%, var(--bg-glow) 0%, transparent 62%),
     var(--bg);
 }
 
@@ -69,7 +95,8 @@ h2,
 h3 {
   margin: 0;
   font-weight: 700;
-  color: #eef6ff;
+  color: #0f1b2e;
+  letter-spacing: -0.01em;
 }
 
 button {
@@ -78,47 +105,40 @@ button {
   cursor: pointer;
 }
 
+/* --- visible focus, everywhere ----------------------------------------- */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ==========================================================================
-   Liquid glass material
+   Surfaces
    ========================================================================== */
-.glass {
-  position: relative;
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  border: 1px solid var(--glass-line);
-  background:
-    var(--glass-sheen-gradient),
-    linear-gradient(
-      158deg,
-      var(--glass-tint-2),
-      var(--glass-tint) 44%,
-      rgba(255, 255, 255, 0.028)
-    );
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  box-shadow:
-    inset 0 1px 0 var(--glass-sheen),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
-    0 26px 62px -24px var(--glass-shadow);
+  box-shadow: var(--e2), var(--hairline);
 }
 
-/* no backdrop blur: used where the surface sits directly over the live WebGL
-   canvas, where a real blur would cost a full-frame composite every frame */
-.glass--cheap {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background:
-    linear-gradient(158deg, rgba(16, 27, 45, 0.92), rgba(11, 20, 34, 0.86));
+.surface--flat {
+  box-shadow: var(--e1), var(--hairline);
 }
 
-.glass--flat {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 8px 24px -14px var(--glass-shadow);
+.surface--raised {
+  background: var(--surface-2);
+  box-shadow: var(--e3), var(--hairline);
 }
 
-.glass__body {
-  position: relative;
-  padding: 22px;
+.surface__body {
+  padding: var(--s5);
+}
+
+.surface--r-sm {
+  border-radius: var(--r-sm);
+}
+.surface--r-md {
+  border-radius: var(--r-md);
 }
 
 /* ==========================================================================
@@ -129,8 +149,8 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 26px 20px 46px;
-  gap: 18px;
+  padding: var(--s5) 20px 40px;
+  gap: var(--s4);
 }
 
 .shell {
@@ -138,7 +158,7 @@ button {
   max-width: 1120px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--s4);
 }
 
 .page--narrow .shell {
@@ -151,7 +171,7 @@ button {
 }
 
 /* ==========================================================================
-   Typography helpers
+   Type helpers
    ========================================================================== */
 .muted {
   color: var(--text-dim);
@@ -159,93 +179,126 @@ button {
   line-height: 1.6;
 }
 
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+
 .kbd {
   display: inline-block;
   min-width: 26px;
   text-align: center;
   padding: 2px 7px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--glass-line);
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
-  font-family: var(--mono);
+  box-shadow: var(--e1);
+  font-family: var(--font-num);
   font-size: 13px;
-  color: #dbe9f7;
+  color: var(--text);
 }
 
 .legend {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 12px 24px;
+  gap: var(--s3) var(--s5);
 }
 
 .legend > div {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2);
   font-size: 14px;
   color: var(--text-dim);
 }
 
+.alert {
+  margin-top: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.alert--warn {
+  color: var(--warn);
+  border-color: #f0dca8;
+  background: #fdf6e5;
+}
+
 /* ==========================================================================
-   Vuetify surface overrides
+   Vuetify overrides — keep Vuetify's behaviour, style it as a soft surface
    ========================================================================== */
-.v-btn.glass-btn {
+.v-btn.soft-btn {
   text-transform: none;
   letter-spacing: 0;
-  font-weight: 650;
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: 15px;
   border-radius: var(--r-md);
-  border: 1px solid var(--glass-line);
-  background: linear-gradient(158deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 12px 30px -18px rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: var(--e1);
   color: var(--text);
+  transition:
+    background var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
-.v-btn.glass-btn:hover {
-  background: linear-gradient(158deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+.v-btn.soft-btn:hover {
+  background: var(--surface-2);
+  box-shadow: var(--e2);
 }
 
-.v-btn.glass-btn--primary {
-  border-color: rgba(120, 190, 255, 0.45);
-  background: linear-gradient(160deg, #3f95ec, #2260ab);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    0 16px 36px -18px rgba(47, 127, 224, 0.9);
+/* pressed state must not shift layout bounds */
+.v-btn.soft-btn:active {
+  transform: translateY(1px);
+  box-shadow: var(--e1);
+}
+
+.v-btn.soft-btn--primary {
+  border-color: #1a5cb0;
+  background: linear-gradient(180deg, #2472cf, #1a5bad);
+  box-shadow: var(--e2);
   color: #fff;
 }
 
-.v-btn.glass-btn--primary:hover {
-  background: linear-gradient(160deg, #4aa1f7, #2a6dbe);
+.v-btn.soft-btn--primary:hover {
+  background: linear-gradient(180deg, #2a7fdd, #1e66bb);
 }
 
-.v-btn.glass-btn--quiet {
+.v-btn.soft-btn--quiet {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
 }
 
-.v-btn.glass-btn--quiet:hover {
-  background: rgba(255, 255, 255, 0.08);
+.v-btn.soft-btn--quiet:hover {
+  background: var(--surface-2);
+  box-shadow: none;
 }
 
-.v-field.glass-field {
+.v-btn.soft-btn:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+  transform: none;
+}
+
+.v-field.soft-field {
   border-radius: var(--r-md);
-  background: rgba(10, 20, 33, 0.72);
+  background: var(--surface);
 }
 
-.v-field.glass-field .v-field__outline {
-  --v-field-border-opacity: 0.16;
-}
-
-.v-field.glass-field:hover .v-field__outline {
-  --v-field-border-opacity: 0.3;
+.v-field.soft-field .v-field__outline {
+  --v-field-border-opacity: 1;
 }
 
 /* ==========================================================================
-   Touch devices: let the court own the screen
+   Touch devices
    ========================================================================== */
 .rotate-hint {
   display: none;
@@ -266,11 +319,11 @@ button {
 
 @media (pointer: coarse) {
   .page {
-    padding: 16px 12px 32px;
+    padding: var(--s4) var(--s3) var(--s6);
   }
 
   .shell {
-    gap: 12px;
+    gap: var(--s3);
   }
 
   /* once a match is running the court takes over the whole screen.
@@ -297,14 +350,12 @@ button {
     position: fixed;
     inset: 0 0 auto 0;
     z-index: 10;
-    gap: 8px;
-    padding: 4px 8px;
+    gap: var(--s2);
+    padding: var(--s1) var(--s2);
     border: none;
     border-radius: 0;
-    background: linear-gradient(180deg, rgba(7, 13, 22, 0.85), rgba(7, 13, 22, 0));
+    background: linear-gradient(180deg, rgba(238, 243, 250, 0.94), rgba(238, 243, 250, 0));
     box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .page--playing .scoreline.hud-foot {
@@ -315,10 +366,11 @@ button {
     display: none;
   }
 
-  .page--playing .v-btn.glass-btn {
+  /* touch targets: keep every control at or above 44px */
+  .page--playing .v-btn.soft-btn {
     font-size: 13px;
-    min-height: 36px;
-    padding: 0 12px;
+    min-height: 44px;
+    padding: 0 var(--s3);
   }
 }
 
@@ -338,7 +390,7 @@ button {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.22s ease;
+  transition: opacity var(--dur-2) var(--ease);
 }
 
 .fade-enter-from,

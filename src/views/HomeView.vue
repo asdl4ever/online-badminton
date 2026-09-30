@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import GlassPanel from '../components/ui/GlassPanel.vue';
-import GlassButton from '../components/ui/GlassButton.vue';
+import Panel from '../components/ui/Panel.vue';
+import Button from '../components/ui/Button.vue';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
@@ -16,22 +16,46 @@ function go(path: string) {
 <template>
   <div class="page page--narrow">
     <div class="shell">
-      <GlassPanel>
+      <Panel>
         <div class="hero">
-          <div class="hero__mark" aria-hidden="true">🏸</div>
+          <svg class="hero__mark" viewBox="0 0 64 64" aria-hidden="true">
+            <!-- skirt: narrow at the cork, flaring outward -->
+            <path
+              d="M25 40 L11 11 Q32 4 53 11 L39 40 Q32 43 25 40 Z"
+              fill="url(#skirt)"
+              stroke="rgba(255,255,255,.32)"
+              stroke-width="1.4"
+            />
+            <path
+              d="M32 41 L32 8.5 M25 40 L22 9.5 M39 40 L42 9.5"
+              stroke="rgba(255,255,255,.45)"
+              stroke-width="1.3"
+              fill="none"
+              stroke-linecap="round"
+            />
+            <!-- cork -->
+            <circle cx="32" cy="49" r="9.5" fill="var(--accent)" />
+            <defs>
+              <linearGradient id="skirt" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f2f8ff" stop-opacity="0.95" />
+                <stop offset="100%" stop-color="#9bb6d4" stop-opacity="0.55" />
+              </linearGradient>
+            </defs>
+          </svg>
+
           <h1 class="hero__title">羽毛球</h1>
           <p class="muted hero__sub">
             2D 侧视角单打 · 球拍跟着指针走 · WebRTC 直连，打不通自动走中继
           </p>
           <div class="hero__actions">
-            <GlassButton variant="primary" size="lg" @click="go('/single')">单机练习</GlassButton>
-            <GlassButton size="lg" @click="go('/online')">联机对战</GlassButton>
+            <Button variant="primary" size="lg" @click="go('/single')">单机练习</Button>
+            <Button size="lg" @click="go('/online')">联机对战</Button>
           </div>
         </div>
-      </GlassPanel>
+      </Panel>
 
-      <GlassPanel>
-        <h3 style="margin-bottom: 14px">操作说明</h3>
+      <Panel>
+        <h3 style="margin-bottom: var(--s3)">操作说明</h3>
         <div class="legend">
           <div><b style="color: var(--accent)">移动鼠标</b> 挥动球拍</div>
           <div>
@@ -41,15 +65,15 @@ function go(path: string) {
           <div><span class="kbd">W</span> 或 <span class="kbd">↑</span> 起跳</div>
           <div><span class="kbd">R</span> 结束后再来一局</div>
         </div>
-        <p class="muted" style="margin-top: 16px">
+        <p class="muted" style="margin-top: var(--s4)">
           球拍碰到球就会自动击出，<b>不需要点击</b>。<b>挥拍方向决定球的去向</b>：往上抹是挑高球 /
           高远球，平着扫是平抽，往下砍是扣杀。<b>挥得越快，出球越快越深</b>；挥得软，球就软绵绵落网前。
         </p>
-        <p class="muted" style="margin-top: 8px">
-          鼠标甩到屏幕边缘时，直接抬起鼠标挪回中间继续即可（不会误触发挥拍）。
-          手机上自动切换为左侧移动条 + 右侧摇杆。
+        <p class="muted" style="margin-top: var(--s2)">
+          手机上自动切换为左右双摇杆：左侧推动移动、上推起跳，右侧控制球拍。
+          点顶栏的「摇杆」按钮可以拖动调整两个摇杆的大小和位置。
         </p>
-      </GlassPanel>
+      </Panel>
     </div>
   </div>
 </template>
@@ -57,41 +81,43 @@ function go(path: string) {
 <style scoped>
 .hero {
   text-align: center;
-  padding: 18px 8px 8px;
+  padding: var(--s4) var(--s2) var(--s1);
 }
 
 .hero__mark {
-  font-size: 58px;
-  line-height: 1;
-  filter: drop-shadow(0 10px 26px rgba(78, 163, 255, 0.45));
+  width: 62px;
+  height: 62px;
+  display: block;
+  margin: 0 auto;
 }
 
 .hero__title {
-  font-size: 46px;
-  letter-spacing: -1.4px;
-  margin: 12px 0 0;
+  font-size: 44px;
+  letter-spacing: -1px;
+  margin: var(--s3) 0 0;
 }
 
 .hero__sub {
-  margin: 10px 0 0;
+  margin: var(--s2) 0 0;
 }
 
 .hero__actions {
   display: flex;
-  gap: 14px;
+  gap: var(--s4);
   justify-content: center;
   flex-wrap: wrap;
-  margin-top: 26px;
+  margin-top: var(--s5);
 }
 
 /* phones in landscape have very little vertical room — tighten everything */
 @media (pointer: coarse) {
   .hero {
-    padding: 6px 6px 2px;
+    padding: var(--s1) var(--s1) 0;
   }
 
   .hero__mark {
-    font-size: 38px;
+    width: 38px;
+    height: 38px;
   }
 
   .hero__title {
@@ -105,7 +131,7 @@ function go(path: string) {
   }
 
   .hero__actions {
-    margin-top: 16px;
+    margin-top: var(--s4);
   }
 }
 </style>

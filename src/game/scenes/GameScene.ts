@@ -4,11 +4,15 @@ import {
   COURT_LEFT,
   COURT_RIGHT,
   GROUND_Y,
+  LAG_COMP_MAX_MS,
   NET_TICK_HZ,
   NET_X,
   NET_INPUT_HZ,
   PLAYER_H,
   RACKET_MAX,
+  SHUTTLE_R,
+  SHOULDER_DX,
+  SHOULDER_DY,
   VIEW_H,
   VIEW_W,
 } from '../constants';
@@ -23,8 +27,8 @@ import {
 import {
   applySnapshot,
   createWorld,
+  integrateShuttle,
   lerpWorld,
-  racketHead,
   serializeWorld,
   shoulderPoint,
   stepPlayerLocal,
@@ -35,6 +39,7 @@ import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
 import { debugOverlayEnabled } from '../device';
+import { P, FONT_NUM, FONT_UI } from '../theme';
 import { Telemetry, type NetMetrics } from '../telemetry';
 import type { NetLink, NetMessage } from '../../net/link';
 
@@ -89,6 +94,22 @@ export class GameScene extends Phaser.Scene {
   private flashes: { x: number; y: number; life: number }[] = [];
   private tmp = new Phaser.Math.Vector2();
 
+  /** sim events produced since the last snapshot went out */
+  private netEvents: SimEvent[] = [];
+  /** render interpolation: pose before this frame's fixed steps + blend factor */
+  private prevShuttle = { x: 0, y: 0 };
+  private prevPlayers = [
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+  ];
+  private alpha = 0;
+  /** guest-side dead reckoning for the shuttle */
+  private predShuttle = { x: 0, y: 0, vx: 0, vy: 0, live: false };
+  /** guest-side dead reckoning for the opponent */
+  private predOpp = { x: 0, y: 0, vx: 0, vy: 0 };
+  /** host-side shuttle history, for lag-compensated contact tests */
+  private shuttleHistory: { x: number; y: number; t: number }[] = [];
+
   private dynamic!: Phaser.GameObjects.Graphics;
   private scoreLeft!: Phaser.GameObjects.Text;
   private scoreRight!: Phaser.GameObjects.Text;
@@ -117,6 +138,10 @@ export class GameScene extends Phaser.Scene {
     this.lastHud = '';
     this.trail = [];
     this.flashes = [];
+    this.netEvents = [];
+    this.shuttleHistory = [];
+    this.alpha = 0;
+    this.predShuttle.live = false;
     this.telemetry.reset();
     this.telemetry.role =
       this.cfg.role === 'single' ? '单机' : this.cfg.role === 'host' ? '房主(本地权威)' : '访客';
@@ -138,10 +163,10 @@ export class GameScene extends Phaser.Scene {
     if (debugOverlayEnabled()) {
       this.debugText = this.add
         .text(14, 14, '', {
-          fontFamily: 'Consolas, ui-monospace, monospace',
+          fontFamily: FONT_NUM,
           fontSize: '16px',
-          color: '#9fdcff',
-          backgroundColor: 'rgba(4,10,18,0.68)',
+          color: P.debugText,
+          backgroundColor: P.debugBg,
           padding: { x: 12, y: 10 },
           lineSpacing: 5,
         })
@@ -151,26 +176,26 @@ export class GameScene extends Phaser.Scene {
     this.dynamic = this.add.graphics();
 
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '64px',
-      color: '#ffffff',
+      color: P.score,
       fontStyle: 'bold',
     };
     this.scoreLeft = this.add.text(VIEW_W / 2 - 90, 40, '0', style).setOrigin(0.5, 0);
     this.scoreRight = this.add.text(VIEW_W / 2 + 90, 40, '0', style).setOrigin(0.5, 0);
     this.message = this.add
       .text(VIEW_W / 2, VIEW_H / 2 - 110, '', {
-        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '44px',
-        color: '#ffe066',
+        color: P.msgWin,
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
     this.subMessage = this.add
       .text(VIEW_W / 2, VIEW_H / 2 - 46, '', {
-        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '24px',
-        color: '#d9f2ff',
+        color: P.sub,
       })
       .setOrigin(0.5);
 
@@ -204,8 +229,11 @@ export class GameScene extends Phaser.Scene {
       this.remoteInput = m.i;
     } else if (m.t === 'snap' && this.cfg.role === 'guest') {
       applySnapshot(this.target, m.s);
+      this.adoptSnapshot();
       this.hasSnapshot = true;
       this.telemetry.onSnapshot(performance.now());
+      // replay the host's sim events so the guest hears hits and net taps too
+      if (m.s.ev) for (const e of m.s.ev) this.world.events.push(e);
     } else if (m.t === 'ping') {
       this.cfg.session?.send({ t: 'pong', ts: m.ts });
     } else if (m.t === 'pong') {
@@ -222,16 +250,16 @@ export class GameScene extends Phaser.Scene {
     const h = this.replayH;
 
     this.replayBg = this.add.graphics().setDepth(15);
-    this.replayBg.fillStyle(0x2f7fe0, 1);
+    this.replayBg.fillStyle(P.replayFill, 1);
     this.replayBg.fillRoundedRect(bx - w / 2, by - h / 2, w, h, 18);
-    this.replayBg.lineStyle(3, 0x9fd6ff, 0.9);
+    this.replayBg.lineStyle(3, P.replayBorder, 0.9);
     this.replayBg.strokeRoundedRect(bx - w / 2, by - h / 2, w, h, 18);
 
     this.replayLabel = this.add
       .text(bx, by, '再来一局', {
-        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '34px',
-        color: '#ffffff',
+        color: P.replayText,
         fontStyle: 'bold',
       })
       .setOrigin(0.5)
@@ -245,8 +273,8 @@ export class GameScene extends Phaser.Scene {
     this.replayZone.on('pointerdown', () => {
       if (this.world.phase === 'gameover') this.requestRematch();
     });
-    this.replayZone.on('pointerover', () => this.replayLabel.setColor('#ffe9a8'));
-    this.replayZone.on('pointerout', () => this.replayLabel.setColor('#ffffff'));
+    this.replayZone.on('pointerover', () => this.replayLabel.setColor(P.replayTextHover));
+    this.replayZone.on('pointerout', () => this.replayLabel.setColor(P.replayText));
 
     // hide explicitly: the toggle below short-circuits on an unchanged flag
     this.replayBg.setVisible(false);
@@ -354,6 +382,10 @@ export class GameScene extends Phaser.Scene {
       this.updateSimulated(dt, role);
     }
 
+    // how far we are into the next fixed step — used to interpolate rendering
+    // so a 165Hz display does not show the 60Hz sim as stepped
+    this.alpha = Math.min(1, Math.max(0, this.accum / FIXED_DT));
+
     if (this.touchControls && editing !== this.editShown) {
       this.editShown = editing;
       this.cfg.onEditMode?.(editing);
@@ -365,11 +397,8 @@ export class GameScene extends Phaser.Scene {
         this.pingAccum = 0;
         this.cfg.session?.send({ t: 'ping', ts: performance.now() });
       }
-      if (role === 'guest') this.telemetry.sampleShuttle(this.world.shuttle, this.target.shuttle);
-      else {
-        // the host is authoritative, so there is nothing to trail
-        this.telemetry.sampleShuttle(this.world.shuttle, this.world.shuttle);
-      }
+      if (role === 'guest') this.telemetry.sampleShuttle(this.renderShuttle(), this.target.shuttle);
+      else this.telemetry.sampleShuttle(this.world.shuttle, this.world.shuttle);
     }
 
     this.drawDynamic();
@@ -397,13 +426,14 @@ export class GameScene extends Phaser.Scene {
     if (m.role !== '访客') return `${head}\nRTT ${m.rttMs.toFixed(0)}ms ±${m.jitterMs.toFixed(0)}`;
 
     const net = m.rttMs / 2;
-    const ball = m.ballSpeed > 80 ? `${m.ballTrailPx.toFixed(0)}px @ ${m.ballSpeed.toFixed(0)}px/s` : '静止';
+    const lead = m.ballRenderLagMs;
+    const dir = lead < 0 ? '领先' : '落后';
     return [
       head,
       `RTT   ${m.rttMs.toFixed(0)}ms  ±${m.jitterMs.toFixed(0)}`,
       `快照  ${m.snapIntervalMs.toFixed(0)}ms (${m.snapHz.toFixed(0)}Hz)`,
-      `球滞后 ${m.ballTotalLagMs.toFixed(0)}ms = 网络 ${net.toFixed(0)} + 渲染 ${m.ballRenderLagMs.toFixed(0)}`,
-      `      ${ball}`,
+      `球    ${dir}快照 ${Math.abs(lead).toFixed(0)}ms  净滞后 ${m.ballTotalLagMs.toFixed(0)}ms`,
+      `      网络 ${net.toFixed(0)} · ${m.ballSpeed.toFixed(0)}px/s`,
     ].join('\n');
   }
 
@@ -413,10 +443,14 @@ export class GameScene extends Phaser.Scene {
     if (role === 'host') {
       this.netAccum += dt;
       const input: [PlayerInput, PlayerInput] = [human, this.remoteInput];
-      this.stepFixed(dt, input);
-      if (this.netAccum >= 1 / NET_TICK_HZ) {
-        this.netAccum = 0;
-        this.cfg.session?.send({ t: 'snap', s: serializeWorld(this.world) });
+      this.stepFixed(dt, input, this.lagCompSamples());
+      while (this.netAccum >= 1 / NET_TICK_HZ) {
+        this.netAccum -= 1 / NET_TICK_HZ;
+        this.cfg.session?.send({
+          t: 'snap',
+          s: serializeWorld(this.world, this.netEvents),
+        });
+        this.netEvents.length = 0;
       }
     } else {
       const aiInput = this.ai.update(this.world, 1, dt);
@@ -424,21 +458,69 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private stepFixed(dt: number, input: [PlayerInput, PlayerInput]): void {
+  /** pose before this frame's fixed steps, for render interpolation */
+  private capturePose(): void {
+    this.prevShuttle.x = this.world.shuttle.x;
+    this.prevShuttle.y = this.world.shuttle.y;
+    for (let i = 0; i < 2; i++) {
+      this.prevPlayers[i].x = this.world.players[i].x;
+      this.prevPlayers[i].y = this.world.players[i].y;
+    }
+  }
+
+  /**
+   * Host-side lag compensation: the guest's racket input is RTT/2 old, so
+   * compare it against where the shuttle actually was at that moment. The
+   * launch still happens from the shuttle's live position, so nothing
+   * teleports — only the contact test is rewound.
+   */
+  private lagCompSamples(): [{ x: number; y: number } | null, { x: number; y: number } | null] {
+    const halfMs = Math.min(this.telemetry.rttMs / 2, LAG_COMP_MAX_MS);
+    if (halfMs <= 8) return [null, null];
+    const want = performance.now() - halfMs;
+    let best: { x: number; y: number } | null = null;
+    let bestDt = Infinity;
+    for (const h of this.shuttleHistory) {
+      const d = Math.abs(h.t - want);
+      if (d < bestDt) {
+        bestDt = d;
+        best = h;
+      }
+    }
+    return [null, best];
+  }
+
+  private stepFixed(
+    dt: number,
+    input: [PlayerInput, PlayerInput],
+    hitSamples?: [{ x: number; y: number } | null, { x: number; y: number } | null],
+  ): void {
     this.accum += dt;
     if (this.accum > MAX_ACCUM) this.accum = MAX_ACCUM;
     while (this.accum >= FIXED_DT) {
-      stepWorld(this.world, input, FIXED_DT);
+      // snapshot the pose *before* each step so rendering can blend between
+      // the last two physics states (Gaffer's "Fix Your Timestep")
+      this.capturePose();
+      stepWorld(this.world, input, FIXED_DT, hitSamples);
       this.accum -= FIXED_DT;
+      this.recordShuttle();
       this.flushEvents();
     }
+  }
+
+  private recordShuttle(): void {
+    if (this.world.phase !== 'rally') return;
+    const s = this.world.shuttle;
+    this.shuttleHistory.push({ x: s.x, y: s.y, t: performance.now() });
+    // ~300ms of history at 60Hz
+    while (this.shuttleHistory.length > 24) this.shuttleHistory.shift();
   }
 
   private updateGuest(dt: number): void {
     const input = this.buildLocalInput(dt);
     this.netAccum += dt;
-    if (this.netAccum >= 1 / NET_INPUT_HZ) {
-      this.netAccum = 0;
+    while (this.netAccum >= 1 / NET_INPUT_HZ) {
+      this.netAccum -= 1 / NET_INPUT_HZ;
       this.cfg.session?.send({ t: 'input', i: input });
     }
     if (!this.hasSnapshot) return;
@@ -456,7 +538,47 @@ export class GameScene extends Phaser.Scene {
     me.hitCooldown = auth.hitCooldown;
     stepPlayerLocal(me, 1, input, dt);
 
+    this.stepPrediction(dt);
     this.flushEvents();
+  }
+
+  /**
+   * Dead reckoning.
+   *
+   * The authoritative physics is deterministic and the snapshot carries the
+   * exact velocity, so re-simulating forward from each snapshot reproduces the
+   * trajectory instead of low-pass filtering a stale position. That removes
+   * the ~40ms the exponential filter used to add, leaving only the RTT/2 that
+   * no client can avoid.
+   */
+  private stepPrediction(dt: number): void {
+    if (this.predShuttle.live) {
+      integrateShuttle(this.predShuttle, dt);
+      if (this.predShuttle.y >= GROUND_Y - SHUTTLE_R) {
+        this.predShuttle.y = GROUND_Y - SHUTTLE_R;
+        this.predShuttle.vx = 0;
+        this.predShuttle.vy = 0;
+        this.predShuttle.live = false;
+      }
+    }
+    this.predOpp.x += this.predOpp.vx * dt;
+    this.predOpp.y += this.predOpp.vy * dt;
+    if (this.predOpp.y >= GROUND_Y) this.predOpp.y = GROUND_Y;
+  }
+
+  /** hard-reset the predictions onto a fresh snapshot */
+  private adoptSnapshot(): void {
+    const s = this.target.shuttle;
+    this.predShuttle.x = s.x;
+    this.predShuttle.y = s.y;
+    this.predShuttle.vx = s.vx;
+    this.predShuttle.vy = s.vy;
+    this.predShuttle.live = s.live;
+    const o = this.target.players[0];
+    this.predOpp.x = o.x;
+    this.predOpp.y = o.y;
+    this.predOpp.vx = o.vx;
+    this.predOpp.vy = o.vy;
   }
 
   private flushEvents(): void {
@@ -465,6 +587,7 @@ export class GameScene extends Phaser.Scene {
         const s = this.world.shuttle;
         this.flashes.push({ x: s.x, y: s.y, life: 1 });
       }
+      if (this.cfg.role === 'host' && this.netEvents.length < 16) this.netEvents.push(e);
       this.cfg.onEvent(e);
     }
     this.world.events.length = 0;
@@ -497,7 +620,7 @@ export class GameScene extends Phaser.Scene {
     if (w.phase === 'gameover') {
       const won = w.winner === local;
       this.message.setText(won ? '你赢了！' : '你输了');
-      this.message.setColor(won ? '#8ef58e' : '#ff8a8a');
+      this.message.setColor(won ? P.msgWin : P.msgLose);
       this.subMessage.setText(this.touchControls ? '' : '也可以按 R 键');
       this.subMessage.setY(this.replayY + this.replayH / 2 + 34);
       this.setReplayVisible(true);
@@ -518,50 +641,81 @@ export class GameScene extends Phaser.Scene {
   // ---- rendering ---------------------------------------------------------
 
   private drawCourt(g: Phaser.GameObjects.Graphics): void {
-    g.fillStyle(0x10233b, 1);
+    g.fillStyle(P.skyTop, 1);
     g.fillRect(0, 0, VIEW_W, VIEW_H);
-    g.fillGradientStyle(0x0c1a2c, 0x0c1a2c, 0x1b3b5c, 0x1b3b5c, 1, 1, 1, 1);
+    g.fillGradientStyle(P.skyTop, P.skyTop, P.skyBottom, P.skyBottom, 1, 1, 1, 1);
     g.fillRect(0, 0, VIEW_W, GROUND_Y);
 
-    g.fillStyle(0x0a1523, 1);
+    g.fillStyle(P.stands, 1);
     g.fillRect(0, GROUND_Y - 160, VIEW_W, 160);
     for (let i = 0; i < 150; i++) {
       const x = (i * 137) % VIEW_W;
       const y = GROUND_Y - 152 + ((i * 71) % 140);
-      g.fillStyle(i % 4 === 0 ? 0x31506f : 0x1a2b3f, 0.85);
+      g.fillStyle(i % 4 === 0 ? P.crowdA : P.crowdB, 0.9);
       g.fillCircle(x, y, 4);
     }
-    g.fillStyle(0x0a1523, 1);
+    g.fillStyle(P.apron, 1);
     g.fillRect(0, GROUND_Y - 6, VIEW_W, 6);
 
-    g.fillStyle(0x1d4e3f, 1);
+    g.fillStyle(P.floor, 1);
     g.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
-    g.fillStyle(0x2b6b56, 1);
+    g.fillStyle(P.floorStrip, 1);
     g.fillRect(COURT_LEFT, GROUND_Y, COURT_RIGHT - COURT_LEFT, 24);
-    g.fillStyle(0x143d31, 1);
+    g.fillStyle(P.floorEdge, 1);
     g.fillRect(0, VIEW_H - 14, VIEW_W, 14);
 
-    g.lineStyle(4, 0xffffff, 0.9);
+    g.lineStyle(4, P.line, 0.9);
     g.lineBetween(COURT_LEFT, GROUND_Y, COURT_LEFT, GROUND_Y - 70);
     g.lineBetween(COURT_RIGHT, GROUND_Y, COURT_RIGHT, GROUND_Y - 70);
-    g.lineStyle(3, 0xffffff, 0.75);
+    g.lineStyle(3, P.line, 0.85);
     g.lineBetween(COURT_LEFT, GROUND_Y, COURT_RIGHT, GROUND_Y);
 
     const netTop = GROUND_Y - 108;
-    g.fillStyle(0xcfd8e3, 1);
-    g.fillRect(NET_X - 9, netTop - 4, 5, GROUND_Y - netTop + 4);
-    g.fillRect(NET_X + 4, netTop - 4, 5, GROUND_Y - netTop + 4);
-    g.fillStyle(0x0a0a0a, 0.55);
-    g.fillRect(NET_X - 6, netTop, 12, GROUND_Y - netTop);
-    g.lineStyle(1, 0xffffff, 0.4);
-    for (let y = netTop + 6; y < GROUND_Y; y += 9) {
-      g.lineBetween(NET_X - 6, y, NET_X + 6, y);
+    // net: the mesh is drawn a touch wider than its collision (NET_HALF_W) so
+    // it stays legible against both the sky and the floor
+    g.fillStyle(P.post, 1);
+    g.fillRect(NET_X - 12, netTop - 5, 6, GROUND_Y - netTop + 5);
+    g.fillRect(NET_X + 6, netTop - 5, 6, GROUND_Y - netTop + 5);
+    g.fillStyle(P.netMesh, 0.5);
+    g.fillRect(NET_X - 8, netTop, 16, GROUND_Y - netTop);
+    g.lineStyle(1, P.netMesh, 0.95);
+    for (let y = netTop + 5; y < GROUND_Y; y += 8) {
+      g.lineBetween(NET_X - 8, y, NET_X + 8, y);
     }
-    for (let x = NET_X - 4; x <= NET_X + 4; x += 4) {
+    for (let x = NET_X - 8; x <= NET_X + 8; x += 4) {
       g.lineBetween(x, netTop, x, GROUND_Y);
     }
-    g.fillStyle(0xffffff, 0.95);
-    g.fillRect(NET_X - 8, netTop - 7, 16, 6);
+    g.fillStyle(P.netTape, 1);
+    g.fillRect(NET_X - 11, netTop - 8, 22, 7);
+  }
+
+  /** where the shuttle should be drawn this frame */
+  private renderShuttle(): { x: number; y: number; vx: number; vy: number; live: boolean } {
+    if (this.cfg.role === 'guest') return this.predShuttle;
+    const a = this.alpha;
+    return {
+      x: this.prevShuttle.x + (this.world.shuttle.x - this.prevShuttle.x) * a,
+      y: this.prevShuttle.y + (this.world.shuttle.y - this.prevShuttle.y) * a,
+      vx: this.world.shuttle.vx,
+      vy: this.world.shuttle.vy,
+      live: this.world.shuttle.live,
+    };
+  }
+
+  /**
+   * Render positions. The local player is deliberately NOT interpolated: it is
+   * the one entity where an extra tick of smoothing would be felt as input lag.
+   */
+  private renderPlayerPos(i: 0 | 1): { x: number; y: number } {
+    if (this.cfg.role === 'guest') {
+      return i === 1 ? this.world.players[1] : this.predOpp;
+    }
+    if (i === this.localIndex()) return this.world.players[i];
+    const a = this.alpha;
+    return {
+      x: this.prevPlayers[i].x + (this.world.players[i].x - this.prevPlayers[i].x) * a,
+      y: this.prevPlayers[i].y + (this.world.players[i].y - this.prevPlayers[i].y) * a,
+    };
   }
 
   private drawDynamic(): void {
@@ -576,13 +730,9 @@ export class GameScene extends Phaser.Scene {
     this.drawEffects(g);
 
     const local = this.localIndex();
-    g.lineStyle(3, 0x6ff0ff, 0.5);
-    g.lineBetween(
-      this.world.players[local].x - 26,
-      GROUND_Y + 6,
-      this.world.players[local].x + 26,
-      GROUND_Y + 6,
-    );
+    const lp = this.renderPlayerPos(local);
+    g.lineStyle(3, P.localMark, 0.6);
+    g.lineBetween(lp.x - 26, GROUND_Y + 6, lp.x + 26, GROUND_Y + 6);
   }
 
   private drawEffects(g: Phaser.GameObjects.Graphics): void {
@@ -595,7 +745,7 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       const r = 10 + (1 - f.life) * 34;
-      g.lineStyle(3 * f.life + 1, 0xffffff, f.life * 0.8);
+      g.lineStyle(3 * f.life + 1, P.flash, f.life * 0.8);
       g.strokeCircle(f.x, f.y, r);
     }
   }
@@ -603,32 +753,42 @@ export class GameScene extends Phaser.Scene {
   private drawServeHint(g: Phaser.GameObjects.Graphics): void {
     const w = this.world;
     if (w.phase !== 'serve') return;
-    const server = w.players[w.server];
-    g.lineStyle(3, 0xffe066, 0.5);
-    g.strokeCircle(server.x, server.y - PLAYER_H - 30, 12);
-    g.lineStyle(3, 0xffe066, 0.9);
-    g.lineBetween(server.x - 7, server.y - PLAYER_H - 30, server.x + 7, server.y - PLAYER_H - 30);
+    const s = this.renderPlayerPos(w.server);
+    g.lineStyle(3, P.serveHint, 0.45);
+    g.strokeCircle(s.x, s.y - PLAYER_H - 30, 12);
+    g.lineStyle(3, P.serveHint, 0.95);
+    g.lineBetween(s.x - 7, s.y - PLAYER_H - 30, s.x + 7, s.y - PLAYER_H - 30);
   }
 
   private drawPlayer(g: Phaser.GameObjects.Graphics, i: 0 | 1): void {
     const p = this.world.players[i];
-    const color = i === 0 ? 0x4ea3ff : 0xff7a59;
-    const topY = p.y - PLAYER_H;
+    const pos = this.renderPlayerPos(i);
+    const color = i === 0 ? P.player0 : P.player1;
+    const topY = pos.y - PLAYER_H;
 
-    g.fillStyle(0x000000, 0.18);
-    g.fillEllipse(p.x, GROUND_Y + 2, 54, 12);
+    g.fillStyle(P.shadow, 0.16);
+    g.fillEllipse(pos.x, GROUND_Y + 2, 54, 12);
 
     g.fillStyle(color, 1);
-    g.fillRoundedRect(p.x - 17, topY + 30, 34, PLAYER_H - 34, 12);
-    g.fillStyle(0xf2c9a0, 1);
-    g.fillCircle(p.x, topY + 18, 15);
+    g.fillRoundedRect(pos.x - 17, topY + 30, 34, PLAYER_H - 34, 12);
+    g.fillStyle(P.skin, 1);
+    g.fillCircle(pos.x, topY + 18, 15);
 
-    this.drawRacket(g, p, color);
+    this.drawRacket(g, p, pos.x, pos.y, color);
   }
 
-  private drawRacket(g: Phaser.GameObjects.Graphics, p: PlayerState, color: number): void {
-    const shoulder = shoulderPoint(p);
-    const head = racketHead(p);
+  private drawRacket(
+    g: Phaser.GameObjects.Graphics,
+    p: PlayerState,
+    x: number,
+    y: number,
+    color: number,
+  ): void {
+    const shoulder = {
+      x: x + p.facing * SHOULDER_DX,
+      y: y - PLAYER_H * SHOULDER_DY,
+    };
+    const head = { x: shoulder.x + p.rx, y: shoulder.y + p.ry };
     const ang = Math.atan2(head.y - shoulder.y, head.x - shoulder.x);
 
     const speed = Math.hypot(p.rvx, p.rvy);
@@ -643,26 +803,26 @@ export class GameScene extends Phaser.Scene {
 
     const hx = head.x - Math.cos(ang) * 14;
     const hy = head.y - Math.sin(ang) * 14;
-    g.lineStyle(7, 0xf2c9a0, 1);
+    g.lineStyle(7, P.skin, 1);
     g.lineBetween(shoulder.x, shoulder.y, hx, hy);
 
     g.save();
     g.translateCanvas(head.x, head.y);
     g.rotateCanvas(ang);
-    g.lineStyle(7, 0xd9dde3, 0.95);
+    g.lineStyle(7, P.grip, 0.95);
     g.lineBetween(-14, 0, -2, 0);
-    g.lineStyle(3, 0xffffff, 0.95);
+    g.lineStyle(3, P.racket, 0.95);
     g.strokeEllipse(11, 0, 40, 32);
     g.restore();
 
     if (hot > 0.15) {
-      g.lineStyle(2, 0xffffff, 0.1 + 0.25 * hot);
+      g.lineStyle(2, P.racket, 0.12 + 0.28 * hot);
       g.strokeCircle(head.x, head.y, CONTACT_R);
     }
   }
 
   private drawShuttle(g: Phaser.GameObjects.Graphics): void {
-    const s = this.world.shuttle;
+    const s = this.renderShuttle();
     const angle = s.live ? Math.atan2(s.vy, s.vx) : Math.PI / 2;
 
     this.trail.push({ x: s.x, y: s.y });
@@ -670,25 +830,27 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < this.trail.length; i++) {
       const t = i / this.trail.length;
       const p = this.trail[i];
-      g.fillStyle(0x9fdcff, t * 0.28);
+      g.fillStyle(P.trail, t * 0.3);
       g.fillCircle(p.x, p.y, 1 + t * 4);
     }
 
     const height = Phaser.Math.Clamp((GROUND_Y - s.y) / 420, 0, 1);
-    g.fillStyle(0x000000, 0.32 * (1 - height));
+    g.fillStyle(P.shadow, 0.3 * (1 - height));
     g.fillEllipse(s.x, GROUND_Y - 2, 26 * (1 - height * 0.5), 7 * (1 - height * 0.5));
 
-    g.fillStyle(0xffffff, 0.14);
+    g.fillStyle(P.shuttleHalo, 0.1);
     g.fillCircle(s.x, s.y, 15);
-    g.fillStyle(0xffffff, 0.22);
+    g.fillStyle(P.shuttleHalo, 0.16);
     g.fillCircle(s.x, s.y, 10);
 
-    g.lineStyle(2, 0xf2f2f2, 0.9);
+    g.lineStyle(2, P.shuttleFeather, 0.95);
     for (let k = -1; k <= 1; k++) {
       const a = angle + Math.PI + k * 0.4;
       g.lineBetween(s.x, s.y, s.x + Math.cos(a) * 16, s.y + Math.sin(a) * 16);
     }
-    g.fillStyle(0xffffff, 1);
+    g.fillStyle(P.shuttle, 1);
     g.fillCircle(s.x, s.y, 5.5);
+    g.lineStyle(2, P.floorEdge, 0.9);
+    g.strokeCircle(s.x, s.y, 5.5);
   }
 }

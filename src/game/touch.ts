@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { isTouchDevice } from './device';
+import { FONT_UI, P } from './theme';
 
 export { isTouchDevice };
 
@@ -121,15 +122,15 @@ export class TouchControls {
     this.layout = loadLayout();
     this.gfx = scene.add.graphics().setDepth(20);
     this.hint = scene.add
-      .text(0, 0, '', { fontFamily: 'Segoe UI, Arial', fontSize: '15px', color: '#cfe6ff' })
+      .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '15px', color: P.touchHintText })
       .setOrigin(0.5)
       .setDepth(21)
       .setVisible(false);
     this.editHint = scene.add
       .text(640, 74, '拖动圆盘改位置 · 拖右上角把手改大小', {
-        fontFamily: 'Segoe UI, Arial',
+        fontFamily: FONT_UI,
         fontSize: '19px',
-        color: '#dbe9f7',
+        color: P.touchEditHintText,
         backgroundColor: 'rgba(4,10,18,0.7)',
         padding: { x: 14, y: 9 },
       })
@@ -137,9 +138,9 @@ export class TouchControls {
       .setDepth(22)
       .setVisible(false);
     const btnStyle = {
-      fontFamily: 'Segoe UI, Arial',
+      fontFamily: FONT_UI,
       fontSize: '21px',
-      color: '#ffffff',
+      color: P.touchBtnText,
       fontStyle: 'bold',
     } as const;
     this.resetLabel = scene.add.text(0, 0, '重置', btnStyle).setOrigin(0.5).setDepth(22).setVisible(false);
@@ -379,42 +380,42 @@ export class TouchControls {
     const knobR = this.knobRadius(s);
     const k = this.knob[which];
 
-    g.fillStyle(0x0b1a2b, live ? 0.42 : 0.22);
+    g.fillStyle(P.stickFill, live ? 0.2 : 0.1);
     g.fillCircle(s.x, s.y, s.r);
-    g.lineStyle(2, 0xffffff, live ? 0.5 : 0.22);
+    g.lineStyle(2, P.stickLine, live ? 0.4 : 0.2);
     g.strokeCircle(s.x, s.y, s.r);
-    g.lineStyle(1, 0xffffff, 0.14);
+    g.lineStyle(1, P.stickLine, 0.14);
     g.lineBetween(s.x - s.r + 10, s.y, s.x + s.r - 10, s.y);
     g.lineBetween(s.x, s.y - s.r + 10, s.x, s.y + s.r - 10);
-    g.fillStyle(live || k.x !== 0 || k.y !== 0 ? accent : 0x8fb8d8, live ? 0.75 : 0.45);
+    g.fillStyle(live || k.x !== 0 || k.y !== 0 ? accent : P.knobIdle, live ? 0.8 : 0.45);
     g.fillCircle(s.x + k.x, s.y + k.y, knobR);
   }
 
   private drawEditOverlay(g: Phaser.GameObjects.Graphics): void {
-    g.fillStyle(0x040a12, 0.62);
+    g.fillStyle(P.editScrim, 0.82);
     g.fillRect(0, 0, 1280, 720);
 
     for (const which of ['move', 'racket'] as const) {
       const s = this.stick(which);
-      g.fillStyle(0x6ff0ff, 0.1);
+      g.fillStyle(P.editLine, 0.12);
       g.fillCircle(s.x, s.y, s.r);
-      g.lineStyle(3, 0x6ff0ff, 0.85);
+      g.lineStyle(3, P.editLine, 0.9);
       g.strokeCircle(s.x, s.y, s.r);
-      g.lineStyle(2, 0x6ff0ff, 0.4);
+      g.lineStyle(2, P.editLine, 0.45);
       g.strokeCircle(s.x, s.y, s.r + 44);
 
       const h = this.handleAt(which);
-      g.fillStyle(0x6ff0ff, 0.95);
+      g.fillStyle(P.editLine, 1);
       g.fillCircle(h.x, h.y, 14);
-      g.lineStyle(2, 0x040a12, 0.9);
+      g.lineStyle(2, P.btnSecondary, 1);
       g.strokeCircle(h.x, h.y, 14);
       g.lineBetween(s.x, s.y, h.x, h.y);
     }
 
     const btn = (b: { x: number; y: number }, accent: boolean) => {
-      g.fillStyle(accent ? 0x2f7fe0 : 0x21324a, 0.95);
+      g.fillStyle(accent ? P.btnPrimary : P.btnSecondary, 0.98);
       g.fillRoundedRect(b.x - BTN_W / 2, b.y - BTN_H / 2, BTN_W, BTN_H, 14);
-      g.lineStyle(2, 0x9fd6ff, accent ? 0.9 : 0.4);
+      g.lineStyle(2, P.btnBorder, accent ? 1 : 0.6);
       g.strokeRoundedRect(b.x - BTN_W / 2, b.y - BTN_H / 2, BTN_W, BTN_H, 14);
     };
     btn(this.btnReset, false);
@@ -428,28 +429,28 @@ export class TouchControls {
     if (this.editing) {
       this.btnReset = { x: 640 - 90, y: 660 };
       this.btnDone = { x: 640 + 90, y: 660 };
-      this.resetLabel.setPosition(this.btnReset.x, this.btnReset.y);
-      this.doneLabel.setPosition(this.btnDone.x, this.btnDone.y);
+      this.resetLabel.setPosition(this.btnReset.x, this.btnReset.y).setColor(P.touchBtnAltText);
+      this.doneLabel.setPosition(this.btnDone.x, this.btnDone.y).setColor(P.touchBtnText);
       this.drawEditOverlay(g);
-      this.drawStick(g, 'move', true, 0x6ff0ff);
-      this.drawStick(g, 'racket', true, 0x6ff0ff);
+      this.drawStick(g, 'move', true, P.knobLive);
+      this.drawStick(g, 'racket', true, P.knobLive);
       return;
     }
 
     if (!this.enabled) return;
 
-    this.drawStick(g, 'move', this.movePointer >= 0, 0x6ff0ff);
-    this.drawStick(g, 'racket', this.racketPointer >= 0, 0x6ff0ff);
+    this.drawStick(g, 'move', this.movePointer >= 0, P.knobLive);
+    this.drawStick(g, 'racket', this.racketPointer >= 0, P.knobLive);
 
     // "push up to jump" cue on the move stick
     const s = this.stick('move');
     const lit = this.jumpArmed === false || -this.moveY > JUMP_ON - 0.1;
-    g.lineStyle(4, 0xffe066, lit ? 0.95 : 0.35);
+    g.lineStyle(4, P.jumpCue, lit ? 1 : 0.4);
     g.beginPath();
     g.arc(s.x, s.y, s.r - 12, -Math.PI * 0.75, -Math.PI * 0.25, false, 0);
     g.strokePath();
     const ty = s.y - s.r + 24;
-    g.fillStyle(0xffe066, lit ? 1 : 0.5);
+    g.fillStyle(P.jumpCue, lit ? 1 : 0.55);
     g.fillTriangle(s.x, ty - 9, s.x - 9, ty + 4, s.x + 9, ty + 4);
 
     this.hint

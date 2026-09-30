@@ -1,15 +1,25 @@
 <script setup lang="ts">
-import GlassButton from './GlassButton.vue';
+import Button from './Button.vue';
 
 defineProps<{ backLabel?: string }>();
 defineEmits<{ back: [] }>();
 </script>
 
 <template>
-  <header class="topbar glass hud-bar">
-    <GlassButton variant="quiet" size="sm" @click="$emit('back')">
-      {{ backLabel ?? '← 返回' }}
-    </GlassButton>
+  <header class="topbar surface hud-bar">
+    <Button variant="quiet" size="sm" @click="$emit('back')">
+      <svg class="topbar__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M15 5 8 12l7 7"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <span>{{ backLabel ?? '返回' }}</span>
+    </Button>
 
     <div class="topbar__title">
       <slot name="title" />
@@ -26,10 +36,16 @@ defineEmits<{ back: [] }>();
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: var(--s3);
   flex-wrap: wrap;
-  padding: 10px 14px;
+  padding: var(--s2) var(--s3);
   border-radius: var(--r-md);
+}
+
+.topbar__icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 2px;
 }
 
 .topbar__title {
@@ -44,7 +60,8 @@ defineEmits<{ back: [] }>();
 .topbar__aside {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s2);
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 </style>

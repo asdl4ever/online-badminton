@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Choice } from './types';
+
 withDefaults(
   defineProps<{
     modelValue: string;
@@ -15,7 +16,7 @@ defineEmits<{ 'update:modelValue': [string] }>();
 <template>
   <div class="seg">
     <span v-if="label" class="seg__label">{{ label }}</span>
-    <div class="seg__track">
+    <div class="seg__track" role="group">
       <button
         v-for="opt in options"
         :key="opt.value"
@@ -35,7 +36,7 @@ defineEmits<{ 'update:modelValue': [string] }>();
 .seg {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--s2);
 }
 
 .seg__label {
@@ -45,25 +46,27 @@ defineEmits<{ 'update:modelValue': [string] }>();
 
 .seg__track {
   display: inline-flex;
-  padding: 4px;
+  padding: var(--s1);
   gap: 3px;
-  border-radius: 999px;
-  border: 1px solid var(--glass-line);
-  background: rgba(10, 20, 33, 0.6);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  box-shadow: inset 0 1px 3px rgba(2, 6, 16, 0.5);
 }
 
 .seg__item {
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-dim);
+  font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
-  padding: 6px 15px;
-  border-radius: 999px;
+  padding: 6px var(--s4);
+  border-radius: var(--r-pill);
   transition:
-    color 0.16s ease,
-    background 0.16s ease;
+    color var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
 }
 
 .seg__item:hover {
@@ -72,10 +75,8 @@ defineEmits<{ 'update:modelValue': [string] }>();
 
 .seg__item--on {
   color: #fff;
-  background: linear-gradient(160deg, #3f95ec, #2260ab);
-  border-color: rgba(150, 205, 255, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 8px 20px -12px rgba(47, 127, 224, 0.9);
+  background: linear-gradient(180deg, #3f95ec, #2260ab);
+  border-color: #2f7fe0;
+  box-shadow: var(--e1), inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 </style>

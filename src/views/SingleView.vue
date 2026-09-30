@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import TopBar from '../components/ui/TopBar.vue';
 import ScoreLine from '../components/ui/ScoreLine.vue';
-import GlassButton from '../components/ui/GlassButton.vue';
+import Button from '../components/ui/Button.vue';
 import SegmentedChoice from '../components/ui/SegmentedChoice.vue';
 import type { Choice } from '../components/ui/types';
 import type { HudState } from '../game/scenes/GameScene';
@@ -69,15 +69,26 @@ onBeforeUnmount(() => {
       <TopBar @back="back">
         <template #title>单机练习</template>
         <template #aside>
-          <GlassButton v-if="touch" size="sm" @click="canvas?.toggleEditMode()">
-            {{ editing ? '完成' : '⚙ 摇杆' }}
-          </GlassButton>
           <SegmentedChoice
             :model-value="store.difficulty"
             :options="difficulties"
             label="难度"
             @update:model-value="setDifficulty"
           />
+          <Button v-if="touch" size="sm" @click="canvas?.toggleEditMode()">
+            <svg class="gear" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <circle cx="16" cy="7" r="2.5" fill="currentColor" />
+              <circle cx="10" cy="12" r="2.5" fill="currentColor" />
+              <circle cx="14" cy="17" r="2.5" fill="currentColor" />
+            </svg>
+            <span>{{ editing ? '完成' : '摇杆' }}</span>
+          </Button>
         </template>
       </TopBar>
 
@@ -95,9 +106,9 @@ onBeforeUnmount(() => {
 
       <ScoreLine>
         <div class="muted">
-          比分 <b style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
+          比分 <b class="num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
           :
-          <b style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
+          <b class="num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
           &nbsp;·&nbsp; 先到 11 分获胜
         </div>
         <div class="muted">{{ hint }}</div>
@@ -105,3 +116,11 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.gear {
+  width: 17px;
+  height: 17px;
+  margin-right: 6px;
+}
+</style>

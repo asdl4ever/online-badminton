@@ -35,7 +35,15 @@ function toggleEditMode(): void {
 
 defineExpose({ toggleEditMode });
 
-onMounted(() => {
+onMounted(async () => {
+  // Phaser renders text with the canvas 2D API, which does not re-flow when a
+  // web font finishes loading — so wait for the display face before booting
+  try {
+    await document.fonts.load('700 64px "Chakra Petch"');
+  } catch {
+    /* font optional: the stack falls back to system CJK */
+  }
+
   const cfg: MatchConfig = {
     role: props.role,
     difficulty: props.difficulty,
@@ -86,10 +94,10 @@ onBeforeUnmount(() => {
 .game-canvas {
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #0b1a2b;
-  border-radius: 14px;
+  background: var(--surface);
+  border-radius: var(--r-lg);
   overflow: hidden;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--e2);
 }
 
 .game-canvas :deep(canvas) {

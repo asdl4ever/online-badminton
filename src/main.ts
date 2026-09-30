@@ -2,6 +2,12 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { createVuetify } from 'vuetify';
 import 'vuetify/styles';
+// self-hosted so the UI never depends on fonts.gstatic.com (blocked in CN).
+// latin subset only: the CJK text falls through to the platform font anyway,
+// so shipping thai/vietnamese/latin-ext would be dead weight.
+import '@fontsource/chakra-petch/latin-400.css';
+import '@fontsource/chakra-petch/latin-600.css';
+import '@fontsource/chakra-petch/latin-700.css';
 import './style.css';
 import App from './App.vue';
 import { router } from './router';
@@ -17,19 +23,19 @@ const vuetify = createVuetify({
     defaultTheme: 'court',
     themes: {
       court: {
-        dark: true,
+        dark: false,
         colors: {
-          background: '#070d16',
-          surface: '#101b2d',
-          'surface-bright': '#16253c',
-          'surface-variant': '#1b2c45',
-          primary: '#4ea3ff',
-          'primary-darken-1': '#2f7fe0',
-          secondary: '#ff7a59',
-          success: '#58d68d',
-          warning: '#ffd166',
-          error: '#ff8a8a',
-          info: '#6ff0ff',
+          background: '#eef3fa',
+          surface: '#ffffff',
+          'surface-bright': '#f2f6fb',
+          'surface-variant': '#e6eef8',
+          primary: '#1f6fd0',
+          'primary-darken-1': '#175aad',
+          secondary: '#c9451f',
+          success: '#1f9d55',
+          warning: '#a86a00',
+          error: '#c02c2c',
+          info: '#1f7f8f',
         },
       },
     },

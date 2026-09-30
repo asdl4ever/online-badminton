@@ -3,7 +3,7 @@
 </script>
 
 <template>
-  <div class="scoreline glass glass--cheap glass--flat hud-foot">
+  <div class="scoreline surface surface--flat hud-foot">
     <slot />
   </div>
 </template>
@@ -13,9 +13,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--s4);
   flex-wrap: wrap;
-  padding: 9px 16px;
+  padding: var(--s2) var(--s4);
   border-radius: var(--r-md);
 }
 </style>

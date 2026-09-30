@@ -95,6 +95,8 @@ export interface WorldSnapshot {
   w: number;
   t: number;
   rh: number;
+  /** this tick's sim events, so the guest can play hit sounds too */
+  ev?: SimEvent[];
 }
 
 export type MatchRole = 'single' | 'host' | 'guest';

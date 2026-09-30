@@ -10,15 +10,19 @@ export interface NetMetrics {
   /** mean interval between snapshots, ms */
   snapIntervalMs: number;
   snapHz: number;
-  /** how far behind the newest snapshot the rendered shuttle is, ms */
+  /**
+   * Signed offset from the newest authoritative snapshot, in ms of flight.
+   * Positive = the drawn shuttle is behind the snapshot (lagging, the old
+   * behaviour); negative = dead reckoning has pushed it ahead of the snapshot,
+   * which is what removes the filter's lag.
+   */
   ballRenderLagMs: number;
-  /** that lag expressed as pixels of travel */
+  /** straight-line distance from the snapshot, px */
   ballTrailPx: number;
   /** shuttle speed used for the conversion, px/s */
   ballSpeed: number;
-  /** rtt/2 + render lag — the number we are trying to shrink */
-  ballTotalLagMs: number;
-  snapshots: number;
+  /** best estimate of how stale the drawn shuttle is: rtt/2 - lead */
+  ballTotalLagMs: number;  snapshots: number;
   /** the sender's render frame rate, which caps the snapshot rate */
   fps: number;
   /** true once we have enough samples for the numbers to mean anything */
@@ -98,18 +102,20 @@ export class Telemetry {
    */
   sampleShuttle(rendered: ShuttleState, latest: ShuttleState): void {
     // while the shuttle is parked we keep the last flight's numbers: the
-    // readout answers "the last time it flew, how far behind was it?"
+    // readout answers "the last time it flew, how far off was it?"
     if (!rendered.live || !latest.live) return;
     const dx = latest.x - rendered.x;
     const dy = latest.y - rendered.y;
-    const trail = Math.hypot(dx, dy);
     const speed = Math.hypot(latest.vx, latest.vy);
-    this.ballTrailPx = trail;
+    this.ballTrailPx = Math.hypot(dx, dy);
     this.ballSpeed = speed;
     // below ~80px/s the "distance / speed" conversion explodes; skip instead
     // of reporting nonsense
     if (speed <= 80) return;
-    this.lagSamples.push((trail / speed) * 1000);
+    // signed along the flight direction: positive means we are drawing the
+    // shuttle BEHIND the newest authority, negative means ahead of it
+    const along = (dx * latest.vx + dy * latest.vy) / speed;
+    this.lagSamples.push((along / speed) * 1000);
     if (this.lagSamples.length > SAMPLE_WINDOW) this.lagSamples.shift();
     this.ballRenderLagMs = mean(this.lagSamples);
   }
@@ -138,7 +144,7 @@ export class Telemetry {
       ballRenderLagMs: this.ballRenderLagMs,
       ballTrailPx: this.ballTrailPx,
       ballSpeed: this.ballSpeed,
-      ballTotalLagMs: rtt / 2 + this.ballRenderLagMs,
+      ballTotalLagMs: Math.max(0, rtt / 2 + this.ballRenderLagMs),
       snapshots: this.snapshots,
       fps: this.fps,
       ready: this.rttSamples.length >= 3 && this.snapGaps.length >= 5,

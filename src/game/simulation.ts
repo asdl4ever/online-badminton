@@ -175,14 +175,22 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   world.events.push({ type: 'hit', player: index, kind: classifyShot(elevation) });
 }
 
-function tryHit(world: World, index: 0 | 1): void {
+function tryHit(
+  world: World,
+  index: 0 | 1,
+  sample?: { x: number; y: number } | null,
+): void {
   if (world.phase !== 'rally') return;
   const p = world.players[index];
   if (p.hitCooldown > 0) return;
   if (world.lastHitter === index) return;
   const head = racketHead(p);
-  const dx = world.shuttle.x - head.x;
-  const dy = world.shuttle.y - head.y;
+  // `sample` lets the host judge a laggy swing against where the shuttle was
+  // when that player actually saw it; the launch still happens from the
+  // shuttle's real current position so nothing teleports
+  const probe = sample ?? world.shuttle;
+  const dx = probe.x - head.x;
+  const dy = probe.y - head.y;
   if (dx * dx + dy * dy > CONTACT_R * CONTACT_R) return;
   releaseShuttle(world, index);
 }
@@ -283,7 +291,13 @@ function stepShuttleSlice(world: World, dt: number): void {
   }
 }
 
-export function stepWorld(world: World, inputs: [PlayerInput, PlayerInput], dt: number): void {
+export function stepWorld(
+  world: World,
+  inputs: [PlayerInput, PlayerInput],
+  dt: number,
+  /** optional rewound shuttle positions used only for the contact test */
+  hitSamples?: [{ x: number; y: number } | null, { x: number; y: number } | null],
+): void {
   world.events.length = 0;
   world.time += dt;
 
@@ -313,8 +327,8 @@ export function stepWorld(world: World, inputs: [PlayerInput, PlayerInput], dt: 
       if (world.phase !== 'rally') break;
     }
     if (world.phase === 'rally') {
-      tryHit(world, 0);
-      tryHit(world, 1);
+      tryHit(world, 0, hitSamples?.[0]);
+      tryHit(world, 1, hitSamples?.[1]);
     }
   } else if (world.phase === 'point') {
     world.phaseTimer -= dt;
@@ -322,9 +336,32 @@ export function stepWorld(world: World, inputs: [PlayerInput, PlayerInput], dt: 
   }
 }
 
+/**
+ * One integration step of the shuttle, identical to what the authoritative sim
+ * does. The guest runs this forward from each snapshot (dead reckoning) so the
+ * ball it draws is not a filtered copy of a stale position.
+ */
+export function integrateShuttle(
+  s: { x: number; y: number; vx: number; vy: number },
+  dt: number,
+): void {
+  const speed = Math.hypot(s.vx, s.vy);
+  const drag = SHUTTLE_DRAG * speed;
+  s.vx -= s.vx * drag * dt;
+  s.vy -= s.vy * drag * dt;
+  s.vy += SHUTTLE_GRAVITY * dt;
+  const sp = Math.hypot(s.vx, s.vy);
+  if (sp > SHUTTLE_MAX_SPEED) {
+    s.vx = (s.vx / sp) * SHUTTLE_MAX_SPEED;
+    s.vy = (s.vy / sp) * SHUTTLE_MAX_SPEED;
+  }
+  s.x += s.vx * dt;
+  s.y += s.vy * dt;
+}
+
 // ---- serialisation -------------------------------------------------------
 
-export function serializeWorld(w: World): WorldSnapshot {
+export function serializeWorld(w: World, events?: SimEvent[]): WorldSnapshot {
   const pack = (p: PlayerState): number[] => [
     p.x,
     p.y,
@@ -349,6 +386,7 @@ export function serializeWorld(w: World): WorldSnapshot {
     w: w.winner,
     t: w.time,
     rh: w.rallyHits,
+    ev: events && events.length ? events : undefined,
   };
 }
 

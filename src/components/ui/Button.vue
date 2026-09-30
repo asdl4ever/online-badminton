@@ -17,8 +17,8 @@ defineEmits<{ click: [MouseEvent] }>();
 
 <template>
   <VBtn
-    class="glass-btn"
-    :class="[`glass-btn--${variant}`, `glass-btn--${size}`]"
+    class="soft-btn"
+    :class="[`soft-btn--${variant}`, `soft-btn--${size}`]"
     variant="flat"
     :block="block"
     :disabled="disabled"
@@ -30,15 +30,15 @@ defineEmits<{ click: [MouseEvent] }>();
 </template>
 
 <style scoped>
-.glass-btn--sm {
-  min-height: 34px;
-  padding: 0 12px;
+.soft-btn--sm {
+  min-height: 36px;
+  padding: 0 var(--s3);
   font-size: 13px;
 }
 
-.glass-btn--lg {
+.soft-btn--lg {
   min-height: 52px;
-  padding: 0 26px;
-  font-size: 17px;
+  padding: 0 var(--s5);
+  font-size: 16px;
 }
 </style>
