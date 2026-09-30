@@ -19,10 +19,21 @@ const emit = defineEmits<{
   disconnect: [string];
   sim: [SimEvent];
   metrics: [NetMetrics];
+  editmode: [boolean];
 }>();
 
 const container = ref<HTMLDivElement | null>(null);
 let game: Phaser.Game | null = null;
+
+function scene(): GameScene | null {
+  return (game?.scene.getScene('GameScene') as GameScene | undefined) ?? null;
+}
+
+function toggleEditMode(): void {
+  scene()?.toggleEditMode();
+}
+
+defineExpose({ toggleEditMode });
 
 onMounted(() => {
   const cfg: MatchConfig = {
@@ -33,6 +44,7 @@ onMounted(() => {
     onDisconnect: (m) => emit('disconnect', m),
     onEvent: (e) => emit('sim', e),
     onMetrics: (m) => emit('metrics', m),
+    onEditMode: (on) => emit('editmode', on),
   };
 
   game = new Phaser.Game({

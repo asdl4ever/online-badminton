@@ -14,6 +14,7 @@ import type { SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
+import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
 import { sfx } from '../game/audio';
 
@@ -25,6 +26,9 @@ const hud = ref<HudState | null>(null);
 const notice = ref('');
 const leaving = ref(false);
 const phaseText = ref('');
+const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
+const editing = ref(false);
+const touch = isTouchDevice();
 
 const { copy, copied, isSupported: clipboardSupported } = useClipboard();
 
@@ -182,6 +186,9 @@ onBeforeUnmount(() => {
       <TopBar @back="back">
         <template #title>联机对战</template>
         <template #aside>
+          <GlassButton v-if="touch && playing" size="sm" @click="canvas?.toggleEditMode()">
+            {{ editing ? '完成' : '⚙ 摇杆' }}
+          </GlassButton>
           <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
         </template>
       </TopBar>
@@ -189,12 +196,14 @@ onBeforeUnmount(() => {
       <template v-if="playing">
         <div class="stage">
           <GameCanvas
+            ref="canvas"
             :role="store.role"
             :difficulty="store.difficulty"
             :session="store.session"
             @hud="onHud"
             @sim="onEvent"
             @metrics="onMetrics"
+            @editmode="editing = $event"
             @disconnect="onDisconnect"
           />
         </div>

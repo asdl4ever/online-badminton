@@ -57,6 +57,8 @@ export interface MatchConfig {
   onEvent: (event: SimEvent) => void;
   /** throttled netcode telemetry, for the debug panel and the Pinia store */
   onMetrics?: (metrics: NetMetrics) => void;
+  /** true while the touch-layout editor is open */
+  onEditMode?: (editing: boolean) => void;
 }
 
 const FIXED_DT = 1 / 60;
@@ -72,6 +74,7 @@ export class GameScene extends Phaser.Scene {
   private ai!: AIController;
   private racket!: RacketTracker;
   private touchControls: TouchControls | null = null;
+  private editShown = false;
   private telemetry = new Telemetry();
   private pingAccum = 0;
   private metricsAccum = 0;
@@ -290,7 +293,21 @@ export class GameScene extends Phaser.Scene {
     return this.cfg.role === 'guest' ? 1 : 0;
   }
 
+  /** open/close the on-screen stick layout editor (touch devices only) */
+  setEditMode(on: boolean): void {
+    if (!this.touchControls) return;
+    this.touchControls.setEditing(on);
+    if (on) this.racket.reset();
+  }
+
+  toggleEditMode(): void {
+    this.setEditMode(!(this.touchControls?.editing ?? false));
+  }
+
   private buildLocalInput(dt: number): PlayerInput {
+    // while the player is arranging the sticks, everyone stands still
+    if (this.touchControls?.editing) return { ...EMPTY_INPUT };
+
     const p = this.world.players[this.localIndex()];
     const shoulder = shoulderPoint(p);
 
@@ -326,11 +343,20 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, deltaMs: number): void {
     const dt = Math.min(deltaMs / 1000, 0.05);
     const role = this.cfg.role;
+    const editing = this.touchControls?.editing ?? false;
 
-    if (role === 'guest') {
+    if (editing && role === 'single') {
+      // freeze the rally while the layout editor is open; online we keep the
+      // sim running so the opponent is not held hostage
+    } else if (role === 'guest') {
       this.updateGuest(dt);
     } else {
       this.updateSimulated(dt, role);
+    }
+
+    if (this.touchControls && editing !== this.editShown) {
+      this.editShown = editing;
+      this.cfg.onEditMode?.(editing);
     }
 
     if (role !== 'single') {

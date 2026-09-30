@@ -4,18 +4,24 @@ import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import TopBar from '../components/ui/TopBar.vue';
 import ScoreLine from '../components/ui/ScoreLine.vue';
+import GlassButton from '../components/ui/GlassButton.vue';
 import SegmentedChoice from '../components/ui/SegmentedChoice.vue';
 import type { Choice } from '../components/ui/types';
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import type { Difficulty } from '../game/ai';
 import { sfx } from '../game/audio';
+import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
 
 const router = useRouter();
 const store = useGameStore();
 const hud = ref<HudState | null>(null);
 const hint = ref('');
+const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
+const editing = ref(false);
+/** the layout editor only makes sense where the on-screen sticks exist */
+const touch = isTouchDevice();
 
 const difficulties: Choice[] = [
   { value: 'easy', label: '简单' },
@@ -63,6 +69,9 @@ onBeforeUnmount(() => {
       <TopBar @back="back">
         <template #title>单机练习</template>
         <template #aside>
+          <GlassButton v-if="touch" size="sm" @click="canvas?.toggleEditMode()">
+            {{ editing ? '完成' : '⚙ 摇杆' }}
+          </GlassButton>
           <SegmentedChoice
             :model-value="store.difficulty"
             :options="difficulties"
@@ -74,11 +83,13 @@ onBeforeUnmount(() => {
 
       <div class="stage">
         <GameCanvas
+          ref="canvas"
           role="single"
           :difficulty="store.difficulty"
           :session="null"
           @hud="onHud"
           @sim="onEvent"
+          @editmode="editing = $event"
         />
       </div>
 
