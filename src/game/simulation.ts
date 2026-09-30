@@ -18,6 +18,7 @@ import {
   POINT_PAUSE,
   SERVE_PAUSE,
   SERVE_SPEED_MIN,
+  SHOT_LAND_SLACK,
   SHOT_SPEED_GAIN,
   SHOT_SPEED_MAX,
   SHOT_SPEED_MIN,
@@ -138,6 +139,57 @@ export function stepPlayerLocal(
 }
 
 /**
+ * Forward integration that returns where a launch starting at (x, y) with
+ * velocity (vx, vy) would touch the floor. Mirrors the authoritative step
+ * (same SUB_DT) so the prediction matches the real trajectory; it is only
+ * used to size a launch, never to advance the shuttle.
+ */
+function predictLandingX(x: number, y: number, vx: number, vy: number): number {
+  const dt = SUB_DT;
+  const floor = GROUND_Y - SHUTTLE_R;
+  for (let i = 0; i < 900; i++) {
+    const s = Math.hypot(vx, vy);
+    const drag = SHUTTLE_DRAG * s;
+    vx -= vx * drag * dt;
+    vy -= vy * drag * dt;
+    vy += SHUTTLE_GRAVITY * dt;
+    const sp = Math.hypot(vx, vy);
+    if (sp > SHUTTLE_MAX_SPEED) {
+      vx = (vx / sp) * SHUTTLE_MAX_SPEED;
+      vy = (vy / sp) * SHUTTLE_MAX_SPEED;
+    }
+    x += vx * dt;
+    y += vy * dt;
+    if (y >= floor) return x;
+  }
+  return x;
+}
+
+/**
+ * Scales a launch down (direction unchanged) until it lands no further than
+ * `limit`. Landing distance grows monotonically with launch speed, so a short
+ * bisection finds the largest power that still drops in.
+ */
+function trimShotToLand(
+  x: number,
+  y: number,
+  launch: { vx: number; vy: number },
+  limit: number,
+  towardRight: boolean,
+): void {
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 18; i++) {
+    const mid = (lo + hi) / 2;
+    const land = predictLandingX(x, y, launch.vx * mid, launch.vy * mid);
+    if (towardRight ? land > limit : land < limit) hi = mid;
+    else lo = mid;
+  }
+  launch.vx *= lo;
+  launch.vy *= lo;
+}
+
+/**
  * Converts the racket's motion into a shuttle launch.
  * Direction comes from where the racket is travelling, power from how fast.
  */
@@ -167,6 +219,18 @@ function releaseShuttle(world: World, index: 0 | 1): void {
 
   shuttle.vx = p.facing * speed * Math.cos(elevation);
   shuttle.vy = -speed * Math.sin(elevation);
+
+  // Trim the power so a full swing does not sail past the opponent's back
+  // line. Only the host (authority) runs this and ships the resulting
+  // velocity in its snapshot, so guests stay in sync automatically.
+  const towardRight = p.facing > 0;
+  const limit =
+    (towardRight ? COURT_RIGHT : COURT_LEFT) + (towardRight ? SHOT_LAND_SLACK : -SHOT_LAND_SLACK);
+  const predicted = predictLandingX(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy);
+  if (towardRight ? predicted > limit : predicted < limit) {
+    trimShotToLand(shuttle.x, shuttle.y, shuttle, limit, towardRight);
+  }
+
   shuttle.live = true;
 
   p.hitCooldown = HIT_COOLDOWN;

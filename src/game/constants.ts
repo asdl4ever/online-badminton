@@ -8,19 +8,19 @@ export const NET_HEIGHT = 108;
 export const NET_TOP = GROUND_Y - NET_HEIGHT;
 export const NET_HALF_W = 5;
 
-export const COURT_LEFT = 170;
-export const COURT_RIGHT = 1110;
+export const COURT_LEFT = 64;
+export const COURT_RIGHT = 1216;
 
 // ---- players -------------------------------------------------------------
-export const PLAYER_W = 38;
-export const PLAYER_H = 126;
+export const PLAYER_W = 32;
+export const PLAYER_H = 108;
 export const PLAYER_SPEED = 430;
 export const PLAYER_ACCEL = 4200;
 export const PLAYER_JUMP_V = -760;
 export const PLAYER_GRAVITY = 2200;
 
 export const SHOULDER_DY = 0.72; // fraction of PLAYER_H above the feet
-export const SHOULDER_DX = 8;
+export const SHOULDER_DX = 7;
 
 // ---- shuttle -------------------------------------------------------------
 export const SHUTTLE_R = 7;
@@ -30,9 +30,9 @@ export const SHUTTLE_MAX_SPEED = 2400;
 
 // ---- racket --------------------------------------------------------------
 /** how far the racket head may reach from the shoulder */
-export const RACKET_MAX = 130;
+export const RACKET_MAX = 110;
 /** radius of the racket head's sweet spot */
-export const RACKET_HEAD_R = 36;
+export const RACKET_HEAD_R = 30;
 /** racket head radius + shuttle radius, i.e. actual contact distance */
 export const CONTACT_R = RACKET_HEAD_R + SHUTTLE_R;
 
@@ -55,6 +55,12 @@ export const SHOT_SPEED_MAX = 2100;
 export const HIT_COOLDOWN = 0.12;
 /** racket must be moving at least this fast to release a serve */
 export const SERVE_SPEED_MIN = 620;
+/**
+ * A shot that would sail past the opponent's back line has its power trimmed
+ * so it drops in. This is how far past the line it is still allowed to land
+ * (the tolerated overshoot), in px.
+ */
+export const SHOT_LAND_SLACK = 30;
 
 // how far either side of the net a player may travel
 export const PLAYER_MARGIN = 70;

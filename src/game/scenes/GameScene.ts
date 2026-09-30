@@ -826,9 +826,9 @@ export class GameScene extends Phaser.Scene {
     if (w.phase !== 'serve') return;
     const s = this.renderPlayerPos(w.server);
     g.lineStyle(3, P.serveHint, 0.45);
-    g.strokeCircle(s.x, s.y - PLAYER_H - 30, 12);
+    g.strokeCircle(s.x, s.y - PLAYER_H - 26, 10);
     g.lineStyle(3, P.serveHint, 0.95);
-    g.lineBetween(s.x - 7, s.y - PLAYER_H - 30, s.x + 7, s.y - PLAYER_H - 30);
+    g.lineBetween(s.x - 6, s.y - PLAYER_H - 26, s.x + 6, s.y - PLAYER_H - 26);
   }
 
   private drawPlayer(g: Phaser.GameObjects.Graphics, i: 0 | 1): void {
@@ -838,12 +838,12 @@ export class GameScene extends Phaser.Scene {
     const topY = pos.y - PLAYER_H;
 
     g.fillStyle(P.shadow, 0.16);
-    g.fillEllipse(pos.x, GROUND_Y + 2, 54, 12);
+    g.fillEllipse(pos.x, GROUND_Y + 2, 46, 10);
 
     g.fillStyle(color, 1);
-    g.fillRoundedRect(pos.x - 17, topY + 30, 34, PLAYER_H - 34, 12);
+    g.fillRoundedRect(pos.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
     g.fillStyle(P.skin, 1);
-    g.fillCircle(pos.x, topY + 18, 15);
+    g.fillCircle(pos.x, topY + 16, 13);
 
     this.drawRacket(g, p, pos.x, pos.y, color);
   }
@@ -872,18 +872,18 @@ export class GameScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    const hx = head.x - Math.cos(ang) * 14;
-    const hy = head.y - Math.sin(ang) * 14;
-    g.lineStyle(7, P.skin, 1);
+    const hx = head.x - Math.cos(ang) * 12;
+    const hy = head.y - Math.sin(ang) * 12;
+    g.lineStyle(6, P.skin, 1);
     g.lineBetween(shoulder.x, shoulder.y, hx, hy);
 
     g.save();
     g.translateCanvas(head.x, head.y);
     g.rotateCanvas(ang);
-    g.lineStyle(7, P.grip, 0.95);
-    g.lineBetween(-14, 0, -2, 0);
+    g.lineStyle(6, P.grip, 0.95);
+    g.lineBetween(-12, 0, -2, 0);
     g.lineStyle(3, P.racket, 0.95);
-    g.strokeEllipse(11, 0, 40, 32);
+    g.strokeEllipse(9, 0, 34, 28);
     g.restore();
 
     if (hot > 0.15) {
