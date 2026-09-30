@@ -56,6 +56,8 @@ export class TouchControls {
   joyX = 0;
   joyY = 0;
   joyActive = false;
+  /** turned off during celebrations / game over so taps don't grab the racket */
+  enabled = true;
 
   private scene: Phaser.Scene;
   private gfx: Phaser.GameObjects.Graphics;
@@ -113,6 +115,7 @@ export class TouchControls {
   }
 
   private onDown(pointer: Phaser.Input.Pointer): void {
+    if (!this.enabled) return;
     if (this.padPointer < 0 && this.inPad(pointer.x, pointer.y)) {
       this.padPointer = pointer.id;
       this.padDownAt = this.scene.time.now;
@@ -137,6 +140,7 @@ export class TouchControls {
   }
 
   private onMove(pointer: Phaser.Input.Pointer): void {
+    if (!this.enabled) return;
     if (pointer.id === this.padPointer) {
       if (Math.hypot(pointer.x - this.padDownX, pointer.y - this.padDownY) > DRAG_PX) {
         this.padMoved = true;
@@ -182,6 +186,7 @@ export class TouchControls {
   draw(): void {
     const g = this.gfx;
     g.clear();
+    if (!this.enabled) return;
 
     const padLive = this.padPointer >= 0;
     g.fillStyle(0x0b1a2b, padLive ? 0.42 : 0.22);

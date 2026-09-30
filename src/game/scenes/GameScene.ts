@@ -82,6 +82,13 @@ export class GameScene extends Phaser.Scene {
   private scoreRight!: Phaser.GameObjects.Text;
   private message!: Phaser.GameObjects.Text;
   private subMessage!: Phaser.GameObjects.Text;
+  private replayBg!: Phaser.GameObjects.Graphics;
+  private replayLabel!: Phaser.GameObjects.Text;
+  private replayZone!: Phaser.GameObjects.Zone;
+  private replayShown = false;
+  private readonly replayY = 390;
+  private readonly replayW = 280;
+  private readonly replayH = 78;
 
   constructor() {
     super('GameScene');
@@ -136,6 +143,8 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    this.buildReplayButton();
+
     const session = this.cfg.session;
     if (session) {
       session.onMessage = (m) => this.handleNetMessage(m);
@@ -171,6 +180,56 @@ export class GameScene extends Phaser.Scene {
       this.hasSnapshot = true;
     } else if (m.t === 'rematch') {
       this.resetWorld();
+    }
+  }
+
+  private buildReplayButton(): void {
+    const bx = VIEW_W / 2;
+    const by = this.replayY;
+    const w = this.replayW;
+    const h = this.replayH;
+
+    this.replayBg = this.add.graphics().setDepth(15);
+    this.replayBg.fillStyle(0x2f7fe0, 1);
+    this.replayBg.fillRoundedRect(bx - w / 2, by - h / 2, w, h, 18);
+    this.replayBg.lineStyle(3, 0x9fd6ff, 0.9);
+    this.replayBg.strokeRoundedRect(bx - w / 2, by - h / 2, w, h, 18);
+
+    this.replayLabel = this.add
+      .text(bx, by, '再来一局', {
+        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontSize: '34px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(16);
+
+    this.replayZone = this.add.zone(bx, by, w, h);
+    this.replayZone.setInteractive(
+      new Phaser.Geom.Rectangle(0, 0, w, h),
+      Phaser.Geom.Rectangle.Contains,
+    );
+    this.replayZone.on('pointerdown', () => {
+      if (this.world.phase === 'gameover') this.requestRematch();
+    });
+    this.replayZone.on('pointerover', () => this.replayLabel.setColor('#ffe9a8'));
+    this.replayZone.on('pointerout', () => this.replayLabel.setColor('#ffffff'));
+
+    this.setReplayVisible(false);
+  }
+
+  private setReplayVisible(on: boolean): void {
+    if (this.replayShown === on) return;
+    this.replayShown = on;
+    this.replayBg.setVisible(on);
+    this.replayLabel.setVisible(on);
+    this.replayZone.setVisible(on);
+    if (this.replayZone.input) this.replayZone.input.enabled = on;
+    // while the button is up, taps must not also swing the racket
+    if (this.touchControls) {
+      this.touchControls.enabled = !on;
+      if (on) this.touchControls.reset();
     }
   }
 
@@ -337,12 +396,18 @@ export class GameScene extends Phaser.Scene {
       const won = w.winner === local;
       this.message.setText(won ? '你赢了！' : '你输了');
       this.message.setColor(won ? '#8ef58e' : '#ff8a8a');
-      this.subMessage.setText('按 R 再来一局');
+      this.subMessage.setText(this.touchControls ? '' : '也可以按 R 键');
+      this.subMessage.setY(this.replayY + this.replayH / 2 + 34);
+      this.setReplayVisible(true);
     } else if (w.phase === 'serve') {
+      this.setReplayVisible(false);
+      this.subMessage.setY(VIEW_H / 2 - 46);
       this.message.setText('');
       const how = this.touchControls ? '拨动摇杆' : '挥动鼠标';
       this.subMessage.setText(w.server === local ? `你的发球 — 快速${how}` : '等待对方发球…');
     } else {
+      this.setReplayVisible(false);
+      this.subMessage.setY(VIEW_H / 2 - 46);
       this.message.setText('');
       this.subMessage.setText('');
     }
