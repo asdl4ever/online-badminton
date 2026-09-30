@@ -33,7 +33,11 @@ function toggleEditMode(): void {
   scene()?.toggleEditMode();
 }
 
-defineExpose({ toggleEditMode });
+function sendEmote(id: string): void {
+  scene()?.sendEmote(id);
+}
+
+defineExpose({ toggleEditMode, sendEmote });
 
 onMounted(async () => {
   // Phaser renders text with the canvas 2D API, which does not re-flow when a

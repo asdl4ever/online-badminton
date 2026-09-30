@@ -9,6 +9,7 @@ import ScoreLine from '../components/ui/ScoreLine.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
+import EmotePicker from '../components/ui/EmotePicker.vue';
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
@@ -28,7 +29,14 @@ const leaving = ref(false);
 const phaseText = ref('');
 const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
 const editing = ref(false);
+const emoteOpen = ref(false);
 const touch = isTouchDevice();
+
+function pickEmote(id: string) {
+  sfx.click();
+  canvas.value?.sendEmote(id);
+  emoteOpen.value = false;
+}
 
 const { copy, copied, isSupported: clipboardSupported } = useClipboard();
 
@@ -187,8 +195,34 @@ onBeforeUnmount(() => {
       <TopBar @back="back">
         <template #title>联机对战</template>
         <template #aside>
+          <Button
+            v-if="playing"
+            size="sm"
+            aria-haspopup="dialog"
+            :aria-expanded="emoteOpen"
+            @click="emoteOpen = !emoteOpen"
+          >
+            <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <circle cx="9" cy="10" r="1.3" fill="currentColor" />
+              <circle cx="15" cy="10" r="1.3" fill="currentColor" />
+              <path
+                d="M8.4 14.4a4.6 4.6 0 0 0 7.2 0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span>表情</span>
+          </Button>
+          <EmotePicker
+            v-if="emoteOpen && playing"
+            @pick="pickEmote"
+            @close="emoteOpen = false"
+          />
           <Button v-if="touch && playing" size="sm" @click="canvas?.toggleEditMode()">
-            <svg class="gear" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
                 stroke="currentColor"
@@ -313,7 +347,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.gear {
+.hud-icon {
   width: 17px;
   height: 17px;
   margin-right: 6px;

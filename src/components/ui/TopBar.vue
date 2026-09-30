@@ -63,5 +63,7 @@ defineEmits<{ back: [] }>();
   gap: var(--s2);
   justify-content: flex-end;
   flex-wrap: wrap;
+  /* anchors the emote picker popup */
+  position: relative;
 }
 </style>

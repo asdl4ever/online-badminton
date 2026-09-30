@@ -40,6 +40,7 @@ import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
 import { debugOverlayEnabled } from '../device';
 import { P, FONT_NUM, FONT_UI } from '../theme';
+import { EMOTE_BY_ID, EMOTE_COOLDOWN_MS, EMOTE_LIFE_S } from '../emotes';
 import { Telemetry, type NetMetrics } from '../telemetry';
 import type { NetLink, NetMessage } from '../../net/link';
 
@@ -109,6 +110,15 @@ export class GameScene extends Phaser.Scene {
   private predOpp = { x: 0, y: 0, vx: 0, vy: 0 };
   /** host-side shuttle history, for lag-compensated contact tests */
   private shuttleHistory: { x: number; y: number; t: number }[] = [];
+  /** reaction bubbles currently on screen */
+  private emotes: {
+    player: 0 | 1;
+    life: number;
+    text: Phaser.GameObjects.Text;
+  }[] = [];
+  private lastEmoteAt = 0;
+  /** real frame delta — effect lifetimes must not assume 60fps */
+  private frameDt = 1 / 60;
 
   private dynamic!: Phaser.GameObjects.Graphics;
   private scoreLeft!: Phaser.GameObjects.Text;
@@ -234,6 +244,9 @@ export class GameScene extends Phaser.Scene {
       this.telemetry.onSnapshot(performance.now());
       // replay the host's sim events so the guest hears hits and net taps too
       if (m.s.ev) for (const e of m.s.ev) this.world.events.push(e);
+    } else if (m.t === 'emote') {
+      // the peer's reaction lands on their own player
+      this.spawnEmote(this.cfg.role === 'host' ? 1 : 0, m.id);
     } else if (m.t === 'ping') {
       this.cfg.session?.send({ t: 'pong', ts: m.ts });
     } else if (m.t === 'pong') {
@@ -304,6 +317,8 @@ export class GameScene extends Phaser.Scene {
     this.hasSnapshot = false;
     this.racket.reset();
     this.touchControls?.reset();
+    for (const e of this.emotes) e.text.destroy();
+    this.emotes = [];
     this.publishHud(true);
   }
 
@@ -330,6 +345,60 @@ export class GameScene extends Phaser.Scene {
 
   toggleEditMode(): void {
     this.setEditMode(!(this.touchControls?.editing ?? false));
+  }
+
+  /**
+   * React with an emote. Shown locally straight away (no round trip) and sent
+   * to the opponent as a side channel — it never touches the simulation.
+   */
+  sendEmote(id: string): void {
+    if (!EMOTE_BY_ID[id]) return;
+    const now = performance.now();
+    if (now - this.lastEmoteAt < EMOTE_COOLDOWN_MS) return;
+    this.lastEmoteAt = now;
+    this.spawnEmote(this.localIndex(), id);
+    this.cfg.session?.send({ t: 'emote', id, ts: Date.now() });
+  }
+
+  private spawnEmote(player: 0 | 1, id: string): void {
+    const def = EMOTE_BY_ID[id];
+    if (!def) return;
+    const text = this.add
+      .text(0, 0, def.char, { fontFamily: FONT_UI, fontSize: '34px' })
+      .setOrigin(0.5)
+      .setDepth(12);
+    this.emotes.push({ player, life: 1, text });
+    // keep the pool small so a spamming peer cannot fill the screen
+    while (this.emotes.length > 5) this.emotes.shift()?.text.destroy();
+  }
+
+  private drawEmotes(g: Phaser.GameObjects.Graphics): void {
+    const dt = this.frameDt;
+    for (let i = this.emotes.length - 1; i >= 0; i--) {
+      const e = this.emotes[i];
+      e.life -= dt / EMOTE_LIFE_S;
+      if (e.life <= 0) {
+        e.text.destroy();
+        this.emotes.splice(i, 1);
+        continue;
+      }
+      const p = this.renderPlayerPos(e.player);
+      const rise = (1 - e.life) * 46;
+      const x = p.x;
+      const y = p.y - PLAYER_H - 36 - rise;
+      const alpha = Math.min(1, e.life * 2.2);
+
+      const w = 66;
+      const h = 50;
+      g.fillStyle(0xffffff, 0.95 * alpha);
+      g.lineStyle(2, P.line, 0.45 * alpha);
+      g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 14);
+      g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 14);
+      g.fillStyle(0xffffff, 0.95 * alpha);
+      g.fillTriangle(x - 8, y + h / 2 - 2, x + 8, y + h / 2 - 2, x, y + h / 2 + 11);
+
+      e.text.setPosition(x, y).setAlpha(alpha);
+    }
   }
 
   private buildLocalInput(dt: number): PlayerInput {
@@ -370,6 +439,7 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number): void {
     const dt = Math.min(deltaMs / 1000, 0.05);
+    this.frameDt = dt;
     const role = this.cfg.role;
     const editing = this.touchControls?.editing ?? false;
 
@@ -727,6 +797,7 @@ export class GameScene extends Phaser.Scene {
     this.drawServeHint(g);
     for (let i = 0; i < 2; i++) this.drawPlayer(g, i as 0 | 1);
     this.drawShuttle(g);
+    this.drawEmotes(g);
     this.drawEffects(g);
 
     const local = this.localIndex();
@@ -736,7 +807,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawEffects(g: Phaser.GameObjects.Graphics): void {
-    const dt = 1 / 60;
+    const dt = this.frameDt;
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const f = this.flashes[i];
       f.life -= dt * 3.2;

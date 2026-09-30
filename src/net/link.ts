@@ -8,6 +8,8 @@ export type NetMessage =
   | { t: 'snap'; s: WorldSnapshot }
   | { t: 'rematch' }
   | { t: 'leave' }
+  /** a reaction bubble the opponent should show above the sender */
+  | { t: 'emote'; id: string; ts: number }
   /** latency probe — the sender stamps it and measures its own round trip */
   | { t: 'ping'; ts: number }
   | { t: 'pong'; ts: number };
