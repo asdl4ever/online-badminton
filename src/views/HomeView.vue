@@ -7,6 +7,7 @@ import AppModal from '../components/ui/AppModal.vue';
 import CustomizePanel from '../components/CustomizePanel.vue';
 import FriendsPanel from '../components/FriendsPanel.vue';
 import RankPanel from '../components/RankPanel.vue';
+import BackpackPanel from '../components/BackpackPanel.vue';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 import { sfx } from '../game/audio';
@@ -18,6 +19,7 @@ const progress = useProgressStore();
 const showLook = ref(false);
 const showFriends = ref(false);
 const showRank = ref(false);
+const showBag = ref(false);
 
 /** pending friend requests + invites, shown as a badge on the friends icon */
 const friendBadge = computed(() => lobby.requests.length + lobby.invites.length);
@@ -30,11 +32,12 @@ function go(path: string) {
   void router.push(path);
 }
 
-function open(which: 'look' | 'friends' | 'rank') {
+function open(which: 'look' | 'friends' | 'rank' | 'bag') {
   sfx.unlock();
   sfx.click();
   if (which === 'look') showLook.value = true;
   else if (which === 'friends') showFriends.value = true;
+  else if (which === 'bag') showBag.value = true;
   else showRank.value = true;
 }
 </script>
@@ -70,6 +73,26 @@ function open(which: 'look' | 'friends' | 'rank') {
             <circle cx="16.5" cy="10.5" r="1.2" fill="currentColor" />
           </svg>
           <span>外观</span>
+        </button>
+
+        <button class="tool" type="button" title="背包" @click="open('bag')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M5 8h14l-1.2 11a1.5 1.5 0 0 1-1.5 1.3H7.7A1.5 1.5 0 0 1 6.2 19z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M9 8V6.5a3 3 0 0 1 6 0V8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>背包</span>
         </button>
 
         <button class="tool" type="button" title="好友" @click="open('friends')">
@@ -163,6 +186,10 @@ function open(which: 'look' | 'friends' | 'rank') {
       <CustomizePanel />
     </AppModal>
 
+    <AppModal v-if="showBag" title="背包 · 宝箱" max-width="760px" @close="showBag = false">
+      <BackpackPanel />
+    </AppModal>
+
     <AppModal v-if="showFriends" title="好友" max-width="560px" @close="showFriends = false">
       <FriendsPanel room-code="" :can-invite="false" bare />
     </AppModal>
@@ -173,6 +200,7 @@ function open(which: 'look' | 'friends' | 'rank') {
 .home-tools {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: var(--s3);
   margin-bottom: var(--s3);
 }

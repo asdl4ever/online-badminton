@@ -28,7 +28,7 @@ export const TIERS: Tier[] = [
     points: 80,
     color: 0xa9b4c2,
     glyph: 'II',
-    reward: '翅膀「光羽」',
+    reward: '称号「疾风」',
   },
   {
     id: 'gold',
@@ -44,7 +44,7 @@ export const TIERS: Tier[] = [
     points: 560,
     color: 0x7c5cff,
     glyph: 'IV',
-    reward: '翅膀「烈焰」+ 球拍皮肤「烈焰」',
+    reward: '球拍皮肤「烈焰」',
   },
   {
     id: 'king',
@@ -60,7 +60,7 @@ export const TIERS: Tier[] = [
     points: 2000,
     color: 0xff5a5a,
     glyph: 'VI',
-    reward: '翅膀「雷霆」+ 称号「超神」',
+    reward: '翅膀「圣光」+ 称号「超神」',
   },
 ];
 
