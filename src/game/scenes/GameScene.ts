@@ -33,7 +33,7 @@ import {
 import { AIController, type Difficulty } from '../ai';
 import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
-import { TouchControls, enterMobileFullscreen, isTouchDevice } from '../touch';
+import { TouchControls, isTouchDevice } from '../touch';
 import type { NetLink, NetMessage } from '../../net/link';
 
 export interface HudState {
@@ -66,7 +66,6 @@ export class GameScene extends Phaser.Scene {
   private ai!: AIController;
   private racket!: RacketTracker;
   private touchControls: TouchControls | null = null;
-  private touchAsked = false;
 
   private accum = 0;
   private netAccum = 0;
@@ -160,11 +159,6 @@ export class GameScene extends Phaser.Scene {
       // the HTML bar overlays the top of the canvas, so drop the score below it
       this.scoreLeft.setY(126);
       this.scoreRight.setY(126);
-      this.input.on('pointerdown', () => {
-        if (this.touchAsked) return;
-        this.touchAsked = true;
-        void enterMobileFullscreen();
-      });
       this.events.once('shutdown', () => {
         this.touchControls?.destroy();
         this.touchControls = null;
@@ -216,7 +210,12 @@ export class GameScene extends Phaser.Scene {
     this.replayZone.on('pointerover', () => this.replayLabel.setColor('#ffe9a8'));
     this.replayZone.on('pointerout', () => this.replayLabel.setColor('#ffffff'));
 
-    this.setReplayVisible(false);
+    // hide explicitly: the toggle below short-circuits on an unchanged flag
+    this.replayBg.setVisible(false);
+    this.replayLabel.setVisible(false);
+    this.replayZone.setVisible(false);
+    if (this.replayZone.input) this.replayZone.input.enabled = false;
+    this.replayShown = false;
   }
 
   private setReplayVisible(on: boolean): void {

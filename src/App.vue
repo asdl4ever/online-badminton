@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router';
+import { useMobileShell } from './composables/useMobileShell';
+
+// requests fullscreen + landscape lock on the first tap (touch devices only)
+useMobileShell();
 </script>
 
 <template>

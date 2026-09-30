@@ -1,5 +1,6 @@
 ﻿import { defineStore } from 'pinia';
-import { ref, shallowRef } from 'vue';
+import { shallowRef, ref } from 'vue';
+import { useLocalStorage } from '@vueuse/core';
 import type { Difficulty } from '../game/ai';
 import type { MatchRole } from '../game/types';
 import type { NetLink, NetStatus } from '../net/link';
@@ -14,7 +15,8 @@ export type ConnState =
 
 export const useGameStore = defineStore('game', () => {
   const role = ref<MatchRole>('single');
-  const difficulty = ref<Difficulty>('normal');
+  /** persisted so the chosen difficulty survives a reload */
+  const difficulty = useLocalStorage<Difficulty>('bmt-difficulty', 'normal');
   const connState = ref<ConnState>('idle');
   const roomCode = ref('');
   const transport = ref('');

@@ -1,7 +1,11 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
+import TopBar from '../components/ui/TopBar.vue';
+import ScoreLine from '../components/ui/ScoreLine.vue';
+import SegmentedChoice from '../components/ui/SegmentedChoice.vue';
+import type { Choice } from '../components/ui/types';
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import type { Difficulty } from '../game/ai';
@@ -13,11 +17,16 @@ const store = useGameStore();
 const hud = ref<HudState | null>(null);
 const hint = ref('');
 
-const difficulties: { id: Difficulty; label: string }[] = [
-  { id: 'easy', label: '简单' },
-  { id: 'normal', label: '普通' },
-  { id: 'hard', label: '困难' },
+const difficulties: Choice[] = [
+  { value: 'easy', label: '简单' },
+  { value: 'normal', label: '普通' },
+  { value: 'hard', label: '困难' },
 ];
+
+function setDifficulty(value: string) {
+  sfx.click();
+  store.difficulty = value as Difficulty;
+}
 
 function onHud(state: HudState) {
   hud.value = state;
@@ -38,11 +47,6 @@ function onEvent(e: SimEvent) {
   }
 }
 
-function setDifficulty(d: Difficulty) {
-  sfx.click();
-  store.difficulty = d;
-}
-
 function back() {
   sfx.click();
   void router.push('/');
@@ -54,28 +58,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page page--playing">
     <div class="shell">
-      <div class="topbar hud-bar">
-        <button class="btn btn-ghost" @click="back">← 返回</button>
-        <div style="display: flex; align-items: center; gap: 10px">
-          <span class="muted">难度</span>
-          <button
-            v-for="d in difficulties"
-            :key="d.id"
-            class="btn"
-            :class="{ 'btn-primary': store.difficulty === d.id }"
-            style="padding: 8px 16px"
-            @click="setDifficulty(d.id)"
-          >
-            {{ d.label }}
-          </button>
-        </div>
-        <div class="chip">
-          <span class="dot on" />
-          <span>单机练习</span>
-        </div>
-      </div>
+      <TopBar @back="back">
+        <template #title>单机练习</template>
+        <template #aside>
+          <SegmentedChoice
+            :model-value="store.difficulty"
+            :options="difficulties"
+            label="难度"
+            @update:model-value="setDifficulty"
+          />
+        </template>
+      </TopBar>
 
       <div class="stage">
         <GameCanvas
@@ -87,7 +82,7 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <div class="topbar hud-foot">
+      <ScoreLine>
         <div class="muted">
           比分 <b style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
           :
@@ -95,7 +90,7 @@ onBeforeUnmount(() => {
           &nbsp;·&nbsp; 先到 11 分获胜
         </div>
         <div class="muted">{{ hint }}</div>
-      </div>
+      </ScoreLine>
     </div>
   </div>
 </template>

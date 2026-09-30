@@ -1,7 +1,14 @@
-﻿<script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useClipboard, useIntervalFn } from '@vueuse/core';
+import { VProgressCircular } from 'vuetify/components';
 import GameCanvas from '../components/GameCanvas.vue';
+import TopBar from '../components/ui/TopBar.vue';
+import ScoreLine from '../components/ui/ScoreLine.vue';
+import GlassPanel from '../components/ui/GlassPanel.vue';
+import GlassButton from '../components/ui/GlassButton.vue';
+import StatusChip from '../components/ui/StatusChip.vue';
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import { hostOpen, joinMatch } from '../net/connect';
@@ -13,14 +20,36 @@ const router = useRouter();
 const store = useGameStore();
 
 const joinCode = ref('');
-const copied = ref(false);
 const hud = ref<HudState | null>(null);
 const notice = ref('');
 const leaving = ref(false);
 const phaseText = ref('');
 
+const { copy, copied, isSupported: clipboardSupported } = useClipboard();
+
+/** seconds spent waiting for an opponent, so the screen proves it is alive */
+const waited = ref(0);
+const waitClock = useIntervalFn(() => (waited.value += 1), 1000, { immediate: false });
+
 const playing = computed(() => store.connState === 'connected');
 const busy = computed(() => store.connState === 'creating' || store.connState === 'connecting');
+const waiting = computed(() => store.connState === 'waiting');
+
+watch(waiting, (on) => {
+  if (on) {
+    waited.value = 0;
+    waitClock.resume();
+  } else {
+    waitClock.pause();
+  }
+});
+const chipTone = computed(() => (playing.value ? 'ok' : busy.value || waiting.value ? 'warn' : 'idle'));
+const chipLabel = computed(() => {
+  if (store.transport && playing.value) return store.transport;
+  if (store.role === 'host') return store.roomCode ? `房间 ${store.roomCode}` : '未连接';
+  if (store.role === 'guest') return store.roomCode ? `已加入 ${store.roomCode}` : '未连接';
+  return '未连接';
+});
 
 const hooks = {
   onStatus: (s: Parameters<NonNullable<NetLink['onStatus']>>[0]) => {
@@ -99,14 +128,8 @@ function handlePeerLeft(reason = '对手已离开对局') {
 }
 
 async function copyCode() {
-  try {
-    await navigator.clipboard.writeText(store.roomCode);
-    copied.value = true;
-    sfx.click();
-    window.setTimeout(() => (copied.value = false), 1400);
-  } catch {
-    /* clipboard unavailable */
-  }
+  sfx.click();
+  await copy(store.roomCode);
 }
 
 function onHud(state: HudState) {
@@ -145,19 +168,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page" :class="{ 'page--playing': playing }">
     <div class="shell">
-      <div class="topbar hud-bar">
-        <button class="btn btn-ghost" @click="back">← 返回</button>
-        <h2 style="font-size: 20px">联机对战</h2>
-        <div class="chip">
-          <span class="dot" :class="{ on: playing }" />
-          <span v-if="store.transport && playing">{{ store.transport }}</span>
-          <span v-else-if="store.role === 'host'">房间 {{ store.roomCode || '——' }}</span>
-          <span v-else-if="store.role === 'guest'">已加入 {{ store.roomCode || '——' }}</span>
-          <span v-else>未连接</span>
-        </div>
-      </div>
+      <TopBar @back="back">
+        <template #title>联机对战</template>
+        <template #aside>
+          <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
+        </template>
+      </TopBar>
 
       <template v-if="playing">
         <div class="stage">
@@ -170,7 +188,7 @@ onBeforeUnmount(() => {
             @disconnect="onDisconnect"
           />
         </div>
-        <div class="topbar hud-foot">
+        <ScoreLine>
           <div class="muted">
             比分 <b style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
             :
@@ -181,78 +199,155 @@ onBeforeUnmount(() => {
             你是{{ store.role === 'host' ? '左侧（蓝）' : '右侧（橙）' }}选手
             <template v-if="store.transport">· {{ store.transport }}</template>
           </div>
-        </div>
+        </ScoreLine>
       </template>
 
       <template v-else>
-        <div v-if="store.connState === 'waiting'" class="card" style="text-align: center; padding: 40px">
+        <GlassPanel v-if="waiting" style="text-align: center">
           <p class="muted">把下面这串房间号发给你的对手</p>
-          <div style="display: flex; gap: 12px; justify-content: center; align-items: center; margin: 22px 0">
-            <div
-              style="
-                font-family: ui-monospace, Consolas, monospace;
-                font-size: 44px;
-                letter-spacing: 10px;
-                color: #fff;
-                background: #0a1421;
-                border: 1px solid var(--border);
-                border-radius: 12px;
-                padding: 12px 26px;
-              "
-            >
-              {{ store.roomCode }}
-            </div>
-            <button class="btn" @click="copyCode">{{ copied ? '已复制' : '复制' }}</button>
+
+          <div class="code">
+            <span class="code__value">{{ store.roomCode }}</span>
+            <GlassButton variant="primary" :disabled="!clipboardSupported" @click="copyCode">
+              {{ copied ? '已复制' : '复制' }}
+            </GlassButton>
           </div>
-          <p class="muted">{{ phaseText }}</p>
-          <p class="muted" style="margin-top: 8px; font-size: 13px">
+
+          <div class="waiting">
+            <VProgressCircular indeterminate size="18" width="2" color="primary" />
+            <span class="muted">{{ phaseText }}</span>
+          </div>
+
+          <p class="muted" style="margin-top: 10px; font-size: 13px">
             已开放通道：{{ store.session?.kind ?? '—' }} · 对手直连不上时会自动走中继
           </p>
-        </div>
+          <p class="muted" style="margin-top: 4px; font-size: 12px">已等待 {{ waited }}s</p>
+        </GlassPanel>
 
-        <div
+        <GlassPanel
           v-else-if="store.connState === 'creating' || store.connState === 'connecting'"
-          class="card"
-          style="text-align: center; padding: 40px"
+          style="text-align: center"
         >
-          <p class="muted">{{ phaseText || '正在连接…' }}</p>
+          <VProgressCircular indeterminate size="24" width="2" color="primary" />
+          <p class="muted" style="margin-top: 14px">{{ phaseText || '正在连接…' }}</p>
           <p v-if="store.netStatus?.note" class="muted" style="margin-top: 8px; color: var(--warn)">
             {{ store.netStatus.note }}
           </p>
-        </div>
+        </GlassPanel>
 
-        <div v-else class="card">
-          <div style="display: flex; gap: 28px; flex-wrap: wrap">
-            <div style="flex: 1 1 260px">
-              <h3 style="margin-bottom: 10px">创建房间</h3>
-              <p class="muted" style="margin-bottom: 16px">生成一个房间号，等对手加入。</p>
-              <button class="btn btn-primary" :disabled="busy" @click="createRoom">创建房间</button>
+        <GlassPanel v-else>
+          <div class="lobby">
+            <div class="lobby__col">
+              <h3>创建房间</h3>
+              <p class="muted">生成一个房间号，等对手加入。</p>
+              <GlassButton variant="primary" :disabled="busy" @click="createRoom">创建房间</GlassButton>
             </div>
-            <div style="width: 1px; background: var(--border); align-self: stretch" />
-            <div style="flex: 1 1 260px">
-              <h3 style="margin-bottom: 10px">加入房间</h3>
-              <p class="muted" style="margin-bottom: 16px">输入对手给你的房间号。</p>
-              <div style="display: flex; gap: 10px">
-                <input
+
+            <div class="lobby__rule" />
+
+            <div class="lobby__col">
+              <h3>加入房间</h3>
+              <p class="muted">输入对手给你的房间号。</p>
+              <div class="join-row">
+                <VTextField
                   v-model="joinCode"
+                  class="glass-field"
                   placeholder="例如 7K3QM"
                   maxlength="8"
-                  style="text-transform: uppercase; letter-spacing: 3px; width: 160px"
                   @keyup.enter="joinRoom"
                 />
-                <button class="btn" :disabled="busy" @click="joinRoom">加入</button>
+                <GlassButton :disabled="busy" @click="joinRoom">加入</GlassButton>
               </div>
             </div>
           </div>
 
-          <p v-if="store.netError" style="margin-top: 18px; color: var(--warn)">{{ store.netError }}</p>
-          <p v-if="notice" style="margin-top: 18px; color: var(--warn)">{{ notice }}</p>
+          <p v-if="store.netError" class="alert alert--warn">{{ store.netError }}</p>
+          <p v-if="notice" class="alert alert--warn">{{ notice }}</p>
 
           <p class="muted" style="margin-top: 20px">
             会先尝试 WebRTC 点对点直连（延迟更低）；如果双方网络打不通，自动切换到本服务器的 WebSocket 中继。
           </p>
-        </div>
+        </GlassPanel>
       </template>
     </div>
   </div>
 </template>
+
+<style scoped>
+.code {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  margin: 22px 0 14px;
+  flex-wrap: wrap;
+}
+
+.code__value {
+  font-family: var(--mono);
+  font-size: 40px;
+  letter-spacing: 10px;
+  padding: 10px 22px;
+  color: #fff;
+  border-radius: var(--r-md);
+  border: 1px solid var(--glass-line);
+  background: rgba(10, 20, 33, 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.lobby {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.lobby__col {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.lobby__rule {
+  width: 1px;
+  align-self: stretch;
+  background: var(--glass-line);
+}
+
+/* the column is align-items:flex-start, so the row must opt back into full
+   width or the field collapses to its contents */
+.join-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.join-row :deep(.v-input) {
+  flex: 0 0 210px;
+  max-width: 210px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.alert {
+  margin-top: 18px;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+}
+
+.alert--warn {
+  color: var(--warn);
+  border: 1px solid rgba(255, 209, 102, 0.32);
+  background: rgba(255, 209, 102, 0.09);
+}
+</style>

@@ -1,16 +1,38 @@
+/* ==========================================================================
+   Design tokens
+   ========================================================================== */
 :root {
+  /* palette — shared with the game so menu and court read as one product */
   --bg: #070d16;
-  --panel: #101b2d;
-  --panel-2: #16253c;
-  --border: #23374f;
-  --text: #cfe3f5;
-  --text-dim: #7f97b3;
   --accent: #4ea3ff;
   --accent-2: #ff7a59;
   --good: #58d68d;
   --warn: #ffd166;
+  --text: #dbe9f7;
+  --text-dim: #8ba3bd;
 
-  font-family: 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', sans-serif;
+  /* liquid glass material */
+  --glass-tint: rgba(255, 255, 255, 0.055);
+  --glass-tint-2: rgba(255, 255, 255, 0.1);
+  --glass-line: rgba(255, 255, 255, 0.13);
+  --glass-sheen: rgba(255, 255, 255, 0.32);
+  --glass-shadow: rgba(0, 0, 0, 0.5);
+  --glass-blur: 22px;
+  --glass-sat: 150%;
+  --glass-sheen-gradient: radial-gradient(
+    130% 90% at 14% -12%,
+    rgba(255, 255, 255, 0.16),
+    transparent 58%
+  );
+
+  --r-lg: 26px;
+  --r-md: 16px;
+  --r-sm: 10px;
+
+  --sans: 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font-family: var(--sans);
   color-scheme: dark;
   color: var(--text);
   background: var(--bg);
@@ -31,7 +53,8 @@ body {
 
 body {
   background:
-    radial-gradient(1200px 700px at 50% -10%, #142a45 0%, transparent 60%),
+    radial-gradient(1100px 640px at 50% -12%, #16304f 0%, transparent 62%),
+    radial-gradient(760px 520px at 88% 108%, #1d2b45 0%, transparent 58%),
     var(--bg);
 }
 
@@ -41,16 +64,12 @@ body {
   flex-direction: column;
 }
 
-a {
-  color: var(--accent);
-}
-
 h1,
 h2,
 h3 {
-  color: #eaf4ff;
   margin: 0;
   font-weight: 700;
+  color: #eef6ff;
 }
 
 button {
@@ -59,64 +78,59 @@ button {
   cursor: pointer;
 }
 
-.btn {
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--text);
-  padding: 12px 22px;
-  border-radius: 10px;
-  font-weight: 600;
-  transition:
-    transform 0.12s ease,
-    border-color 0.12s ease,
-    background 0.12s ease;
+/* ==========================================================================
+   Liquid glass material
+   ========================================================================== */
+.glass {
+  position: relative;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--glass-line);
+  background:
+    var(--glass-sheen-gradient),
+    linear-gradient(
+      158deg,
+      var(--glass-tint-2),
+      var(--glass-tint) 44%,
+      rgba(255, 255, 255, 0.028)
+    );
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow:
+    inset 0 1px 0 var(--glass-sheen),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    0 26px 62px -24px var(--glass-shadow);
 }
 
-.btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  transform: translateY(-1px);
+/* no backdrop blur: used where the surface sits directly over the live WebGL
+   canvas, where a real blur would cost a full-frame composite every frame */
+.glass--cheap {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background:
+    linear-gradient(158deg, rgba(16, 27, 45, 0.92), rgba(11, 20, 34, 0.86));
 }
 
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.glass--flat {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 24px -14px var(--glass-shadow);
 }
 
-.btn-primary {
-  background: linear-gradient(180deg, #2f7fe0, #1f5fb0);
-  border-color: #2f7fe0;
-  color: #fff;
+.glass__body {
+  position: relative;
+  padding: 22px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #3a8ff0, #2468bd);
-}
-
-.btn-ghost {
-  background: transparent;
-}
-
-input {
-  font: inherit;
-  color: var(--text);
-  background: #0a1421;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  outline: none;
-}
-
-input:focus {
-  border-color: var(--accent);
-}
-
+/* ==========================================================================
+   Layout
+   ========================================================================== */
 .page {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 20px 48px;
-  gap: 20px;
+  padding: 26px 20px 46px;
+  gap: 18px;
 }
 
 .shell {
@@ -127,45 +141,18 @@ input:focus {
   gap: 16px;
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
+.page--narrow .shell {
+  max-width: 720px;
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  font-size: 14px;
-  color: var(--text-dim);
+.stage {
+  position: relative;
+  width: 100%;
 }
 
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--text-dim);
-}
-
-.dot.on {
-  background: var(--good);
-  box-shadow: 0 0 10px var(--good);
-}
-
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
-}
-
+/* ==========================================================================
+   Typography helpers
+   ========================================================================== */
 .muted {
   color: var(--text-dim);
   font-size: 14px;
@@ -177,38 +164,22 @@ input:focus {
   min-width: 26px;
   text-align: center;
   padding: 2px 7px;
-  border-radius: 6px;
-  background: #0a1421;
-  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-line);
   border-bottom-width: 2px;
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 13px;
   color: #dbe9f7;
 }
 
-.overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(4, 10, 18, 0.72);
-  border-radius: 14px;
-  backdrop-filter: blur(3px);
-}
-
-.stage {
-  position: relative;
-  width: 100%;
-}
-
 .legend {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px 22px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px 24px;
 }
 
-.legend div {
+.legend > div {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -216,7 +187,66 @@ input:focus {
   color: var(--text-dim);
 }
 
-/* ---- portrait warning -------------------------------------------------- */
+/* ==========================================================================
+   Vuetify surface overrides
+   ========================================================================== */
+.v-btn.glass-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 650;
+  font-size: 15px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--glass-line);
+  background: linear-gradient(158deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 12px 30px -18px rgba(0, 0, 0, 0.7);
+  color: var(--text);
+}
+
+.v-btn.glass-btn:hover {
+  background: linear-gradient(158deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+}
+
+.v-btn.glass-btn--primary {
+  border-color: rgba(120, 190, 255, 0.45);
+  background: linear-gradient(160deg, #3f95ec, #2260ab);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 16px 36px -18px rgba(47, 127, 224, 0.9);
+  color: #fff;
+}
+
+.v-btn.glass-btn--primary:hover {
+  background: linear-gradient(160deg, #4aa1f7, #2a6dbe);
+}
+
+.v-btn.glass-btn--quiet {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.v-btn.glass-btn--quiet:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.v-field.glass-field {
+  border-radius: var(--r-md);
+  background: rgba(10, 20, 33, 0.72);
+}
+
+.v-field.glass-field .v-field__outline {
+  --v-field-border-opacity: 0.16;
+}
+
+.v-field.glass-field:hover .v-field__outline {
+  --v-field-border-opacity: 0.3;
+}
+
+/* ==========================================================================
+   Touch devices: let the court own the screen
+   ========================================================================== */
 .rotate-hint {
   display: none;
 }
@@ -234,51 +264,84 @@ input:focus {
   }
 }
 
-/* ---- touch devices: let the court own the screen ----------------------- */
 @media (pointer: coarse) {
   .page {
-    padding: 0;
+    padding: 16px 12px 32px;
   }
 
   .shell {
+    gap: 12px;
+  }
+
+  /* once a match is running the court takes over the whole screen.
+     Selectors are deliberately 3 classes deep so they outrank the scoped
+     component styles, which are injected later in the cascade. */
+  .page--playing {
+    padding: 0;
+  }
+
+  .page--playing .shell {
     max-width: none;
     width: 100%;
     gap: 0;
   }
 
-  .game-canvas {
+  .page--playing .stage .game-canvas {
     aspect-ratio: auto;
     height: 100vh;
     border-radius: 0;
     box-shadow: none;
   }
 
-  /* keep only a slim translucent bar over the top of the canvas */
-  .hud-bar {
+  .page--playing .topbar.hud-bar {
     position: fixed;
     inset: 0 0 auto 0;
     z-index: 10;
     gap: 8px;
     padding: 4px 8px;
     border: none;
-    background: linear-gradient(180deg, rgba(7, 13, 22, 0.82), rgba(7, 13, 22, 0));
+    border-radius: 0;
+    background: linear-gradient(180deg, rgba(7, 13, 22, 0.85), rgba(7, 13, 22, 0));
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
-  .hud-bar h2 {
-    font-size: 15px;
-  }
-
-  .hud-foot {
+  .page--playing .scoreline.hud-foot {
     display: none;
   }
 
-  .btn {
-    padding: 6px 12px;
-    font-size: 13px;
+  .page--playing .topbar .topbar__title {
+    display: none;
   }
 
-  .card {
-    margin: 12px;
+  .page--playing .v-btn.glass-btn {
+    font-size: 13px;
+    min-height: 36px;
+    padding: 0 12px;
   }
 }
 
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

@@ -1,4 +1,7 @@
 import Phaser from 'phaser';
+import { isTouchDevice } from './device';
+
+export { isTouchDevice };
 
 /** bottom-left movement strip */
 const PAD = { x: 28, y: 644, w: 356, h: 66 };
@@ -7,39 +10,6 @@ const JOY = { x: 1130, y: 660, r: 54, knob: 24 };
 const TAP_MS = 240;
 const DRAG_PX = 16;
 
-export function isTouchDevice(): boolean {
-  try {
-    const q = new URLSearchParams(window.location.search).get('touch');
-    if (q === '1') return true;
-    if (q === '0') return false;
-  } catch {
-    /* ignore */
-  }
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(pointer: coarse)').matches;
-}
-
-/**
- * Fullscreen + landscape lock. Must be called from a user gesture; silently
- * does nothing where unsupported (notably iOS, which has no orientation lock).
- */
-export async function enterMobileFullscreen(): Promise<void> {
-  try {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
-    }
-  } catch {
-    /* user denied or unsupported */
-  }
-  try {
-    const orientation = screen.orientation as ScreenOrientation & {
-      lock?: (o: string) => Promise<void>;
-    };
-    await orientation?.lock?.('landscape');
-  } catch {
-    /* unsupported */
-  }
-}
 
 export interface TouchReadout {
   left: boolean;
