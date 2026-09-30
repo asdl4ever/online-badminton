@@ -44,7 +44,11 @@ watch(waiting, (on) => {
     waitClock.pause();
   }
 });
-const chipTone = computed(() => (playing.value ? 'ok' : busy.value || waiting.value ? 'warn' : 'idle'));
+const chipTone = computed(() => {
+  if (playing.value && store.transport === '中继') return 'warn';
+  if (playing.value) return 'ok';
+  return busy.value || waiting.value ? 'warn' : 'idle';
+});
 const chipLabel = computed(() => {
   if (store.transport && playing.value) return store.transport;
   if (store.role === 'host') return store.roomCode ? `房间 ${store.roomCode}` : '未连接';
@@ -203,7 +207,12 @@ onBeforeUnmount(() => {
           </div>
           <div class="muted">
             你是{{ store.role === 'host' ? '左侧（蓝）' : '右侧（橙）' }}选手
-            <template v-if="store.transport">· {{ store.transport }}</template>
+            <template v-if="store.transport">
+              · {{ store.transport }}<template v-if="store.metrics"> {{ store.metrics.rttMs.toFixed(0) }}ms</template>
+            </template>
+          </div>
+          <div v-if="store.transport === '中继'" class="muted" style="color: var(--warn)">
+            走中继会多绕服务器一圈，延迟偏高；能直连时请用 ?net=p2p 排查
           </div>
         </ScoreLine>
       </template>

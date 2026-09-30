@@ -2,8 +2,11 @@ import { RelaySession } from './relay';
 import { createHostSession, joinSession } from './session';
 import { randomRoomCode, type NetLink, type NetStatus } from './link';
 
-/** how long the guest gives WebRTC before falling back to the relay */
+/** how long the guest gives WebRTC before falling back to the relay.
+ *  Direct takes 3-5s to establish on a real network, so the retry window
+ *  cannot be much shorter than this without killing it. */
 const P2P_GRACE_MS = 6000;
+const P2P_RETRY_MS = 4500;
 const PREF_KEY = 'bmt-net-preference';
 
 export type NetMode = 'auto' | 'p2p' | 'relay';
@@ -112,43 +115,36 @@ export async function hostOpen(hooks: ConnectHooks = {}): Promise<HostRoom> {
  * have a fair shot (direct is far lower latency) and silently fall back to the
  * relay.
  */
+/**
+ * Guest: always try direct first — it is worth an order of magnitude in
+ * latency — but shrink the wait when direct lost last time, so a relay-only
+ * player is not stalled 6s on every match.
+ */
 export async function joinMatch(code: string, hooks: ConnectHooks = {}): Promise<Match> {
   const mode = netMode();
-  const preferRelay = mode === 'relay' || (mode === 'auto' && storedPreference() === 'relay');
 
-  if (preferRelay) {
+  if (mode !== 'relay') {
+    const grace = storedPreference() === 'relay' ? P2P_RETRY_MS : P2P_GRACE_MS;
+    hooks.onPhase?.('尝试直连…');
     try {
-      hooks.onPhase?.('连接中继…');
-      const link = await RelaySession.join(code);
+      const link = await joinSession(code, grace);
       link.connected = true;
       wire(link, hooks);
       remember(link.kind);
       hooks.onPhase?.('');
       return { link, code };
     } catch (err) {
-      if (mode === 'relay') throw err;
-      hooks.onPhase?.('中继不可用，改用直连…');
+      if (mode === 'p2p') throw err;
+      hooks.onPhase?.(`直连打不通（${(err as Error).message}），改用中继…`);
     }
   }
 
-  hooks.onPhase?.('尝试直连…');
-  try {
-    const link = await joinSession(code, P2P_GRACE_MS);
-    link.connected = true;
-    wire(link, hooks);
-    remember(link.kind);
-    hooks.onPhase?.('');
-    return { link, code };
-  } catch (err) {
-    if (mode === 'p2p') throw err;
-    hooks.onPhase?.(`直连打不通（${(err as Error).message}），改用中继…`);
-    const link = await RelaySession.join(code);
-    link.connected = true;
-    wire(link, hooks);
-    remember(link.kind);
-    hooks.onPhase?.('');
-    return { link, code };
-  }
+  const link = await RelaySession.join(code);
+  link.connected = true;
+  wire(link, hooks);
+  remember(link.kind);
+  hooks.onPhase?.('');
+  return { link, code };
 }
 
 function firstConnected(links: NetLink[]): Promise<NetLink> {
