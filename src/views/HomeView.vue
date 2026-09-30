@@ -1,22 +1,79 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
+import AppModal from '../components/ui/AppModal.vue';
 import CustomizePanel from '../components/CustomizePanel.vue';
+import FriendsPanel from '../components/FriendsPanel.vue';
+import { useLobbyStore } from '../stores/lobby';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
+const lobby = useLobbyStore();
+
+const showLook = ref(false);
+const showFriends = ref(false);
+
+/** pending friend requests + invites, shown as a badge on the friends icon */
+const friendBadge = computed(() => lobby.requests.length + lobby.invites.length);
 
 function go(path: string) {
   sfx.unlock();
   sfx.click();
   void router.push(path);
 }
+
+function open(which: 'look' | 'friends') {
+  sfx.unlock();
+  sfx.click();
+  if (which === 'look') showLook.value = true;
+  else showFriends.value = true;
+}
 </script>
 
 <template>
   <div class="page page--narrow">
     <div class="shell">
+      <div class="home-tools">
+        <button class="tool" type="button" title="外观自定义" @click="open('look')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.2 0-.9.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" />
+            <circle cx="12" cy="7.5" r="1.2" fill="currentColor" />
+            <circle cx="16.5" cy="10.5" r="1.2" fill="currentColor" />
+          </svg>
+          <span>外观</span>
+        </button>
+
+        <button class="tool" type="button" title="好友" @click="open('friends')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <path
+              d="M3.5 19a5.5 5.5 0 0 1 11 0"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+            <path
+              d="M16 6.5a3 3 0 0 1 0 5.6M17 19a5.4 5.4 0 0 0-1.6-3.8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>好友</span>
+          <span v-if="friendBadge" class="tool__badge">{{ friendBadge }}</span>
+        </button>
+      </div>
+
       <Panel>
         <div class="hero">
           <svg class="hero__mark" viewBox="0 0 64 64" aria-hidden="true">
@@ -75,13 +132,66 @@ function go(path: string) {
           点顶栏的「摇杆」按钮可以拖动调整两个摇杆的大小和位置。
         </p>
       </Panel>
-
-      <CustomizePanel />
     </div>
+
+    <AppModal v-if="showLook" title="外观自定义" @close="showLook = false">
+      <CustomizePanel />
+    </AppModal>
+
+    <AppModal v-if="showFriends" title="好友" max-width="560px" @close="showFriends = false">
+      <FriendsPanel room-code="" :can-invite="false" bare />
+    </AppModal>
   </div>
 </template>
 
 <style scoped>
+.home-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+
+.tool {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--e1);
+}
+
+.tool:hover {
+  color: var(--text);
+}
+
+.tool svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tool__badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
 .hero {
   text-align: center;
   padding: var(--s4) var(--s2) var(--s1);

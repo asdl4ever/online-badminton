@@ -7,12 +7,17 @@ import Button from './ui/Button.vue';
 import StatusChip from './ui/StatusChip.vue';
 import { useLobbyStore } from '../stores/lobby';
 
-const props = defineProps<{
-  /** the code others can join while hosting; empty when not in a room */
-  roomCode: string;
-  /** inviting only makes sense once a room is actually open */
-  canInvite: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** the code others can join while hosting; empty when not in a room */
+    roomCode: string;
+    /** inviting only makes sense once a room is actually open */
+    canInvite: boolean;
+    /** drop the surrounding Panel + heading (for use inside a modal) */
+    bare?: boolean;
+  }>(),
+  { bare: false },
+);
 
 const store = useLobbyStore();
 const { copy, copied, isSupported: clipboardSupported } = useClipboard();
@@ -50,9 +55,10 @@ function invite(id: string) {
 </script>
 
 <template>
-  <Panel>
+  <component :is="bare ? 'div' : Panel">
     <div class="fp__head">
-      <h3>好友</h3>
+      <h3 v-if="!bare">好友</h3>
+      <span v-else class="fp__spacer" />
       <StatusChip :tone="store.status === 'online' ? 'ok' : 'warn'">
         {{ statusLabel() }}
       </StatusChip>
@@ -121,7 +127,7 @@ function invite(id: string) {
     <p class="muted fp__hint">
       好友列表只存在本机。双方都在线时才能添加或邀请。
     </p>
-  </Panel>
+  </component>
 </template>
 
 <style scoped>
