@@ -8,8 +8,10 @@ export const NET_HEIGHT = 108;
 export const NET_TOP = GROUND_Y - NET_HEIGHT;
 export const NET_HALF_W = 5;
 
-export const COURT_LEFT = 0;
-export const COURT_RIGHT = VIEW_W;
+// a hair in from the screen edges so the boundary line stays visible once the
+// canvas is scaled into a rounded container (otherwise it is clipped away)
+export const COURT_LEFT = 14;
+export const COURT_RIGHT = VIEW_W - 14;
 
 // ---- players -------------------------------------------------------------
 export const PLAYER_W = 32;

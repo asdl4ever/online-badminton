@@ -13,11 +13,14 @@ import type { Difficulty } from '../game/ai';
 import { sfx } from '../game/audio';
 import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
+import { useCustomizeStore } from '../stores/customize';
+import { useLobbyStore } from '../stores/lobby';
 
 const router = useRouter();
 const store = useGameStore();
+const customize = useCustomizeStore();
+const lobby = useLobbyStore();
 const hud = ref<HudState | null>(null);
-const hint = ref('');
 const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
 const editing = ref(false);
 /** the layout editor only makes sense where the on-screen sticks exist */
@@ -42,14 +45,10 @@ function onEvent(e: SimEvent) {
   if (e.type === 'hit') sfx.hit(e.kind ?? 'drive');
   else if (e.type === 'net') sfx.net();
   else if (e.type === 'land') sfx.land();
-  else if (e.type === 'point') {
-    sfx.point();
-    hint.value = e.scorer === 0 ? '得分！' : '对手得分';
-  } else if (e.type === 'gameover') {
+  else if (e.type === 'point') sfx.point();
+  else if (e.type === 'gameover') {
     if (e.scorer === 0) sfx.win();
     else sfx.lose();
-  } else if (e.type === 'serve') {
-    hint.value = '';
   }
 }
 
@@ -98,9 +97,14 @@ onBeforeUnmount(() => {
           role="single"
           :difficulty="store.difficulty"
           :session="null"
+          :cosmetic="customize.cosmetic"
+          :local-name="lobby.playerName"
+          :theme="customize.theme"
+          :auto-cycle-theme="customize.autoCycle"
           @hud="onHud"
           @sim="onEvent"
           @editmode="editing = $event"
+          @themechange="customize.theme = $event"
         />
       </div>
 
@@ -111,7 +115,6 @@ onBeforeUnmount(() => {
           <b class="num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
           &nbsp;·&nbsp; 先到 11 分获胜
         </div>
-        <div class="muted">{{ hint }}</div>
       </ScoreLine>
     </div>
   </div>

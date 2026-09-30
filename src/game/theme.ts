@@ -1,11 +1,12 @@
 /**
  * Every colour the canvas draws with, in one place.
  *
- * The court is light, so the shuttle has to be dark to stay visible — that is
- * the one constraint that drives most of this file. Keep the two team colours
- * (blue / orange) clearly distinct from the floor and from each other.
+ * `P` is the *live* palette: the court is drawn once per scene, so switching a
+ * theme just means re-assigning `P` and redrawing. `BASE` is the default set;
+ * each theme only overrides the keys it cares about so adding one stays small.
  */
-export const P = {
+
+export const BASE = {
   // --- court ------------------------------------------------------------
   skyTop: 0xe9f1fa,
   skyBottom: 0xd2e2f3,
@@ -76,7 +77,126 @@ export const P = {
   touchBtnAltText: '#2c4363',
 };
 
+export type Palette = typeof BASE;
+
+/** the live palette — mutate through applyTheme(), read directly */
+export const P: Palette = { ...BASE };
+
+export type ThemeId = 'day' | 'sunset' | 'mint' | 'night';
+
+export interface ThemeDef {
+  id: ThemeId;
+  label: string;
+  /** two colours for the UI swatch (sky, floor) */
+  swatch: [number, number];
+  colors: Partial<Palette>;
+}
+
+export const THEMES: Record<ThemeId, ThemeDef> = {
+  day: {
+    id: 'day',
+    label: '日间',
+    swatch: [0xe9f1fa, 0xd3e6dc],
+    colors: {},
+  },
+  sunset: {
+    id: 'sunset',
+    label: '黄昏',
+    swatch: [0xffe0c0, 0xe7d3b6],
+    colors: {
+      skyTop: 0xffe9d2,
+      skyBottom: 0xf7cdb0,
+      stands: 0xe6c6ad,
+      crowdA: 0xd8b096,
+      crowdB: 0xefd6c2,
+      apron: 0xe2c2a8,
+      floor: 0xe7d3b6,
+      floorStrip: 0xdcc4a0,
+      floorEdge: 0xcdb28a,
+      line: 0x6b4a3a,
+      post: 0x6b4a3a,
+      netMesh: 0x8a6a56,
+      netTape: 0x6b4a3a,
+      trail: 0xe08a3c,
+      flash: 0xe08a3c,
+      localMark: 0xb4560f,
+      score: '#3a2a1e',
+      sub: '#7a5a44',
+    },
+  },
+  mint: {
+    id: 'mint',
+    label: '薄荷',
+    swatch: [0xe6f6f1, 0xd7ece2],
+    colors: {
+      skyTop: 0xe6f6f1,
+      skyBottom: 0xcdeae2,
+      stands: 0xc2e0d6,
+      crowdA: 0xa8cfc2,
+      crowdB: 0xd2e8e0,
+      apron: 0xbcd8cd,
+      floor: 0xd7ece2,
+      floorStrip: 0xc2ddce,
+      floorEdge: 0xb2cdbe,
+      line: 0x2f5d52,
+      post: 0x35635a,
+      netMesh: 0x5a8377,
+      netTape: 0x2f5d52,
+      trail: 0x16a085,
+      flash: 0x16a085,
+      localMark: 0x0f8f72,
+      score: '#123028',
+      sub: '#3f6b60',
+    },
+  },
+  night: {
+    id: 'night',
+    label: '夜场',
+    swatch: [0x1b2740, 0x24405a],
+    colors: {
+      skyTop: 0x1b2740,
+      skyBottom: 0x0f1a2e,
+      stands: 0x223350,
+      crowdA: 0x2c4160,
+      crowdB: 0x3a5170,
+      apron: 0x2a3d5c,
+      floor: 0x24405a,
+      floorStrip: 0x1d3550,
+      floorEdge: 0x16283e,
+      line: 0x7fa8d8,
+      post: 0x8fb4de,
+      netMesh: 0xa9c6e6,
+      netTape: 0xcfe0f5,
+      shuttle: 0xf2f6ff,
+      shuttleFeather: 0xcdd8ea,
+      shuttleHalo: 0x000000,
+      trail: 0x9fc2f0,
+      shadow: 0x000000,
+      localMark: 0x8fbcff,
+      serveHint: 0xffd166,
+      flash: 0x8fbcff,
+      msgWin: '#5ce08a',
+      msgLose: '#ff8a8a',
+      sub: '#a9c0dd',
+      score: '#eaf3ff',
+      debugBg: 'rgba(10, 18, 30, 0.85)',
+      debugText: '#cfe0f5',
+    },
+  },
+};
+
+export const THEME_IDS: ThemeId[] = ['day', 'sunset', 'mint', 'night'];
+
+export function applyTheme(id: ThemeId): void {
+  Object.assign(P, BASE);
+  const def = THEMES[id];
+  if (def) Object.assign(P, def.colors);
+}
+
 /** font stack for canvas text — Latin via Chakra Petch, CJK falls through */
 export const FONT_UI =
   '"Chakra Petch", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
 export const FONT_NUM = '"Chakra Petch", Consolas, ui-monospace, monospace';
+/** emoji faces for player characters (platform emoji fonts, then fallback) */
+export const FONT_EMOJI =
+  '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Chakra Petch", sans-serif';

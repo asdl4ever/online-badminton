@@ -19,11 +19,13 @@ import { normaliseCode, type NetLink } from '../net/link';
 import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
 import { useLobbyStore } from '../stores/lobby';
+import { useCustomizeStore } from '../stores/customize';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
 const store = useGameStore();
 const lobby = useLobbyStore();
+const customize = useCustomizeStore();
 
 const joinCode = ref('');
 const hud = ref<HudState | null>(null);
@@ -264,11 +266,16 @@ onBeforeUnmount(() => {
             :role="store.role"
             :difficulty="store.difficulty"
             :session="store.session"
+            :cosmetic="customize.cosmetic"
+            :local-name="lobby.playerName"
+            :theme="customize.theme"
+            :auto-cycle-theme="customize.autoCycle"
             @hud="onHud"
             @sim="onEvent"
             @metrics="onMetrics"
             @editmode="editing = $event"
             @disconnect="onDisconnect"
+            @themechange="customize.theme = $event"
           />
         </div>
         <ScoreLine>

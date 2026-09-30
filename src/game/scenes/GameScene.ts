@@ -16,7 +16,7 @@ import {
   VIEW_H,
   VIEW_W,
 } from '../constants';
-import type { SimEvent } from '../types';
+import type { ShotKind, SimEvent } from '../types';
 import {
   EMPTY_INPUT,
   type MatchRole,
@@ -39,7 +39,22 @@ import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
 import { debugOverlayEnabled } from '../device';
-import { P, FONT_NUM, FONT_UI } from '../theme';
+import {
+  applyTheme,
+  FONT_EMOJI,
+  FONT_NUM,
+  FONT_UI,
+  P,
+  THEME_IDS,
+  type ThemeId,
+} from '../theme';
+import {
+  AI_COSMETIC,
+  DEFAULT_COSMETIC,
+  sanitizeCosmetic,
+  type Cosmetic,
+  type HitStyle,
+} from '../cosmetics';
 import { EMOTE_BY_ID, EMOTE_COOLDOWN_MS, EMOTE_LIFE_S } from '../emotes';
 import { Telemetry, type NetMetrics } from '../telemetry';
 import type { NetLink, NetMessage } from '../../net/link';
@@ -65,9 +80,32 @@ export interface MatchConfig {
   onMetrics?: (metrics: NetMetrics) => void;
   /** true while the touch-layout editor is open */
   onEditMode?: (editing: boolean) => void;
+  /** the local player's look (purely visual) */
+  cosmetic?: Cosmetic;
+  /** the local player's display name */
+  localName?: string;
+  /** starting court theme */
+  theme?: ThemeId;
+  /** rotate the court theme once a match finishes */
+  autoCycleTheme?: boolean;
+  onThemeChange?: (theme: ThemeId) => void;
+}
+
+/** a transient hit effect, drawn with the hitter's chosen style/colour */
+interface Flash {
+  x: number;
+  y: number;
+  life: number;
+  ang: number;
+  style: HitStyle;
+  color: number;
+  power: number;
+  seed: number;
 }
 
 const FIXED_DT = 1 / 60;
+/** how much history the shuttle trail covers, in ms (frame-rate independent) */
+const TRAIL_MS = 190;
 const PING_INTERVAL = 0.5;
 const METRICS_INTERVAL = 0.5;
 const MAX_ACCUM = 0.25;
@@ -91,9 +129,25 @@ export class GameScene extends Phaser.Scene {
   private remoteInput: PlayerInput = { ...EMPTY_INPUT };
   private hasSnapshot = false;
   private lastHud = '';
-  private trail: { x: number; y: number }[] = [];
-  private flashes: { x: number; y: number; life: number }[] = [];
+  private trail: { x: number; y: number; t: number }[] = [];
+  private flashes: Flash[] = [];
   private tmp = new Phaser.Math.Vector2();
+
+  /** cosmetics: ours (local) and the peer's, received via the hello message */
+  private localCosmetic: Cosmetic = { ...DEFAULT_COSMETIC };
+  private remoteCosmetic: Cosmetic = { ...DEFAULT_COSMETIC };
+  private currentTheme: ThemeId = 'day';
+  private bg!: Phaser.GameObjects.Graphics;
+  /** emoji faces drawn above each player's body */
+  private faces: Phaser.GameObjects.Text[] = [];
+  /** side name plates */
+  private localName = '你';
+  private remoteName = '对手';
+  private nameTexts: Phaser.GameObjects.Text[] = [];
+  private avatarTexts: Phaser.GameObjects.Text[] = [];
+  /** short "point!" label shown beside the score */
+  private pointMsg!: Phaser.GameObjects.Text;
+  private plateCy = 72;
 
   /** sim events produced since the last snapshot went out */
   private netEvents: SimEvent[] = [];
@@ -158,17 +212,28 @@ export class GameScene extends Phaser.Scene {
     this.telemetry.transport = this.cfg.session?.kind ?? '';
     this.pingAccum = 0;
     this.metricsAccum = 0;
+    this.localCosmetic = this.cfg.cosmetic
+      ? sanitizeCosmetic(this.cfg.cosmetic)
+      : { ...DEFAULT_COSMETIC };
+    this.remoteCosmetic =
+      this.cfg.role === 'single' ? { ...AI_COSMETIC } : { ...DEFAULT_COSMETIC };
+    this.localName = this.cfg.localName?.trim() || '你';
+    this.remoteName = this.cfg.role === 'single' ? '电脑' : '对手';
+    this.currentTheme = this.cfg.theme ?? 'day';
   }
 
   create(): void {
+    // palette must be applied before anything reads P
+    applyTheme(this.currentTheme);
+
     this.controls = createControls(this);
     this.ai = new AIController(this.cfg.difficulty, 1);
     this.racket = new RacketTracker();
     this.input.keyboard?.addCapture('UP,DOWN,LEFT,RIGHT,W,A,S,D');
     this.input.mouse?.disableContextMenu();
 
-    const bg = this.add.graphics();
-    this.drawCourt(bg);
+    this.bg = this.add.graphics();
+    this.drawCourt(this.bg);
 
     if (debugOverlayEnabled()) {
       this.debugText = this.add
@@ -184,6 +249,32 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.dynamic = this.add.graphics();
+
+    this.faces = [0, 1].map(() =>
+      this.add
+        .text(0, 0, '', { fontFamily: FONT_EMOJI, fontSize: '34px' })
+        .setOrigin(0.5)
+        .setDepth(6)
+        .setVisible(false),
+    );
+
+    this.nameTexts = [0, 1].map(() =>
+      this.add
+        .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '15px', color: '#ffffff' })
+        .setOrigin(0, 0.5)
+        .setDepth(8),
+    );
+    this.avatarTexts = [0, 1].map(() =>
+      this.add
+        .text(0, 0, '', { fontFamily: FONT_EMOJI, fontSize: '22px' })
+        .setOrigin(0.5)
+        .setDepth(8),
+    );
+    this.pointMsg = this.add
+      .text(0, 0, '得分！', { fontFamily: FONT_UI, fontSize: '26px', fontStyle: 'bold' })
+      .setOrigin(0.5)
+      .setDepth(9)
+      .setVisible(false);
 
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: FONT_UI,
@@ -216,6 +307,13 @@ export class GameScene extends Phaser.Scene {
       session.onMessage = (m) => this.handleNetMessage(m);
       session.onDisconnected = () => this.cfg.onDisconnect('连接已断开');
       session.onError = (message) => this.cfg.onDisconnect(message);
+      // announce our look so the peer can draw us the same way (visual only).
+      // repeated a couple of times because the first can race the peer's own
+      // scene setup and be dropped before it installs onMessage.
+      const announce = () =>
+        session.send({ t: 'hello', name: this.localName, cosmetic: this.localCosmetic });
+      announce();
+      for (const ms of [300, 900]) this.time.delayedCall(ms, announce);
     }
 
     this.input.keyboard?.on('keydown-R', () => this.requestRematch());
@@ -227,6 +325,7 @@ export class GameScene extends Phaser.Scene {
       this.scoreLeft.setY(126);
       this.scoreRight.setY(126);
       this.debugText?.setY(132);
+      this.plateCy = 158;
       this.events.once('shutdown', () => {
         this.touchControls?.destroy();
         this.touchControls = null;
@@ -244,6 +343,10 @@ export class GameScene extends Phaser.Scene {
       this.telemetry.onSnapshot(performance.now());
       // replay the host's sim events so the guest hears hits and net taps too
       if (m.s.ev) for (const e of m.s.ev) this.world.events.push(e);
+    } else if (m.t === 'hello') {
+      this.remoteCosmetic = sanitizeCosmetic(m.cosmetic);
+      const name = typeof m.name === 'string' ? m.name.trim() : '';
+      if (name) this.remoteName = name.slice(0, 16);
     } else if (m.t === 'emote') {
       // the peer's reaction lands on their own player
       this.spawnEmote(this.cfg.role === 'host' ? 1 : 0, m.id);
@@ -334,6 +437,16 @@ export class GameScene extends Phaser.Scene {
 
   private localIndex(): 0 | 1 {
     return this.cfg.role === 'guest' ? 1 : 0;
+  }
+
+  private cosmeticFor(i: 0 | 1): Cosmetic {
+    return i === this.localIndex() ? this.localCosmetic : this.remoteCosmetic;
+  }
+
+  /** the shuttle trail takes the colour of whoever hit it last */
+  private trailColor(): number {
+    const lh = this.world.lastHitter;
+    return lh === 0 || lh === 1 ? this.cosmeticFor(lh).trail : P.trail;
   }
 
   /** open/close the on-screen stick layout editor (touch devices only) */
@@ -653,14 +766,46 @@ export class GameScene extends Phaser.Scene {
 
   private flushEvents(): void {
     for (const e of this.world.events) {
-      if (e.type === 'hit') {
-        const s = this.world.shuttle;
-        this.flashes.push({ x: s.x, y: s.y, life: 1 });
-      }
+      if (e.type === 'hit') this.spawnHitEffect(e.player === 1 ? 1 : 0, e.kind);
+      if (e.type === 'gameover') this.maybeCycleTheme();
       if (this.cfg.role === 'host' && this.netEvents.length < 16) this.netEvents.push(e);
       this.cfg.onEvent(e);
     }
     this.world.events.length = 0;
+  }
+
+  private spawnHitEffect(player: 0 | 1, kind?: ShotKind): void {
+    const s = this.world.shuttle;
+    const cos = this.cosmeticFor(player);
+    this.flashes.push({
+      x: s.x,
+      y: s.y,
+      life: 1,
+      ang: Math.atan2(s.vy, s.vx),
+      style: cos.effect,
+      color: cos.trail,
+      power: kind === 'smash' ? 1.6 : 1,
+      seed: Math.random() * Math.PI * 2,
+    });
+  }
+
+  /** after a match, roll to the next court theme (a purely local setting) */
+  private maybeCycleTheme(): void {
+    if (!this.cfg.autoCycleTheme) return;
+    const i = THEME_IDS.indexOf(this.currentTheme);
+    this.currentTheme = THEME_IDS[(i + 1) % THEME_IDS.length];
+    this.applyCurrentTheme();
+    this.cfg.onThemeChange?.(this.currentTheme);
+  }
+
+  private applyCurrentTheme(): void {
+    applyTheme(this.currentTheme);
+    this.bg.clear();
+    this.drawCourt(this.bg);
+    this.scoreLeft.setColor(P.score);
+    this.scoreRight.setColor(P.score);
+    this.subMessage.setColor(P.sub);
+    this.debugText?.setColor(P.debugText);
   }
 
   private publishHud(force: boolean): void {
@@ -686,6 +831,7 @@ export class GameScene extends Phaser.Scene {
     const local = this.localIndex();
     this.scoreLeft.setText(String(w.score[0]));
     this.scoreRight.setText(String(w.score[1]));
+    this.pointMsg.setVisible(false);
 
     if (w.phase === 'gameover') {
       const won = w.winner === local;
@@ -705,7 +851,19 @@ export class GameScene extends Phaser.Scene {
       this.subMessage.setY(VIEW_H / 2 - 46);
       this.message.setText('');
       this.subMessage.setText('');
+      if (w.phase === 'point') this.showPointMessage(w.server);
     }
+  }
+
+  /** the "point!" label, parked beside the scorer's score */
+  private showPointMessage(scorer: number): void {
+    const left = scorer === 0;
+    const accent = left ? P.player0 : P.player1;
+    this.pointMsg
+      .setText('得分！')
+      .setColor(`#${(accent & 0xffffff).toString(16).padStart(6, '0')}`)
+      .setPosition(left ? VIEW_W / 2 - 180 : VIEW_W / 2 + 180, this.scoreLeft.y + 34)
+      .setVisible(true);
   }
 
   // ---- rendering ---------------------------------------------------------
@@ -791,6 +949,9 @@ export class GameScene extends Phaser.Scene {
   private drawDynamic(): void {
     const g = this.dynamic;
     g.clear();
+    for (const f of this.faces) f.setVisible(false);
+
+    this.drawNamePlates(g);
 
     if (this.cfg.role === 'guest' && !this.hasSnapshot) return;
 
@@ -810,14 +971,63 @@ export class GameScene extends Phaser.Scene {
     const dt = this.frameDt;
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const f = this.flashes[i];
-      f.life -= dt * 3.2;
+      const span = f.style === 'slash' ? 0.22 : f.style === 'spark' ? 0.4 : 0.36;
+      f.life -= dt / span;
       if (f.life <= 0) {
         this.flashes.splice(i, 1);
         continue;
       }
-      const r = 10 + (1 - f.life) * 34;
-      g.lineStyle(3 * f.life + 1, P.flash, f.life * 0.8);
-      g.strokeCircle(f.x, f.y, r);
+      const t = 1 - f.life;
+      const a = f.life;
+      const size = f.power;
+      switch (f.style) {
+        case 'spark': {
+          const r0 = 6 * size;
+          const len = (10 + t * 52) * size;
+          g.lineStyle(2.5 * a + 0.5, f.color, a * 0.9);
+          for (let k = 0; k < 9; k++) {
+            const ang = f.seed + (k / 9) * Math.PI * 2;
+            const ca = Math.cos(ang);
+            const sa = Math.sin(ang);
+            g.lineBetween(f.x + ca * r0, f.y + sa * r0, f.x + ca * len, f.y + sa * len);
+          }
+          g.fillStyle(f.color, a);
+          g.fillCircle(f.x, f.y, 4 * size * a + 1);
+          break;
+        }
+        case 'slash': {
+          const reach = (34 + t * 30) * size;
+          const half = 0.9 * (1 - t) + 0.25;
+          g.lineStyle(7 * a + 1, f.color, a * 0.85);
+          g.beginPath();
+          g.arc(f.x, f.y, reach, f.ang - half, f.ang + half, false, 0);
+          g.strokePath();
+          g.lineStyle(2.5, 0xffffff, a * 0.5);
+          g.beginPath();
+          g.arc(f.x, f.y, reach, f.ang - half, f.ang + half, false, 0);
+          g.strokePath();
+          break;
+        }
+        case 'burst': {
+          const n = 12;
+          const dist = (12 + t * 46) * size;
+          g.fillStyle(f.color, a * 0.85);
+          for (let k = 0; k < n; k++) {
+            const ang = f.seed + (k / n) * Math.PI * 2 + t * 0.6;
+            const rr = (4 + (k % 3)) * (1 - t) * size + 1.5;
+            g.fillCircle(f.x + Math.cos(ang) * dist, f.y + Math.sin(ang) * dist, rr);
+          }
+          break;
+        }
+        default: {
+          const r = (10 + t * 44) * size;
+          g.lineStyle(3.5 * a + 1, f.color, a * 0.85);
+          g.strokeCircle(f.x, f.y, r);
+          g.lineStyle(2, 0xffffff, a * 0.4);
+          g.strokeCircle(f.x, f.y, r * 0.62);
+          break;
+        }
+      }
     }
   }
 
@@ -831,9 +1041,41 @@ export class GameScene extends Phaser.Scene {
     g.lineBetween(s.x - 6, s.y - PLAYER_H - 26, s.x + 6, s.y - PLAYER_H - 26);
   }
 
+  private drawNamePlates(g: Phaser.GameObjects.Graphics): void {
+    const cy = this.plateCy;
+    const pad = 12;
+    const av = 28;
+    const h = 42;
+    for (let i = 0; i < 2; i++) {
+      const idx = i as 0 | 1;
+      const cos = this.cosmeticFor(idx);
+      const name = idx === this.localIndex() ? this.localName : this.remoteName;
+      const accent = idx === 0 ? P.player0 : P.player1;
+
+      const nameText = this.nameTexts[idx];
+      nameText.setText(name);
+      const w = pad + av + 8 + nameText.width + pad;
+      const x0 = idx === 0 ? 16 : VIEW_W - 16 - w;
+      const y0 = cy - h / 2;
+
+      g.fillStyle(0x000000, 0.3);
+      g.fillRoundedRect(x0, y0, w, h, h / 2);
+      g.lineStyle(2, accent, 0.95);
+      g.strokeRoundedRect(x0, y0, w, h, h / 2);
+
+      const cx = x0 + pad + av / 2;
+      g.fillStyle(accent, 0.9);
+      g.fillCircle(cx, cy, av / 2 + 2);
+
+      this.avatarTexts[idx].setText(cos.emoji || '●').setPosition(cx, cy + 1);
+      nameText.setPosition(cx + av / 2 + 8, cy).setColor('#ffffff');
+    }
+  }
+
   private drawPlayer(g: Phaser.GameObjects.Graphics, i: 0 | 1): void {
     const p = this.world.players[i];
     const pos = this.renderPlayerPos(i);
+    const cos = this.cosmeticFor(i);
     const color = i === 0 ? P.player0 : P.player1;
     const topY = pos.y - PLAYER_H;
 
@@ -842,10 +1084,15 @@ export class GameScene extends Phaser.Scene {
 
     g.fillStyle(color, 1);
     g.fillRoundedRect(pos.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
-    g.fillStyle(P.skin, 1);
-    g.fillCircle(pos.x, topY + 16, 13);
 
-    this.drawRacket(g, p, pos.x, pos.y, color);
+    if (cos.emoji) {
+      this.faces[i].setText(cos.emoji).setPosition(pos.x, topY + 17).setVisible(true);
+    } else {
+      g.fillStyle(P.skin, 1);
+      g.fillCircle(pos.x, topY + 16, 13);
+    }
+
+    this.drawRacket(g, p, pos.x, pos.y, cos);
   }
 
   private drawRacket(
@@ -853,7 +1100,7 @@ export class GameScene extends Phaser.Scene {
     p: PlayerState,
     x: number,
     y: number,
-    color: number,
+    cos: Cosmetic,
   ): void {
     const shoulder = {
       x: x + p.facing * SHOULDER_DX,
@@ -866,7 +1113,7 @@ export class GameScene extends Phaser.Scene {
     const hot = Math.min(1, speed / 1400);
     if (hot > 0.08 && this.world.shuttle.live) {
       const reach = Math.hypot(head.x - shoulder.x, head.y - shoulder.y);
-      g.lineStyle(6 + 10 * hot, color, 0.18 + 0.3 * hot);
+      g.lineStyle(6 + 10 * hot, cos.trail, 0.18 + 0.3 * hot);
       g.beginPath();
       g.arc(shoulder.x, shoulder.y, reach, ang - 0.55, ang, false, 0);
       g.strokePath();
@@ -882,12 +1129,12 @@ export class GameScene extends Phaser.Scene {
     g.rotateCanvas(ang);
     g.lineStyle(6, P.grip, 0.95);
     g.lineBetween(-12, 0, -2, 0);
-    g.lineStyle(3, P.racket, 0.95);
+    g.lineStyle(3, cos.racket, 0.95);
     g.strokeEllipse(9, 0, 34, 28);
     g.restore();
 
     if (hot > 0.15) {
-      g.lineStyle(2, P.racket, 0.12 + 0.28 * hot);
+      g.lineStyle(2, cos.racket, 0.12 + 0.28 * hot);
       g.strokeCircle(head.x, head.y, CONTACT_R);
     }
   }
@@ -896,13 +1143,38 @@ export class GameScene extends Phaser.Scene {
     const s = this.renderShuttle();
     const angle = s.live ? Math.atan2(s.vy, s.vx) : Math.PI / 2;
 
-    this.trail.push({ x: s.x, y: s.y });
-    if (this.trail.length > 14) this.trail.shift();
-    for (let i = 0; i < this.trail.length; i++) {
-      const t = i / this.trail.length;
-      const p = this.trail[i];
-      g.fillStyle(P.trail, t * 0.3);
-      g.fillCircle(p.x, p.y, 1 + t * 4);
+    // speed trail: sampled by distance and aged out by time, so it reads the
+    // same at 60Hz and 165Hz. Tapered and brighter toward the shuttle, and
+    // tinted with whoever struck it last.
+    const now = performance.now();
+    const last = this.trail[this.trail.length - 1];
+    if (s.live && (!last || Math.hypot(s.x - last.x, s.y - last.y) > 1.5)) {
+      this.trail.push({ x: s.x, y: s.y, t: now });
+    }
+    const cutoff = now - TRAIL_MS;
+    while (this.trail.length && this.trail[0].t < cutoff) this.trail.shift();
+    while (this.trail.length > 80) this.trail.shift();
+
+    const n = this.trail.length;
+    if (n >= 2) {
+      const head = this.trail[n - 1];
+      const fade = s.live ? 1 : Math.max(0, 1 - (now - head.t) / 140);
+      if (fade > 0.01) {
+        const color = this.trailColor();
+        for (let i = 1; i < n; i++) {
+          const p0 = this.trail[i - 1];
+          const p1 = this.trail[i];
+          const f = i / (n - 1);
+          const wdt = 1 + f * 7;
+          const a = (0.04 + f * 0.42) * fade;
+          g.fillStyle(color, a);
+          g.fillCircle(p1.x, p1.y, wdt * 0.5);
+          g.lineStyle(wdt, color, a);
+          g.lineBetween(p0.x, p0.y, p1.x, p1.y);
+        }
+        g.fillStyle(color, 0.45 * fade);
+        g.fillCircle(head.x, head.y, 5);
+      }
     }
 
     const height = Phaser.Math.Clamp((GROUND_Y - s.y) / 420, 0, 1);

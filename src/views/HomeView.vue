@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
+import CustomizePanel from '../components/CustomizePanel.vue';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
@@ -74,6 +75,8 @@ function go(path: string) {
           点顶栏的「摇杆」按钮可以拖动调整两个摇杆的大小和位置。
         </p>
       </Panel>
+
+      <CustomizePanel />
     </div>
   </div>
 </template>

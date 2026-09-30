@@ -7,11 +7,17 @@ import type { Difficulty } from '../game/ai';
 import type { MatchRole, SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
 import type { NetLink } from '../net/link';
+import type { Cosmetic } from '../game/cosmetics';
+import type { ThemeId } from '../game/theme';
 
 const props = defineProps<{
   role: MatchRole;
   difficulty: Difficulty;
   session: NetLink | null;
+  cosmetic: Cosmetic;
+  localName: string;
+  theme: ThemeId;
+  autoCycleTheme: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -20,6 +26,7 @@ const emit = defineEmits<{
   sim: [SimEvent];
   metrics: [NetMetrics];
   editmode: [boolean];
+  themechange: [ThemeId];
 }>();
 
 const container = ref<HTMLDivElement | null>(null);
@@ -57,6 +64,11 @@ onMounted(async () => {
     onEvent: (e) => emit('sim', e),
     onMetrics: (m) => emit('metrics', m),
     onEditMode: (on) => emit('editmode', on),
+    cosmetic: props.cosmetic,
+    localName: props.localName,
+    theme: props.theme,
+    autoCycleTheme: props.autoCycleTheme,
+    onThemeChange: (t) => emit('themechange', t),
   };
 
   game = new Phaser.Game({
