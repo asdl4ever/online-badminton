@@ -15,11 +15,13 @@ import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
+import { useProgressStore } from '../stores/progress';
 
 const router = useRouter();
 const store = useGameStore();
 const customize = useCustomizeStore();
 const lobby = useLobbyStore();
+const progress = useProgressStore();
 const hud = ref<HudState | null>(null);
 const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
 const editing = ref(false);
@@ -47,7 +49,9 @@ function onEvent(e: SimEvent) {
   else if (e.type === 'land') sfx.land();
   else if (e.type === 'point') sfx.point();
   else if (e.type === 'gameover') {
-    if (e.scorer === 0) sfx.win();
+    const win = e.scorer === 0;
+    progress.recordResult(win, 'single');
+    if (win) sfx.win();
     else sfx.lose();
   }
 }
@@ -99,6 +103,7 @@ onBeforeUnmount(() => {
           :session="null"
           :cosmetic="customize.cosmetic"
           :local-name="lobby.playerName"
+          :local-rank="progress.tier.id"
           :theme="customize.theme"
           :auto-cycle-theme="customize.autoCycle"
           @hud="onHud"

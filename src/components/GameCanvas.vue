@@ -9,6 +9,7 @@ import type { NetMetrics } from '../game/telemetry';
 import type { NetLink } from '../net/link';
 import type { Cosmetic } from '../game/cosmetics';
 import type { ThemeId } from '../game/theme';
+import type { TierId } from '../game/ranks';
 
 const props = defineProps<{
   role: MatchRole;
@@ -16,6 +17,7 @@ const props = defineProps<{
   session: NetLink | null;
   cosmetic: Cosmetic;
   localName: string;
+  localRank: TierId;
   theme: ThemeId;
   autoCycleTheme: boolean;
 }>();
@@ -66,6 +68,7 @@ onMounted(async () => {
     onEditMode: (on) => emit('editmode', on),
     cosmetic: props.cosmetic,
     localName: props.localName,
+    localRank: props.localRank,
     theme: props.theme,
     autoCycleTheme: props.autoCycleTheme,
     onThemeChange: (t) => emit('themechange', t),

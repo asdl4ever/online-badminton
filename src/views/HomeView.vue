@@ -6,17 +6,23 @@ import Button from '../components/ui/Button.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import CustomizePanel from '../components/CustomizePanel.vue';
 import FriendsPanel from '../components/FriendsPanel.vue';
+import RankPanel from '../components/RankPanel.vue';
 import { useLobbyStore } from '../stores/lobby';
+import { useProgressStore } from '../stores/progress';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
 const lobby = useLobbyStore();
+const progress = useProgressStore();
 
 const showLook = ref(false);
 const showFriends = ref(false);
+const showRank = ref(false);
 
 /** pending friend requests + invites, shown as a badge on the friends icon */
 const friendBadge = computed(() => lobby.requests.length + lobby.invites.length);
+/** reached tiers that have not been claimed yet */
+const rankBadge = computed(() => progress.claimable.length);
 
 function go(path: string) {
   sfx.unlock();
@@ -24,11 +30,12 @@ function go(path: string) {
   void router.push(path);
 }
 
-function open(which: 'look' | 'friends') {
+function open(which: 'look' | 'friends' | 'rank') {
   sfx.unlock();
   sfx.click();
   if (which === 'look') showLook.value = true;
-  else showFriends.value = true;
+  else if (which === 'friends') showFriends.value = true;
+  else showRank.value = true;
 }
 </script>
 
@@ -36,6 +43,20 @@ function open(which: 'look' | 'friends') {
   <div class="page page--narrow">
     <div class="shell">
       <div class="home-tools">
+        <button class="tool" type="button" title="段位" @click="open('rank')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span>段位</span>
+          <span v-if="rankBadge" class="tool__badge">{{ rankBadge }}</span>
+        </button>
+
         <button class="tool" type="button" title="外观自定义" @click="open('look')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -133,6 +154,10 @@ function open(which: 'look' | 'friends') {
         </p>
       </Panel>
     </div>
+
+    <AppModal v-if="showRank" title="段位" max-width="600px" @close="showRank = false">
+      <RankPanel />
+    </AppModal>
 
     <AppModal v-if="showLook" title="外观自定义" @close="showLook = false">
       <CustomizePanel />

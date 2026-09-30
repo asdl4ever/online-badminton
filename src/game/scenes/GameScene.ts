@@ -50,11 +50,17 @@ import {
 } from '../theme';
 import {
   AI_COSMETIC,
+  AURA_COLORS,
   DEFAULT_COSMETIC,
+  RACKET_SKIN_COLORS,
   sanitizeCosmetic,
+  titleText,
+  WING_COLORS,
+  toHex,
   type Cosmetic,
   type HitStyle,
 } from '../cosmetics';
+import { isTierId, tierById, type TierId } from '../ranks';
 import { EMOTE_BY_ID, EMOTE_COOLDOWN_MS, EMOTE_LIFE_S } from '../emotes';
 import { Telemetry, type NetMetrics } from '../telemetry';
 import type { NetLink, NetMessage } from '../../net/link';
@@ -84,6 +90,8 @@ export interface MatchConfig {
   cosmetic?: Cosmetic;
   /** the local player's display name */
   localName?: string;
+  /** the local player's rank tier (visual only) */
+  localRank?: TierId;
   /** starting court theme */
   theme?: ThemeId;
   /** rotate the court theme once a match finishes */
@@ -145,9 +153,15 @@ export class GameScene extends Phaser.Scene {
   private remoteName = '对手';
   private nameTexts: Phaser.GameObjects.Text[] = [];
   private avatarTexts: Phaser.GameObjects.Text[] = [];
+  private titleTexts: Phaser.GameObjects.Text[] = [];
+  /** rank tiers, shown as the name-plate ring colour */
+  private localRank: TierId = 'bronze';
+  private remoteRank: TierId = 'bronze';
   /** short "point!" label shown beside the score */
   private pointMsg!: Phaser.GameObjects.Text;
   private plateCy = 72;
+  /** guards against a phase-change race emitting gameover twice (guest) */
+  private gameoverSeen = false;
 
   /** sim events produced since the last snapshot went out */
   private netEvents: SimEvent[] = [];
@@ -219,6 +233,9 @@ export class GameScene extends Phaser.Scene {
       this.cfg.role === 'single' ? { ...AI_COSMETIC } : { ...DEFAULT_COSMETIC };
     this.localName = this.cfg.localName?.trim() || '你';
     this.remoteName = this.cfg.role === 'single' ? '电脑' : '对手';
+    this.localRank = isTierId(this.cfg.localRank) ? this.cfg.localRank : 'bronze';
+    this.remoteRank = 'bronze';
+    this.gameoverSeen = false;
     this.currentTheme = this.cfg.theme ?? 'day';
   }
 
@@ -270,6 +287,13 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(8),
     );
+    this.titleTexts = [0, 1].map(() =>
+      this.add
+        .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '13px', fontStyle: 'bold' })
+        .setOrigin(0, 0.5)
+        .setDepth(8)
+        .setVisible(false),
+    );
     this.pointMsg = this.add
       .text(0, 0, '得分！', { fontFamily: FONT_UI, fontSize: '26px', fontStyle: 'bold' })
       .setOrigin(0.5)
@@ -311,7 +335,12 @@ export class GameScene extends Phaser.Scene {
       // repeated a couple of times because the first can race the peer's own
       // scene setup and be dropped before it installs onMessage.
       const announce = () =>
-        session.send({ t: 'hello', name: this.localName, cosmetic: this.localCosmetic });
+        session.send({
+          t: 'hello',
+          name: this.localName,
+          rank: this.localRank,
+          cosmetic: this.localCosmetic,
+        });
       announce();
       for (const ms of [300, 900]) this.time.delayedCall(ms, announce);
     }
@@ -347,6 +376,7 @@ export class GameScene extends Phaser.Scene {
       this.remoteCosmetic = sanitizeCosmetic(m.cosmetic);
       const name = typeof m.name === 'string' ? m.name.trim() : '';
       if (name) this.remoteName = name.slice(0, 16);
+      if (isTierId(m.rank)) this.remoteRank = m.rank;
     } else if (m.t === 'emote') {
       // the peer's reaction lands on their own player
       this.spawnEmote(this.cfg.role === 'host' ? 1 : 0, m.id);
@@ -418,6 +448,7 @@ export class GameScene extends Phaser.Scene {
     this.world = createWorld();
     this.target = createWorld();
     this.hasSnapshot = false;
+    this.gameoverSeen = false;
     this.racket.reset();
     this.touchControls?.reset();
     for (const e of this.emotes) e.text.destroy();
@@ -767,7 +798,11 @@ export class GameScene extends Phaser.Scene {
   private flushEvents(): void {
     for (const e of this.world.events) {
       if (e.type === 'hit') this.spawnHitEffect(e.player === 1 ? 1 : 0, e.kind);
-      if (e.type === 'gameover') this.maybeCycleTheme();
+      if (e.type === 'gameover') {
+        if (this.gameoverSeen) continue;
+        this.gameoverSeen = true;
+        this.maybeCycleTheme();
+      }
       if (this.cfg.role === 'host' && this.netEvents.length < 16) this.netEvents.push(e);
       this.cfg.onEvent(e);
     }
@@ -1051,16 +1086,21 @@ export class GameScene extends Phaser.Scene {
       const cos = this.cosmeticFor(idx);
       const name = idx === this.localIndex() ? this.localName : this.remoteName;
       const accent = idx === 0 ? P.player0 : P.player1;
+      const tier = tierById(idx === this.localIndex() ? this.localRank : this.remoteRank);
 
       const nameText = this.nameTexts[idx];
+      const titleObj = this.titleTexts[idx];
+      const tstr = titleText(cos.title);
       nameText.setText(name);
-      const w = pad + av + 8 + nameText.width + pad;
+      titleObj.setText(tstr).setVisible(!!tstr);
+      const extra = tstr ? 10 + titleObj.width : 0;
+      const w = pad + av + 8 + nameText.width + extra + pad;
       const x0 = idx === 0 ? 16 : VIEW_W - 16 - w;
       const y0 = cy - h / 2;
 
       g.fillStyle(0x000000, 0.3);
       g.fillRoundedRect(x0, y0, w, h, h / 2);
-      g.lineStyle(2, accent, 0.95);
+      g.lineStyle(2, tier.color, 0.95);
       g.strokeRoundedRect(x0, y0, w, h, h / 2);
 
       const cx = x0 + pad + av / 2;
@@ -1069,6 +1109,9 @@ export class GameScene extends Phaser.Scene {
 
       this.avatarTexts[idx].setText(cos.emoji || '●').setPosition(cx, cy + 1);
       nameText.setPosition(cx + av / 2 + 8, cy).setColor('#ffffff');
+      if (tstr) {
+        titleObj.setPosition(cx + av / 2 + 8 + nameText.width + 10, cy).setColor(toHex(tier.color));
+      }
     }
   }
 
@@ -1082,6 +1125,9 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(P.shadow, 0.16);
     g.fillEllipse(pos.x, GROUND_Y + 2, 46, 10);
 
+    if (cos.aura !== 'none') this.drawAura(g, pos.x, pos.y, AURA_COLORS[cos.aura]);
+    if (cos.wings !== 'none') this.drawWings(g, pos.x, topY, WING_COLORS[cos.wings]);
+
     g.fillStyle(color, 1);
     g.fillRoundedRect(pos.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
 
@@ -1093,6 +1139,35 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.drawRacket(g, p, pos.x, pos.y, cos);
+  }
+
+  /** soft pulsing glow behind a player (rank reward) */
+  private drawAura(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number): void {
+    const cy = y - PLAYER_H * 0.5;
+    g.fillStyle(color, 0.14);
+    g.fillEllipse(x, cy, 98, 152);
+    g.lineStyle(3, color, 0.5);
+    g.strokeEllipse(x, cy, 98, 152);
+    const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 480);
+    g.lineStyle(2, color, 0.2 + 0.25 * pulse);
+    g.strokeEllipse(x, cy, 116 + pulse * 6, 172 + pulse * 10);
+  }
+
+  /** feathered wings that sweep back and forth (rank reward) */
+  private drawWings(g: Phaser.GameObjects.Graphics, x: number, topY: number, color: number): void {
+    const flap = Math.sin(this.time.now / 90) * 0.35;
+    const baseY = topY + 48;
+    for (const dir of [-1, 1]) {
+      for (let k = 0; k < 3; k++) {
+        const len = 52 - k * 11;
+        const ang = -Math.PI / 2 + dir * (0.55 + flap + k * 0.22);
+        const tipX = x + Math.cos(ang) * len;
+        const tipY = baseY + Math.sin(ang) * len;
+        const nx = x + dir * 7;
+        g.fillStyle(color, 0.9 - k * 0.2);
+        g.fillTriangle(nx, baseY - 10, nx, baseY + 12, tipX, tipY);
+      }
+    }
   }
 
   private drawRacket(
@@ -1124,17 +1199,25 @@ export class GameScene extends Phaser.Scene {
     g.lineStyle(6, P.skin, 1);
     g.lineBetween(shoulder.x, shoulder.y, hx, hy);
 
+    const skin = cos.racketSkin;
+    const frameColor = skin === 'default' ? cos.racket : RACKET_SKIN_COLORS[skin];
+
     g.save();
     g.translateCanvas(head.x, head.y);
     g.rotateCanvas(ang);
     g.lineStyle(6, P.grip, 0.95);
     g.lineBetween(-12, 0, -2, 0);
-    g.lineStyle(3, cos.racket, 0.95);
+    if (skin !== 'default') {
+      const glow = skin === 'flame' ? 0.22 + 0.16 * Math.sin(this.time.now / 60) : 0.3;
+      g.lineStyle(12, frameColor, glow);
+      g.strokeEllipse(9, 0, 34, 28);
+    }
+    g.lineStyle(3, frameColor, 0.95);
     g.strokeEllipse(9, 0, 34, 28);
     g.restore();
 
     if (hot > 0.15) {
-      g.lineStyle(2, cos.racket, 0.12 + 0.28 * hot);
+      g.lineStyle(2, frameColor, 0.12 + 0.28 * hot);
       g.strokeCircle(head.x, head.y, CONTACT_R);
     }
   }

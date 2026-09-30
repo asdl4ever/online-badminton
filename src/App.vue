@@ -2,6 +2,7 @@
 import { RouterView, useRouter } from 'vue-router';
 import { useMobileShell } from './composables/useMobileShell';
 import { useLobbyStore, type FriendRequest, type Invite } from './stores/lobby';
+import { useProgressStore } from './stores/progress';
 import Button from './components/ui/Button.vue';
 
 // requests fullscreen + landscape lock on the first tap (touch devices only)
@@ -9,6 +10,7 @@ useMobileShell();
 
 const router = useRouter();
 const lobby = useLobbyStore();
+const progress = useProgressStore();
 
 function acceptInvite(inv: Invite) {
   lobby.acceptInvite(inv);
@@ -24,6 +26,10 @@ function acceptRequest(req: FriendRequest) {
   <RouterView />
 
   <div class="toasts">
+    <div v-if="progress.notice" class="toast toast--accent">
+      <p class="toast__title">{{ progress.notice }}</p>
+    </div>
+
     <div v-for="inv in lobby.invites" :key="`inv-${inv.from}`" class="toast">
       <p class="toast__title">
         <b>{{ inv.name }}</b> 邀请你加入对局
@@ -114,6 +120,11 @@ function acceptRequest(req: FriendRequest) {
   font-size: 13px;
   color: var(--text-dim);
   letter-spacing: 2px;
+}
+
+.toast--accent {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent), var(--e2, var(--e1));
 }
 
 .toast__actions {

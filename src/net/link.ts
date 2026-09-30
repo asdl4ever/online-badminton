@@ -4,7 +4,7 @@ import type { Cosmetic } from '../game/cosmetics';
 export type NetRole = 'host' | 'guest';
 
 export type NetMessage =
-  | { t: 'hello'; name?: string; cosmetic?: Cosmetic }
+  | { t: 'hello'; name?: string; rank?: string; cosmetic?: Cosmetic }
   | { t: 'input'; i: PlayerInput }
   | { t: 'snap'; s: WorldSnapshot }
   | { t: 'rematch' }
