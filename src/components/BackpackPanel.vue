@@ -18,6 +18,7 @@ import {
 import type {
   AuraId,
   CapeId,
+  CharacterSkin,
   HatId,
   HitStyle,
   PetId,
@@ -61,6 +62,8 @@ const cells = computed<(Item | null)[]>(() => {
 
 function currentRef(slot: ItemSlot): string {
   switch (slot) {
+    case 'skin':
+      return store.characterSkin;
     case 'hat':
       return store.hat;
     case 'wings':
@@ -91,6 +94,9 @@ function displayStars(item: Item): number {
 
 function equip(item: Item): void {
   switch (item.slot) {
+    case 'skin':
+      store.characterSkin = item.ref as CharacterSkin;
+      break;
     case 'hat':
       store.hat = item.ref as HatId;
       break;

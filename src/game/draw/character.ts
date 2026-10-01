@@ -1422,6 +1422,50 @@ export interface CharacterOpts {
  * aim offset and the climb scene from a rigid-body angle, so each caller draws
  * its own.
  */
+/**
+ * The streak-100 Godzilla form: chunky scaled body, dorsal spikes, a tail and
+ * a little head with eyes, all drawn in the character's footprint.
+ */
+function drawGodzilla(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const bob = Math.sin(now / 400) * 1.5;
+  const body = 0x3a7d44;
+  const dark = 0x2c5f34;
+  const belly = 0x9cc48e;
+
+  // tail sweeping behind
+  const tailDir = -pose.facing;
+  g.fillStyle(body, 1);
+  g.fillEllipse(pose.x + tailDir * 26, pose.feetY - 8 + bob, 40, 14);
+  g.fillEllipse(pose.x + tailDir * 46, pose.feetY - 12 + bob, 26, 9);
+
+  // dorsal spikes down the back
+  g.fillStyle(0xf2e7c9, 1);
+  for (let i = 0; i < 4; i++) {
+    const sx = pose.x + tailDir * (8 + i * 12);
+    const sy = topY + 34 + i * 6 + bob;
+    g.fillTriangle(sx, sy - 9, sx - 4, sy + 3, sx + 4, sy + 3);
+  }
+
+  // body
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(pose.x - 16, topY + 24, 32, PLAYER_H - 24, 9);
+  g.fillStyle(belly, 1);
+  g.fillRoundedRect(pose.x - 8, topY + 40, 16, PLAYER_H - 46, 6);
+
+  // head
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(pose.x - 15, topY + 2, 30, 26, 8);
+  g.fillStyle(dark, 1);
+  g.fillEllipse(pose.x - pose.facing * 4, topY + 20, 22, 9); // jaw
+  g.fillStyle(0xffe27a, 1);
+  g.fillCircle(pose.x + pose.facing * 6, topY + 12, 3); // eyes
+  g.fillCircle(pose.x + pose.facing * 12, topY + 11, 3);
+  g.fillStyle(0x1c2a1c, 1);
+  g.fillCircle(pose.x + pose.facing * 6, topY + 12, 1.4);
+  g.fillCircle(pose.x + pose.facing * 12, topY + 11, 1.4);
+}
+
 export function drawCharacter(
   g: Phaser.GameObjects.Graphics,
   now: number,
@@ -1440,10 +1484,16 @@ export function drawCharacter(
   if (cos.cape !== 'none') drawCape(g, now, pose.x, topY, cos.cape);
   if (cos.wings !== 'none') drawWings(g, now, pose.x, topY, cos);
 
-  g.fillStyle(pose.color, 1);
-  g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
+  if (cos.characterSkin === 'godzilla') {
+    drawGodzilla(g, now, pose);
+  } else {
+    g.fillStyle(pose.color, 1);
+    g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
+  }
 
-  if (cos.emoji && opts.face) {
+  if (cos.characterSkin === 'godzilla') {
+    opts.face?.setVisible(false);
+  } else if (cos.emoji && opts.face) {
     const face = opts.face;
     face.setText(cos.emoji);
     face.setPosition(pose.x, topY + 17);

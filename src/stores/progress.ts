@@ -83,6 +83,10 @@ export const useProgressStore = defineStore('progress', () => {
   const tenTickets = useLocalStorage<number>('bmt-ten-tickets', 0);
   /** pulls since the last epic/legendary */
   const pity = useLocalStorage('bmt-pity', 0);
+  /** machine-mode combo milestones (10/20/…/100) already claimed */
+  const milestones = useLocalStorage<number[]>('bmt-milestones', []);
+  /** fishing rod upgrade level (1-5): longer reach, fatter payouts */
+  const rodLevel = useLocalStorage('bmt-rod-level', 1);
   const notice = ref('');
   let noticeTimer: number | undefined;
 
@@ -110,6 +114,7 @@ export const useProgressStore = defineStore('progress', () => {
     if (item.source === 'free') return true;
     if (item.source === 'gacha') return owned.value.includes(item.id);
     if (item.source === 'egg') return (petStars.value[item.ref] ?? 0) > 0;
+    if (item.source === 'streak') return milestones.value.includes(100);
     return claimed.value.includes(item.source);
   }
 
@@ -164,6 +169,19 @@ export const useProgressStore = defineStore('progress', () => {
     if (!t || points.value < t.points || claimed.value.includes(id)) return;
     claimed.value = [...claimed.value, id];
     pushNotice(`已领取 ${t.label} 奖励：${t.reward}`);
+  }
+
+  /**
+   * A machine-mode combo milestone (10/20/…/100). First time only: 10..90 give
+   * one random gacha item, 100 unlocks the Godzilla character form.
+   */
+  function claimMilestone(n: number): { kind: 'item'; item: Item } | { kind: 'godzilla' } | null {
+    if (n <= 0 || n % 10 !== 0 || milestones.value.includes(n)) return null;
+    milestones.value = [...milestones.value, n];
+    if (n >= 100) return { kind: 'godzilla' };
+    const item = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
+    if (!owned.value.includes(item.id)) owned.value = [...owned.value, item.id];
+    return { kind: 'item', item };
   }
 
   /** one weighted draw, without touching the wallet (the caller pays) */
@@ -251,6 +269,9 @@ export const useProgressStore = defineStore('progress', () => {
     claimable,
     isClaimed,
     isOwned,
+    milestones,
+    rodLevel,
+    claimMilestone,
     petStar,
     hatch,
     recordResult,

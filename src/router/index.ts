@@ -20,6 +20,11 @@ export const router = createRouter({
       name: 'climb',
       component: () => import('../views/ClimbView.vue'),
     },
+    {
+      path: '/fish',
+      name: 'fish',
+      component: () => import('../views/FishView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });

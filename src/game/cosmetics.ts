@@ -343,7 +343,12 @@ export type RacketSkinId =
   | 'toxic'
   | 'ember';
 
+export type CharacterSkin = 'none' | 'godzilla';
+const SKIN_IDS: CharacterSkin[] = ['none', 'godzilla'];
+
 export interface Cosmetic {
+  /** whole-body character form (the streak-100 Godzilla, else 'none') */
+  characterSkin: CharacterSkin;
   emoji: string;
   racket: number;
   trail: number;
@@ -820,6 +825,7 @@ export const COLOR_PRESETS = [
 ];
 
 export const DEFAULT_COSMETIC: Cosmetic = {
+  characterSkin: 'none',
   emoji: '🙂',
   racket: 0x44586f,
   trail: 0x6f9fce,
@@ -836,6 +842,7 @@ export const DEFAULT_COSMETIC: Cosmetic = {
 
 /** the CPU opponent gets a fixed look so it reads as "not you" */
 export const AI_COSMETIC: Cosmetic = {
+  characterSkin: 'none',
   emoji: '🤖',
   racket: 0x44586f,
   trail: 0xd4542c,
@@ -868,6 +875,7 @@ export function sanitizeCosmetic(input: Partial<Cosmetic> | undefined): Cosmetic
   const d = DEFAULT_COSMETIC;
   if (!input || typeof input !== 'object') return { ...d };
   return {
+    characterSkin: pick(SKIN_IDS, input.characterSkin, d.characterSkin),
     emoji: typeof input.emoji === 'string' ? input.emoji.slice(0, 8) : d.emoji,
     racket: typeof input.racket === 'number' ? input.racket & 0xffffff : d.racket,
     trail: typeof input.trail === 'number' ? input.trail & 0xffffff : d.trail,

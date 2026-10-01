@@ -465,6 +465,13 @@ button {
     touch-action: none;
   }
 
+  /* badminton runs in Scale.STRETCH on touch, so the container can be the
+     whole stage: the court fills the screen instead of letterboxing */
+  .page--playing .stage .game-canvas {
+    aspect-ratio: auto;
+    width: 100%;
+  }
+
   .page--playing .climb-note {
     display: none;
   }
@@ -473,9 +480,9 @@ button {
      out of the notch and the court off the home indicator. These are 0 on
      devices without an inset, so it is a no-op everywhere else. */
   .page--playing .topbar.hud-bar {
-    padding-left: max(var(--s2), env(safe-area-inset-left));
-    padding-right: max(var(--s2), env(safe-area-inset-right));
-    padding-top: max(3px, env(safe-area-inset-top));
+    padding-left: max(var(--s1), env(safe-area-inset-left));
+    padding-right: max(var(--s1), env(safe-area-inset-right));
+    padding-top: max(1px, env(safe-area-inset-top));
   }
 
   .page--playing .stage {
@@ -497,11 +504,12 @@ button {
     box-shadow: none;
   }
 
+  /* one thin strip of controls — as little vertical space as possible */
   .page--playing .topbar.hud-bar {
     flex: none;
     flex-wrap: nowrap;
-    gap: var(--s1);
-    padding: 3px var(--s2);
+    gap: 4px;
+    padding: 1px var(--s1) 2px;
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -532,11 +540,25 @@ button {
     display: none;
   }
 
-  /* compact but still thumb-sized */
+  /* compact but still tappable */
   .page--playing .v-btn.soft-btn {
-    font-size: 12px;
-    min-height: 38px;
-    padding: 0 10px;
+    font-size: 11px;
+    min-height: 30px;
+    padding: 0 7px;
+  }
+
+  /* segmented labels ("模式"/"难度") just burn width on the strip */
+  .page--playing .topbar .seg__label {
+    display: none;
+  }
+
+  .page--playing .topbar .seg__item {
+    font-size: 11px;
+    padding: 3px var(--s3);
+  }
+
+  .page--playing .topbar .seg__track {
+    padding: 1px;
   }
 }
 

@@ -1137,7 +1137,10 @@ export class GameScene extends Phaser.Scene {
 
   private flushEvents(): void {
     for (const e of this.world.events) {
-      if (e.type === 'hit') this.spawnHitEffect(e.player === 1 ? 1 : 0, e.kind);
+      if (e.type === 'hit') {
+        this.spawnHitEffect(e.player === 1 ? 1 : 0, e.kind);
+        this.shakeFor(e.kind);
+      }
       if (e.type === 'gameover') {
         if (this.gameoverSeen) continue;
         this.gameoverSeen = true;
@@ -1147,6 +1150,19 @@ export class GameScene extends Phaser.Scene {
       this.cfg.onEvent(e);
     }
     this.world.events.length = 0;
+  }
+
+  /** hit impact: the harder the shot, the harder the screen kicks */
+  private shakeFor(kind?: ShotKind): void {
+    const [ms, intensity]: [number, number] =
+      kind === 'smash'
+        ? [220, 0.014]
+        : kind === 'clear'
+          ? [140, 0.008]
+          : kind === 'drive'
+            ? [110, 0.006]
+            : [70, 0.003]; // lift / serve
+    this.cameras.main.shake(ms, intensity);
   }
 
   private spawnHitEffect(player: 0 | 1, kind?: ShotKind): void {

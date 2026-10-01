@@ -433,6 +433,7 @@ function feedShuttle(world: World): void {
   const cfg = world.config;
   const s = world.shuttle;
   const p = world.players[0];
+  rampMachineDifficulty(world);
   s.x = MACHINE_X;
   s.y = MACHINE_Y;
 
@@ -456,6 +457,19 @@ function feedShuttle(world: World): void {
   world.lastHitter = -1;
   world.machine.feeds++;
   world.events.push({ type: 'serve', player: 1 });
+}
+
+/**
+ * The machine gets harder as the streak grows: faster feeds, tighter spacing,
+ * wider placement. Scales off the *current* streak so a miss eases it back.
+ */
+function rampMachineDifficulty(world: World): void {
+  const cfg = world.config;
+  const n = Math.min(world.machine.streak, 120);
+  cfg.machineInterval = Math.max(0.45, 1.1 - n * 0.006);
+  cfg.machineSpeed = Math.min(2600, 1500 + n * 12);
+  cfg.machineSpread = Math.min(430, 190 + n * 2.2);
+  cfg.machineAngle = Math.min(0.5, 0.22 + n * 0.002);
 }
 
 /** the feeder's own clock: feed, let it play out, feed again */

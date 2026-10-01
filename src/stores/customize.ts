@@ -5,6 +5,7 @@ import {
   fromHex,
   type AuraId,
   type CapeId,
+  type CharacterSkin,
   type Cosmetic,
   type HatId,
   type HitStyle,
@@ -23,6 +24,7 @@ import { useProgressStore } from './progress';
  */
 export const useCustomizeStore = defineStore('customize', () => {
   const progress = useProgressStore();
+  const characterSkin = useLocalStorage<CharacterSkin>('bmt-skin', 'none');
   const emoji = useLocalStorage('bmt-emoji', '🙂');
   const racketHex = useLocalStorage('bmt-racket', '#44586f');
   const trailHex = useLocalStorage('bmt-trail', '#6f9fce');
@@ -39,6 +41,7 @@ export const useCustomizeStore = defineStore('customize', () => {
   const autoCycle = useLocalStorage('bmt-theme-auto', true);
 
   const cosmetic = computed<Cosmetic>(() => ({
+    characterSkin: characterSkin.value,
     emoji: emoji.value,
     racket: fromHex(racketHex.value),
     trail: fromHex(trailHex.value),
@@ -54,6 +57,7 @@ export const useCustomizeStore = defineStore('customize', () => {
   }));
 
   return {
+    characterSkin,
     emoji,
     racketHex,
     trailHex,

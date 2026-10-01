@@ -25,6 +25,10 @@ export type NetMessage =
       detail?: string;
       winner?: number;
     }
+  /** fishing: a light pose so both clients can draw the other angler */
+  | { t: 'fishPose'; x: number; y: number; a: number; r: number }
+  /** fishing: this player just landed a fish (display only, no sim) */
+  | { t: 'fishCatch'; fish: string; value: number }
   /** latency probe — the sender stamps it and measures its own round trip */
   | { t: 'ping'; ts: number }
   | { t: 'pong'; ts: number };

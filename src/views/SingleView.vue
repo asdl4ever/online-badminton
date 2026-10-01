@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import TopBar from '../components/ui/TopBar.vue';
 import ScoreLine from '../components/ui/ScoreLine.vue';
 import Button from '../components/ui/Button.vue';
 import SegmentedChoice from '../components/ui/SegmentedChoice.vue';
+import { toastGood } from '../composables/useToast';
+import { celebrate } from '../composables/celebrate';
 import type { Choice } from '../components/ui/types';
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
@@ -47,9 +49,31 @@ const MACHINE_OPTION: Record<Difficulty, string> = {
 };
 
 const isMachine = computed(() => store.practice === 'machine');
-const optionId = computed(() => (isMachine.value ? MACHINE_OPTION[store.difficulty] : undefined));
+/** the machine ramps its own difficulty with the streak, so one base preset */
+const optionId = computed(() => (isMachine.value ? 'machineEasy' : MACHINE_OPTION[store.difficulty]));
 /** the scene builds its world once, so the mode switch has to remount it */
-const canvasKey = computed(() => `${store.practice}-${store.difficulty}`);
+const canvasKey = computed(() =>
+  isMachine.value ? store.practice : `${store.practice}-${store.difficulty}`,
+);
+
+/** combo milestones 10..100: one reward each, first time only */
+watch(
+  () => hud.value?.machine?.streak ?? 0,
+  (streak) => {
+    if (!isMachine.value || streak <= 0) return;
+    const reward = progress.claimMilestone(streak);
+    if (!reward) return;
+    if (reward.kind === 'godzilla') {
+      customize.characterSkin = 'godzilla';
+      toastGood('100 连击达成！解锁传说角色形象「哥斯拉」，已自动装备！');
+      celebrate(3, ['#3a7d44', '#e8a33d', '#f2e7c9']);
+      sfx.win();
+    } else {
+      toastGood(`${streak} 连击！获得「${reward.item.label}」`);
+      celebrate(2, ['#ffd45c', '#3d8bfd', '#9b59d0']);
+    }
+  },
+);
 
 function setDifficulty(value: string) {
   sfx.click();
@@ -101,9 +125,10 @@ onBeforeUnmount(() => {
             @update:model-value="setPractice"
           />
           <SegmentedChoice
+            v-if="!isMachine"
             :model-value="store.difficulty"
             :options="difficulties"
-            :label="isMachine ? '喂球' : '难度'"
+            label="难度"
             @update:model-value="setDifficulty"
           />
           <Button v-if="touch" size="sm" @click="canvas?.toggleEditMode()">

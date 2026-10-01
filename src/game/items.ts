@@ -10,6 +10,7 @@
 import type { TierId } from './ranks';
 
 export type ItemSlot =
+  | 'skin'
   | 'hat'
   | 'wings'
   | 'cape'
@@ -29,10 +30,11 @@ export interface Item {
   rarity: Rarity;
   /** display rating, 1–5 */
   stars: number;
-  source: 'free' | 'gacha' | 'egg' | TierId;
+  source: 'free' | 'gacha' | 'egg' | 'streak' | TierId;
 }
 
 export const SLOT_ORDER: ItemSlot[] = [
+  'skin',
   'hat',
   'wings',
   'cape',
@@ -44,6 +46,7 @@ export const SLOT_ORDER: ItemSlot[] = [
 ];
 
 export const SLOT_LABELS: Record<ItemSlot, string> = {
+  skin: '角色形象',
   hat: '头饰',
   wings: '翅膀',
   cape: '披风',
@@ -77,6 +80,9 @@ function it(
 }
 
 export const ITEMS: Item[] = [
+  // --- character skin (special: earned by machine-mode combo milestones) ---
+  it('skin', 'none', '默认', 'common', 1, 'free'),
+  it('skin', 'godzilla', '哥斯拉', 'legendary', 5, 'streak'),
   // --- hat ---
   it('hat', 'none', '无', 'common', 1, 'free'),
   it('hat', 'cap', '鸭舌帽', 'rare', 3, 'silver'),
