@@ -6,9 +6,9 @@ import { VProgressCircular, VTextField } from 'vuetify/components';
 import GameCanvas from '../components/GameCanvas.vue';
 import PartyOverlay from '../components/PartyOverlay.vue';
 import TopBar from '../components/ui/TopBar.vue';
+import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
 import AppModal from '../components/ui/AppModal.vue';
-import ScoreLine from '../components/ui/ScoreLine.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
@@ -225,125 +225,103 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page" :class="{ 'page--playing': playing }">
-    <div class="shell">
-      <TopBar collapsible @back="back">
+    <!-- 对局：统一外壳（顶栏 + 铺满画面 + 右上图标行 + 右侧坞 + 底部比分行） -->
+    <PageShell v-if="playing" title="联机对战" back @back="back">
+      <template #icons>
+        <button class="icon-btn jelly" type="button" title="表情" @click="emoteOpen = !emoteOpen">
+          🙂
+        </button>
+        <button
+          v-if="touch"
+          class="icon-btn jelly"
+          type="button"
+          title="摇杆布局"
+          @click="canvas?.toggleEditMode()"
+        >
+          🕹
+        </button>
+        <button class="icon-btn jelly" type="button" title="邀请好友" @click="friendsOpen = true">
+          👥
+        </button>
+      </template>
+
+      <template #dock>
+        <SideDock>
+          <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
+          <Button size="sm" block @click="emoteOpen = !emoteOpen">表情</Button>
+          <EmotePicker v-if="emoteOpen" @pick="pickEmote" @close="emoteOpen = false" />
+          <Button v-if="touch" size="sm" block @click="canvas?.toggleEditMode()">
+            {{ editing ? '完成' : '摇杆布局' }}
+          </Button>
+          <Button size="sm" block @click="friendsOpen = true">邀请好友</Button>
+        </SideDock>
+      </template>
+
+      <template #stage>
+        <GameCanvas
+          ref="canvas"
+          :role="store.role"
+          :difficulty="store.difficulty"
+          :session="store.session"
+          :cosmetic="customize.cosmetic"
+          :local-name="lobby.playerName"
+          :local-rank="progress.tier.id"
+          :theme="customize.theme"
+          :auto-cycle-theme="customize.autoCycle"
+          :party="partyMode"
+          @hud="onHud"
+          @sim="onEvent"
+          @metrics="onMetrics"
+          @editmode="editing = $event"
+          @disconnect="onDisconnect"
+          @themechange="customize.theme = $event"
+          @party="partyState = $event"
+        />
+        <PartyOverlay
+          :state="partyState"
+          :local-name="lobby.playerName"
+          remote-name="对手"
+          @vote="canvas?.voteParty($event)"
+          @next="canvas?.nextPartyRound()"
+        />
+      </template>
+
+      <template #foot>
+        <template v-if="partyState.active">
+          第 {{ partyState.round }} / {{ partyState.total }} 轮 · 积分
+          <b class="ui-num" style="color: var(--accent)">{{ partyState.scores[0] }}</b>
+          : <b class="ui-num" style="color: var(--accent-2)">{{ partyState.scores[1] }}</b>
+          · 每轮投票选玩法
+        </template>
+        <template v-else>
+          比分 <b class="ui-num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
+          : <b class="ui-num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
+          · 先到 11 分获胜
+        </template>
+        <span>
+          你是{{ store.role === 'host' ? '左侧（蓝）' : '右侧（橙）' }}选手
+          <template v-if="store.transport">
+            · {{ store.transport
+            }}<template v-if="store.metrics">
+              <span class="ui-num"> {{ store.metrics.rttMs.toFixed(0) }}ms</span>
+            </template>
+          </template>
+        </span>
+        <span v-if="onRelay" style="color: var(--warn)">走中继延迟偏高</span>
+      </template>
+    </PageShell>
+
+    <!-- 大厅：非对局时是居中卡片（不进外壳，页面可滚动） -->
+    <div v-else class="shell">
+      <TopBar @back="back">
         <template #title>联机对战</template>
       </TopBar>
 
-      <SideDock>
-        <Button
-          v-if="playing"
-          size="sm"
-          aria-haspopup="dialog"
-          :aria-expanded="emoteOpen"
-          @click="emoteOpen = !emoteOpen"
-        >
-          <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
-            <circle cx="9" cy="10" r="1.3" fill="currentColor" />
-            <circle cx="15" cy="10" r="1.3" fill="currentColor" />
-            <path
-              d="M8.4 14.4a4.6 4.6 0 0 0 7.2 0"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span>表情</span>
-        </Button>
-        <EmotePicker
-          v-if="emoteOpen && playing"
-          @pick="pickEmote"
-          @close="emoteOpen = false"
-        />
-        <Button v-if="touch && playing" size="sm" @click="canvas?.toggleEditMode()">
-          <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-            <circle cx="16" cy="7" r="2.5" fill="currentColor" />
-            <circle cx="10" cy="12" r="2.5" fill="currentColor" />
-            <circle cx="14" cy="17" r="2.5" fill="currentColor" />
-          </svg>
-          <span>{{ editing ? '完成' : '摇杆' }}</span>
-        </Button>
-        <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
-        <Button size="sm" aria-haspopup="dialog" :aria-expanded="friendsOpen" @click="friendsOpen = !friendsOpen">
-          <span>邀请好友</span>
-        </Button>
-      </SideDock>
-
-      <AppModal v-model="friendsOpen" title="邀请好友" max-width="560px">
-        <FriendsPanel variant="invite" :room-code="store.roomCode" :can-invite="waiting" />
-      </AppModal>
-
-      <div v-if="partyMode && !playing" class="muted party-hint">
+      <div v-if="partyMode" class="muted party-hint">
         乐趣模式已开启：一局 3 轮，每轮开始前投票选玩法
       </div>
 
-      <template v-if="playing">
-        <div class="stage">
-          <GameCanvas
-            ref="canvas"
-            :role="store.role"
-            :difficulty="store.difficulty"
-            :session="store.session"
-            :cosmetic="customize.cosmetic"
-            :local-name="lobby.playerName"
-            :local-rank="progress.tier.id"
-            :theme="customize.theme"
-            :auto-cycle-theme="customize.autoCycle"
-            :party="partyMode"
-            @hud="onHud"
-            @sim="onEvent"
-            @metrics="onMetrics"
-            @editmode="editing = $event"
-            @disconnect="onDisconnect"
-            @themechange="customize.theme = $event"
-            @party="partyState = $event"
-          />
-          <PartyOverlay
-            :state="partyState"
-            :local-name="lobby.playerName"
-            remote-name="对手"
-            @vote="canvas?.voteParty($event)"
-            @next="canvas?.nextPartyRound()"
-          />
-        </div>
-        <ScoreLine>
-          <div v-if="partyState.active" class="muted">
-            第 {{ partyState.round }} / {{ partyState.total }} 轮 · 积分
-            <b class="num" style="color: var(--accent)">{{ partyState.scores[0] }}</b>
-            :
-            <b class="num" style="color: var(--accent-2)">{{ partyState.scores[1] }}</b>
-            &nbsp;·&nbsp; 每轮投票选玩法
-          </div>
-          <div v-else class="muted">
-            比分 <b class="num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
-            :
-            <b class="num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
-            &nbsp;·&nbsp; 先到 11 分获胜
-          </div>
-          <div class="muted">
-            你是{{ store.role === 'host' ? '左侧（蓝）' : '右侧（橙）' }}选手
-            <template v-if="store.transport">
-              · {{ store.transport
-              }}<template v-if="store.metrics">
-                <span class="num"> {{ store.metrics.rttMs.toFixed(0) }}ms</span>
-              </template>
-            </template>
-          </div>
-          <div v-if="onRelay" class="muted" style="color: var(--warn)">
-            走中继会多绕服务器一圈，延迟偏高
-          </div>
-        </ScoreLine>
-      </template>
-
-      <template v-else>
+      <template>
         <Panel v-if="waiting" style="text-align: center">
           <p class="muted">把下面这串房间号发给你的对手</p>
 
@@ -411,6 +389,10 @@ onBeforeUnmount(() => {
         </Panel>
       </template>
     </div>
+
+    <AppModal v-model="friendsOpen" title="邀请好友" max-width="560px">
+      <FriendsPanel variant="invite" :room-code="store.roomCode" :can-invite="waiting" />
+    </AppModal>
   </div>
 </template>
 

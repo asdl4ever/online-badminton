@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import TopBar from '../components/ui/TopBar.vue';
+import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
 import Button from '../components/ui/Button.vue';
 import { ClimbScene } from '../game/climb/ClimbScene';
@@ -71,24 +71,24 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page page--playing">
-    <div class="shell">
-      <TopBar collapsible @back="back">
-        <template #title>攀爬挑战</template>
-      </TopBar>
+    <PageShell title="攀爬挑战" back @back="back">
+      <template #icons>
+        <button class="icon-btn jelly" type="button" title="重来" @click="restart">↺</button>
+      </template>
 
-      <SideDock>
-        <Button size="sm" @click="restart">重来</Button>
-      </SideDock>
+      <template #dock>
+        <SideDock>
+          <Button size="sm" block @click="restart">重来</Button>
+          <p class="climb-note">
+            用球拍撑住岩壁往上爬：鼠标决定球拍朝向，撑地、勾住凸起、再荡上去。A / D 行走，R 重来。
+          </p>
+        </SideDock>
+      </template>
 
-      <div class="stage">
+      <template #stage>
         <div ref="container" class="climb-canvas" />
-      </div>
-
-      <p class="muted climb-note">
-        用球拍撑住岩壁往上爬。移动鼠标决定球拍朝向，撑地、勾住凸起、再荡上去。
-        掉下来就真的掉下来了。`A` / `D` 行走，`R` 重来。
-      </p>
-    </div>
+      </template>
+    </PageShell>
   </div>
 </template>
 

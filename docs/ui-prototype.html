@@ -1,0 +1,3154 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>羽毛球 · UI 原型（Liquid Glass · 固定像素 UI + 右侧功能坞）</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ==================================================================
+       这份原型只做两件事：
+       1) 把当前所有按钮 / 组件 / 状态摆出来看；
+       2) 验证「UI 固定像素、不随屏幕缩放；只有球场自适应铺满」这条规范。
+       颜色沿用应用里 style.css 的 :root，新增的 --ui-* 就是重构要落地
+       的那一层尺寸 token。
+       ================================================================== */
+      :root {
+        /* --- 与应用一致的调色板（Soft UI Evolution · light）------------- */
+        --bg: #eef3fa;
+        --bg-glow: #dbe7f6;
+        --surface: #ffffff;
+        --surface-2: #f2f6fb;
+        --surface-3: #e6eef8;
+        --line: #d5e0ee;
+        --line-strong: #bccce0;
+        --text: #17233a;
+        --text-dim: #52678a;
+        --accent: #1f6fd0;
+        --accent-2: #c9451f;
+        --good: #1f9d55;
+        --warn: #a86a00;
+        --danger: #c02c2c;
+
+        --e1: 0 1px 2px rgba(23, 35, 58, 0.06), 0 2px 6px -2px rgba(23, 35, 58, 0.1);
+        --e2: 0 2px 4px rgba(23, 35, 58, 0.07), 0 12px 26px -12px rgba(23, 35, 58, 0.16);
+        --e3: 0 4px 10px rgba(23, 35, 58, 0.08), 0 26px 56px -22px rgba(23, 35, 58, 0.24);
+
+        --r-sm: 8px;
+        --r-md: 10px;
+        --r-lg: 12px;
+        --r-pill: 999px;
+
+        --dur-1: 180ms;
+        --dur-2: 240ms;
+        --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+        --s1: 4px;
+        --s2: 8px;
+        --s3: 12px;
+        --s4: 16px;
+        --s5: 24px;
+        --s6: 32px;
+
+        /* --- 新增：固定像素尺寸 token（重构的唯一真源）------------------- */
+        --ui-bar-h: 44px;
+        --ui-dock-w: 200px;
+        --ui-icon: 34px;
+        --ui-btn-sm: 36px;
+        --ui-btn-md: 44px;
+        --ui-btn-lg: 52px;
+        --ui-chip-h: 24px;
+        --ui-font-xs: 12px;
+        --ui-font-sm: 13px;
+        --ui-font-md: 15px;
+        --ui-font-lg: 17px;
+
+        --font-display: 'Outfit', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei',
+          'Noto Sans SC', sans-serif;
+        --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+          'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+        --font-num: 'Outfit', ui-monospace, Consolas, monospace;
+
+        /* --- Liquid Glass 图层：一层可在玻璃内部流动的镜面高光 ---------------
+           圆角按你的要求收小（卡片 12px，大面 16px，按钮 10px）。 */
+        --lg-radius: 8px;
+        --lg-radius-lg: 12px;
+        --lg-blur: 22px;
+        --lg-sat: 1.65;
+        --glass-bg: linear-gradient(
+          158deg,
+          rgba(255, 255, 255, 0.62) 0%,
+          rgba(255, 255, 255, 0.26) 46%,
+          rgba(255, 255, 255, 0.44) 100%
+        );
+        --glass-border: rgba(255, 255, 255, 0.72);
+        --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+        --glass-lo: inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+          inset 0 -10px 18px -14px rgba(16, 26, 48, 0.55);
+        --glass-shadow: 0 18px 40px -22px rgba(16, 26, 48, 0.5),
+          0 4px 12px -8px rgba(16, 26, 48, 0.28);
+        /* 跟着指针走的镜面光斑，--mx/--my 由 JS 更新 */
+        --sheen: radial-gradient(
+          160px 110px at var(--mx, 26%) var(--my, -10%),
+          rgba(255, 255, 255, 0.85),
+          rgba(255, 255, 255, 0) 72%
+        );
+        /* 果冻回弹：过冲的弹簧曲线 + 挤压关键帧 */
+        --ease-jelly: cubic-bezier(0.34, 1.56, 0.64, 1);
+        --ease-squash: cubic-bezier(0.4, 0, 0.2, 1);
+
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: var(--s5) var(--s5) 64px;
+        font-family: var(--font-ui);
+        font-weight: 400;
+        color: var(--text);
+        /* 展示台背景：平涂奶黄，只留一团极淡的暖光（少渐变） */
+        background-color: #fff3cc;
+        background-image: radial-gradient(
+          760px 520px at 50% -12%,
+          rgba(255, 255, 255, 0.55),
+          rgba(255, 255, 255, 0) 70%
+        );
+        background-attachment: fixed;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: var(--font-display);
+        font-weight: 700;
+      }
+
+      /* ==================================================================
+       果冻点击：按下时横向撑开、纵向压扁（squash），松手用弹簧曲线回弹并
+       带一点点过冲（stretch）。JS 负责加 .is-press / .is-pop 两个类，
+       CSS 只描述形变，所以键盘操作也能复用同一套反馈。
+       ================================================================== */
+      .jelly {
+        --jelly-press: scale(0.94, 0.88);
+        transform-origin: center;
+        transition: transform 420ms var(--ease-jelly);
+        will-change: transform;
+      }
+      .jelly:hover:not(:disabled) {
+        transform: scale(1.03);
+      }
+      .jelly.is-press {
+        transform: var(--jelly-press);
+        transition: transform 90ms var(--ease-squash);
+      }
+      .jelly.is-pop {
+        animation: jelly-pop 560ms var(--ease-jelly);
+      }
+      @keyframes jelly-pop {
+        0% {
+          transform: scale(0.94, 0.88);
+        }
+        26% {
+          transform: scale(1.06, 1.02);
+        }
+        48% {
+          transform: scale(0.975, 1.015);
+        }
+        70% {
+          transform: scale(1.014, 0.99);
+        }
+        86% {
+          transform: scale(0.995, 1.004);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      /* 卡片依次浮现（staggered）：--i 由 JS 按顺序写入 */
+      @keyframes rise-in {
+        from {
+          opacity: 0;
+          transform: translateY(14px) scale(0.98);
+        }
+      }
+      .stagger > * {
+        animation: rise-in 460ms var(--ease-jelly) both;
+        animation-delay: calc(var(--i, 0) * 55ms);
+      }
+
+      /* ---------- 原型外壳（不属于产品 UI，只是这台“展示台”） ---------- */
+      .lab {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--s4);
+      }
+      .lab__head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--s4);
+        flex-wrap: wrap;
+      }
+      .lab__title {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0.2px;
+      }
+      .lab__sub {
+        margin: 4px 0 0;
+        font-size: var(--ui-font-sm);
+        color: var(--text-dim);
+      }
+      .lab__controls {
+        display: flex;
+        align-items: center;
+        gap: var(--s4);
+        flex-wrap: wrap;
+      }
+      .lab__group {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        font-size: var(--ui-font-xs);
+        color: var(--text-dim);
+      }
+
+      .tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        height: var(--ui-icon);
+        padding: 0 12px;
+        border-radius: var(--lg-radius);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text-dim);
+        font: 600 var(--ui-font-sm) / 1 var(--font-ui);
+        cursor: pointer;
+        transition:
+          color var(--dur-1) var(--ease),
+          background var(--dur-1) var(--ease),
+          box-shadow var(--dur-1) var(--ease),
+          transform var(--dur-1) var(--ease);
+      }
+      .tab:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--e1);
+      }
+      .tab.is-on {
+        color: #fff;
+        border-color: #2f7fe0;
+        background: linear-gradient(180deg, #3f95ec, #2260ab);
+        box-shadow: var(--e1);
+      }
+
+      .mini {
+        height: 28px;
+        padding: 0 10px;
+        border-radius: 7px;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        color: var(--text-dim);
+        font: 600 var(--ui-font-xs) / 1 var(--font-ui);
+        cursor: pointer;
+      }
+      .mini.is-on {
+        color: var(--accent);
+        border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+        background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      }
+
+      /* ==================================================================
+       “区域块”：固定逻辑尺寸，内部 UI 全部固定像素。
+       切换尺寸时只有这一块变大变小，里面的控件尺寸一个像素都不变。
+       ================================================================== */
+      .device {
+        position: relative;
+        overflow: hidden;
+        border-radius: var(--lg-radius-lg);
+        border: 1px solid var(--line-strong);
+        background: #0b1a2b;
+        box-shadow: var(--e3);
+        transition:
+          width var(--dur-2) var(--ease),
+          height var(--dur-2) var(--ease);
+      }
+      .device__tag {
+        position: absolute;
+        bottom: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 40;
+        padding: 3px 10px;
+        border-radius: var(--r-pill);
+        background: rgba(10, 20, 35, 0.55);
+        color: #dbe9ff;
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        pointer-events: none;
+      }
+
+      /* ---------- 球场（自适应铺满，唯一会跟着变大的东西） ---------- */
+      .court {
+        position: absolute;
+        inset: 0;
+        /* 球场占位：平涂暖白，只有一层极淡的顶部光（少渐变） */
+        background-color: #fffaf0;
+        background-image: radial-gradient(
+          120% 80% at 50% -10%,
+          rgba(255, 236, 190, 0.85),
+          rgba(255, 250, 240, 0) 70%
+        );
+      }
+      .court__floor {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 22%;
+        background: linear-gradient(180deg, #f0c49c, #d59f72);
+      }
+      .court__night {
+        background: radial-gradient(120% 90% at 50% 0%, #23406b 0%, #162948 45%, #0d1a30 100%);
+      }
+      .court__pond {
+        background: radial-gradient(120% 90% at 60% 0%, #d8ecf8 0%, #a9d5ea 45%, #7cb9d8 100%);
+      }
+      .court__rock {
+        background: radial-gradient(120% 90% at 50% 0%, #efe7d6 0%, #d6c8ac 45%, #b8a482 100%);
+      }
+      .court__cliff {
+        background: radial-gradient(120% 90% at 50% 0%, #dcd3c4 0%, #b6a78e 48%, #8d7c62 100%);
+      }
+      .court__line {
+        position: absolute;
+        left: 8%;
+        right: 8%;
+        top: 58%;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.75);
+      }
+      .court__net {
+        position: absolute;
+        left: 50%;
+        top: 34%;
+        bottom: 22%;
+        width: 2px;
+        background: rgba(23, 35, 58, 0.5);
+      }
+      .court__players {
+        position: absolute;
+        left: 26%;
+        bottom: 22%;
+        display: flex;
+        gap: 340px;
+        align-items: flex-end;
+      }
+      .court__player {
+        width: 22px;
+        height: 62px;
+        border-radius: 10px;
+        background: #2a7ad4;
+        box-shadow: 0 6px 12px -6px rgba(11, 26, 43, 0.6);
+      }
+      .court__player.is-foe {
+        background: #d4542c;
+      }
+      .court__note {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #17324f;
+        opacity: 0.72;
+      }
+      .court__note b {
+        display: block;
+        font-size: 15px;
+      }
+      .court__note span {
+        font-size: 12px;
+      }
+
+      /* ---------- 顶栏（一条，固定高度；可收起成右上角浮标） ---------- */
+      .hud-top {
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: var(--ui-bar-h);
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        padding: 0 var(--s2) 0 max(var(--s2), env(safe-area-inset-left));
+        background: rgba(255, 255, 255, 0.72);
+        backdrop-filter: blur(14px) saturate(1.2);
+        -webkit-backdrop-filter: blur(14px) saturate(1.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+        box-shadow: 0 8px 20px -18px rgba(9, 22, 40, 0.7);
+        z-index: 20;
+        transition: opacity var(--dur-2) var(--ease);
+      }
+      .hud-top.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .hud-top__title {
+        flex: 1;
+        text-align: center;
+        font-size: var(--ui-font-lg);
+        font-weight: 700;
+      }
+      .fold {
+        flex: none;
+      }
+
+      /* 收起后的浮标：一个显眼的圆形按钮，点它把顶栏请回来 */
+      .fold-float {
+        position: absolute;
+        top: max(var(--s2), env(safe-area-inset-top));
+        right: max(var(--s2), env(safe-area-inset-right));
+        z-index: 25;
+        width: var(--ui-icon);
+        height: var(--ui-icon);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--r-pill);
+        border: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+        background: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.85));
+        color: var(--accent);
+        box-shadow: var(--e2);
+        cursor: pointer;
+      }
+      .fold-float.is-on {
+        display: inline-flex;
+      }
+
+      /* ---------- 方形图标按钮（顶栏与右上图标行共用，固定 34px） ---------- */
+      .icon-btn {
+        flex: none;
+        width: var(--ui-icon);
+        height: var(--ui-icon);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--lg-radius);
+        background: var(--glass-bg);
+        backdrop-filter: blur(16px) saturate(1.5);
+        -webkit-backdrop-filter: blur(16px) saturate(1.5);
+        box-shadow: var(--glass-hi), var(--e1);
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .icon-btn:hover {
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      /* ---------- 右上角：一排横向小图标 ---------- */
+      .hud-icons {
+        position: absolute;
+        top: max(var(--s2), env(safe-area-inset-top));
+        right: max(var(--s2), env(safe-area-inset-right));
+        z-index: 26;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .hud-icons__row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--lg-radius);
+        background: var(--glass-bg);
+        backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        box-shadow: var(--glass-shadow), var(--glass-hi);
+        /* 收起/展开：只用宽度与透明度做横向铺开，不换形态 */
+        transition:
+          transform 320ms var(--ease-jelly),
+          opacity var(--dur-1) var(--ease);
+      }
+      .hud-icons.is-collapsed .hud-icons__row > .icon-btn:not(.icon-btn--toggle) {
+        display: none;
+      }
+      .hud-icons.is-collapsed .hud-icons__row {
+        padding: 1px;
+        box-shadow: var(--e1);
+      }
+      /* 横排图标超过屏宽时仍不换行，靠这点保证“一排” */
+      .hud-icons__row .icon-btn {
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+        font-size: 16px;
+      }
+      .hud-icons__row .icon-btn:hover {
+        background: rgba(255, 255, 255, 0.62);
+      }
+      .hud-icons__row .icon-btn--toggle {
+        color: var(--accent);
+      }
+
+      /* ---------- 底部比分行（固定高度） ---------- */
+      .hud-foot {
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--s3);
+        padding: 0 var(--s4) max(0px, env(safe-area-inset-bottom));
+        background: rgba(255, 255, 255, 0.78);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid rgba(255, 255, 255, 0.6);
+        color: var(--text-dim);
+        font-size: var(--ui-font-sm);
+        z-index: 18;
+      }
+      .hud-foot.is-off {
+        display: none;
+      }
+
+      /* ---------- 右侧竖向功能坞 ---------- */
+      .dock {
+        position: absolute;
+        top: calc(var(--ui-bar-h) + var(--s2));
+        right: max(var(--s1), env(safe-area-inset-right));
+        z-index: 30;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .dock.is-collapsed .dock__panel {
+        opacity: 0;
+        transform: translateX(8px) scale(0.98);
+        pointer-events: none;
+      }
+      .dock__panel {
+        width: var(--ui-dock-w);
+        max-height: calc(100% - 8px);
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--s2);
+        padding: 10px;
+        border-radius: var(--r-lg);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(16px) saturate(1.25);
+        -webkit-backdrop-filter: blur(16px) saturate(1.25);
+        box-shadow: var(--e3);
+        transition:
+          opacity var(--dur-2) var(--ease),
+          transform var(--dur-2) var(--ease);
+      }
+      .dock__toggle {
+        flex: none;
+        width: var(--ui-icon);
+        height: var(--ui-icon);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--lg-radius);
+        border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+        background: color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.9));
+        color: var(--accent);
+        box-shadow: var(--e1);
+        cursor: pointer;
+        transition: background var(--dur-1) var(--ease);
+      }
+      .dock__toggle:hover {
+        background: color-mix(in srgb, var(--accent) 32%, rgba(255, 255, 255, 0.9));
+      }
+      .dock__group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .dock__group + .dock__group {
+        padding-top: var(--s2);
+        border-top: 1px dashed var(--line);
+      }
+      .dock__label {
+        font-size: 11px;
+        letter-spacing: 0.4px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+      }
+      .dock__row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      /* ---------- 通用组件：按钮 ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border-radius: var(--lg-radius);
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, var(--surface), var(--surface-2));
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        box-shadow: var(--e1);
+        transition:
+          transform var(--dur-1) var(--ease),
+          box-shadow var(--dur-1) var(--ease),
+          background var(--dur-1) var(--ease);
+      }
+      .btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: var(--e2);
+      }
+      .btn:active:not(:disabled) {
+        transform: translateY(0);
+        box-shadow: var(--e1);
+      }
+      .btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      .btn--sm {
+        height: var(--ui-btn-sm);
+        padding: 0 12px;
+        font-size: var(--ui-font-sm);
+      }
+      .btn--md {
+        height: var(--ui-btn-md);
+        padding: 0 16px;
+        font-size: var(--ui-font-md);
+      }
+      .btn--lg {
+        height: var(--ui-btn-lg);
+        padding: 0 22px;
+        font-size: var(--ui-font-lg);
+      }
+      .btn--primary {
+        color: #fff;
+        border-color: #2f7fe0;
+        background: linear-gradient(180deg, #3f95ec, #2260ab);
+      }
+      .btn--quiet {
+        border-color: transparent;
+        background: transparent;
+        color: var(--text-dim);
+        box-shadow: none;
+      }
+      .btn--quiet:hover:not(:disabled) {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+      .btn--block {
+        width: 100%;
+      }
+      .btn__icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* ---------- 通用组件：面板 ---------- */
+      .panel {
+        border-radius: var(--r-lg);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        padding: var(--s3);
+      }
+      .panel--flat {
+        box-shadow: none;
+      }
+      .panel--raised {
+        box-shadow: var(--e1);
+      }
+      .panel--float {
+        box-shadow: var(--e3);
+      }
+
+      /* ---------- 状态胶囊 / 星级 / 分段 ---------- */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--ui-chip-h);
+        padding: 0 10px;
+        border-radius: 8px;
+        font-size: var(--ui-font-xs);
+        font-weight: 600;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        color: var(--text-dim);
+      }
+      .chip--ok {
+        color: var(--good);
+        border-color: color-mix(in srgb, var(--good) 40%, transparent);
+        background: color-mix(in srgb, var(--good) 12%, var(--surface));
+      }
+      .chip--warn {
+        color: var(--warn);
+        border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+        background: color-mix(in srgb, var(--warn) 12%, var(--surface));
+      }
+      .chip--idle {
+        color: var(--text-dim);
+      }
+      .chip__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .stars {
+        display: inline-flex;
+        gap: 1px;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        color: #bccce0;
+      }
+      .stars b {
+        color: #e8a33d;
+      }
+
+      .seg {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .seg__label {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .seg__track {
+        display: inline-flex;
+        gap: 2px;
+        padding: 2px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+      }
+      .seg__item {
+        height: 26px;
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text-dim);
+        font: 600 var(--ui-font-sm) / 1 var(--font-ui);
+        cursor: pointer;
+        transition:
+          color var(--dur-1) var(--ease),
+          background var(--dur-1) var(--ease);
+      }
+      .seg__item.is-on {
+        color: #fff;
+        border-color: #2f7fe0;
+        background: linear-gradient(180deg, #3f95ec, #2260ab);
+      }
+
+      .num {
+        font-family: var(--font-num);
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+      }
+
+      .field {
+        height: var(--ui-btn-sm);
+        width: 100%;
+        padding: 0 10px;
+        border-radius: var(--r-md);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text);
+        font: 600 var(--ui-font-sm) / 1 var(--font-num);
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        outline: none;
+      }
+      .field:focus-visible {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+      }
+
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+        border-top-color: var(--accent);
+        animation: spin 900ms linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ---------- 弹窗与 Toast（浮在球场之上） ---------- */
+      .modal {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: var(--s4);
+        background: rgba(16, 30, 50, 0.42);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+      }
+      .modal.is-on {
+        display: flex;
+        animation: fade var(--dur-2) var(--ease);
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+      }
+      .modal__box {
+        width: min(440px, 100%);
+        max-height: 100%;
+        overflow: auto;
+        border-radius: var(--r-lg);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: var(--e3);
+        animation: pop var(--dur-2) var(--ease);
+      }
+      @keyframes pop {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.98);
+        }
+      }
+      .modal__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--s3);
+        padding: 10px var(--s4);
+        border-bottom: 1px solid var(--line);
+      }
+      .modal__head h3 {
+        margin: 0;
+        font-size: var(--ui-font-lg);
+      }
+      .modal__close {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        color: var(--text-dim);
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .modal__body {
+        padding: var(--s3) var(--s4) var(--s4);
+        display: flex;
+        flex-direction: column;
+        gap: var(--s3);
+      }
+
+      .toasts {
+        position: absolute;
+        left: 50%;
+        bottom: 44px;
+        transform: translateX(-50%);
+        z-index: 60;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+        pointer-events: none;
+      }
+      .toast {
+        padding: 8px 14px;
+        border-radius: 10px;
+        background: rgba(23, 35, 58, 0.9);
+        color: #fff;
+        font-size: var(--ui-font-sm);
+        box-shadow: var(--e2);
+        animation: rise var(--dur-2) var(--ease);
+      }
+      .toast--good {
+        background: linear-gradient(180deg, #24a862, #17804a);
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      /* ---------- 非对局页（首页 / 大厅）：居中容器、可滚动 ---------- */
+      .scroll {
+        position: absolute;
+        inset: 0;
+        z-index: 15;
+        overflow: auto;
+        padding: var(--s5) var(--s5) 40px;
+        background:
+          radial-gradient(900px 460px at 50% -10%, var(--bg-glow) 0%, transparent 60%),
+          linear-gradient(180deg, rgba(238, 243, 250, 0.94), rgba(238, 243, 250, 0.94));
+        backdrop-filter: blur(2px);
+      }
+      .stack {
+        max-width: 760px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--s4);
+      }
+      .hero {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .hero h2 {
+        margin: 0;
+        font-size: 26px;
+      }
+      .hero p {
+        margin: 0;
+        font-size: var(--ui-font-sm);
+        color: var(--text-dim);
+      }
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--s2);
+      }
+      .tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s2);
+      }
+      .tool {
+        width: 68px;
+        height: 60px;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border-radius: var(--lg-radius);
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text-dim);
+        font-size: 11px;
+        cursor: pointer;
+        box-shadow: var(--e1);
+      }
+      .tool:hover {
+        color: var(--text);
+        transform: translateY(-1px);
+      }
+      .code {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--s3);
+      }
+      .code__value {
+        font-size: 34px;
+        letter-spacing: 8px;
+        font-family: var(--font-num);
+        font-weight: 700;
+        color: var(--accent);
+      }
+      .waiting {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--s2);
+        font-size: var(--ui-font-sm);
+        color: var(--text-dim);
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--s3);
+      }
+      .gallery {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s5);
+      }
+      .gallery h3 {
+        margin: 0 0 var(--s2);
+        font-size: var(--ui-font-md);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        flex-wrap: wrap;
+      }
+      .swatches {
+        display: flex;
+        gap: var(--s2);
+        flex-wrap: wrap;
+      }
+      .swatch {
+        width: 92px;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        font-size: 11px;
+        text-align: center;
+      }
+      .swatch i {
+        display: block;
+        height: 30px;
+        border-radius: var(--r-sm);
+        margin-bottom: 6px;
+      }
+
+      /* ---------- 尺寸标注 ---------- */
+      .measure .btn,
+      .measure .chip,
+      .measure .field,
+      .measure .dock__toggle {
+        position: relative;
+      }
+      .measure [data-h]::after {
+        content: attr(data-h);
+        position: absolute;
+        top: -9px;
+        right: -6px;
+        z-index: 5;
+        padding: 1px 5px;
+        border-radius: var(--r-pill);
+        background: #17233a;
+        color: #9ffcff;
+        font: 700 10px/1.4 var(--font-num);
+        pointer-events: none;
+      }
+      .foot-note {
+        font-size: 12px;
+        color: var(--text-dim);
+        line-height: 1.7;
+      }
+      .foot-note code {
+        font-family: var(--font-num);
+        background: var(--surface-2);
+        padding: 1px 5px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+      }
+
+      /* ==================================================================
+       Liquid Glass 覆盖层
+       放在原有布局规则之后：尺寸、间距、层级一律不动，只换成玻璃质感+
+       镜面高光+收小的圆角。这样规范（--ui-*）与皮肤彻底解耦。
+       ================================================================== */
+      .btn,
+      .panel,
+      .chip,
+      .seg__track,
+      .field,
+      .tab,
+      .mini,
+      .tool,
+      .dock__panel,
+      .dock__toggle,
+      .hud-top,
+      .hud-foot,
+      .modal__box,
+      .toast {
+        backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+      }
+
+      /* 玻璃本体：双色内边（上亮下暗）+ 外部投影，圆角收小到 12px */
+      .btn,
+      .panel:not(.panel--flat),
+      .seg__track,
+      .tab,
+      .mini,
+      .tool,
+      .dock__panel,
+      .dock__toggle,
+      .modal__box {
+        position: relative;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--lg-radius);
+        background: var(--glass-bg);
+        box-shadow: var(--glass-shadow), var(--glass-hi), var(--glass-lo);
+      }
+
+      /* 镜面高光：跟随指针的柔光斑，玻璃才“湿”得起来 */
+      .btn::before,
+      .panel:not(.panel--flat)::before,
+      .tab::before,
+      .mini::before,
+      .tool::before,
+      .dock__panel::before,
+      .modal__box::before,
+      .hud-top::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: var(--sheen);
+        opacity: 0.55;
+        pointer-events: none;
+        transition: opacity var(--dur-1) var(--ease);
+      }
+      .btn:hover::before,
+      .tab:hover::before,
+      .mini:hover::before,
+      .tool:hover::before {
+        opacity: 0.95;
+      }
+
+      .btn {
+        overflow: hidden;
+        color: var(--text);
+      }
+      .btn--primary {
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.55);
+        background: linear-gradient(158deg, rgba(96, 165, 250, 0.95), rgba(37, 99, 235, 0.92) 55%, rgba(67, 56, 202, 0.9));
+        box-shadow:
+          0 16px 34px -18px rgba(37, 99, 235, 0.75),
+          inset 0 1px 0 rgba(255, 255, 255, 0.7),
+          inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+      }
+      .btn--quiet {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.22);
+        box-shadow: var(--glass-hi);
+      }
+      .btn--quiet::before {
+        display: none;
+      }
+      .btn:disabled {
+        filter: saturate(0.5);
+      }
+
+      /* 面板：整块玻璃，圆角 12；flat 只留极淡的底，用于嵌在玻璃里的子块 */
+      .panel--flat {
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: var(--lg-radius);
+        background: rgba(255, 255, 255, 0.26);
+        box-shadow: var(--glass-hi);
+      }
+
+      .chip {
+        border-radius: 8px;
+        border: 1px solid var(--glass-border);
+        background: var(--glass-bg);
+        box-shadow: var(--glass-hi);
+      }
+      .chip--ok {
+        color: #0d6b3d;
+        border-color: rgba(31, 157, 85, 0.45);
+        background: rgba(200, 244, 214, 0.78);
+      }
+      .chip--warn {
+        color: #7a4c00;
+        border-color: rgba(168, 106, 0, 0.45);
+        background: rgba(255, 234, 178, 0.8);
+      }
+
+      .seg__track {
+        border-radius: 9px;
+        padding: 3px;
+      }
+      .seg__item {
+        border-radius: 7px;
+        transition:
+          transform 420ms var(--ease-jelly),
+          color var(--dur-1) var(--ease),
+          background var(--dur-1) var(--ease);
+      }
+      .seg__item.is-on {
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.5);
+        background: linear-gradient(158deg, rgba(96, 165, 250, 0.95), rgba(41, 98, 190, 0.92));
+        box-shadow:
+          0 10px 22px -14px rgba(37, 99, 235, 0.85),
+          inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      }
+
+      .field {
+        border: 1px solid var(--glass-border);
+        border-radius: var(--lg-radius);
+        background: rgba(255, 255, 255, 0.42);
+        box-shadow: var(--glass-hi), inset 0 2px 6px -4px rgba(16, 26, 48, 0.5);
+      }
+
+      /* HUD：顶栏与比分行也做成一条玻璃，压在球场上 */
+      .hud-top {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+        background: var(--glass-bg);
+        box-shadow:
+          0 14px 30px -24px rgba(10, 18, 36, 0.85),
+          var(--glass-hi);
+      }
+      .hud-foot {
+        border-top: 1px solid rgba(255, 255, 255, 0.5);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.62));
+        box-shadow: 0 -12px 26px -22px rgba(10, 18, 36, 0.7);
+      }
+
+      .dock__toggle {
+        border-radius: var(--lg-radius);
+        border-width: 1px;
+        border-color: rgba(255, 255, 255, 0.6);
+        background: linear-gradient(158deg, rgba(96, 165, 250, 0.9), rgba(41, 98, 190, 0.88));
+        color: #fff;
+        box-shadow:
+          0 14px 26px -16px rgba(37, 99, 235, 0.8),
+          inset 0 1px 0 rgba(255, 255, 255, 0.65);
+      }
+
+      .modal {
+        background: rgba(24, 18, 56, 0.42);
+      }
+      .modal__close {
+        border: 1px solid var(--glass-border);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.3);
+        box-shadow: var(--glass-hi);
+      }
+
+      .toast {
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 10px;
+        background: rgba(23, 35, 58, 0.72);
+        backdrop-filter: blur(14px) saturate(1.5);
+        -webkit-backdrop-filter: blur(14px) saturate(1.5);
+        box-shadow:
+          0 18px 34px -20px rgba(10, 18, 36, 0.9),
+          inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      }
+
+      /* 区域块本身也换成玻璃边框：设备外框 + 内部球场就是被折射的内容 */
+      .device {
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: var(--lg-radius-lg);
+        box-shadow:
+          0 40px 80px -40px rgba(18, 12, 48, 0.75),
+          inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      }
+
+      /* ---------------- 暗玻璃：你给的紫蓝渐变规格 ---------------- */
+      body[data-glass='dark'] {
+        --glass-bg: linear-gradient(
+          158deg,
+          rgba(255, 255, 255, 0.26) 0%,
+          rgba(255, 255, 255, 0.08) 46%,
+          rgba(255, 255, 255, 0.18) 100%
+        );
+        --glass-border: rgba(255, 255, 255, 0.28);
+        --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+        --glass-lo: inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+          inset 0 -12px 22px -16px rgba(0, 0, 0, 0.6);
+        --glass-shadow: 0 20px 44px -24px rgba(6, 10, 30, 0.8), 0 4px 12px -8px rgba(6, 10, 30, 0.5);
+        --text: #ffffff;
+        --text-dim: rgba(255, 255, 255, 0.72);
+        --line: rgba(255, 255, 255, 0.22);
+      }
+      body[data-glass='dark'] .lab__title,
+      body[data-glass='dark'] .lab__sub,
+      body[data-glass='dark'] .foot-note,
+      body[data-glass='dark'] .lab__group {
+        color: rgba(255, 255, 255, 0.86);
+      }
+      body[data-glass='dark'] .panel--flat {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.24);
+      }
+      body[data-glass='dark'] .field {
+        background: rgba(255, 255, 255, 0.16);
+        color: #fff;
+      }
+      body[data-glass='dark'] .chip--ok {
+        color: #d6ffe9;
+      }
+      body[data-glass='dark'] .chip--warn {
+        color: #ffe9bf;
+      }
+      body[data-glass='dark'] .scroll {
+        background:
+          radial-gradient(900px 460px at 50% -10%, rgba(255, 255, 255, 0.18), transparent 60%),
+          linear-gradient(180deg, rgba(102, 126, 234, 0.22), rgba(118, 75, 162, 0.32));
+      }
+      body[data-glass='dark'] .fold-float {
+        background: rgba(255, 255, 255, 0.28);
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+
+      /* ==================================================================
+       俯视大地图
+       一整块 2400×1400 的平面，镜头跟着角色在 x / y 两个轴上移动；
+       区域是平面上的地块，玩家是地面上会走的小人。
+       ================================================================== */
+      .world {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        background-color: #f0d296;
+      }
+      .world__plane {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 2400px;
+        height: 1400px;
+        background-color: #f0d296;
+        will-change: transform;
+      }
+      /* 平面上的路：横竖各一条 */
+      .world__path {
+        position: absolute;
+        background-color: #e6c07f;
+        border-radius: 8px;
+      }
+      .world__zones,
+      .world__avatars {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* 区域地块：平面上一块玻璃牌子，站在它的圈里就能进 */
+      .zone {
+        position: absolute;
+        width: 172px;
+        padding: 10px;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+        text-align: center;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--lg-radius);
+        background: var(--glass-bg);
+        backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        box-shadow: var(--glass-shadow), var(--glass-hi);
+        color: var(--text);
+        cursor: pointer;
+      }
+      .zone__sign {
+        font-size: 22px;
+        line-height: 1;
+      }
+      .zone__name {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: var(--ui-font-sm);
+      }
+      .zone__meta {
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+      .zone__badge {
+        position: absolute;
+        top: -9px;
+        right: -6px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        font: 700 10px/1.5 var(--font-num);
+        background: #f2c14e;
+        color: #3b2a05;
+        box-shadow: var(--e1);
+      }
+      /* 区域外围的地块圈：走进这个圈就能进 */
+      .zone::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 260px;
+        height: 260px;
+        transform: translate(-50%, -50%);
+        border: 2px dashed rgba(176, 121, 8, 0.35);
+        border-radius: 50%;
+        background: rgba(255, 246, 218, 0.32);
+        z-index: -1;
+      }
+
+      /* 地图上的玩家：俯视小人 */
+      .avatar {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        transform: translate(-50%, -50%);
+      }
+      .avatar__body {
+        width: 30px;
+        height: 44px;
+        border-radius: 9px;
+        background: #b07908;
+        box-shadow: 0 8px 14px -10px rgba(90, 60, 10, 0.8);
+        animation: bob 2.4s var(--ease) infinite alternate;
+      }
+      .avatar.is-me .avatar__body {
+        background: #d4542c;
+      }
+      .avatar.is-friend .avatar__body {
+        background: #3f7fbf;
+      }
+      .avatar.is-other .avatar__body {
+        background: #4f8f74;
+      }
+      .avatar__name {
+        padding: 1px 7px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid var(--glass-border);
+        color: var(--text);
+        white-space: nowrap;
+      }
+      .avatar__emote {
+        position: absolute;
+        top: -22px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 14px;
+        box-shadow: var(--e1);
+        animation: rise-in 320ms var(--ease-jelly) both;
+      }
+      @keyframes bob {
+        to {
+          transform: translateY(-4px);
+        }
+      }
+
+      /* ---------- 虚拟摇杆：拖把手在平面上走 ---------- */
+      .joy {
+        position: absolute;
+        left: max(var(--s4), env(safe-area-inset-left));
+        bottom: var(--s4);
+        z-index: 29;
+        width: 104px;
+        height: 104px;
+        touch-action: none;
+        user-select: none;
+      }
+      .joy__ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 1px solid var(--glass-border);
+        background: var(--glass-bg);
+        backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        box-shadow: var(--glass-shadow), var(--glass-hi);
+      }
+      .joy__knob {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 46px;
+        height: 46px;
+        margin: -23px 0 0 -23px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        background: #f2c14e;
+        box-shadow:
+          0 10px 18px -12px rgba(150, 112, 30, 0.9),
+          inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        transition: transform 120ms var(--ease-squash);
+      }
+      .world__hint {
+        position: absolute;
+        left: 50%;
+        bottom: 10px;
+        transform: translateX(-50%);
+        z-index: 6;
+        padding: 5px 12px;
+        border-radius: 9px;
+        font-size: 11px;
+        color: var(--text-dim);
+        background: rgba(255, 255, 255, 0.62);
+        border: 1px solid var(--glass-border);
+        white-space: nowrap;
+      }
+      /* 地图页里比分行让位给提示条 */
+      .world-on .hud-foot {
+        display: none;
+      }
+
+      /* ---------- 左侧：房间在线玩家面板 ---------- */
+      .presence {
+        position: absolute;
+        left: max(var(--s2), env(safe-area-inset-left));
+        top: calc(var(--ui-bar-h) + var(--s2));
+        bottom: var(--s3);
+        z-index: 28;
+        width: var(--ui-dock-w);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--lg-radius);
+        background: var(--glass-bg);
+        backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+        box-shadow: var(--glass-shadow), var(--glass-hi);
+        transition: transform 320ms var(--ease-jelly);
+      }
+      .presence.is-hidden {
+        transform: translateX(calc(-100% - 14px));
+      }
+      .presence__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+      }
+      .presence__title {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: var(--ui-font-xs);
+        color: var(--text);
+      }
+      .presence__list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        overflow: auto;
+        min-height: 0;
+      }
+      .presence__row {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 7px;
+        border-radius: var(--lg-radius);
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        background: rgba(255, 255, 255, 0.42);
+      }
+      /* 第一行：左边名字，右边模式，正好两列 */
+      .presence__top {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 6px;
+      }
+      .presence__who {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: var(--ui-font-sm);
+        font-weight: 600;
+        color: var(--text);
+        min-width: 0;
+      }
+      .presence__dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #1f9d55;
+        box-shadow: 0 0 0 2px rgba(31, 157, 85, 0.22);
+      }
+      .presence__mode {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        white-space: nowrap;
+        border-radius: 6px;
+        font-size: 11px;
+        color: var(--text-dim);
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+      }
+      .presence__row .btn {
+        height: 28px;
+        font-size: 11px;
+      }
+      .presence__actions {
+        display: flex;
+        gap: 5px;
+      }
+      .presence__actions .btn {
+        flex: 1;
+        min-width: 0;
+      }
+      .presence__ghost {
+        position: absolute;
+        left: max(var(--s2), env(safe-area-inset-left));
+        top: calc(var(--ui-bar-h) + var(--s2));
+        z-index: 27;
+        width: 30px;
+        height: var(--ui-icon);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--lg-radius);
+        background: var(--glass-bg);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        box-shadow: var(--glass-hi);
+        color: var(--text);
+        cursor: pointer;
+      }
+      .presence.is-hidden + .presence__ghost {
+        display: inline-flex;
+      }
+
+      .world__prompt {
+        position: absolute;
+        left: 50%;
+        bottom: 34px;
+        transform: translateX(-50%);
+        z-index: 7;
+        padding: 5px 14px;
+        border-radius: 9px;
+        font-size: var(--ui-font-xs);
+        font-weight: 600;
+        color: #3b2a05;
+        background: #f2c14e;
+        box-shadow: var(--e2);
+        display: none;
+      }
+      .world__prompt.is-on {
+        display: block;
+        animation: rise-in 260ms var(--ease-jelly) both;
+      }
+
+      /* ==================================================================
+       奶黄皮肤（Custard）：平涂为主，几乎没有渐变
+       玻璃只保留「暖白半透 + 双色内边 + 外投影 + 指针高光」，
+       填充色一律是纯色，不再用多段渐变。
+       ================================================================== */
+      body[data-glass='light'] {
+        --glass-bg: rgba(255, 255, 255, 0.58);
+        --glass-border: rgba(255, 255, 255, 0.92);
+        --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+        --glass-lo: inset 0 -1px 0 rgba(214, 178, 96, 0.28),
+          inset 0 -10px 18px -14px rgba(140, 104, 32, 0.35);
+        --glass-shadow: 0 18px 36px -24px rgba(150, 112, 30, 0.5),
+          0 3px 10px -8px rgba(150, 112, 30, 0.35);
+        /* 暖色文字：在奶黄与暖白玻璃上都过 4.5:1 */
+        --text: #4a3410;
+        --text-dim: #7c6420;
+        --line: #ecd9a3;
+        --accent: #b07908;
+        --accent-2: #b8481c;
+      }
+      body[data-glass='light'] .hud-top,
+      body[data-glass='light'] .hud-foot {
+        border-color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 252, 240, 0.72);
+        box-shadow: 0 12px 26px -22px rgba(150, 112, 30, 0.6), var(--glass-hi);
+      }
+      body[data-glass='light'] .hud-foot {
+        border-top: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 -10px 22px -20px rgba(150, 112, 30, 0.55);
+      }
+
+      /* 主操作：平涂蜂蜜黄 + 深棕字，无渐变 */
+      .btn--primary,
+      .seg__item.is-on,
+      .dock__toggle {
+        color: #3b2a05;
+        border-color: rgba(255, 255, 255, 0.85);
+        background: #f2c14e;
+        box-shadow:
+          0 14px 26px -16px rgba(176, 121, 8, 0.55),
+          inset 0 1px 0 rgba(255, 255, 255, 0.85),
+          inset 0 -1px 0 rgba(176, 121, 8, 0.28);
+      }
+      .btn--primary:hover,
+      .seg__item.is-on:hover,
+      .dock__toggle:hover {
+        background: #f7cd66;
+      }
+      .btn--quiet {
+        border-color: rgba(255, 255, 255, 0.75);
+        background: rgba(255, 255, 255, 0.42);
+        color: var(--text-dim);
+      }
+      .btn--quiet:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.62);
+        color: var(--text);
+      }
+
+      .chip--ok {
+        color: #1c6b3d;
+        border-color: rgba(28, 107, 61, 0.35);
+        background: rgba(198, 240, 210, 0.78);
+      }
+      .chip--warn {
+        color: #8a5a00;
+        border-color: rgba(176, 121, 8, 0.35);
+        background: rgba(255, 230, 168, 0.8);
+      }
+      .field {
+        background: rgba(255, 255, 255, 0.7);
+        border-color: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+      }
+      .panel--flat {
+        background: rgba(255, 255, 255, 0.42);
+        border-color: rgba(255, 255, 255, 0.8);
+      }
+      .modal {
+        background: rgba(74, 52, 16, 0.34);
+      }
+      .modal__close {
+        background: rgba(255, 255, 255, 0.55);
+        color: var(--text-dim);
+      }
+      .toast {
+        background: #4a3410;
+        color: #fff8e6;
+        border-color: rgba(255, 255, 255, 0.28);
+      }
+      .device {
+        border-color: rgba(255, 255, 255, 0.85);
+        box-shadow:
+          0 40px 80px -46px rgba(150, 112, 30, 0.7),
+          inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      }
+      .court__line,
+      .court__net {
+        background: rgba(148, 112, 32, 0.45);
+      }
+      .court__floor {
+        background: #f0c49c;
+      }
+
+      /* 暖夜玻璃：同一套结构换成深棕玻璃与浅奶字，用于需要夜场的观感 */
+      body[data-glass='dark'] {
+        --glass-bg: rgba(255, 244, 214, 0.14);
+        --glass-border: rgba(255, 246, 220, 0.34);
+        --glass-hi: inset 0 1px 0 rgba(255, 246, 220, 0.42);
+        --glass-lo: inset 0 -1px 0 rgba(255, 246, 220, 0.12),
+          inset 0 -12px 22px -16px rgba(40, 26, 6, 0.6);
+        --glass-shadow: 0 20px 44px -24px rgba(40, 26, 6, 0.8),
+          0 4px 12px -8px rgba(40, 26, 6, 0.55);
+        --text: #fff8e6;
+        --text-dim: rgba(255, 244, 214, 0.76);
+        --line: rgba(255, 244, 214, 0.24);
+      }
+      body[data-glass='dark'] {
+        background-color: #2a2113;
+        background-image: radial-gradient(
+          760px 520px at 50% -12%,
+          rgba(255, 214, 120, 0.22),
+          rgba(255, 214, 120, 0) 70%
+        );
+      }
+      body[data-glass='dark'] .court__night {
+        background-color: #241c0e;
+        background-image: radial-gradient(
+          120% 80% at 50% -10%,
+          rgba(255, 206, 110, 0.24),
+          rgba(36, 28, 14, 0) 70%
+        );
+      }
+      body[data-glass='dark'] .hud-top,
+      body[data-glass='dark'] .hud-foot {
+        border-color: rgba(255, 246, 220, 0.3);
+        background: rgba(255, 244, 214, 0.12);
+      }
+      body[data-glass='dark'] .btn--primary,
+      body[data-glass='dark'] .seg__item.is-on,
+      body[data-glass='dark'] .dock__toggle {
+        color: #3b2a05;
+        background: #f2c14e;
+      }
+      body[data-glass='dark'] .chip--ok {
+        color: #d8f7de;
+      }
+      body[data-glass='dark'] .chip--warn {
+        color: #ffeecc;
+      }
+      body[data-glass='dark'] .field,
+      body[data-glass='dark'] .panel--flat {
+        background: rgba(255, 244, 214, 0.14);
+        border-color: rgba(255, 246, 220, 0.28);
+        color: var(--text);
+      }
+      body[data-glass='dark'] .toast {
+        background: rgba(20, 14, 4, 0.82);
+      }
+      body[data-glass='dark'] .court__note {
+        color: #ffeec2;
+      }
+
+      /* 页签 / 浮标 / 非对局页：同样去掉蓝色与多段渐变 */
+      .tab.is-on {
+        color: #3b2a05;
+        border-color: rgba(255, 255, 255, 0.85);
+        background: #f2c14e;
+      }
+      .fold-float {
+        border-color: rgba(176, 121, 8, 0.5);
+        background: rgba(242, 193, 78, 0.92);
+        color: #3b2a05;
+      }
+      body[data-glass='light'] .scroll {
+        background-color: rgba(255, 247, 220, 0.94);
+        background-image: radial-gradient(
+          900px 420px at 50% -12%,
+          rgba(255, 255, 255, 0.6),
+          rgba(255, 255, 255, 0) 70%
+        );
+        backdrop-filter: none;
+      }
+      body[data-glass='light'] .court__note {
+        color: #6b4e08;
+      }
+      body[data-glass='dark'] .scroll {
+        background-color: rgba(42, 33, 19, 0.94);
+        background-image: radial-gradient(
+          900px 420px at 50% -12%,
+          rgba(255, 214, 120, 0.16),
+          rgba(255, 214, 120, 0) 70%
+        );
+      }
+
+      /* 展示台文字：压在平涂奶黄上，用暖棕保证对比度 */
+      .lab__title {
+        color: #4a3410;
+      }
+      .lab__sub,
+      .lab__group,
+      .foot-note {
+        color: #7c6420;
+      }
+      .foot-note code {
+        border-color: rgba(176, 121, 8, 0.35);
+        background: rgba(255, 255, 255, 0.62);
+        color: #6b4e08;
+      }
+      body[data-glass='dark'] .lab__title {
+        color: #fff8e6;
+      }
+      body[data-glass='dark'] .lab__sub,
+      body[data-glass='dark'] .lab__group,
+      body[data-glass='dark'] .foot-note {
+        color: rgba(255, 244, 214, 0.8);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body data-glass="light">
+    <div class="lab">
+      <header class="lab__head">
+        <div>
+          <h1 class="lab__title">羽毛球 · UI 重构原型</h1>
+          <p class="lab__sub">
+            固定像素 UI（不随屏幕缩放）+ 球场自适应铺满 + 右侧竖向功能坞（可收起 / 展开）
+          </p>
+        </div>
+        <div class="lab__controls">
+          <div class="lab__group">
+            区域块尺寸
+            <button class="mini is-on" data-size="844,390">手机横屏 844×390</button>
+            <button class="mini" data-size="1024,480">平板横屏 1024×480</button>
+            <button class="mini" data-size="1280,720">桌面 1280×720</button>
+          </div>
+          <button class="mini" id="btn-measure">尺寸标注：关</button>
+          <button class="mini" id="btn-glass">主题：奶黄</button>
+        </div>
+      </header>
+
+      <nav class="tabs" id="tabs"></nav>
+
+      <div class="device" id="device" style="width: 844px; height: 390px">
+        <div class="court" id="court">
+          <div class="court__floor"></div>
+          <div class="court__line"></div>
+          <div class="court__net"></div>
+          <div class="court__players">
+            <div class="court__player"></div>
+            <div class="court__player is-foe"></div>
+          </div>
+          <div class="court__note">
+            <b>球场区域</b>
+            <span>自适应铺满 · 比例不足时轻微拉伸 · UI 尺寸不变</span>
+          </div>
+        </div>
+
+        <!-- 俯视大地图：一块平面，摇杆控制角色在平面（x/y 两轴）上自由移动 -->
+        <div class="world" id="world" style="display: none">
+          <div class="world__plane" id="world-plane">
+            <div class="world__path" style="left: 0; top: 620px; width: 2400px; height: 120px"></div>
+            <div class="world__path" style="left: 1080px; top: 0; width: 130px; height: 1400px"></div>
+            <div class="world__zones" id="world-zones"></div>
+            <div class="world__avatars" id="world-avatars"></div>
+          </div>
+
+          <!-- 虚拟摇杆：拖把手在平面上走 -->
+          <div class="joy" id="joy">
+            <div class="joy__ring"></div>
+            <div class="joy__knob" id="joy-knob"></div>
+          </div>
+
+          <div class="world__prompt" id="world-prompt">按 E 进入</div>
+          <div class="world__hint" id="world-hint">
+            摇杆 / WASD 在平面上自由走动 · 走进区域圈内按 E 进入 · 邀请的好友直接落在这张地图上
+          </div>
+        </div>
+
+        <!-- 左侧：房间在线玩家 + 他们正在玩的模式（可申请加入） -->
+        <aside class="presence" id="presence" style="display: none">
+          <div class="presence__head">
+            <span class="presence__title" id="presence-title">在线玩家 · 4</span>
+            <button class="icon-btn" id="presence-hide" title="收起玩家列表" aria-label="收起玩家列表">‹</button>
+          </div>
+          <div class="presence__list" id="presence-list"></div>
+        </aside>
+        <button class="presence__ghost" id="presence-ghost" title="显示在线玩家" aria-label="显示在线玩家">›</button>
+
+        <header class="hud-top" id="topbar">
+          <button class="icon-btn" id="btn-back" title="返回" aria-label="返回">‹</button>
+          <div class="hud-top__title" id="title">单机练习</div>
+          <button class="chip chip--warn jelly" id="watch-chip" type="button" style="display: none">
+            观战中
+          </button>
+          <button class="icon-btn" id="btn-fold" title="收起顶栏" aria-label="收起顶栏">⌃</button>
+        </header>
+
+        <!-- 右上角功能：一排横向小图标。收起时只剩下一个箭头图标，点它横向铺开 -->
+        <div class="hud-icons" id="hud-icons">
+          <div class="hud-icons__row" id="hud-icons-row"></div>
+        </div>
+
+        <div class="dock" id="dock">
+          <div class="dock__panel" id="dock-panel"></div>
+          <button class="dock__toggle" id="dock-toggle" data-h="34px" title="收起功能">‹</button>
+        </div>
+
+        <div class="hud-foot" id="scoreline"></div>
+        <div class="scroll" id="page" style="display: none"></div>
+        <div class="toasts" id="toasts"></div>
+        <div class="modal" id="modal">
+          <div class="modal__box">
+            <div class="modal__head">
+              <h3 id="modal-title">标题</h3>
+              <button class="modal__close" id="modal-close" aria-label="关闭">×</button>
+            </div>
+            <div class="modal__body" id="modal-body"></div>
+          </div>
+        </div>
+        <div class="device__tag" id="device-tag">844 × 390 · UI 固定像素</div>
+      </div>
+
+      <p class="foot-note">
+        <b>怎么用这份原型：</b>切上面的「区域块尺寸」，会发现球场跟着变、控件一个像素都不变——这就是要落地的规范。
+        右侧 ⌄ 按钮展开功能坞；顶栏的「⌄ 收起」把顶栏藏起来只留右上角浮标；「尺寸标注：开」会在控件角上标出它的固定高度。
+        组件库页把当前所有按钮 / 面板 / 状态 / 弹窗都摆齐了。<br />
+        尺寸 token：<code>--ui-bar-h 44</code> <code>--ui-btn-sm 36</code> <code>--ui-btn-md 44</code>
+        <code>--ui-btn-lg 52</code> <code>--ui-icon 34</code> <code>--ui-chip-h 24</code>
+        <code>--ui-dock-w 200</code>。可用性口径：Web 指针目标 ≥ 24px（WCAG 2.2 AA），相邻触控目标间距 ≥ 8px。
+      </p>
+    </div>
+
+    <script>
+      /* ==================================================================
+       原型脚本：只做交互演示，假数据写死在 SCREENS 里。
+       widget 描述符就是将来 PageShell 要接的「小部件注册表」雏形：
+         { t: 'btn' | 'primary' | 'quiet' | 'chip' | 'seg' | 'num' | 'input' | 'stars' | 'spinner' }
+       ================================================================== */
+      const ICON_FOLD_OPEN = '‹';
+      const ICON_FOLD_CLOSED = '›';
+
+      /* 俯视大地图上的区域：(x, y) 是平面坐标，走到圈里按 E 进入 */
+      const WORLD_ZONES = [
+        { x: 480, y: 680, sign: '🏸', name: '训练场', meta: '对战 AI · 发球机', enter: 'single', badge: '' },
+        { x: 1140, y: 300, sign: '🌐', name: '联机球场', meta: '建房 / 加入房间', enter: 'online', badge: '可邀请' },
+        { x: 1900, y: 620, sign: '🧗', name: '攀岩崖', meta: 'Matter 刚体攀爬', enter: 'climb', badge: '' },
+        { x: 760, y: 1140, sign: '🎣', name: '钓鱼塘', meta: '卖鱼换金币', enter: 'fish', badge: '' },
+        { x: 1820, y: 1140, sign: '⛏️', name: '矿洞', meta: '砸矿拿金币', enter: 'mine', badge: '' },
+        { x: 1300, y: 900, sign: '🏆', name: '晋级赛馆', meta: '32→16→…→冠军', enter: 'gallery', badge: '即将开启' },
+      ];
+
+      const SCREENS = [
+        {
+          id: 'world',
+          name: '世界地图',
+          title: '大世界 · 营地',
+          layout: 'world',
+          court: '',
+          foot: null,
+          dock: [
+            {
+              group: '地图',
+              items: [{ t: 'btn', label: '复制地图口令' }],
+            },
+            {
+              group: '演示',
+              items: [
+                { t: 'btn', label: '模拟收到加入申请', modal: 'joinReq' },
+                { t: 'text', value: '左上角列表显示房间里的玩家和他们在玩的模式，点「申请加入」等对方同意。' },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'home',
+          name: '首页',
+          title: '羽毛球',
+          layout: 'page', // 非对局：居中滚动页
+          court: 'court__night',
+          foot: null,
+          dock: [
+            { group: '资产', items: [{ t: 'num', label: '金币', value: '1,240' }, { t: 'num', label: '荣誉', value: '320' }] },
+            {
+              group: '功能',
+              items: [
+                { t: 'btn', label: '段位', modal: 'rank' },
+                { t: 'btn', label: '外观自定义', modal: 'look' },
+                { t: 'btn', label: '背包 · 421 件', modal: 'bag' },
+                { t: 'btn', label: '宝箱', modal: 'chest' },
+                { t: 'btn', label: '宠物蛋', modal: 'egg' },
+                { t: 'btn', label: '好友', modal: 'friends' },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'single',
+          name: '单机练习',
+          title: '单机练习',
+          layout: 'play',
+          court: '',
+          foot: [
+            { t: 'text', value: '比分' },
+            { t: 'num', value: '7', tone: 'accent' },
+            { t: 'text', value: ':' },
+            { t: 'num', value: '4', tone: 'accent-2' },
+            { t: 'text', value: '· 先到 11 分获胜' },
+          ],
+          dock: [
+            {
+              group: '玩法',
+              items: [
+                { t: 'seg', label: '模式', options: ['对战 AI', '发球机'], value: 0 },
+                { t: 'seg', label: '难度', options: ['简单', '普通', '困难'], value: 1, hide: '发球机模式下隐藏' },
+              ],
+            },
+            { group: '操作', items: [{ t: 'btn', label: '摇杆', note: '编辑布局' }] },
+            { group: '发球机', items: [{ t: 'num', label: '连击', value: '23' }, { t: 'num', label: '最高', value: '100' }] },
+          ],
+        },
+        {
+          id: 'online',
+          name: '联机对战',
+          title: '联机对战',
+          layout: 'play',
+          court: '',
+          foot: [
+            { t: 'text', value: '比分' },
+            { t: 'num', value: '9', tone: 'accent' },
+            { t: 'text', value: ':' },
+            { t: 'num', value: '11', tone: 'accent-2' },
+            { t: 'chip', tone: 'ok', label: '直连' },
+            { t: 'text', value: 'RTT 68ms' },
+          ],
+          page: 'lobby', // 大厅视图（非对局时展示），用坞里的开关切
+          dock: [
+            { group: '房间', items: [{ t: 'chip', tone: 'warn', label: '中继' }, { t: 'btn', label: '邀请好友', modal: 'invite' }] },
+            { group: '操作', items: [{ t: 'btn', label: '表情', picker: true }, { t: 'btn', label: '摇杆' }] },
+            { group: '演示', items: [{ t: 'btn', label: '切换 大厅 / 对局', switch: 'online-view' }] },
+          ],
+        },
+        {
+          id: 'climb',
+          name: '攀爬挑战',
+          title: '攀爬挑战',
+          layout: 'play',
+          court: 'court__cliff',
+          foot: [{ t: 'text', value: '用球拍撑住岩壁 · R 重来' }],
+          dock: [{ group: '操作', items: [{ t: 'btn', label: '重来' }] }],
+        },
+        {
+          id: 'fish',
+          name: '钓鱼塘',
+          title: '钓鱼塘',
+          layout: 'play',
+          court: 'court__pond',
+          foot: [{ t: 'text', value: '鱼篓 5 条' }, { t: 'num', value: '¥42', tone: 'accent' }, { t: 'chip', tone: 'ok', label: '房间 7K3QM' }],
+          dock: [
+            { group: '状态', items: [{ t: 'chip', tone: 'ok', label: '房间 7K3QM' }, { t: 'num', label: '鱼篓', value: '¥42' }] },
+            {
+              group: '动作',
+              items: [
+                { t: 'primary', label: '卖鱼 ¥42' },
+                { t: 'btn', label: '鱼竿升级 ¥300' },
+                { t: 'text', value: '鱼竿 Lv.2 / 5' },
+              ],
+            },
+            {
+              group: '联机',
+              items: [{ t: 'input', placeholder: '房号' }, { t: 'btn', label: '建房' }, { t: 'btn', label: '加入' }],
+            },
+            { group: '操作', items: [{ t: 'btn', label: '摇杆' }] },
+          ],
+        },
+        {
+          id: 'mine',
+          name: '采矿场',
+          title: '采矿场',
+          layout: 'play',
+          court: 'court__rock',
+          foot: [
+            { t: 'text', value: '当前 金矿 · 耐久 7/10' },
+            { t: 'num', value: '本场 ¥95', tone: 'accent-2' },
+          ],
+          dock: [
+            { group: '状态', items: [{ t: 'chip', tone: 'idle', label: '单机' }, { t: 'num', label: '本场', value: '¥95' }] },
+            { group: '联机', items: [{ t: 'input', placeholder: '房号' }, { t: 'btn', label: '建房' }, { t: 'btn', label: '加入' }] },
+            { group: '操作', items: [{ t: 'btn', label: '摇杆' }] },
+          ],
+        },
+        {
+          id: 'gallery',
+          name: '组件库',
+          title: '组件库（全部按钮 / 状态 / 弹窗入口）',
+          layout: 'page',
+          court: 'court__night',
+          foot: null,
+          dock: [
+            {
+              group: '弹窗',
+              items: [
+                { t: 'btn', label: '段位', modal: 'rank' },
+                { t: 'btn', label: '外观', modal: 'look' },
+                { t: 'btn', label: '背包', modal: 'bag' },
+                { t: 'btn', label: '宝箱', modal: 'chest' },
+                { t: 'btn', label: '宠物蛋', modal: 'egg' },
+                { t: 'btn', label: '好友邀请', modal: 'invite' },
+              ],
+            },
+            { group: '反馈', items: [{ t: 'primary', label: '弹一个 Toast', toast: 'good' }, { t: 'btn', label: '警告 Toast', toast: 'warn' }] },
+          ],
+        },
+      ];
+
+      const MODALS = {
+        rank: {
+          title: '段位',
+          body: [
+            { t: 'row', items: [{ t: 'chip', tone: 'ok', label: '黄金 II' }, { t: 'text', value: '积分 1,860 / 2,200' }] },
+            { t: 'bar' },
+            { t: 'text', value: '白银 → 超神共 8 档，每档送对应外观物品。' },
+          ],
+        },
+        look: {
+          title: '外观自定义',
+          body: [
+            { t: 'text', value: '角色形象 / 头饰 / 翅膀 / 披风 / 光环 / 宠物 / 球拍皮肤 / 拖尾 / 命中特效' },
+            { t: 'row', items: [{ t: 'chip', tone: 'ok', label: '哥斯拉' }, { t: 'chip', label: '王冠' }, { t: 'chip', label: '星尘拖尾' }] },
+          ],
+        },
+        bag: {
+          title: '背包 · 421 件',
+          body: [
+            { t: 'row', items: [{ t: 'num', value: '🪙 1,240' }, { t: 'primary', label: '去开宝箱' }] },
+            { t: 'grid5' },
+          ],
+        },
+        chest: { title: '宝箱', body: [{ t: 'row', items: [{ t: 'primary', label: '单抽 ¥120' }, { t: 'primary', label: '十连 ¥1,080' }] }, { t: 'text', value: '10 抽保底出史诗+；重复物品按稀有度返还金币。' }] },
+        egg: { title: '宠物蛋', body: [{ t: 'row', items: [{ t: 'btn', label: '普通蛋 ¥120' }, { t: 'primary', label: '传说蛋 ¥460' }] }, { t: 'stars', value: 4 }] },
+        invite: { title: '邀请好友', body: [{ t: 'row', items: [{ t: 'chip', tone: 'ok', label: '在线 3 人' }] }, { t: 'friend', name: '阿伟', on: true }, { t: 'friend', name: '小林', on: true }, { t: 'friend', name: '老王', on: false }] },
+        joinReq: { title: '加入申请', body: [{ t: 'text', value: '阿伟 想加入你正在玩的「钓鱼塘」，同意后他会直接出现在你旁边。' }, { t: 'joinAsk' }] },
+      };
+
+      const state = {
+        screen: 'world',
+        dockOpen: true,
+        topbarHidden: false,
+        measure: false,
+        onlineView: 'play',
+        /** 右上角那排横向小图标是否铺开 */
+        iconsOpen: true,
+        /** 左侧在线玩家列表是否展开 */
+        presenceOpen: true,
+        /** 大地图：角色在平面上的坐标 / 摇杆推力向量 / 已进图的好友 / 最近的地块 */
+        me: { x: 620, y: 760 },
+        joy: { x: 0, y: 0 },
+        friendSeq: 0,
+        nearZone: null,
+        /** 正在观战谁（null = 自己在玩） */
+        watching: null,
+      };
+
+      /** 平面尺寸（比一屏大得多，镜头跟着角色在 x/y 两轴卷动） */
+      const WORLD_W = 2400;
+      const WORLD_H = 1400;
+      const FRIEND_NAMES = ['阿伟', '小林', '老王', '小美'];
+
+      function worldFriends() {
+        return Array.from({ length: state.friendSeq }, (_, i) => ({
+          name: FRIEND_NAMES[i % FRIEND_NAMES.length],
+          x: state.me.x - 70 - i * 54,
+          y: state.me.y + 46,
+          emote: i === state.friendSeq - 1 ? '👋' : '',
+        }));
+      }
+
+      /** 邀请好友：直接把他放进这张地图，出现在你旁边 */
+      function inviteIntoMap(name) {
+        if (state.friendSeq >= FRIEND_NAMES.length) {
+          pushToast('地图里已经有 4 位好友了');
+          return;
+        }
+        const who = name || FRIEND_NAMES[state.friendSeq % FRIEND_NAMES.length];
+        state.friendSeq += 1;
+        state.screen = 'world';
+        render();
+        pushToast(`${who} 已进入大世界，就在你旁边`, 'good');
+      }
+
+      /** 把角色放到平面上某点（自动夹在边界内） */
+      function moveMe(x, y) {
+        state.me.x = Math.max(70, Math.min(WORLD_W - 70, x));
+        state.me.y = Math.max(70, Math.min(WORLD_H - 70, y));
+        updateWorld();
+      }
+
+      let meEl = null;
+      let friendEls = [];
+      let otherEls = [];
+      let zoneEls = [];
+
+      /** 建地图：区域门牌 + 玩家小人（只在切屏时重建，走动只做增量更新） */
+      function renderWorld() {
+        const zones = $('world-zones');
+        const avatars = $('world-avatars');
+        if (!zones || !avatars) return;
+
+        zones.replaceChildren();
+        zoneEls = [];
+        WORLD_ZONES.forEach((z) => {
+          const card = el('button', 'zone jelly');
+          card.type = 'button';
+          card.style.left = `${z.x}px`;
+          card.style.top = `${z.y}px`;
+          card.innerHTML = `<span class="zone__sign">${z.sign}</span>
+            <span class="zone__name">${z.name}</span>
+            <span class="zone__meta">${z.meta}</span>`;
+          if (z.badge) card.append(el('span', 'zone__badge', z.badge));
+          // 只能走过去：不在圈里时点它只会提示，不会传送
+          card.addEventListener('click', () => {
+            if (nearZone(z)) enterZone(z);
+            else pushToast(`「${z.name}」还太远，先走过去`);
+          });
+          zones.append(card);
+          zoneEls.push({ el: card, zone: z });
+        });
+
+        avatars.replaceChildren();
+        meEl = el('div', 'avatar is-me');
+        meEl.append(el('div', 'avatar__body'), el('div', 'avatar__name', '你'));
+        avatars.append(meEl);
+
+        friendEls = [];
+        worldFriends().forEach((f) => {
+          const a = el('div', 'avatar is-friend');
+          a.append(el('div', 'avatar__body'), el('div', 'avatar__name', f.name));
+          if (f.emote) a.append(el('div', 'avatar__emote', f.emote));
+          avatars.append(a);
+          friendEls.push({ el: a, x: f.x, y: f.y });
+        });
+
+        // 房间里的其它玩家也站在平面上（他们在哪个模式，左侧列表里能看到）
+        otherEls = [];
+        PLAYERS.forEach((p) => {
+          const a = el('div', 'avatar is-other');
+          a.append(el('div', 'avatar__body'), el('div', 'avatar__name', `${p.icon} ${p.name}`));
+          avatars.append(a);
+          otherEls.push({ el: a, x: p.x, y: p.y });
+        });
+
+        updateWorld();
+      }
+
+      /** 站在这个区域的圈里了吗（圈半径 130） */
+      function nearZone(z) {
+        return Math.hypot(z.x - state.me.x, z.y - state.me.y) < 130;
+      }
+
+      /** 每帧：摆小人、镜头跟着角色在平面上跑、算出“站在哪个圈里” */
+      function updateWorld() {
+        if (!meEl) return;
+        const dev = $('device');
+        const viewW = dev.clientWidth || 844;
+        const viewH = dev.clientHeight || 390;
+
+        meEl.style.left = `${state.me.x}px`;
+        meEl.style.top = `${state.me.y}px`;
+        friendEls.forEach((f) => {
+          f.el.style.left = `${f.x}px`;
+          f.el.style.top = `${f.y}px`;
+        });
+        otherEls.forEach((p) => {
+          p.el.style.left = `${p.x}px`;
+          p.el.style.top = `${p.y}px`;
+        });
+
+        // 走近/走进地块时地块本身不做任何动画，只用底部提示条告知可以进
+        let near = null;
+        let best = Infinity;
+        zoneEls.forEach(({ zone }) => {
+          if (!nearZone(zone)) return;
+          const d = Math.hypot(zone.x - state.me.x, zone.y - state.me.y);
+          if (d < best) {
+            best = d;
+            near = zone;
+          }
+        });
+        state.nearZone = near;
+        const prompt = $('world-prompt');
+        prompt.textContent = near ? `按 E 进入「${near.name}」` : '按 E 进入';
+        prompt.classList.toggle('is-on', !!near);
+
+        // 镜头：把角色放在画面中心，并夹在平面边界内
+        const camX = Math.max(0, Math.min(WORLD_W - viewW, state.me.x - viewW / 2));
+        const camY = Math.max(0, Math.min(WORLD_H - viewH, state.me.y - viewH / 2));
+        $('world-plane').style.transform = `translate(${-camX}px, ${-camY}px)`;
+      }
+
+      function enterZone(z) {
+        state.watching = null; // 自己下场了，观战自动结束
+        pushToast(`走进「${z.name}」`, 'good');
+        select(z.enter);
+      }
+
+      /* ---------------- 左侧：在线玩家列表 + 加入申请 ---------------- */
+      /** 房间里的其它玩家：名字 + 正在玩的模式 + 站在平面上的坐标 */
+      const PLAYERS = [
+        { name: '阿伟', mode: '钓鱼塘', icon: '🎣', screen: 'fish', x: 900, y: 980 },
+        { name: '小林', mode: '矿洞', icon: '⛏️', screen: 'mine', x: 1620, y: 1120 },
+        { name: '老王', mode: '联机球场', icon: '🌐', screen: 'online', x: 1330, y: 470 },
+        { name: '小美', mode: '攀岩崖', icon: '🧗', screen: 'climb', x: 1830, y: 800 },
+      ];
+
+      function renderPresence() {
+        const list = $('presence-list');
+        $('presence-title').textContent = `在线玩家 · ${PLAYERS.length}`;
+        list.replaceChildren();
+        PLAYERS.forEach((p) => {
+          // 第一行两列：名字 | 正在玩的模式
+          const row = el('div', 'presence__row');
+          const top = el('div', 'presence__top');
+          const who = el('div', 'presence__who');
+          who.append(el('i', 'presence__dot'), el('span', '', p.name));
+          top.append(who, el('span', 'presence__mode', `${p.icon} ${p.mode}`));
+          row.append(top);
+          const actions = el('div', 'presence__actions');
+          const join = el(
+            'button',
+            'btn btn--sm jelly',
+            p.pending ? '等待同意…' : p.joined ? '已加入' : '申请加入',
+          );
+          join.type = 'button';
+          join.dataset.h = '28px';
+          join.disabled = !!p.pending || !!p.joined;
+          if (!p.pending && !p.joined)
+            join.addEventListener('click', () => {
+              requestJoin(p);
+            });
+          const watch = el(
+            'button',
+            'btn btn--sm jelly',
+            state.watching === p.name ? '观战中' : '观战',
+          );
+          watch.type = 'button';
+          watch.dataset.h = '28px';
+          watch.addEventListener('click', () => {
+            watchPlayer(p);
+          });
+          actions.append(join, watch);
+          row.append(actions);
+          list.append(row);
+        });
+        $('presence').classList.toggle('is-hidden', !state.presenceOpen);
+      }
+
+      /** 申请加入：先发给对方，对方同意后才被传送过去 */
+      function requestJoin(p) {
+        p.pending = true;
+        renderPresence();
+        pushToast(`已向 ${p.name} 发送加入申请，等待同意…`);
+        window.setTimeout(() => {
+          p.pending = false;
+          p.joined = true;
+          renderPresence();
+          pushToast(`${p.name} 同意了，正在进入「${p.mode}」`, 'good');
+          select(p.screen);
+        }, 1300);
+      }
+
+      /** 观战：直接看别人在玩的模式，自己不下场 */
+      function watchPlayer(p) {
+        if (state.watching === p.name) {
+          state.watching = null;
+          render();
+          pushToast('已退出观战');
+          return;
+        }
+        state.watching = p.name;
+        select(p.screen);
+        pushToast(`正在观战 ${p.name} 的「${p.mode}」· 旁观不下场`, 'good');
+      }
+
+      const $ = (id) => document.getElementById(id);
+      const el = (tag, cls, html) => {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (html !== undefined) n.innerHTML = html;
+        return n;
+      };
+
+      /* ---------------- 组件渲染器（原型里的“小部件”） ---------------- */
+      function renderItem(w) {
+        switch (w.t) {
+          case 'primary':
+          case 'btn':
+          case 'quiet': {
+            const cls = w.t === 'primary' ? 'btn--primary' : w.t === 'quiet' ? 'btn--quiet' : '';
+            const b = el('button', `btn btn--sm ${cls} btn--block`, w.label);
+            b.dataset.h = '36px';
+            b.type = 'button';
+            if (w.modal) b.addEventListener('click', () => openModal(w.modal));
+            if (w.toast) b.addEventListener('click', () => pushToast(w.toast === 'good' ? '已装备「哥斯拉」' : '金币不足', w.toast));
+            if (w.picker) b.addEventListener('click', () => togglePicker());
+            if (w.inviteMap)
+              b.addEventListener('click', () => {
+                inviteIntoMap();
+              });
+            if (w.switch === 'online-view') {
+              b.addEventListener('click', () => {
+                state.onlineView = state.onlineView === 'play' ? 'lobby' : 'play';
+                render();
+              });
+            }
+            return b;
+          }
+          case 'chip': {
+            const c = el('span', `chip chip--${w.tone || 'idle'}`);
+            c.append(el('i', 'chip__dot'), el('span', '', w.label));
+            c.dataset.h = '24px';
+            return c;
+          }
+          case 'seg': {
+            const box = el('div', 'seg');
+            box.append(el('span', 'seg__label', w.label + (w.hide ? `（${w.hide}）` : '')));
+            const track = el('div', 'seg__track');
+            w.options.forEach((o, i) => {
+              const b = el('button', `seg__item${i === w.value ? ' is-on' : ''}`, o);
+              b.type = 'button';
+              b.dataset.h = '26px';
+              b.addEventListener('click', () => {
+                w.value = i;
+                render();
+                pushToast(`已切换到「${o}」`);
+              });
+              track.append(b);
+            });
+            box.append(track);
+            return box;
+          }
+          case 'num': {
+            const box = el('div', 'dock__row');
+            if (w.label) box.append(el('span', 'dock__label', w.label));
+            box.append(el('span', 'num', w.value));
+            return box;
+          }
+          case 'text':
+            return el('span', 'foot-note', w.value);
+          case 'stars': {
+            const s = el('span', 'stars');
+            for (let i = 0; i < 5; i++) s.append(el(i < w.value ? 'b' : 'span', '', '★'));
+            return s;
+          }
+          case 'input': {
+            const i = el('input', 'field');
+            i.placeholder = w.placeholder;
+            i.maxLength = 6;
+            i.dataset.h = '36px';
+            return i;
+          }
+          case 'spinner': {
+            const row = el('div', 'waiting');
+            row.append(el('div', 'spinner'), el('span', '', '等待对手加入…'));
+            return row;
+          }
+          case 'friend': {
+            const box = el('div', 'dock__row');
+            box.append(el('span', `chip chip--${w.on ? 'ok' : 'idle'}`, w.name));
+            const b = el('button', 'btn btn--sm jelly', w.on ? '拉进地图' : '离线');
+            b.type = 'button';
+            b.dataset.h = '36px';
+            if (!w.on) b.disabled = true;
+            else
+              b.addEventListener('click', () => {
+                inviteIntoMap(w.name);
+              });
+            box.append(b);
+            return box;
+          }
+          default:
+            return el('span', 'foot-note', String(w.value ?? w.label ?? ''));
+        }
+      }
+
+      function renderDock() {
+        const panel = $('dock-panel');
+        panel.replaceChildren();
+        const screen = SCREENS.find((s) => s.id === state.screen);
+        screen.dock.forEach((g) => {
+          const box = el('div', 'dock__group');
+          box.append(el('div', 'dock__label', g.group));
+          g.items.forEach((w) => box.append(renderItem(w)));
+          panel.append(box);
+        });
+        if (state.onlineView === 'lobby' && state.screen === 'online') {
+          const box = el('div', 'dock__group');
+          box.append(el('div', 'dock__label', '当前视图'), el('div', 'chip chip--warn', '联机大厅'));
+          panel.append(box);
+        }
+      }
+
+      /* ---------------- 顶栏 / 比分行 ---------------- */
+      function renderTop() {
+        const screen = SCREENS.find((s) => s.id === state.screen);
+        $('title').textContent = screen.title;
+        $('btn-back').style.visibility = screen.layout === 'page' && screen.id !== 'gallery' ? 'hidden' : 'visible';
+        $('topbar').classList.toggle('is-hidden', state.topbarHidden);
+        $('btn-fold').textContent = state.topbarHidden ? '⌄' : '⌃';
+        $('btn-fold').title = state.topbarHidden ? '展开顶栏' : '收起顶栏';
+        const watch = $('watch-chip');
+        watch.style.display = state.watching ? '' : 'none';
+        watch.textContent = state.watching ? `观战 ${state.watching} ✕` : '观战中';
+      }
+
+      /** 每个模式在右上角放哪些小图标（横排，收起时只留箭头） */
+      const HUD_ICONS = [
+        { icon: '🙂', label: '表情', picker: true },
+        { icon: '🕹', label: '摇杆' },
+        { icon: '👥', label: '邀请好友', invite: true },
+        { icon: '🎒', label: '背包', modal: 'bag' },
+        { icon: '🎁', label: '宝箱', modal: 'chest' },
+      ];
+
+      function renderHudIcons() {
+        const row = $('hud-icons-row');
+        row.replaceChildren();
+        HUD_ICONS.forEach((it) => {
+          const b = el('button', 'icon-btn jelly', it.icon);
+          b.type = 'button';
+          b.title = it.label;
+          b.setAttribute('aria-label', it.label);
+          if (it.picker) b.addEventListener('click', () => togglePicker());
+          else if (it.invite) b.addEventListener('click', () => inviteIntoMap());
+          else if (it.modal) b.addEventListener('click', () => openModal(it.modal));
+          else b.addEventListener('click', () => pushToast(`${it.label}（原型占位）`));
+          row.append(b);
+        });
+        const toggle = el('button', 'icon-btn jelly icon-btn--toggle', state.iconsOpen ? '›' : '‹');
+        toggle.type = 'button';
+        toggle.title = state.iconsOpen ? '收起图标' : '展开功能';
+        toggle.setAttribute('aria-label', toggle.title);
+        toggle.addEventListener('click', () => {
+          state.iconsOpen = !state.iconsOpen;
+          renderHudIcons();
+        });
+        row.append(toggle);
+        $('hud-icons').classList.toggle('is-collapsed', !state.iconsOpen);
+      }
+
+      function renderFoot() {
+        const screen = SCREENS.find((s) => s.id === state.screen);
+        const foot = $('scoreline');
+        foot.replaceChildren();
+        foot.classList.toggle('is-off', !screen.foot || state.topbarHidden);
+        if (!screen.foot) return;
+        screen.foot.forEach((w) => {
+          if (w.t === 'num') {
+            const n = el('span', 'num', w.value);
+            if (w.tone) n.style.color = `var(--${w.tone})`;
+            foot.append(n);
+          } else if (w.t === 'chip') {
+            const c = el('span', `chip chip--${w.tone || 'idle'}`, w.label);
+            c.style.height = '22px';
+            foot.append(c);
+          } else {
+            foot.append(el('span', '', w.value));
+          }
+        });
+      }
+
+      /* ---------------- 球场 / 页面 ---------------- */
+      function renderCourt() {
+        const screen = SCREENS.find((s) => s.id === state.screen);
+        const court = $('court');
+        const darkGlass = document.body.dataset.glass === 'dark';
+        court.className = `court ${screen.court || ''}${darkGlass ? ' court__night' : ''}`;
+        const isNight = screen.court === 'court__night' || darkGlass;
+        court.querySelector('.court__floor').style.opacity = isNight ? '0.9' : '1';
+        // 对局页把球场说明收起来，画面上要能看出“这里是游戏”
+        court.querySelector('.court__note').style.display = screen.layout === 'play' ? 'none' : 'block';
+      }
+
+      function renderPage() {
+        const page = $('page');
+        const screen = SCREENS.find((s) => s.id === state.screen);
+        page.replaceChildren();
+        page.style.display = 'none';
+
+        if (screen.id === 'online' && state.onlineView === 'lobby') {
+          page.style.display = 'block';
+          page.append(lobbyPanel());
+          return;
+        }
+        if (screen.layout !== 'page' || screen.id === 'gallery') {
+          if (screen.id !== 'gallery') return;
+          page.style.display = 'block';
+          page.append(gallery());
+          return;
+        }
+        page.style.display = 'block';
+        page.append(screen.id === 'home' ? homePage() : gallery());
+      }
+
+      function homePage() {
+        const wrap = el('div', 'stack');
+        const hero = el('div', 'hero');
+        hero.append(el('h2', '', '羽毛球'), el('p', '', '2D 侧视角单打 · 球拍跟着指针走 · WebRTC 直连，打不通自动走中继'));
+        wrap.append(hero);
+
+        const grid = el('div', 'mode-grid');
+        const modes = [
+          ['单机练习', 'primary'],
+          ['联机对战', ''],
+          ['乐趣模式', ''],
+          ['攀爬挑战', ''],
+          ['钓鱼塘', ''],
+          ['采矿场', ''],
+        ];
+        modes.forEach(([label, kind]) => {
+          const b = el('button', `btn btn--md ${kind === 'primary' ? 'btn--primary' : ''}`, label);
+          b.type = 'button';
+          b.dataset.h = '44px';
+          b.addEventListener('click', () => {
+            const map = { 单机练习: 'single', 联机对战: 'online', 攀爬挑战: 'climb', 钓鱼塘: 'fish', 采矿场: 'mine', 乐趣模式: 'online' };
+            select(map[label] || 'single');
+          });
+          grid.append(b);
+        });
+        wrap.append(grid);
+
+        const tools = el('div', 'tools');
+        [
+          ['段位', 'rank'],
+          ['外观', 'look'],
+          ['背包', 'bag'],
+          ['宝箱', 'chest'],
+          ['宠物蛋', 'egg'],
+          ['好友', 'friends'],
+        ].forEach(([label, modal]) => {
+          const t = el('button', 'tool', `<span style="font-size:18px">◆</span>${label}`);
+          t.type = 'button';
+          t.addEventListener('click', () => openModal(modal));
+          tools.append(t);
+        });
+        const assets = el('div', 'panel panel--flat');
+        assets.append(el('div', 'dock__label', '资产'), el('div', 'dock__row'));
+        assets.querySelector('.dock__row').append(el('span', 'num', '🪙 1,240'), el('span', 'num', '🏆 奖杯 3'), el('span', 'num', '🎖 荣誉点 320'));
+        wrap.append(el('div', 'dock__label', '右上角工具坞（首页版）'), tools, assets);
+        return wrap;
+      }
+
+      function lobbyPanel() {
+        const wrap = el('div', 'stack');
+        const card = el('div', 'panel panel--raised');
+        card.append(el('h3', '', '联机大厅'));
+        card.append(el('p', 'foot-note', '创建房间后把房号发给对手，或输入对手给你的房号加入。'));
+
+        const grid = el('div', 'grid-2');
+        const left = el('div', 'panel panel--flat');
+        left.append(el('p', 'foot-note', '生成一个房间号，等对手加入。'), mkBtn('创建房间', 'primary', () => pushToast('房间已创建', 'good')));
+        const right = el('div', 'panel panel--flat');
+        right.append(el('p', 'foot-note', '输入对手给你的房间号。'));
+        const row = el('div', 'row');
+        row.append(renderItem({ t: 'input', placeholder: '例如 7K3QM' }), mkBtn('加入', '', () => pushToast('正在连接…')));
+        right.append(row);
+        grid.append(left, right);
+        card.append(grid);
+
+        const wait = el('div', 'panel panel--flat');
+        wait.append(el('p', 'foot-note', '把下面这串房间号发给你的对手'));
+        const code = el('div', 'code');
+        code.append(el('div', 'code__value', '7K3QM'), mkBtn('复制', 'primary', () => pushToast('房号已复制', 'good')));
+        wait.append(code, renderItem({ t: 'spinner' }));
+        card.append(wait);
+        wrap.append(card);
+        return wrap;
+      }
+
+      function mkBtn(label, kind, onClick, size = 'sm') {
+        const b = el('button', `btn btn--${size} ${kind ? `btn--${kind}` : ''}`, label);
+        b.type = 'button';
+        b.dataset.h = size === 'sm' ? '36px' : size === 'md' ? '44px' : '52px';
+        if (onClick) b.addEventListener('click', onClick);
+        return b;
+      }
+
+      function gallery() {
+        const g = el('div', 'gallery');
+
+        const s1 = el('section');
+        s1.append(el('h3', '', '按钮 Button · 3 变体 × 3 尺寸 + disabled'));
+        const r1 = el('div', 'row');
+        ['sm', 'md', 'lg'].forEach((size) => {
+          r1.append(mkBtn('默认 ' + size, '', () => {}, size), mkBtn('主操作 ' + size, 'primary', () => {}, size), mkBtn('安静 ' + size, 'quiet', () => {}, size));
+        });
+        const dis = mkBtn('禁用', 'primary', () => {}, 'md');
+        dis.disabled = true;
+        const dis2 = mkBtn('禁用', '', () => {}, 'sm');
+        dis2.disabled = true;
+        r1.append(dis, dis2);
+        s1.append(r1);
+        g.append(s1);
+
+        const s2 = el('section');
+        s2.append(el('h3', '', '状态胶囊 StatusChip · 星级 Stars'));
+        const r2 = el('div', 'row');
+        ['ok', 'warn', 'idle'].forEach((tone) => r2.append(renderItem({ t: 'chip', tone, label: tone === 'ok' ? '直连' : tone === 'warn' ? '中继 826ms' : '未连接' })));
+        [1, 3, 4, 5].forEach((v) => r2.append(renderItem({ t: 'stars', value: v })));
+        r2.append(renderItem({ t: 'spinner' }));
+        s2.append(r2);
+        g.append(s2);
+
+        const s3 = el('section');
+        s3.append(el('h3', '', '分段选择 / 输入框 / 数值'));
+        const r3 = el('div', 'row');
+        r3.append(renderItem({ t: 'seg', label: '模式', options: ['对战 AI', '发球机'], value: 0 }));
+        r3.append(renderItem({ t: 'seg', label: '难度', options: ['简单', '普通', '困难'], value: 2 }));
+        const fieldWrap = el('div');
+        fieldWrap.style.width = '120px';
+        fieldWrap.append(renderItem({ t: 'input', placeholder: '房号' }));
+        r3.append(fieldWrap, el('span', 'num', '¥1,240'), el('span', 'num', 'RTT 68ms'));
+        s3.append(r3);
+        g.append(s3);
+
+        const s4 = el('section');
+        s4.append(el('h3', '', '面板 Panel · 三级高度'));
+        const r4 = el('div', 'row');
+        ['panel--flat', 'panel--raised', 'panel--float'].forEach((k) => {
+          const p = el('div', `panel ${k}`);
+          p.style.minWidth = '150px';
+          p.append(el('div', 'dock__label', k.replace('panel--', '')), el('p', 'foot-note', '软阴影面板，用于卡片 / 弹窗 / 悬浮层。'));
+          r4.append(p);
+        });
+        s4.append(r4);
+        g.append(s4);
+
+        const s5 = el('section');
+        s5.append(el('h3', '', '弹窗 / Toast / 好友邀请'));
+        const r5 = el('div', 'row');
+        Object.entries(MODALS).forEach(([key, m]) => r5.append(mkBtn(m.title, '', () => openModal(key))));
+        r5.append(mkBtn('成功 Toast', 'primary', () => pushToast('100 连击达成！解锁「哥斯拉」', 'good')));
+        r5.append(mkBtn('提示 Toast', '', () => pushToast('鱼篓是空的，先去钓鱼吧', 'warn')));
+        s5.append(r5);
+        g.append(s5);
+
+        const s6 = el('section');
+        s6.append(el('h3', '', '语义色（沿用应用 token）'));
+        const sw = el('div', 'swatches');
+        [
+          ['--accent', 'accent'],
+          ['--accent-2', 'accent-2'],
+          ['--good', 'good'],
+          ['--warn', 'warn'],
+          ['--danger', 'danger'],
+          ['--surface-3', 'surface-3'],
+        ].forEach(([v]) => {
+          const s = el('div', 'swatch');
+          s.append(el('i', '', ''), el('span', '', v));
+          s.querySelector('i').style.background = `var(${v})`;
+          sw.append(s);
+        });
+        s6.append(sw);
+        g.append(s6);
+
+        return g;
+      }
+
+      function renderModal(key) {
+        const m = MODALS[key];
+        if (!m) return;
+        $('modal-title').textContent = m.title;
+        const body = $('modal-body');
+        body.replaceChildren();
+        m.body.forEach((w) => {
+          if (w.t === 'row') {
+            const r = el('div', 'row');
+            w.items.forEach((it) => {
+              if (it.t === 'chip') r.append(renderItem({ t: 'chip', tone: it.tone, label: it.label }));
+              else if (it.t === 'num') r.append(el('span', 'num', it.value));
+              else if (it.t === 'text') r.append(el('span', 'foot-note', it.value));
+              else {
+                const b = mkBtn(it.label, it.t === 'primary' ? 'primary' : '', () => pushToast(`${it.label}：原型里只是占位`, 'good'));
+                r.append(b);
+              }
+            });
+            body.append(r);
+          } else if (w.t === 'bar') {
+            const bar = el('div');
+            bar.style.cssText = 'height:8px;border-radius:999px;background:var(--surface-3);overflow:hidden';
+            const fill = el('div');
+            fill.style.cssText = 'width:84%;height:100%;background:linear-gradient(90deg,#3f95ec,#2260ab)';
+            bar.append(fill);
+            body.append(bar);
+          } else if (w.t === 'grid5') {
+            const grid = el('div');
+            grid.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:8px';
+            const rarity = ['#8b97a8', '#3d8bfd', '#9b59d0', '#e8a33d'];
+            for (let i = 0; i < 15; i++) {
+              const c = el('button', 'panel panel--raised', `<span style="font-size:11px">特效 p${i + 1}</span>`);
+              c.type = 'button';
+              c.style.cssText = `aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:1px solid ${rarity[i % 4]};padding:4px;cursor:pointer`;
+              c.addEventListener('click', () => pushToast(`已装备「${['赤焰绽放', '碧波涟漪', '紫电螺旋', '月白坠星'][i % 4]}」`, 'good'));
+              grid.append(c);
+            }
+            body.append(grid);
+          } else if (w.t === 'joinAsk') {
+            const r = el('div', 'row');
+            const yes = mkBtn('同意', 'primary', () => {
+              closeModal();
+              pushToast('已同意，阿伟正在传送过来', 'good');
+              inviteIntoMap('阿伟');
+            });
+            const no = mkBtn('拒绝', '', () => {
+              closeModal();
+              pushToast('已拒绝这次加入申请');
+            });
+            r.append(yes, no);
+            body.append(r);
+          } else if (w.t === 'friend') {
+            const r = el('div', 'row');
+            r.append(el('span', 'chip chip--' + (w.on ? 'ok' : 'idle'), w.name));
+            const b = mkBtn('邀请', w.on ? 'primary' : '', () => pushToast(`已邀请 ${w.name}`, 'good'));
+            if (!w.on) b.disabled = true;
+            r.append(b);
+            body.append(r);
+          } else {
+            body.append(renderItem(w));
+          }
+        });
+      }
+
+      /* ---------------- 交互 ---------------- */
+      let picker = null;
+      function togglePicker() {
+        if (picker) {
+          picker.remove();
+          picker = null;
+          return;
+        }
+        picker = el('div', 'panel panel--float');
+        picker.style.cssText = 'position:absolute;right:calc(var(--ui-dock-w) + 8px);top:calc(var(--ui-bar-h) + 8px);z-index:35;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:200px';
+        ['🙂', '😎', '😈', '🥷', '🦸', '🐱', '🐶', '🦊', '🐼', '🐸', '🐵', '🐯', '🦁', '🐲', '🦈'].forEach((e) => {
+          const b = el('button', '', e);
+          b.type = 'button';
+          b.style.cssText = 'height:30px;border:0;border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:16px';
+          b.addEventListener('click', () => {
+            pushToast(`发出表情 ${e}`, 'good');
+            togglePicker();
+          });
+          picker.append(b);
+        });
+        $('device').append(picker);
+      }
+
+      function openModal(key) {
+        renderModal(key);
+        $('modal').classList.add('is-on');
+      }
+      function closeModal() {
+        $('modal').classList.remove('is-on');
+      }
+      function pushToast(text, tone) {
+        const t = el('div', `toast${tone === 'good' ? ' toast--good' : ''}`, text);
+        $('toasts').append(t);
+        setTimeout(() => t.remove(), 2600);
+      }
+
+      function select(id) {
+        state.screen = id;
+        if (id === 'online') state.onlineView = 'play';
+        render();
+      }
+
+      function render() {
+        // tabs
+        const tabs = $('tabs');
+        tabs.replaceChildren();
+        SCREENS.forEach((s) => {
+          const b = el('button', `tab${s.id === state.screen ? ' is-on' : ''}`, s.name);
+          b.type = 'button';
+          b.addEventListener('click', () => select(s.id));
+          tabs.append(b);
+        });
+        $('dock').classList.toggle('is-collapsed', !state.dockOpen);
+        $('dock-toggle').textContent = state.dockOpen ? ICON_FOLD_OPEN : ICON_FOLD_CLOSED;
+        $('device').classList.toggle('measure', state.measure);
+        const isWorld = SCREENS.find((s) => s.id === state.screen).layout === 'world';
+        $('device').classList.toggle('world-on', isWorld);
+        $('world').style.display = isWorld ? 'block' : 'none';
+        $('court').style.display = isWorld ? 'none' : 'block';
+        // 在线玩家列表与摇杆只在地图上出现（其它模式脚下就是球场）
+        $('presence').style.display = isWorld ? 'flex' : 'none';
+        $('presence-ghost').style.display = isWorld ? '' : 'none';
+        $('joy').style.display = isWorld ? '' : 'none';
+        renderCourt();
+        renderTop();
+        renderHudIcons();
+        renderFoot();
+        renderDock();
+        renderPage();
+        renderPresence();
+        renderWorld();
+        markJelly();
+        stagger();
+      }
+
+      /* ---------------- Liquid Glass：果冻按压 + 高光跟随 + 错峰浮现 ------- */
+
+      /** 所有可点元素共用同一套回弹反馈 */
+      function markJelly() {
+        document
+          .querySelectorAll('.btn, .tab, .mini, .tool, .seg__item, .dock__toggle, .modal__close')
+          .forEach((el) => el.classList.add('jelly'));
+      }
+
+      /** 卡片依次浮现：给容器子节点编个序号，CSS 用它算延迟 */
+      function stagger() {
+        document.querySelectorAll('.stack, .gallery, .dock__panel').forEach((box) => {
+          [...box.children].forEach((child, i) => child.style.setProperty('--i', String(i)));
+        });
+      }
+
+      const GLASS_SELECTOR = '.btn, .panel, .chip, .tab, .mini, .tool, .dock__panel, .dock__toggle, .modal__box, .hud-top, .field';
+
+      document.addEventListener('pointerdown', (e) => {
+        const t = e.target.closest('.jelly');
+        if (t) t.classList.add('is-press');
+      });
+      const release = (e) => {
+        const t = e.target instanceof Element ? e.target.closest('.jelly') : null;
+        if (!t || !t.classList.contains('is-press')) return;
+        t.classList.remove('is-press');
+        t.classList.add('is-pop');
+        setTimeout(() => t.classList.remove('is-pop'), 600);
+      };
+      document.addEventListener('pointerup', release);
+      document.addEventListener('pointercancel', release);
+      document.addEventListener('pointerout', (e) => {
+        if (e.target instanceof Element) e.target.closest('.jelly')?.classList.remove('is-press');
+      });
+
+      /** 高光跟着指针在玻璃内部流动——液态玻璃的关键一步 */
+      document.addEventListener('pointermove', (e) => {
+        const t = e.target instanceof Element ? e.target.closest(GLASS_SELECTOR) : null;
+        if (!t) return;
+        const r = t.getBoundingClientRect();
+        t.style.setProperty('--mx', `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
+        t.style.setProperty('--my', `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
+      });
+
+      /* --- 摇杆：拖把手就是平面上的一个方向向量；键盘 WASD / 方向键等效 --- */
+      const JOY_R = 40; // 把手能拖出去的半径（px）
+      let joyPointer = null;
+
+      function joyMove(e) {
+        const rect = $('joy').getBoundingClientRect();
+        const dx = e.clientX - (rect.left + rect.width / 2);
+        const dy = e.clientY - (rect.top + rect.height / 2);
+        const d = Math.hypot(dx, dy) || 1;
+        const k = Math.min(d, JOY_R) / JOY_R; // 0..1 的死区之外就是满速
+        state.joy.x = (dx / d) * k;
+        state.joy.y = (dy / d) * k;
+        $('joy-knob').style.transform = `translate(${state.joy.x * JOY_R}px, ${state.joy.y * JOY_R}px)`;
+      }
+      function joyRelease() {
+        joyPointer = null;
+        state.joy.x = 0;
+        state.joy.y = 0;
+        $('joy-knob').style.transform = '';
+      }
+      $('joy').addEventListener('pointerdown', (e) => {
+        joyPointer = e.pointerId;
+        $('joy').setPointerCapture?.(e.pointerId);
+        joyMove(e);
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (e.pointerId === joyPointer) joyMove(e);
+      });
+      window.addEventListener('pointerup', joyRelease);
+      window.addEventListener('pointercancel', joyRelease);
+
+      const held = new Set();
+      const KEY_VECTORS = {
+        ArrowLeft: [-1, 0],
+        a: [-1, 0],
+        ArrowRight: [1, 0],
+        d: [1, 0],
+        ArrowUp: [0, -1],
+        w: [0, -1],
+        ArrowDown: [0, 1],
+        s: [0, 1],
+      };
+      document.addEventListener('keydown', (e) => {
+        const k = KEY_VECTORS[e.key] ? e.key : e.key.toLowerCase();
+        if (KEY_VECTORS[k]) held.add(k);
+        if ((e.key === 'e' || e.key === 'E') && state.nearZone) enterZone(state.nearZone);
+      });
+      document.addEventListener('keyup', (e) => {
+        const k = KEY_VECTORS[e.key] ? e.key : e.key.toLowerCase();
+        held.delete(k);
+      });
+
+      const WALK_SPEED = 400; // px/s，先用手感值，落地时和角色实际速度对齐
+      let lastFrame = performance.now();
+      function walkLoop(now) {
+        const dt = Math.min((now - lastFrame) / 1000, 0.05);
+        lastFrame = now;
+
+        const onWorld = SCREENS.find((s) => s.id === state.screen)?.layout === 'world';
+        if (onWorld) {
+          let vx = state.joy.x;
+          let vy = state.joy.y;
+          held.forEach((k) => {
+            vx += KEY_VECTORS[k][0];
+            vy += KEY_VECTORS[k][1];
+          });
+          const len = Math.hypot(vx, vy);
+          if (len > 0.06) {
+            const k = Math.min(len, 1) / len; // 摇杆推多少走多少，键盘则整速
+            moveMe(state.me.x + vx * k * WALK_SPEED * dt, state.me.y + vy * k * WALK_SPEED * dt);
+          } else {
+            updateWorld();
+          }
+        }
+        requestAnimationFrame(walkLoop);
+      }
+      requestAnimationFrame(walkLoop);
+
+      $('watch-chip').addEventListener('click', () => {
+        state.watching = null;
+        render();
+        pushToast('已退出观战');
+      });
+
+      $('presence-hide').addEventListener('click', () => {
+        state.presenceOpen = false;
+        renderPresence();
+      });
+      $('presence-ghost').addEventListener('click', () => {
+        state.presenceOpen = true;
+        renderPresence();
+      });
+
+      $('dock-toggle').addEventListener('click', () => {
+        state.dockOpen = !state.dockOpen;
+        render();
+      });
+      $('btn-fold').addEventListener('click', () => {
+        state.topbarHidden = !state.topbarHidden;
+        render();
+      });
+      $('btn-back').addEventListener('click', () => pushToast('返回（原型占位）'));
+      $('modal-close').addEventListener('click', closeModal);
+      $('modal').addEventListener('click', (e) => {
+        if (e.target === $('modal')) closeModal();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeModal();
+          if (picker) togglePicker();
+        }
+      });
+
+      document.querySelectorAll('[data-size]').forEach((b) => {
+        b.addEventListener('click', () => {
+          document.querySelectorAll('[data-size]').forEach((x) => x.classList.remove('is-on'));
+          b.classList.add('is-on');
+          const [w, h] = b.dataset.size.split(',').map(Number);
+          $('device').style.width = `${w}px`;
+          $('device').style.height = `${h}px`;
+          $('device-tag').textContent = `${w} × ${h} · UI 固定像素`;
+        });
+      });
+      $('btn-measure').addEventListener('click', () => {
+        state.measure = !state.measure;
+        $('btn-measure').classList.toggle('is-on', state.measure);
+        $('btn-measure').textContent = `尺寸标注：${state.measure ? '开' : '关'}`;
+        render();
+      });
+      $('btn-glass').addEventListener('click', () => {
+        const dark = document.body.dataset.glass !== 'dark';
+        document.body.dataset.glass = dark ? 'dark' : 'light';
+        $('btn-glass').classList.toggle('is-on', dark);
+        $('btn-glass').textContent = `主题：${dark ? '暖夜' : '奶黄'}`;
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

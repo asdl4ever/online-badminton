@@ -108,7 +108,8 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
           </p>
 
           <div class="hero__actions">
-            <Button variant="primary" size="lg" @click="go('/single')">单机练习</Button>
+            <Button variant="primary" size="lg" @click="go('/')">进入大世界</Button>
+            <Button size="lg" @click="go('/single')">单机练习</Button>
             <Button size="lg" @click="go('/online')">联机对战</Button>
             <Button size="lg" @click="goParty">乐趣模式</Button>
             <Button size="lg" @click="go('/climb')">攀爬挑战</Button>

@@ -4,7 +4,14 @@ import HomeView from '../views/HomeView.vue';
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', name: 'home', component: HomeView },
+    // 大地图是入口：摇杆在平面上走动，走进区域才进对应玩法
+    {
+      path: '/',
+      name: 'world',
+      component: () => import('../views/WorldView.vue'),
+    },
+    // 原来的首页（工具坞：段位 / 外观 / 背包 / 宝箱 / 宠物蛋 / 好友）
+    { path: '/home', name: 'home', component: HomeView },
     {
       path: '/single',
       name: 'single',
@@ -31,5 +38,6 @@ export const router = createRouter({
       component: () => import('../views/MineView.vue'),
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
+
   ],
 });

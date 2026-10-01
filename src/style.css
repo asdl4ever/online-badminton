@@ -153,6 +153,23 @@ button {
   gap: var(--s4);
 }
 
+/* 对局页与大地图页：整页给一个确定高度，不滚动。
+   这条必须在顶层（不能只放在 pointer: coarse 里），否则桌面端/地图页的
+   外壳 `height: 100%` 会解析到自动高度的父容器上，主区域直接塌成 0 高。 */
+.page--playing {
+  flex: none;
+  padding: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.page--playing .shell-ui {
+  height: 100%;
+  min-height: 0;
+}
+
 .shell {
   position: relative;
   width: 100%;
@@ -510,62 +527,8 @@ button {
     box-shadow: none;
   }
 
-  /* one thin strip of controls — as little vertical space as possible */
-  .page--playing .topbar.hud-bar {
-    flex: none;
-    flex-wrap: nowrap;
-    gap: 4px;
-    padding: 1px var(--s1) 2px;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  /* every control stays on that single row */
-  .page--playing .topbar__aside {
-    flex-wrap: nowrap;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  .page--playing .topbar.hud-bar {
-    max-width: 100vw;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .page--playing .topbar.hud-bar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .page--playing .scoreline.hud-foot {
-    display: none;
-  }
-
-  .page--playing .topbar .topbar__title {
-    display: none;
-  }
-
-  /* compact but still tappable */
-  .page--playing .v-btn.soft-btn {
-    font-size: 11px;
-    min-height: 30px;
-    padding: 0 7px;
-  }
-
-  /* segmented labels ("模式"/"难度") just burn width on the strip */
-  .page--playing .topbar .seg__label {
-    display: none;
-  }
-
-  .page--playing .topbar .seg__item {
-    font-size: 11px;
-    padding: 3px var(--s3);
-  }
-
-  .page--playing .topbar .seg__track {
-    padding: 1px;
-  }
+  /* No size changes here any more:控件尺寸由 --ui-* 固定像素决定，
+     桌面与手机完全一致（不再按断点缩放按钮/顶栏/分段选择器）。 */
 }
 
 /* ==========================================================================
@@ -590,4 +553,719 @@ button {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* ==========================================================================
+   UI 规范层 — 固定像素尺寸 + 奶黄 Liquid Glass 皮肤
+   --------------------------------------------------------------------------
+   放在文件最后，整段覆盖上面的旧外观：所有控件的尺寸都走 --ui-*，
+   不随屏幕缩放；表面换成一整层暖白玻璃（双色内边 + 指针高光 + 果冻回弹）。
+   颜色 token 也一并改到奶黄，但因为它们仍在 :root，所以组件都不用改。
+   ========================================================================== */
+:root {
+  /* --- 固定像素尺寸（唯一真源）----------------------------------------- */
+  --ui-bar-h: 44px;
+  --ui-dock-w: 200px;
+  --ui-icon: 34px;
+  --ui-btn-sm: 36px;
+  --ui-btn-md: 44px;
+  --ui-btn-lg: 52px;
+  --ui-chip-h: 24px;
+  --ui-font-xs: 12px;
+  --ui-font-sm: 13px;
+  --ui-font-md: 15px;
+  --ui-font-lg: 17px;
+
+  /* --- 奶黄配色（平涂为主，少渐变）------------------------------------ */
+  --bg: #fff3cc;
+  --bg-glow: #ffffff;
+  --surface: rgba(255, 255, 255, 0.58);
+  --surface-2: rgba(255, 255, 255, 0.42);
+  --surface-3: rgba(255, 255, 255, 0.7);
+  --line: #ecd9a3;
+  --line-strong: #ddc489;
+
+  --text: #4a3410;
+  --text-dim: #7c6420;
+
+  --accent: #b07908;
+  --accent-2: #b8481c;
+  --good: #1c6b3d;
+  --warn: #8a5a00;
+  --danger: #a8322c;
+
+  --e1: 0 2px 6px -3px rgba(150, 112, 30, 0.4);
+  --e2: 0 12px 26px -16px rgba(150, 112, 30, 0.5);
+  --e3: 0 22px 46px -26px rgba(150, 112, 30, 0.6);
+  --hairline: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  /* --- 玻璃图层 -------------------------------------------------------- */
+  --lg-radius: 8px;
+  --lg-radius-lg: 12px;
+  --lg-blur: 20px;
+  --lg-sat: 1.6;
+  --glass-bg: rgba(255, 255, 255, 0.58);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --glass-lo: inset 0 -1px 0 rgba(214, 178, 96, 0.28),
+    inset 0 -10px 18px -14px rgba(140, 104, 32, 0.32);
+  --glass-shadow: 0 18px 36px -24px rgba(150, 112, 30, 0.5),
+    0 3px 10px -8px rgba(150, 112, 30, 0.32);
+  /* 跟着指针走的镜面光斑（--mx/--my 由 JS 写入） */
+  --sheen: radial-gradient(
+    170px 120px at var(--mx, 26%) var(--my, -10%),
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0) 72%
+  );
+  --ease-jelly: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 8px;
+  --font-display: 'Outfit', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei',
+    'Noto Sans SC', sans-serif;
+  --font-ui: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --font-num: 'Outfit', ui-monospace, Consolas, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+/* --- 玻璃表面：所有“面”统一 ------------------------------------------------- */
+.surface,
+.panel-surface,
+.am-modal,
+.v-snackbar .v-snackbar__wrapper.app-toast--info,
+.v-snackbar .v-snackbar__wrapper.app-toast--good,
+.v-snackbar .v-snackbar__wrapper.app-toast--warn,
+.v-snackbar .v-snackbar__wrapper.app-toast--bad {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--lg-radius);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-shadow), var(--glass-hi), var(--glass-lo);
+}
+
+/* --- 固定尺寸的按钮 --------------------------------------------------------- */
+.v-btn.soft-btn {
+  min-height: var(--ui-btn-md);
+  height: var(--ui-btn-md);
+  padding: 0 16px;
+  border-radius: var(--lg-radius);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-hi), var(--glass-lo), var(--e1);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--ui-font-md);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.v-btn.soft-btn--sm {
+  min-height: var(--ui-btn-sm);
+  height: var(--ui-btn-sm);
+  padding: 0 12px;
+  font-size: var(--ui-font-sm);
+}
+
+.v-btn.soft-btn--lg {
+  min-height: var(--ui-btn-lg);
+  height: var(--ui-btn-lg);
+  padding: 0 22px;
+  font-size: var(--ui-font-lg);
+}
+
+/* 主操作：平涂蜂蜜黄 + 深棕字（对比约 7:1），不用渐变 */
+.v-btn.soft-btn--primary {
+  color: #3b2a05;
+  border-color: rgba(255, 255, 255, 0.85);
+  background: #f2c14e;
+  box-shadow: 0 14px 26px -18px rgba(176, 121, 8, 0.7), var(--glass-hi),
+    inset 0 -1px 0 rgba(176, 121, 8, 0.25);
+}
+
+.v-btn.soft-btn--primary:hover {
+  background: #f7cd66;
+}
+
+.v-btn.soft-btn--quiet {
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(255, 255, 255, 0.75);
+  color: var(--text-dim);
+  box-shadow: var(--glass-hi);
+}
+
+/* --- 果冻点击：按下横撑竖压，松手回弹带过冲 --------------------------------- */
+.jelly,
+.v-btn.soft-btn,
+.icon-btn {
+  transform-origin: center;
+  transition: transform 420ms var(--ease-jelly);
+  will-change: transform;
+}
+
+.jelly:active:not(:disabled),
+.v-btn.soft-btn:active:not(:disabled),
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.94, 0.88);
+  transition: transform 90ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- 方形图标按钮（顶栏 / 右上图标行 / 浮标共用）---------------------------- */
+.icon-btn {
+  flex: none;
+  width: var(--ui-icon);
+  height: var(--ui-icon);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--lg-radius);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  box-shadow: var(--glass-hi), var(--e1);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+/* --- 表单控件固定高度 ------------------------------------------------------- */
+.v-field.soft-field {
+  height: var(--ui-btn-sm);
+  border-radius: var(--lg-radius);
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-hi);
+}
+
+.v-field.soft-field .v-field__input {
+  min-height: var(--ui-btn-sm);
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+}
+
+/* 文本输入（房号之类）在各页里是裸 input，也得跟着固定 */
+.ui-input {
+  height: var(--ui-btn-sm);
+  width: 100%;
+  padding: 0 10px;
+  border-radius: var(--lg-radius);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text);
+  font: 600 var(--ui-font-sm) / 1 var(--font-num);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  outline: none;
+}
+
+.ui-input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.ui-num {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   PageShell —— 所有对局页共用的外壳
+   顶部一条 44px、画面区自适应铺满、右上角一排横向小图标、右侧功能坞、底部比分行。
+   ========================================================================== */
+.shell-ui {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* 顶栏：一条固定高度的玻璃，可整条收起 */
+/* stylelint-disable-next-line selector-class-pattern */
+.shell-ui__bar {
+  position: relative;
+  z-index: 22;
+  flex: none;
+  height: var(--ui-bar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0 var(--s2);
+  padding-left: max(var(--s2), env(safe-area-inset-left));
+  padding-right: max(var(--s2), env(safe-area-inset-right));
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255, 252, 240, 0.72);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: 0 12px 26px -24px rgba(150, 112, 30, 0.7);
+}
+
+.shell-ui__bar.is-hidden {
+  display: none;
+}
+
+.shell-ui__title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: var(--ui-font-lg);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-ui__main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 画面区：默认按 16:9 等比居中（桌面）；手机端在下面铺满 */
+.page--playing .shell-ui__main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 三层选择器是为了压过组件里的 scoped 样式（scoped 注入在后） */
+.page--playing .shell-ui__main .stage,
+.page--playing .shell-ui__main .game-canvas,
+.page--playing .shell-ui__main .climb-canvas,
+.page--playing .shell-ui__main .fish-canvas,
+.page--playing .shell-ui__main .mine-canvas {
+  /* flex: none —— 否则作为 flex item 会被压缩，画布容器可能塌成 0 宽 */
+  flex: none;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  box-shadow: none;
+  /* the court is a game surface, not a scrollable page */
+  touch-action: none;
+}
+
+.page--playing .shell-ui__main .game-canvas canvas,
+.page--playing .shell-ui__main .climb-canvas canvas,
+.page--playing .shell-ui__main .fish-canvas canvas,
+.page--playing .shell-ui__main .mine-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 手机：不做等比留白，画布直接铺满整个内容区（轻微拉伸换满屏） */
+@media (pointer: coarse) {
+  .page--playing .shell-ui__main .game-canvas,
+  .page--playing .shell-ui__main .climb-canvas,
+  .page--playing .shell-ui__main .fish-canvas,
+  .page--playing .shell-ui__main .mine-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+}
+
+/* 右上角：一排横向小图标，收起时只剩一个箭头 */
+.hud-icons {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + var(--s2));
+  right: max(var(--s2), env(safe-area-inset-right));
+  z-index: 26;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hud-icons__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--lg-radius);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.hud-icons__row .icon-btn {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+}
+
+.hud-icons__row .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.hud-icons__row .icon-btn--toggle {
+  color: var(--accent);
+}
+
+.hud-icons.is-collapsed .hud-icons__row .icon-btn:not(.icon-btn--toggle) {
+  display: none;
+}
+
+/* 底部比分行：固定高度的一条玻璃 */
+.hud-foot {
+  flex: none;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  padding: 4px var(--s4);
+  padding-bottom: max(4px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--glass-border);
+  background: rgba(255, 252, 240, 0.72);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  color: var(--text-dim);
+  font-size: var(--ui-font-sm);
+}
+
+/* ---------- 左侧：房间在线玩家（大地图） ---------- */
+.presence {
+  position: absolute;
+  left: max(var(--s2), env(safe-area-inset-left));
+  top: calc(env(safe-area-inset-top) + var(--s2));
+  bottom: var(--s3);
+  z-index: 28;
+  width: var(--ui-dock-w);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--lg-radius);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+  transition: transform 320ms var(--ease-jelly);
+}
+
+.presence.is-hidden {
+  transform: translateX(calc(-100% - 14px));
+}
+
+.presence__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.presence__title {
+  font-family: var(--font-display);
+  font-size: var(--ui-font-xs);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.presence__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.presence__row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px;
+  border-radius: var(--lg-radius);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.presence__top {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.presence__who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.presence__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--good) 22%, transparent);
+}
+
+.presence__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.presence__actions {
+  display: flex;
+  gap: 5px;
+}
+
+.presence__actions > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ==========================================================================
+   大地图（WorldView）：俯视平面 + 区域地块 + 摇杆
+   ========================================================================== */
+.world {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #f0d296;
+  touch-action: none;
+}
+
+.world__plane {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+.world__path {
+  position: absolute;
+  background: #e6c07f;
+  border-radius: 8px;
+}
+
+.zone {
+  position: absolute;
+  width: 172px;
+  padding: 10px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--lg-radius);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.zone::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 260px;
+  height: 260px;
+  transform: translate(-50%, -50%);
+  border: 2px dashed rgba(176, 121, 8, 0.35);
+  border-radius: 50%;
+  background: rgba(255, 246, 218, 0.32);
+  z-index: -1;
+}
+
+.zone__sign {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.zone__name {
+  font-family: var(--font-display);
+  font-size: var(--ui-font-sm);
+  font-weight: 700;
+}
+
+.zone__meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.zone__badge {
+  position: absolute;
+  top: -9px;
+  right: -6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font: 700 10px/1.5 var(--font-num);
+  background: #f2c14e;
+  color: #3b2a05;
+  box-shadow: var(--e1);
+}
+
+.avatar {
+  position: absolute;
+  /* 角色是 canvas 画的，这里只定位；压在区域卡片之上 */
+  z-index: 6;
+  transform: translate(-50%, -50%);
+}
+
+.avatar__name {
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--glass-border);
+}
+
+.avatar__emote {
+  position: absolute;
+  top: -22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  box-shadow: var(--e1);
+}
+
+/* 走进区域时只有底部这条静态提示，地块本身不做任何动画 */
+.world__prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  z-index: 27;
+  padding: 5px 14px;
+  border-radius: var(--lg-radius);
+  font-size: var(--ui-font-xs);
+  font-weight: 600;
+  color: #3b2a05;
+  background: #f2c14e;
+  box-shadow: var(--e2);
+  display: none;
+  pointer-events: none;
+}
+
+.world__prompt.is-on {
+  display: block;
+}
+
+.world__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 26;
+  padding: 5px 12px;
+  border-radius: var(--lg-radius);
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--glass-border);
+  pointer-events: none;
+}
+
+/* 摇杆：底座圆盘 + 可拖的把手 */
+.joy {
+  position: absolute;
+  left: max(var(--s4), env(safe-area-inset-left));
+  bottom: max(var(--s4), env(safe-area-inset-bottom));
+  z-index: 29;
+  width: 104px;
+  height: 104px;
+  touch-action: none;
+  user-select: none;
+}
+
+.joy__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+}
+
+.joy__knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: #f2c14e;
+  box-shadow: 0 10px 18px -12px rgba(150, 112, 30, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 卡片依次浮现 */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+
+.stagger > * {
+  animation: rise-in 460ms var(--ease-jelly) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
 }

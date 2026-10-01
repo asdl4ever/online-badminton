@@ -2,8 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
-import TopBar from '../components/ui/TopBar.vue';
-import ScoreLine from '../components/ui/ScoreLine.vue';
+import PageShell from '../components/ui/PageShell.vue';
 import Button from '../components/ui/Button.vue';
 import SegmentedChoice from '../components/ui/SegmentedChoice.vue';
 import SideDock from '../components/ui/SideDock.vue';
@@ -97,6 +96,13 @@ function onEvent(e: SimEvent) {
   }
 }
 
+/** 顶栏那个 🎯 图标：在三个难度之间循环，省一次开坞 */
+function cycleDifficulty() {
+  const order: Difficulty[] = ['easy', 'normal', 'hard'];
+  const i = order.indexOf(store.difficulty);
+  setDifficulty(order[(i + 1) % order.length]);
+}
+
 function back() {
   sfx.click();
   void router.push('/');
@@ -109,42 +115,54 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page page--playing">
-    <div class="shell">
-      <TopBar collapsible @back="back">
-        <template #title>单机练习</template>
-      </TopBar>
-
-      <SideDock>
-        <SegmentedChoice
-          :model-value="store.practice"
-          :options="practices"
-          label="模式"
-          @update:model-value="setPractice"
-        />
-        <SegmentedChoice
+    <PageShell title="单机练习" back @back="back">
+      <template #icons>
+        <button
           v-if="!isMachine"
-          :model-value="store.difficulty"
-          :options="difficulties"
-          label="难度"
-          @update:model-value="setDifficulty"
-        />
-        <Button v-if="touch" size="sm" @click="canvas?.toggleEditMode()">
-          <svg class="gear" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-            <circle cx="16" cy="7" r="2.5" fill="currentColor" />
-            <circle cx="10" cy="12" r="2.5" fill="currentColor" />
-            <circle cx="14" cy="17" r="2.5" fill="currentColor" />
-          </svg>
-          <span>{{ editing ? '完成' : '摇杆' }}</span>
-        </Button>
-      </SideDock>
+          class="icon-btn jelly"
+          type="button"
+          :title="`难度：${store.difficulty}`"
+          @click="cycleDifficulty"
+        >
+          🎯
+        </button>
+        <button
+          v-if="touch"
+          class="icon-btn jelly"
+          type="button"
+          title="摇杆布局"
+          @click="canvas?.toggleEditMode()"
+        >
+          🕹
+        </button>
+      </template>
 
-      <div class="stage">
+      <template #dock>
+        <SideDock>
+          <SegmentedChoice
+            :model-value="store.practice"
+            :options="practices"
+            label="模式"
+            @update:model-value="setPractice"
+          />
+          <SegmentedChoice
+            v-if="!isMachine"
+            :model-value="store.difficulty"
+            :options="difficulties"
+            label="难度"
+            @update:model-value="setDifficulty"
+          />
+          <Button v-if="touch" size="sm" block @click="canvas?.toggleEditMode()">
+            {{ editing ? '完成' : '摇杆布局' }}
+          </Button>
+          <div v-if="hud?.machine" class="dock-num">
+            连击 <b class="ui-num">{{ hud.machine.streak }}</b>
+            · 最高 <b class="ui-num">{{ hud.machine.best }}</b>
+          </div>
+        </SideDock>
+      </template>
+
+      <template #stage>
         <GameCanvas
           :key="canvasKey"
           ref="canvas"
@@ -163,30 +181,27 @@ onBeforeUnmount(() => {
           @editmode="editing = $event"
           @themechange="customize.theme = $event"
         />
-      </div>
+      </template>
 
-      <ScoreLine>
-        <div v-if="hud?.machine" class="muted">
-          连击 <b class="num" style="color: var(--accent)">{{ hud.machine.streak }}</b>
-          &nbsp;·&nbsp; 最高
-          <b class="num" style="color: var(--accent-2)">{{ hud.machine.best }}</b>
-          &nbsp;·&nbsp; 接球 {{ hud.machine.returns }} / 失误 {{ hud.machine.misses }}
-        </div>
-        <div v-else class="muted">
-          比分 <b class="num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
-          :
-          <b class="num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
-          &nbsp;·&nbsp; 先到 11 分获胜
-        </div>
-      </ScoreLine>
-    </div>
+      <template #foot>
+        <template v-if="hud?.machine">
+          连击 <b class="ui-num" style="color: var(--accent)">{{ hud.machine.streak }}</b>
+          · 最高 <b class="ui-num" style="color: var(--accent-2)">{{ hud.machine.best }}</b>
+          · 接球 {{ hud.machine.returns }} / 失误 {{ hud.machine.misses }}
+        </template>
+        <template v-else>
+          比分 <b class="ui-num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
+          : <b class="ui-num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
+          · 先到 11 分获胜
+        </template>
+      </template>
+    </PageShell>
   </div>
 </template>
 
 <style scoped>
-.gear {
-  width: 17px;
-  height: 17px;
-  margin-right: 6px;
+.dock-num {
+  font-size: var(--ui-font-xs);
+  color: var(--text-dim);
 }
 </style>

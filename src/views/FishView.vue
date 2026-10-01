@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import TopBar from '../components/ui/TopBar.vue';
+import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
 import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
@@ -163,43 +163,70 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page page--playing">
-    <div class="shell">
-      <TopBar collapsible @back="back">
-        <template #title>钓鱼塘</template>
-      </TopBar>
+    <PageShell title="钓鱼塘" back @back="back">
+      <template #icons>
+        <button
+          class="icon-btn jelly"
+          type="button"
+          :title="`卖鱼 ¥${basket.value}`"
+          @click="sell"
+        >
+          💰
+        </button>
+        <button
+          v-if="!rodMaxed"
+          class="icon-btn jelly"
+          type="button"
+          title="鱼竿升级"
+          @click="upgradeRod"
+        >
+          🎣
+        </button>
+        <button v-if="touch" class="icon-btn jelly" type="button" title="摇杆布局" @click="toggleEdit">
+          🕹
+        </button>
+      </template>
 
-      <SideDock>
-        <StatusChip :tone="roomCode ? 'ok' : 'idle'">
-          {{ roomCode ? `房间 ${roomCode}` : '单机' }}
-        </StatusChip>
-        <Button size="sm" variant="primary" @click="sell">
-          卖鱼 ¥{{ basket.value }}
-        </Button>
-        <Button v-if="!rodMaxed" size="sm" :disabled="progress.coins < nextRodCost" @click="upgradeRod">
-          鱼竿升级 ¥{{ nextRodCost }}
-        </Button>
-        <span v-else class="muted">鱼竿已满级</span>
-        <span v-if="phase" class="muted">{{ phase }}</span>
-        <template v-if="!roomCode">
-          <input
-            v-model="joinCode"
-            class="fish-code"
-            maxlength="6"
-            placeholder="房号"
-            @keyup.enter="join"
-          />
-          <Button size="sm" :disabled="waiting" @click="host">建房</Button>
-          <Button size="sm" :disabled="waiting" @click="join">加入</Button>
-        </template>
-        <Button v-if="touch" size="sm" @click="toggleEdit">
-          {{ editing ? '完成' : '摇杆' }}
-        </Button>
-      </SideDock>
+      <template #dock>
+        <SideDock>
+          <StatusChip :tone="roomCode ? 'ok' : 'idle'">
+            {{ roomCode ? `房间 ${roomCode}` : '单机' }}
+          </StatusChip>
+          <Button size="sm" variant="primary" block @click="sell">
+            卖鱼 ¥{{ basket.value }}
+          </Button>
+          <Button
+            v-if="!rodMaxed"
+            size="sm"
+            block
+            :disabled="progress.coins < nextRodCost"
+            @click="upgradeRod"
+          >
+            鱼竿升级 ¥{{ nextRodCost }}
+          </Button>
+          <span v-else class="dock-note">鱼竿已满级</span>
+          <span v-if="phase" class="dock-note">{{ phase }}</span>
+          <template v-if="!roomCode">
+            <input
+              v-model="joinCode"
+              class="ui-input"
+              maxlength="6"
+              placeholder="房号"
+              @keyup.enter="join"
+            />
+            <Button size="sm" block :disabled="waiting" @click="host">建房</Button>
+            <Button size="sm" block :disabled="waiting" @click="join">加入</Button>
+          </template>
+          <Button v-if="touch" size="sm" block @click="toggleEdit">
+            {{ editing ? '完成' : '摇杆布局' }}
+          </Button>
+        </SideDock>
+      </template>
 
-      <div class="stage">
+      <template #stage>
         <div ref="container" class="fish-canvas" />
-      </div>
-    </div>
+      </template>
+    </PageShell>
   </div>
 </template>
 
@@ -220,16 +247,9 @@ onBeforeUnmount(() => {
   height: 100% !important;
 }
 
-.fish-code {
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--text);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  font-weight: 600;
-  text-align: center;
+.dock-note {
+  margin: 0;
+  font-size: var(--ui-font-xs);
+  color: var(--text-dim);
 }
 </style>

@@ -1,8 +1,8 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import { PLAYER_H, SHOULDER_DX, SHOULDER_DY } from '../constants';
 import type { Cosmetic } from '../cosmetics';
 import { FONT_EMOJI, P } from '../theme';
-import { drawCharacter } from './character';
+import { drawCharacter, type FaceSink } from './character';
 import { drawRacketHead, racketFrameColor } from './racket';
 
 /**
@@ -50,51 +50,70 @@ export function createPlayerRig(scene: Phaser.Scene): PlayerRig {
 
   return {
     face,
-    draw(g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0) {
-      const shoulder = {
-        x: pose.x + pose.facing * SHOULDER_DX,
-        y: pose.feetY - PLAYER_H * SHOULDER_DY,
-      };
-      const head = { x: shoulder.x + rx, y: shoulder.y + ry };
-      const ang = Math.atan2(head.y - shoulder.y, head.x - shoulder.x);
-
-      // swing trail arc, same thresholds as the match
-      const hot = Math.min(1, swingSpeed / 1400);
-      if (hot > 0.08) {
-        const reach = Math.hypot(head.x - shoulder.x, head.y - shoulder.y);
-        g.lineStyle(6 + 10 * hot, cos.trail, 0.18 + 0.3 * hot);
-        g.beginPath();
-        g.arc(shoulder.x, shoulder.y, reach, ang - 0.55, ang, false, 0);
-        g.strokePath();
-      }
-
-      drawCharacter(g, now, cos, {
-        x: pose.x,
-        feetY: pose.feetY,
-        facing: pose.facing,
-        color: pose.color,
-      }, { face });
-
-      // arm from shoulder to just behind the racket head
-      const hx = head.x - Math.cos(ang) * 12;
-      const hy = head.y - Math.sin(ang) * 12;
-      g.lineStyle(6, P.skin, 1);
-      g.lineBetween(shoulder.x, shoulder.y, hx, hy);
-
-      const skin = cos.racketSkin;
-      const frameColor = racketFrameColor(skin, cos.racket);
-      g.save();
-      g.translateCanvas(head.x, head.y);
-      g.rotateCanvas(ang);
-      drawRacketHead(g, now, skin, frameColor);
-      g.restore();
-
-      if (contactR > 0 && hot > 0.15) {
-        g.lineStyle(2, frameColor, 0.12 + 0.28 * hot);
-        g.strokeCircle(head.x, head.y, contactR);
-      }
-
-      return { shoulder, head, ang };
-    },
+    draw: (g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0) =>
+      drawRigGraphics(g, now, cos, pose, rx, ry, swingSpeed, contactR, face),
   };
+}
+
+/**
+ * The rig's graphics only — no Phaser scene needed, so non-Phaser renderers
+ * (e.g. the world map's plain `<canvas>`, see `canvas2d.ts`) can reuse the exact
+ * same arm/racket/character drawing. `face` is the object that receives the
+ * emoji text; pass `null` to let the body's own face circle show instead.
+ */
+export function drawRigGraphics(
+  g: Phaser.GameObjects.Graphics,
+  now: number,
+  cos: Cosmetic,
+  pose: RigPose,
+  rx: number,
+  ry: number,
+  swingSpeed = 0,
+  contactR = 0,
+  face: FaceSink | null = null,
+): { shoulder: { x: number; y: number }; head: { x: number; y: number }; ang: number } {
+  const shoulder = {
+    x: pose.x + pose.facing * SHOULDER_DX,
+    y: pose.feetY - PLAYER_H * SHOULDER_DY,
+  };
+  const head = { x: shoulder.x + rx, y: shoulder.y + ry };
+  const ang = Math.atan2(head.y - shoulder.y, head.x - shoulder.x);
+
+  // swing trail arc, same thresholds as the match
+  const hot = Math.min(1, swingSpeed / 1400);
+  if (hot > 0.08) {
+    const reach = Math.hypot(head.x - shoulder.x, head.y - shoulder.y);
+    g.lineStyle(6 + 10 * hot, cos.trail, 0.18 + 0.3 * hot);
+    g.beginPath();
+    g.arc(shoulder.x, shoulder.y, reach, ang - 0.55, ang, false, 0);
+    g.strokePath();
+  }
+
+  drawCharacter(g, now, cos, {
+    x: pose.x,
+    feetY: pose.feetY,
+    facing: pose.facing,
+    color: pose.color,
+  }, { face });
+
+  // arm from shoulder to just behind the racket head
+  const hx = head.x - Math.cos(ang) * 12;
+  const hy = head.y - Math.sin(ang) * 12;
+  g.lineStyle(6, P.skin, 1);
+  g.lineBetween(shoulder.x, shoulder.y, hx, hy);
+
+  const skin = cos.racketSkin;
+  const frameColor = racketFrameColor(skin, cos.racket);
+  g.save();
+  g.translateCanvas(head.x, head.y);
+  g.rotateCanvas(ang);
+  drawRacketHead(g, now, skin, frameColor);
+  g.restore();
+
+  if (contactR > 0 && hot > 0.15) {
+    g.lineStyle(2, frameColor, 0.12 + 0.28 * hot);
+    g.strokeCircle(head.x, head.y, contactR);
+  }
+
+  return { shoulder, head, ang };
 }
