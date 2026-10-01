@@ -15,10 +15,12 @@ import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
 import { isTouchDevice } from '../game/device';
 import { useCustomizeStore } from '../stores/customize';
+import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 
 const router = useRouter();
 const customize = useCustomizeStore();
+const lobby = useLobbyStore();
 const progress = useProgressStore();
 const container = ref<HTMLDivElement | null>(null);
 let game: Phaser.Game | null = null;
@@ -79,12 +81,17 @@ function host() {
   sfx.click();
   waiting.value = true;
   phase.value = '正在建房…';
-  hostOpen({
-    onPhase: (p) => (phase.value = p),
-    onDisconnected: () => (phase.value = '对方已离开'),
-  })
+  hostOpen(
+    {
+      onPhase: (p) => (phase.value = p),
+      onDisconnected: () => (phase.value = '对方已离开'),
+    },
+    // 复用「一间房」：换玩法页不换房号
+    lobby.room,
+  )
     .then(async (room) => {
       roomCode.value = room.code;
+      lobby.setRoom(room.code, 'host');
       phase.value = `房间 ${room.code}，等待矿友加入…`;
       link = await room.connected;
       phase.value = '矿友已加入！';
@@ -109,6 +116,7 @@ function join() {
   joinMatch(code, { onPhase: (p) => (phase.value = p) })
     .then((m) => {
       link = m.link;
+      lobby.setRoom(code, 'guest');
       phase.value = '已加入！';
       waiting.value = false;
       boot(link);

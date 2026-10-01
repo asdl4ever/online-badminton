@@ -2,9 +2,15 @@
 import { ref } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
 import { dockOpen, toggleDock } from '../../composables/useDock';
+import type { InviteKind } from '../../net/lobby';
 import AppModal from './AppModal.vue';
 import SettingsPanel from '../SettingsPanel.vue';
 import ProfilePanel from '../ProfilePanel.vue';
+import RankPanel from '../RankPanel.vue';
+import BackpackPanel from '../BackpackPanel.vue';
+import ChestPanel from '../ChestPanel.vue';
+import FriendsPanel from '../FriendsPanel.vue';
+import AchievementsPanel from '../AchievementsPanel.vue';
 
 /**
  * 所有对局页共用的外壳：**没有顶栏**——
@@ -22,8 +28,16 @@ withDefaults(
     title?: string;
     /** 左上角是否显示退出按钮 */
     back?: boolean;
+    /**
+     * 右上角那排「段位 / 背包 / 宝箱 / 宠物蛋 / 好友 / 成就」是外壳统一内置的，
+     * 任何页面都和大世界一模一样。只有「好友」面板要看场景：邀请发出去该落在哪个页面。
+     */
+    friendsKind?: InviteKind;
+    /** 当前房间号（有房间时好友面板才能邀请） */
+    friendsCode?: string;
+    friendsCanInvite?: boolean;
   }>(),
-  { title: '', back: false },
+  { title: '', back: false, friendsKind: 'match', friendsCode: '', friendsCanInvite: false },
 );
 
 const emit = defineEmits<{ back: [] }>();
@@ -34,6 +48,22 @@ const iconsOpen = useLocalStorage('bmt-ui-icons-open', true);
 const settingsOpen = ref(false);
 /** 右上角的个人主页弹窗（角色 / 段位 / 收藏进度） */
 const profileOpen = ref(false);
+/** 每个页面都有的那几个面板：达成/收藏/成长相关 */
+const showAch = ref(false);
+const showRank = ref(false);
+const showBag = ref(false);
+const showChest = ref(false);
+const showFriends = ref(false);
+
+/**
+ * 页面自己的按钮（比如大世界坞里的「邀请好友」）想打开外壳内置的面板时，
+ * 通过模板 ref 调这几个方法，避免每页再各做一套。
+ */
+defineExpose({
+  openFriends: () => (showFriends.value = true),
+  openAchievements: () => (showAch.value = true),
+  openBackpack: () => (showBag.value = true),
+});
 </script>
 
 <template>
@@ -102,6 +132,25 @@ const profileOpen = ref(false);
           >
             个人主页
           </button>
+
+          <!-- 下面这一组所有页面完全一致（和大世界一样） -->
+          <button class="icon-btn jelly" type="button" title="成就" @click="showAch = true">
+            成就
+          </button>
+          <button class="icon-btn jelly" type="button" title="段位与奖励" @click="showRank = true">
+            段位
+          </button>
+          <button class="icon-btn jelly" type="button" title="背包与收藏" @click="showBag = true">
+            背包
+          </button>
+          <button class="icon-btn jelly" type="button" title="宝箱" @click="showChest = true">
+            宝箱
+          </button>
+          <!-- 宠物蛋不在这一行了：它搬到了大地图上的「孵化屋」（/egg） -->
+          <button class="icon-btn jelly" type="button" title="好友" @click="showFriends = true">
+            好友
+          </button>
+
           <slot name="icons" />
           <button class="icon-btn jelly" type="button" title="设置 / 兑换码" @click="settingsOpen = true">
             设置
@@ -128,6 +177,27 @@ const profileOpen = ref(false);
 
     <AppModal v-model="profileOpen" title="个人主页" max-width="620px">
       <ProfilePanel />
+    </AppModal>
+
+    <!-- 每个页面都有的面板（大世界同款） -->
+    <AppModal v-model="showAch" title="成就" max-width="640px">
+      <AchievementsPanel />
+    </AppModal>
+    <AppModal v-model="showRank" title="段位" max-width="600px">
+      <RankPanel />
+    </AppModal>
+    <AppModal v-model="showBag" title="背包" max-width="760px">
+      <BackpackPanel />
+    </AppModal>
+    <AppModal v-model="showChest" title="宝箱" max-width="540px">
+      <ChestPanel />
+    </AppModal>
+    <AppModal v-model="showFriends" title="好友" max-width="720px">
+      <FriendsPanel
+        :kind="friendsKind"
+        :room-code="friendsCode"
+        :can-invite="friendsCanInvite"
+      />
     </AppModal>
   </div>
 </template>

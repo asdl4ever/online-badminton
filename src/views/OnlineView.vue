@@ -115,8 +115,9 @@ async function createRoom() {
   store.role = 'host';
   store.connState = 'creating';
   try {
-    const room = await hostOpen(hooks);
+    const room = await hostOpen(hooks, lobby.room);
     store.roomCode = room.code;
+    lobby.setRoom(room.code, 'host');
     store.connState = 'waiting';
     const link = await room.connected;
     if (leaving.value) return;
@@ -147,6 +148,7 @@ async function joinRoom() {
   try {
     const { link, code: actual } = await joinMatch(code, hooks);
     store.roomCode = actual;
+    lobby.setRoom(actual, 'guest');
     adopt(link);
   } catch (err) {
     if (leaving.value) return;
@@ -226,7 +228,15 @@ onBeforeUnmount(() => {
 <template>
   <div class="page" :class="{ 'page--playing': playing }">
     <!-- 对局：统一外壳（顶栏 + 铺满画面 + 右上图标行 + 右侧坞 + 底部比分行） -->
-    <PageShell v-if="playing" title="联机对战" back @back="back">
+    <PageShell
+      v-if="playing"
+      title="联机对战"
+      back
+      friends-kind="match"
+      :friends-code="store.roomCode"
+      :friends-can-invite="waiting"
+      @back="back"
+    >
       <template #icons>
         <button class="icon-btn jelly" type="button" title="发一个表情" @click="emoteOpen = !emoteOpen">
           表情
@@ -300,73 +310,73 @@ onBeforeUnmount(() => {
         乐趣模式已开启：一局 3 轮，每轮开始前投票选玩法
       </div>
 
-      <template>
-        <Panel v-if="waiting" style="text-align: center">
-          <p class="muted">把下面这串房间号发给你的对手</p>
+      <!-- 注意：这里不要用裸 `<template>` 当包裹层——它会被编译成原生 <template> 元素，
+           浏览器不会渲染它的内容，整个大厅卡片就会「存在但看不见」。直接平铺兄弟节点。 -->
+      <Panel v-if="waiting" style="text-align: center">
+        <p class="muted">把下面这串房间号发给你的对手</p>
 
-          <div class="code">
-            <span class="code__value num">{{ store.roomCode }}</span>
-            <Button variant="primary" :disabled="!clipboardSupported" @click="copyCode">
-              {{ copied ? '已复制' : '复制' }}
-            </Button>
+        <div class="code">
+          <span class="code__value num">{{ store.roomCode }}</span>
+          <Button variant="primary" :disabled="!clipboardSupported" @click="copyCode">
+            {{ copied ? '已复制' : '复制' }}
+          </Button>
+        </div>
+
+        <div class="waiting">
+          <VProgressCircular indeterminate size="18" width="2" color="primary" />
+          <span class="muted">{{ phaseText }}</span>
+          <span class="muted num">{{ waited }}s</span>
+        </div>
+
+        <p class="muted" style="margin-top: var(--s3); font-size: 13px">
+          已开放通道：{{ store.session?.kind ?? '—' }} · 对手直连不上时会自动走中继
+        </p>
+      </Panel>
+
+      <Panel
+        v-else-if="store.connState === 'creating' || store.connState === 'connecting'"
+        style="text-align: center"
+      >
+        <VProgressCircular indeterminate size="24" width="2" color="primary" />
+        <p class="muted" style="margin-top: var(--s4)">{{ phaseText || '正在连接…' }}</p>
+        <p v-if="store.netStatus?.note" class="muted" style="margin-top: var(--s2); color: var(--warn)">
+          {{ store.netStatus.note }}
+        </p>
+      </Panel>
+
+      <Panel v-else>
+        <div class="lobby">
+          <div class="lobby__col">
+            <h3>创建房间</h3>
+            <p class="muted">生成一个房间号，等对手加入。</p>
+            <Button variant="primary" :disabled="busy" @click="createRoom">创建房间</Button>
           </div>
 
-          <div class="waiting">
-            <VProgressCircular indeterminate size="18" width="2" color="primary" />
-            <span class="muted">{{ phaseText }}</span>
-            <span class="muted num">{{ waited }}s</span>
-          </div>
+          <div class="lobby__rule" />
 
-          <p class="muted" style="margin-top: var(--s3); font-size: 13px">
-            已开放通道：{{ store.session?.kind ?? '—' }} · 对手直连不上时会自动走中继
-          </p>
-        </Panel>
-
-        <Panel
-          v-else-if="store.connState === 'creating' || store.connState === 'connecting'"
-          style="text-align: center"
-        >
-          <VProgressCircular indeterminate size="24" width="2" color="primary" />
-          <p class="muted" style="margin-top: var(--s4)">{{ phaseText || '正在连接…' }}</p>
-          <p v-if="store.netStatus?.note" class="muted" style="margin-top: var(--s2); color: var(--warn)">
-            {{ store.netStatus.note }}
-          </p>
-        </Panel>
-
-        <Panel v-else>
-          <div class="lobby">
-            <div class="lobby__col">
-              <h3>创建房间</h3>
-              <p class="muted">生成一个房间号，等对手加入。</p>
-              <Button variant="primary" :disabled="busy" @click="createRoom">创建房间</Button>
+          <div class="lobby__col">
+            <h3>加入房间</h3>
+            <p class="muted">输入对手给你的房间号。</p>
+            <div class="join-row">
+              <VTextField
+                v-model="joinCode"
+                class="soft-field"
+                placeholder="例如 7K3QM"
+                maxlength="8"
+                @keyup.enter="joinRoom"
+              />
+              <Button :disabled="busy" @click="joinRoom">加入</Button>
             </div>
-
-            <div class="lobby__rule" />
-
-            <div class="lobby__col">
-              <h3>加入房间</h3>
-              <p class="muted">输入对手给你的房间号。</p>
-              <div class="join-row">
-                <VTextField
-                  v-model="joinCode"
-                  class="soft-field"
-                  placeholder="例如 7K3QM"
-                  maxlength="8"
-                  @keyup.enter="joinRoom"
-                />
-                <Button :disabled="busy" @click="joinRoom">加入</Button>
-              </div>
-            </div>
           </div>
+        </div>
 
-          <p v-if="store.netError" class="alert alert--warn">{{ store.netError }}</p>
-          <p v-if="notice" class="alert alert--warn">{{ notice }}</p>
+        <p v-if="store.netError" class="alert alert--warn">{{ store.netError }}</p>
+        <p v-if="notice" class="alert alert--warn">{{ notice }}</p>
 
-          <p class="muted" style="margin-top: var(--s5)">
-            会先尝试 WebRTC 点对点直连（延迟更低）；如果双方网络打不通，自动切换到本服务器的 WebSocket 中继。
-          </p>
-        </Panel>
-      </template>
+        <p class="muted" style="margin-top: var(--s5)">
+          会先尝试 WebRTC 点对点直连（延迟更低）；如果双方网络打不通，自动切换到本服务器的 WebSocket 中继。
+        </p>
+      </Panel>
     </div>
 
     <AppModal v-model="friendsOpen" title="邀请好友" max-width="560px">

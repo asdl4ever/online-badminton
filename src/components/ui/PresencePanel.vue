@@ -63,7 +63,9 @@ const hidden = useLocalStorage('bmt-presence-hidden', false);
         </div>
       </div>
 
-      <p v-if="!players.length" class="presence__empty">房间里还没有别人</p>
+      <p v-if="!players.length" class="presence__empty">
+        还没有好友在线 · 在左上角「模式设置」或右上角「好友」里加上好友，他们一上线就会出现在这里
+      </p>
     </div>
   </aside>
 

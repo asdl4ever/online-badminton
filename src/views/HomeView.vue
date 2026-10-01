@@ -10,7 +10,7 @@ import SettingsPanel from '../components/SettingsPanel.vue';
 import ProfilePanel from '../components/ProfilePanel.vue';
 import BackpackPanel from '../components/BackpackPanel.vue';
 import ChestPanel from '../components/ChestPanel.vue';
-import PetEggPanel from '../components/PetEggPanel.vue';
+import AchievementsPanel from '../components/AchievementsPanel.vue';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 import { sfx } from '../game/audio';
@@ -23,9 +23,9 @@ const showFriends = ref(false);
 const showRank = ref(false);
 const showBag = ref(false);
 const showChest = ref(false);
-const showEgg = ref(false);
 const showSettings = ref(false);
 const showProfile = ref(false);
+const showAch = ref(false);
 /** the little tool icons live behind a toggle to the right of the main buttons */
 const toolsOpen = ref(false);
 
@@ -62,13 +62,15 @@ function goParty() {
   void router.push({ path: '/online', query: { party: '1' } });
 }
 
-function open(which: 'friends' | 'rank' | 'bag' | 'chest' | 'egg' | 'settings' | 'profile') {
+function open(
+  which: 'friends' | 'rank' | 'bag' | 'chest' | 'settings' | 'profile' | 'ach',
+) {
   sfx.unlock();
   sfx.click();
-  if (which === 'friends') showFriends.value = true;
+  if (which === 'ach') showAch.value = true;
+  else if (which === 'friends') showFriends.value = true;
   else if (which === 'bag') showBag.value = true;
   else if (which === 'chest') showChest.value = true;
-  else if (which === 'egg') showEgg.value = true;
   else if (which === 'settings') showSettings.value = true;
   else if (which === 'profile') showProfile.value = true;
   else showRank.value = true;
@@ -169,6 +171,21 @@ function open(which: 'friends' | 'rank' | 'bag' | 'chest' | 'egg' | 'settings' |
                   <span>个人主页</span>
                 </button>
 
+                <button class="tool" type="button" title="成就" @click="open('ach')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="14.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+                    <path
+                      d="M8.5 9.5 6 3h12l-2.5 6.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <span>成就</span>
+                  <span class="tool__badge">{{ progress.achDoneCount }}</span>
+                </button>
+
                 <button class="tool" type="button" title="段位" @click="open('rank')">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
@@ -233,7 +250,8 @@ function open(which: 'friends' | 'rank' | 'bag' | 'chest' | 'egg' | 'settings' |
                   <span v-if="progress.tenTickets > 0" class="tool__badge">礼</span>
                 </button>
 
-                <button class="tool" type="button" title="宠物蛋" @click="open('egg')">
+                <!-- 宠物蛋搬去大地图上的「孵化屋」了，这里只做一个指路入口 -->
+                <button class="tool" type="button" title="孵化屋（宠物蛋）" @click="go('/egg')">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
                       d="M12 3c3.3 0 6 4.4 6 8.6A6 6 0 0 1 6 11.6C6 7.4 8.7 3 12 3z"
@@ -251,7 +269,7 @@ function open(which: 'friends' | 'rank' | 'bag' | 'chest' | 'egg' | 'settings' |
                       stroke-linejoin="round"
                     />
                   </svg>
-                  <span>宠物蛋</span>
+                  <span>孵化屋</span>
                 </button>
 
                 <button class="tool" type="button" title="好友" @click="open('friends')">
@@ -324,6 +342,10 @@ function open(which: 'friends' | 'rank' | 'bag' | 'chest' | 'egg' | 'settings' |
       </Panel>
     </div>
 
+    <AppModal v-model="showAch" title="成就" max-width="640px">
+      <AchievementsPanel />
+    </AppModal>
+
     <AppModal v-model="showRank" title="段位" max-width="600px">
       <RankPanel />
     </AppModal>
@@ -334,10 +356,6 @@ function open(which: 'friends' | 'rank' | 'bag' | 'chest' | 'egg' | 'settings' |
 
     <AppModal v-model="showChest" title="宝箱" max-width="540px">
       <ChestPanel />
-    </AppModal>
-
-    <AppModal v-model="showEgg" title="宠物蛋" max-width="480px">
-      <PetEggPanel />
     </AppModal>
 
     <AppModal v-model="showFriends" title="好友" max-width="720px">

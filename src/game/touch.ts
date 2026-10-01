@@ -77,6 +77,9 @@ export interface TouchReadout {
   left: boolean;
   right: boolean;
   jump: boolean;
+  /** 左摇杆的纵向：潜水这类需要上下自由移动的玩法用（上 = 上浮） */
+  up: boolean;
+  down: boolean;
 }
 
 type DragMode = 'pos' | 'size';
@@ -117,6 +120,7 @@ export class TouchControls {
   private movePointer = -1;
   private racketPointer = -1;
   private moveX = 0;
+  private moveY = 0;
   private jumpQueued = false;
   private jumpArmed = true;
   /** knob is currently inside the jump wedge — drives the highlight */
@@ -187,11 +191,15 @@ export class TouchControls {
   read(): TouchReadout {
     const jump = this.jumpQueued;
     this.jumpQueued = false;
-    if (this.editing) return { left: false, right: false, jump: false };
+    if (this.editing) {
+      return { left: false, right: false, jump: false, up: false, down: false };
+    }
     return {
       left: this.moveX < -DEADZONE,
       right: this.moveX > DEADZONE,
       jump,
+      up: this.moveY < -DEADZONE,
+      down: this.moveY > DEADZONE,
     };
   }
 
@@ -353,6 +361,7 @@ export class TouchControls {
     const s = this.stick('move');
     const v = this.vector(s, pointer.x, pointer.y);
     this.moveX = v.x;
+    this.moveY = v.y;
     const max = this.maxTravel(s);
     this.knob.move.x = v.x * max;
     this.knob.move.y = v.y * max;

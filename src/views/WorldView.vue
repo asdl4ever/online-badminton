@@ -7,14 +7,9 @@ import Joystick from '../components/ui/Joystick.vue';
 import PresencePanel from '../components/ui/PresencePanel.vue';
 import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
-import AppModal from '../components/ui/AppModal.vue';
-import RankPanel from '../components/RankPanel.vue';
-import BackpackPanel from '../components/BackpackPanel.vue';
-import ChestPanel from '../components/ChestPanel.vue';
-import PetEggPanel from '../components/PetEggPanel.vue';
-import FriendsPanel from '../components/FriendsPanel.vue';
 import type { PresencePlayer } from '../stores/presence';
 import { WORLD_H, WORLD_W, WORLD_ZONES, ZONE_RADIUS, type WorldZone } from '../game/world/zones';
+import { SCENE_KIND, sceneMeta } from '../game/scenes';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
 import { P } from '../game/theme';
 import { sfx } from '../game/audio';
@@ -69,17 +64,7 @@ function paintPeer(now: number): void {
   });
 }
 
-/** 左侧列表：好友就在旁边，不需要"申请加入/观战" */
-watch(
-  () => mapPeer.value?.name ?? '',
-  (name) => {
-    presence.populate(
-      name
-        ? [{ id: 'map-peer', name, mode: '', icon: '🧭', joinable: false, nearby: true }]
-        : [],
-    );
-  },
-);
+/* 左侧在线列表由大厅推送（App.vue 里汇总进 presence），这里不再自己塞数据 */
 
 /** 接受好友的地图邀请后，直接进他的营地 */
 watch(
@@ -107,11 +92,8 @@ const nearZone = ref<WorldZone | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
 
-const showRank = ref(false);
-const showBag = ref(false);
-const showChest = ref(false);
-const showEgg = ref(false);
-const showFriends = ref(false);
+/** 段位/背包/宝箱/宠物蛋/好友/成就都由 PageShell 内置，这里只留一个引用去调它的方法 */
+const shell = ref<{ openFriends: () => void } | null>(null);
 
 /** 在线玩家列表：联机时由 presence store 填充，单机为空 */
 const players = computed<PresencePlayer[]>(() => presence.players);
@@ -221,10 +203,23 @@ function onKeyUp(e: KeyboardEvent): void {
 }
 
 /* --- 在线玩家：申请加入 / 观战 ------------------------------------------- */
+/**
+ * 「申请加入」= 直接用他的房号进他那一局：跳到他所在的页面，房号交给那个页面
+ * （页面自己的 join 流程会消费它），之后他就是房主、我跟着他走。
+ */
 function join(p: PresencePlayer): void {
   sfx.click();
-  presence.requestJoin(p.id);
-  toastGood(`已向 ${p.name} 发送加入申请，等对方同意`);
+  if (!p.room || !p.scene || !SCENE_KIND[p.scene]) {
+    toastWarn(`${p.name} 还没开房：让他先「建房」再邀请你`);
+    return;
+  }
+  if (!lobby.requestJoin(p.id)) {
+    toastWarn(`${p.name} 的房间暂时进不去`);
+    return;
+  }
+  const meta = sceneMeta(p.scene);
+  toastGood(`加入 ${p.name} · ${meta.label}`);
+  void router.push(meta.route);
 }
 
 function spectate(p: PresencePlayer): void {
@@ -275,15 +270,15 @@ onBeforeUnmount(() => {
 <template>
   <!-- 整页固定高度、不滚动：地图平面靠外壳的主区域撑开 -->
   <div class="page page--playing">
-    <PageShell title="大世界 · 营地" back @back="router.push('/home')">
-    <template #icons>
-      <button class="icon-btn jelly" type="button" title="段位与奖励" @click="showRank = true">段位</button>
-      <button class="icon-btn jelly" type="button" title="背包" @click="showBag = true">背包</button>
-      <button class="icon-btn jelly" type="button" title="宝箱" @click="showChest = true">宝箱</button>
-      <button class="icon-btn jelly" type="button" title="宠物蛋" @click="showEgg = true">宠物蛋</button>
-      <button class="icon-btn jelly" type="button" title="好友与邀请" @click="showFriends = true">好友</button>
-    </template>
-
+    <PageShell
+      ref="shell"
+      title="大世界 · 营地"
+      back
+      friends-kind="map"
+      :friends-code="mapCode"
+      :friends-can-invite="!!mapCode"
+      @back="router.push('/home')"
+    >
     <template #dock>
       <SideDock>
         <span class="presence__mode">🪙 {{ progress.coins }}</span>
@@ -295,7 +290,7 @@ onBeforeUnmount(() => {
         <Button v-if="!mapCode && mapConn === 'off'" size="sm" block :disabled="mapWaiting" @click="map.host()">
           建房一起逛
         </Button>
-        <Button v-if="mapCode" size="sm" block @click="showFriends = true">邀请好友</Button>
+        <Button v-if="mapCode" size="sm" block @click="shell?.openFriends()">邀请好友</Button>
 
         <!-- 客人：输房号直接进 -->
         <template v-if="!mapCode && mapConn === 'off'">
@@ -388,14 +383,6 @@ onBeforeUnmount(() => {
       </div>
     </template>
   </PageShell>
-
-  <AppModal v-model="showRank" title="段位" max-width="600px"><RankPanel /></AppModal>
-  <AppModal v-model="showBag" title="背包" max-width="760px"><BackpackPanel /></AppModal>
-  <AppModal v-model="showChest" title="宝箱" max-width="540px"><ChestPanel /></AppModal>
-  <AppModal v-model="showEgg" title="宠物蛋" max-width="480px"><PetEggPanel /></AppModal>
-  <AppModal v-model="showFriends" title="好友" max-width="720px">
-    <FriendsPanel kind="map" :room-code="mapCode" :can-invite="!!mapCode" />
-  </AppModal>
   </div>
 </template>
 

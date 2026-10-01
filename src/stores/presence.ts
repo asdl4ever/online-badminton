@@ -2,11 +2,11 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
 /**
- * 大厅/大地图上的“谁在线、在玩什么”。
+ * 左侧「在线玩家」列表。
  *
- * 目前只有本地状态：单机时列表为空，联机时由联机页写入自己看到的玩家。
- * 跨客户端的实时同步（邀请进地图 / 申请加入要对方同意）需要一条大厅通道，
- * 这一步还没接——界面与状态机已经就位，接上网络只需要 populate() 与新消息类型。
+ * 数据来源是大厅（`stores/lobby.ts`）：好友谁在线、在哪个界面、房间号是多少，
+ * 全由服务端推送的 state 汇总而来（见 `App.vue` 里的 watchEffect），
+ * 所以「好友在玩什么」在每一个页面上都是实时的。
  */
 export interface PresencePlayer {
   id: string;
@@ -14,7 +14,7 @@ export interface PresencePlayer {
   /** 正在玩的模式名（空 = 站在地图上） */
   mode: string;
   icon: string;
-  /** 隐私房不可加入 */
+  /** 有房号、且那个界面能联机一起玩 → 可以直接加入 */
   joinable: boolean;
   /** 已发出申请，等对方同意 */
   pending: boolean;
@@ -22,6 +22,10 @@ export interface PresencePlayer {
   joined: boolean;
   /** 已经和你站在同一张地图上（不需要申请加入 / 观战） */
   nearby?: boolean;
+  /** 他的房间号（能加入时用它直接进房） */
+  room?: string;
+  /** 他在哪个界面（决定「加入」要跳到哪一页） */
+  scene?: import('../net/lobby').SceneId;
 }
 
 export const usePresenceStore = defineStore('presence', () => {
@@ -31,7 +35,7 @@ export const usePresenceStore = defineStore('presence', () => {
 
   const hasPlayers = computed(() => players.value.length > 0);
 
-  /** 联机页拿到对手信息后调用，把自己看到的玩家写进列表 */
+  /** 由大厅数据汇总出列表（App.vue 里 watchEffect 调它），保留本地申请/已加入状态 */
   function populate(list: Omit<PresencePlayer, 'pending' | 'joined'>[]): void {
     players.value = list.map((p) => {
       const prev = players.value.find((x) => x.id === p.id);

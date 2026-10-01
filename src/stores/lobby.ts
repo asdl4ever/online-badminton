@@ -1,8 +1,15 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
-import { LobbyClient, type InviteKind, type LobbyConnState } from '../net/lobby';
+import {
+  LobbyClient,
+  type InviteKind,
+  type LobbyConnState,
+  type PeerState,
+  type SceneId,
+} from '../net/lobby';
 import { randomRoomCode, normaliseCode } from '../net/link';
+import { SCENE_KIND } from '../game/scenes';
 
 export interface Friend {
   id: string;
@@ -50,6 +57,22 @@ export const useLobbyStore = defineStore('lobby', () => {
    */
   const pendingJoin = ref<{ code: string; kind: InviteKind } | null>(null);
 
+  // ---- 在线好友「在玩什么」+ 一间房 ----------------------------------------
+
+  /** id -> 好友正在哪个界面 / 他的房间号（由大厅的 state 推来） */
+  const states = ref<Record<string, PeerState>>({});
+  /**
+   * 当前这一局的房间号：**全程只有一个**。房主开一次房，之后换玩法页、换海岛
+   * 都复用它，好友也一直用同一个房号，不用每进一个玩法就重新建房。
+   */
+  const room = ref('');
+  /** 我是房主还是访客（房间的归属） */
+  const role = ref<'none' | 'host' | 'guest'>('none');
+  /** 正在跟随的房主 id（访客才有；他换界面我就跟过去） */
+  const following = ref('');
+  /** 我现在报给大厅的界面 */
+  let myScene: SceneId = 'off';
+
   let client: LobbyClient | null = null;
 
   function isOnline(id: string): boolean {
@@ -59,6 +82,57 @@ export const useLobbyStore = defineStore('lobby', () => {
   function syncWatch(): void {
     client?.setWatch(friends.value.map((f) => f.id));
   }
+
+  /** 上报「我在哪个界面 / 我的房号」，好友列表和跟随都靠它 */
+  function setScene(scene: SceneId, roomOverride?: string): void {
+    myScene = scene;
+    client?.setState(scene, roomOverride ?? room.value);
+  }
+
+  /** 房主开好房：记下来，之后所有玩法页共用这个房号 */
+  function setRoom(code: string, who: 'host' | 'guest' = 'host'): void {
+    room.value = code;
+    role.value = who;
+    client?.setState(myScene, code);
+  }
+
+  /** 退房 */
+  function clearRoom(): void {
+    room.value = '';
+    role.value = 'none';
+    following.value = '';
+    client?.setState(myScene, '');
+  }
+
+  /** 某个好友现在能不能直接加入（有房号 + 在会开房的界面） */
+  function joinable(state: PeerState | undefined): boolean {
+    if (!state || !state.room) return false;
+    const kind = SCENE_KIND[state.scene];
+    return !!kind && state.room.length >= 4;
+  }
+
+  /** 点好友列表里的「申请加入」：记下要进的房，并记住跟着谁 */
+  function requestJoin(id: string): { code: string; kind: InviteKind } | null {
+    const st = states.value[id];
+    if (!st) return null;
+    const kind = SCENE_KIND[st.scene];
+    if (!kind || st.room.length < 4) return null;
+    pendingJoin.value = { code: st.room, kind };
+    following.value = id;
+    return { code: st.room, kind };
+  }
+
+  /** 好友列表要的数据：在线的朋友 + 各自在玩什么 */
+  const onlineFriends = computed(() =>
+    friends.value
+      .filter((f) => online.value.includes(f.id))
+      .map((f) => ({
+        id: f.id,
+        name: states.value[f.id]?.name || f.name,
+        scene: states.value[f.id]?.scene ?? ('off' as SceneId),
+        room: states.value[f.id]?.room ?? '',
+      })),
+  );
 
   function upsertFriend(f: Friend): void {
     if (f.id === playerId.value) return;
@@ -84,8 +158,15 @@ export const useLobbyStore = defineStore('lobby', () => {
         if (isOn && !has) online.value = [...online.value, id];
         else if (!isOn && has) online.value = online.value.filter((x) => x !== id);
       },
-      onPresenceBatch: (ids) => {
+      onPresenceBatch: (ids, list) => {
         online.value = [...new Set(ids)];
+        // 顺带把每个人「在玩什么」一起收下（服务端随 batch 一起发）
+        const next = { ...states.value };
+        for (const s of list) next[s.id] = s;
+        states.value = next;
+      },
+      onState: (s) => {
+        states.value = { ...states.value, [s.id]: s };
       },
       onFriendRequest: (from, name) => {
         if (!from || friends.value.some((f) => f.id === from)) return;
@@ -171,6 +252,10 @@ export const useLobbyStore = defineStore('lobby', () => {
   function acceptInvite(inv: Invite): void {
     invites.value = invites.value.filter((v) => v.from !== inv.from);
     pendingJoin.value = { code: inv.code, kind: inv.kind };
+    // 接受谁的邀请就跟着谁走（他换界面我也跟过去）
+    room.value = inv.code;
+    role.value = 'guest';
+    following.value = inv.from;
   }
 
   function declineInvite(inv: Invite): void {
@@ -198,6 +283,17 @@ export const useLobbyStore = defineStore('lobby', () => {
     status,
     lastError,
     pendingJoin,
+    // 在线好友「在玩什么」+ 一间房 / 跟随
+    states,
+    room,
+    role,
+    following,
+    onlineFriends,
+    setScene,
+    setRoom,
+    clearRoom,
+    requestJoin,
+    joinable,
     isOnline,
     connect,
     rename,

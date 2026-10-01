@@ -26,6 +26,8 @@ import {
   type Item,
   type Rarity,
 } from '../game/items';
+import { BOAT_COST, islandById, MAX_LEVEL, upgradeCost } from '../game/dive/fish';
+import { ACHIEVEMENTS, type AchMetric, type Achievement } from '../game/achievements';
 
 export type PullResult =
   | { kind: 'item'; item: Item; duplicate: boolean; refund: number }
@@ -86,8 +88,25 @@ export const useProgressStore = defineStore('progress', () => {
   const pity = useLocalStorage('bmt-pity', 0);
   /** machine-mode combo milestones (10/20/…/100) already claimed */
   const milestones = useLocalStorage<number[]>('bmt-milestones', []);
-  /** fishing rod upgrade level (1-5): longer reach, fatter payouts */
+  /** 渔具等级（1-5，老存档的"鱼竿等级"沿用这个键）：钩子更大、能拉更大的鱼 */
   const rodLevel = useLocalStorage('bmt-rod-level', 1);
+  /** 潜水：氧气罐等级（能待多久） */
+  const oxygenLv = useLocalStorage('bmt-dive-oxygen', 1);
+  /** 潜水：背包等级（一趟能带多少） */
+  const bagLv = useLocalStorage('bmt-dive-bag', 1);
+  /** 有没有买船（没船只能在家门口的浅滩潜） */
+  const boat = useLocalStorage('bmt-dive-boat', false);
+  /** 当前在哪个海岛潜水 */
+  const island = useLocalStorage('bmt-dive-island', 'shore');
+  /** 鱼图鉴：鱼种 id → 钓到的条数 + 最大体重 */
+  const fishLog = useLocalStorage<Record<string, { count: number; best: number }>>('bmt-fish-log', {});
+  /** 成就专用的小计数器：卖鱼总额 / 下潜次数 / 出海次数 / 最深下潜（米） */
+  const achStats = useLocalStorage<{ sold: number; dives: number; trips: number; deepest: number }>(
+    'bmt-ach-stats',
+    { sold: 0, dives: 0, trips: 0, deepest: 0 },
+  );
+  /** 已达成的成就 id（达成即发奖，见 syncAchievements） */
+  const achDone = useLocalStorage<string[]>('bmt-ach-done', []);
   /** 已用过的兑换码（每个只能用一次） */
   const redeemed = useLocalStorage<string[]>('bmt-redeemed', []);
   const notice = ref('');
@@ -210,6 +229,166 @@ export const useProgressStore = defineStore('progress', () => {
     return { ok: true, item };
   }
 
+  // ---- 潜水 -----------------------------------------------------------------
+
+  /** 记一笔图鉴（钓到一条鱼） */
+  function logFish(id: string, kg: number): void {
+    const cur = fishLog.value[id] ?? { count: 0, best: 0 };
+    fishLog.value = {
+      ...fishLog.value,
+      [id]: { count: cur.count + 1, best: Math.max(cur.best, kg) },
+    };
+  }
+
+  /** 买船（一次性） */
+  function buyBoat(): boolean {
+    if (boat.value || coins.value < BOAT_COST) return false;
+    coins.value -= BOAT_COST;
+    boat.value = true;
+    return true;
+  }
+
+  /** 升一件潜水装备：氧气 / 背包 / 渔具 */
+  function upgradeDive(which: 'oxygen' | 'bag' | 'gear'): boolean {
+    const lv = which === 'oxygen' ? oxygenLv : which === 'bag' ? bagLv : rodLevel;
+    if (lv.value >= MAX_LEVEL) return false;
+    const cost = upgradeCost(lv.value);
+    if (coins.value < cost) return false;
+    coins.value -= cost;
+    if (which === 'oxygen') oxygenLv.value += 1;
+    else if (which === 'bag') bagLv.value += 1;
+    else rodLevel.value += 1;
+    return true;
+  }
+
+  // ---- 成就 -----------------------------------------------------------------
+
+  /** 卖鱼入账（成就用） */
+  function noteSold(amount: number): void {
+    if (amount <= 0) return;
+    achStats.value = { ...achStats.value, sold: achStats.value.sold + amount };
+  }
+
+  /** 又下潜了一次 */
+  function noteDive(): void {
+    achStats.value = { ...achStats.value, dives: achStats.value.dives + 1 };
+  }
+
+  /** 又出海一次 */
+  function noteTrip(): void {
+    achStats.value = { ...achStats.value, trips: achStats.value.trips + 1 };
+  }
+
+  /** 刷新最深下潜（米），只在更深时记 */
+  function noteDepth(meters: number): void {
+    const m = Math.round(meters);
+    if (m <= achStats.value.deepest) return;
+    achStats.value = { ...achStats.value, deepest: m };
+  }
+
+  /** 图鉴汇总：累计条数 / 最重 / 鱼种数 */
+  const fishTotals = computed(() => {
+    let count = 0;
+    let best = 0;
+    for (const id of Object.keys(fishLog.value)) {
+      const e = fishLog.value[id];
+      count += e.count;
+      best = Math.max(best, e.best);
+    }
+    return { count, best, species: Object.keys(fishLog.value).length };
+  });
+
+  /** 一条成就的当前进度值 */
+  function metricValue(metric: AchMetric): number {
+    switch (metric.kind) {
+      case 'fishTotal':
+        return fishTotals.value.count;
+      case 'species':
+        return fishTotals.value.species;
+      case 'bestKg':
+        return fishTotals.value.best;
+      case 'caught':
+        return (fishLog.value[metric.species]?.count ?? 0) > 0 ? 1 : 0;
+      case 'sold':
+        return achStats.value.sold;
+      case 'deepest':
+        return achStats.value.deepest;
+      case 'dives':
+        return achStats.value.dives;
+      case 'trips':
+        return achStats.value.trips;
+      case 'boat':
+        return boat.value ? 1 : 0;
+      case 'oxygenLv':
+        return oxygenLv.value;
+      case 'bagLv':
+        return bagLv.value;
+      case 'gearLv':
+        return rodLevel.value;
+    }
+  }
+
+  /** 成就面板用：每条成就 + 当前进度 + 是否达成（按板块分组由面板负责） */
+  const achievements = computed(() =>
+    ACHIEVEMENTS.map((ach) => {
+      const cur = Math.min(metricValue(ach.metric), ach.goal);
+      return {
+        ach,
+        cur,
+        done: achDone.value.includes(ach.id),
+        pct: ach.goal > 0 ? Math.min(1, cur / ach.goal) : 1,
+      };
+    }),
+  );
+
+  const achDoneCount = computed(() => achievements.value.filter((a) => a.done).length);
+
+  /** 奖励物品的详情（面板里显示名字与稀有度） */
+  function achievementItem(id?: string): Item | undefined {
+    return id ? ITEMS.find((i) => i.id === id) : undefined;
+  }
+
+  /**
+   * 检查所有成就：新达成的一律**立刻发奖**（金币 + 收藏里的定制物品 / 皮肤）。
+   * 返回刚完成的那批，调用方可以逐条弹提示。重复调用没有副作用。
+   */
+  function syncAchievements(): Achievement[] {
+    const fresh: Achievement[] = [];
+    let coinGain = 0;
+    let nextOwned: string[] | null = null;
+    for (const ach of ACHIEVEMENTS) {
+      if (achDone.value.includes(ach.id)) continue;
+      if (metricValue(ach.metric) < ach.goal) continue;
+      fresh.push(ach);
+      if (ach.coins) coinGain += ach.coins;
+      if (ach.itemId) {
+        const list: string[] = nextOwned ?? [...owned.value];
+        if (!list.includes(ach.itemId)) list.push(ach.itemId);
+        nextOwned = list;
+      }
+    }
+    if (!fresh.length) return fresh;
+    achDone.value = [...achDone.value, ...fresh.map((a) => a.id)];
+    if (coinGain) coins.value += coinGain;
+    if (nextOwned) owned.value = nextOwned;
+    const parts = [coinGain ? `+¥${coinGain}` : '', ...fresh.map((a) => a.name)];
+    pushNotice(`🏅 成就达成：${parts.filter(Boolean).join(' · ')}`);
+    return fresh;
+  }
+
+  /** 出海去某个海岛：要船、要渔具等级、要船费，三样都够才成 */
+  function sailTo(id: string): boolean {
+    if (id === island.value) return true;
+    const isl = islandById(id);
+    if (isl.boat && !boat.value) return false;
+    if (rodLevel.value < isl.gear) return false;
+    if (coins.value < isl.cost) return false;
+    coins.value -= isl.cost;
+    island.value = id;
+    noteTrip();
+    return true;
+  }
+
   /** one weighted draw, without touching the wallet (the caller pays) */
   function rollOne(floor?: 'epic'): PullResult {
     // bonus coin payout instead of an item (never on a guaranteed draw)
@@ -297,6 +476,25 @@ export const useProgressStore = defineStore('progress', () => {
     isOwned,
     milestones,
     rodLevel,
+    oxygenLv,
+    bagLv,
+    boat,
+    island,
+    fishLog,
+    logFish,
+    buyBoat,
+    upgradeDive,
+    sailTo,
+    achStats,
+    achDone,
+    achDoneCount,
+    achievements,
+    achievementItem,
+    syncAchievements,
+    noteSold,
+    noteDive,
+    noteTrip,
+    noteDepth,
     redeemed,
     redeem,
     claimMilestone,

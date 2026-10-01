@@ -23,11 +23,42 @@ export function normaliseInviteKind(raw: unknown): InviteKind {
     : 'match';
 }
 
+/** 一个人正在哪个界面（大厅/对局/潜水/矿洞/攀岩/孵化屋/大地图/主界面） */
+export type SceneId = 'off' | 'home' | 'map' | 'match' | 'fish' | 'mine' | 'climb' | 'egg';
+
+export const SCENE_IDS: readonly SceneId[] = [
+  'off',
+  'home',
+  'map',
+  'match',
+  'fish',
+  'mine',
+  'climb',
+  'egg',
+];
+
+export function normaliseScene(raw: unknown): SceneId {
+  return typeof raw === 'string' && (SCENE_IDS as readonly string[]).includes(raw)
+    ? (raw as SceneId)
+    : 'off';
+}
+
+/** 「在玩什么」：好友列表与跟随都靠这一条 */
+export interface PeerState {
+  id: string;
+  name: string;
+  scene: SceneId;
+  /** 他开的房间号（有房间才能直接加入） */
+  room: string;
+}
+
 export interface LobbyHooks {
   onOpen?: () => void;
   onClose?: () => void;
   onPresence?: (id: string, online: boolean) => void;
-  onPresenceBatch?: (onlineIds: string[]) => void;
+  onPresenceBatch?: (onlineIds: string[], states: PeerState[]) => void;
+  /** 好友（或同房间的人）换了界面 / 开了房间 */
+  onState?: (state: PeerState) => void;
   onFriendRequest?: (from: string, name: string) => void;
   onFriendAccepted?: (from: string, name: string) => void;
   onFriendDeclined?: (from: string) => void;
@@ -46,6 +77,20 @@ function lobbyUrl(): string {
 
 const MAX_RETRY_MS = 15000;
 
+/** 把服务端的一条 state / presence-batch 元素转成 PeerState */
+function toPeerState(raw: unknown): PeerState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const id = typeof o.id === 'string' ? o.id : '';
+  if (!id) return null;
+  return {
+    id,
+    name: typeof o.name === 'string' ? o.name : id,
+    scene: normaliseScene(o.scene),
+    room: typeof o.room === 'string' ? o.room : '',
+  };
+}
+
 export class LobbyClient {
   private ws: WebSocket | null = null;
   private id = '';
@@ -54,6 +99,9 @@ export class LobbyClient {
   private retry = 0;
   private timer: number | null = null;
   private watching: string[] = [];
+  /** 上一次上报的界面 / 房间，避免重复发 */
+  private scene: SceneId = 'off';
+  private room = '';
   private readonly hooks: LobbyHooks;
 
   constructor(hooks: LobbyHooks) {
@@ -112,6 +160,17 @@ export class LobbyClient {
     this.send({ t: 'invite', target, code, kind });
   }
 
+  /**
+   * 上报「我在哪个界面 / 我的房间号」。好友列表靠它显示「在对局中 / 在潜水」，
+   * 跟着房主走也靠它（房主换界面，访客收到 state 后跟过去）。
+   */
+  setState(scene: SceneId, room = ''): void {
+    if (this.scene === scene && this.room === room) return;
+    this.scene = scene;
+    this.room = room;
+    this.send({ t: 'state', scene, room });
+  }
+
   private open(): void {
     let url: string;
     try {
@@ -134,6 +193,8 @@ export class LobbyClient {
       this.retry = 0;
       this.sayHello();
       if (this.watching.length) this.send({ t: 'watch', ids: this.watching });
+      // 重连后把「我在玩什么」再报一次（服务端是内存态）
+      this.send({ t: 'state', scene: this.scene, room: this.room });
       this.hooks.onOpen?.();
     };
     ws.onmessage = (ev) => this.receive(ev);
@@ -184,9 +245,17 @@ export class LobbyClient {
       case 'presence':
         this.hooks.onPresence?.(str(msg.id), !!msg.online);
         break;
-      case 'presence-batch':
-        this.hooks.onPresenceBatch?.(Array.isArray(msg.online) ? (msg.online as string[]) : []);
+      case 'presence-batch': {
+        const online = Array.isArray(msg.online) ? (msg.online as string[]) : [];
+        const states = Array.isArray(msg.states) ? msg.states.map(toPeerState) : [];
+        this.hooks.onPresenceBatch?.(online, states.filter((s): s is PeerState => !!s));
         break;
+      }
+      case 'state': {
+        const s = toPeerState(msg);
+        if (s) this.hooks.onState?.(s);
+        break;
+      }
       case 'friend-request':
         this.hooks.onFriendRequest?.(str(msg.from), str(msg.name));
         break;

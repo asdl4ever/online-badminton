@@ -1,6 +1,6 @@
 import { RelaySession } from './relay';
 import { createHostSession, joinSession } from './session';
-import { randomRoomCode, type NetLink, type NetStatus } from './link';
+import { normaliseCode, randomRoomCode, type NetLink, type NetStatus } from './link';
 
 /** how long the guest gives WebRTC before falling back to the relay.
  *  Direct takes 3-5s to establish on a real network, so the retry window
@@ -69,10 +69,13 @@ function wire(link: NetLink, hooks: ConnectHooks): void {
  * Host: opens BOTH transports under the same room code and returns the code
  * immediately so the opponent can dial in. Whichever transport the guest
  * reaches first wins; the other is torn down.
+ *
+ * `wantCode` 用来复用**同一个房号**：一间房贯穿所有玩法（「房主去哪访客跟哪」
+ * 就靠它），不传时才随机生成一个新号。
  */
-export async function hostOpen(hooks: ConnectHooks = {}): Promise<HostRoom> {
+export async function hostOpen(hooks: ConnectHooks = {}, wantCode = ''): Promise<HostRoom> {
   const mode = netMode();
-  const code = randomRoomCode();
+  const code = normaliseCode(wantCode) || randomRoomCode();
   const candidates: NetLink[] = [];
 
   if (mode !== 'relay') {

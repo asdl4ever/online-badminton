@@ -42,6 +42,12 @@ export const router = createRouter({
       name: 'barber',
       component: () => import('../views/BarberView.vue'),
     },
+    // 大地图上的孵化屋：宠物蛋独立成一栋房子
+    {
+      path: '/egg',
+      name: 'egg',
+      component: () => import('../views/EggView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 
   ],

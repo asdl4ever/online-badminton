@@ -167,14 +167,20 @@ export function useMapSession(): MapSession {
     waiting.value = true;
     phase.value = '正在建房…';
     placed = true; // 房主不需要被"挪到对方旁边"
-    hostOpen({
-      onPhase: (p) => (phase.value = p),
-      onDisconnected: () => {
-        phase.value = '对方已离开';
+    const lobby = useLobbyStore();
+    hostOpen(
+      {
+        onPhase: (p) => (phase.value = p),
+        onDisconnected: () => {
+          phase.value = '对方已离开';
+        },
       },
-    })
+      // 复用「一间房」：换玩法页不换房号，访客才能一直跟着
+      lobby.room,
+    )
       .then(async (room) => {
         code.value = room.code;
+        lobby.setRoom(room.code, 'host');
         phase.value = `房间 ${room.code} · 等好友进来…`;
         const connected = await room.connected;
         phase.value = '好友已到营地！';
@@ -204,6 +210,7 @@ export function useMapSession(): MapSession {
       const match = await joinMatch(clean, { onPhase: (p) => (phase.value = p) });
       phase.value = '已到营地！';
       waiting.value = false;
+      useLobbyStore().setRoom(clean, 'guest');
       bind(match.link);
       return true;
     } catch (e) {

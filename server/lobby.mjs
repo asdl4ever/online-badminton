@@ -26,6 +26,25 @@ function send(ws, obj) {
 const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine']);
 
 /**
+ * Screens a player can report being in ("我在玩什么"). Friends watch each other
+ * (`watch`), so whenever someone's scene/room changes the hub pushes a `state`
+ * line to their watchers — that is what fills the on-line friend list with
+ * 「在对局中 / 在潜水 …」 and lets a friend join the very same room.
+ */
+const SCENES = new Set(['off', 'home', 'map', 'match', 'fish', 'mine', 'climb', 'egg']);
+
+function normaliseScene(raw) {
+  return SCENES.has(raw) ? raw : 'off';
+}
+
+function normaliseRoom(raw) {
+  return String(raw || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 8);
+}
+
+/**
  * Attaches a lightweight presence / friend / invite hub to an existing http
  * server. Unlike the match relay this socket is *long lived*: every client
  * keeps it open while the app is on screen, so friends can see who is online
@@ -40,7 +59,7 @@ const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine']);
 export function attachLobby(server, path = '/lobby') {
   const wss = new WebSocketServer({ noServer: true });
 
-  /** id -> { id, name, sockets:Set<ws>, watching:Set<id> }  (online only) */
+  /** id -> { id, name, scene, room, sockets:Set<ws>, watching:Set<id> }  (online only) */
   const users = new Map();
   /** watchedId -> Set<watcherId>; survives the watched user being offline */
   const watchersOf = new Map();
@@ -52,16 +71,26 @@ export function attachLobby(server, path = '/lobby') {
     return true;
   };
 
+  /** 一个人的「在玩什么」——好友列表靠它显示，跟随也靠它 */
+  const stateOf = (u) => ({ t: 'state', id: u.id, name: u.name, scene: u.scene, room: u.room });
+
   const notifyWatchers = (id, online) => {
     const watchers = watchersOf.get(id);
     if (!watchers) return;
     for (const w of watchers) deliver(w, { t: 'presence', id, online });
   };
 
+  const broadcastState = (u) => {
+    const watchers = watchersOf.get(u.id);
+    if (!watchers) return;
+    const line = stateOf(u);
+    for (const w of watchers) deliver(w, line);
+  };
+
   const register = (ws, id, name) => {
     let u = users.get(id);
     if (!u) {
-      u = { id, name, sockets: new Set(), watching: new Set() };
+      u = { id, name, scene: 'off', room: '', sockets: new Set(), watching: new Set() };
       users.set(id, u);
       u.sockets.add(ws);
       ws.lobbyUser = u;
@@ -119,7 +148,13 @@ export function attachLobby(server, path = '/lobby') {
       }
     }
     u.watching = next;
-    send(ws, { t: 'presence-batch', online: [...next].filter((id) => users.has(id)) });
+    const online = [...next].filter((id) => users.has(id));
+    send(ws, {
+      t: 'presence-batch',
+      online,
+      // 顺带把每个人「在玩什么」一起给过来，省一次往返
+      states: online.map((id) => stateOf(users.get(id))),
+    });
   };
 
   wss.on('connection', (ws) => {
@@ -157,6 +192,15 @@ export function attachLobby(server, path = '/lobby') {
 
       if (t === 'watch') {
         applyWatch(ws, u, msg.ids);
+        return;
+      }
+      if (t === 'state') {
+        const scene = normaliseScene(msg.scene);
+        const room = normaliseRoom(msg.room);
+        if (scene === u.scene && room === u.room) return;
+        u.scene = scene;
+        u.room = room;
+        broadcastState(u);
         return;
       }
       if (t === 'add') {
