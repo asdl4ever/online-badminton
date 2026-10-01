@@ -16,6 +16,7 @@ import {
   COIN_DROP_RANGE,
   COIN_RULES,
   GACHA_POOL,
+  ITEMS,
   PET_EGGS,
   PET_STAR_META,
   PETS,
@@ -87,6 +88,8 @@ export const useProgressStore = defineStore('progress', () => {
   const milestones = useLocalStorage<number[]>('bmt-milestones', []);
   /** fishing rod upgrade level (1-5): longer reach, fatter payouts */
   const rodLevel = useLocalStorage('bmt-rod-level', 1);
+  /** 已用过的兑换码（每个只能用一次） */
+  const redeemed = useLocalStorage<string[]>('bmt-redeemed', []);
   const notice = ref('');
   let noticeTimer: number | undefined;
 
@@ -109,10 +112,10 @@ export const useProgressStore = defineStore('progress', () => {
     return claimed.value.includes(id);
   }
 
-  /** ownership: free always, gacha by collection, pets by hatching, else by tier */
+  /** ownership: free always, gacha/code by collection, pets by hatching, else by tier */
   function isOwned(item: Item): boolean {
     if (item.source === 'free') return true;
-    if (item.source === 'gacha') return owned.value.includes(item.id);
+    if (item.source === 'gacha' || item.source === 'code') return owned.value.includes(item.id);
     if (item.source === 'egg') return (petStars.value[item.ref] ?? 0) > 0;
     if (item.source === 'streak') return milestones.value.includes(100);
     return claimed.value.includes(item.source);
@@ -182,6 +185,29 @@ export const useProgressStore = defineStore('progress', () => {
     const item = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
     if (!owned.value.includes(item.id)) owned.value = [...owned.value, item.id];
     return { kind: 'item', item };
+  }
+
+  /**
+   * 兑换码：码 → 物品 id。大小写和空格都无所谓。
+   * 前导的 `ux7891` 是 U熊皮肤的那个码。
+   */
+  const REDEEM_CODES: Record<string, string> = {
+    ux7891: 'skin:ubear',
+  };
+
+  /**
+   * 用兑换码换一件东西。同一个码只能用一次，换到的东西直接进收藏（和宝箱一样）。
+   */
+  function redeem(input: string): { ok: true; item: Item } | { ok: false; message: string } {
+    const code = input.trim().toLowerCase().replace(/\s+/g, '');
+    if (!code) return { ok: false, message: '请输入兑换码' };
+    if (redeemed.value.includes(code)) return { ok: false, message: '这个兑换码已经兑换过了' };
+    const itemId = REDEEM_CODES[code];
+    const item = itemId ? ITEMS.find((i) => i.id === itemId) : undefined;
+    if (!item) return { ok: false, message: '兑换码无效，检查一下吧' };
+    redeemed.value = [...redeemed.value, code];
+    if (!owned.value.includes(item.id)) owned.value = [...owned.value, item.id];
+    return { ok: true, item };
   }
 
   /** one weighted draw, without touching the wallet (the caller pays) */
@@ -271,6 +297,8 @@ export const useProgressStore = defineStore('progress', () => {
     isOwned,
     milestones,
     rodLevel,
+    redeemed,
+    redeem,
     claimMilestone,
     petStar,
     hatch,

@@ -8,6 +8,7 @@ import Button from './ui/Button.vue';
 import StatusChip from './ui/StatusChip.vue';
 import { toastBad, toastGood } from '../composables/useToast';
 import { useLobbyStore } from '../stores/lobby';
+import type { InviteKind } from '../net/lobby';
 
 const props = withDefaults(
   defineProps<{
@@ -22,8 +23,10 @@ const props = withDefaults(
      * 'invite' — in a room: only the "invite a friend" list
      */
     variant?: 'manage' | 'invite';
+    /** which screen the invite should open on (match / map / fish / mine) */
+    kind?: InviteKind;
   }>(),
-  { bare: false, variant: 'manage' },
+  { bare: false, variant: 'manage', kind: 'match' },
 );
 
 const store = useLobbyStore();
@@ -64,7 +67,7 @@ function commitName() {
 }
 
 function invite(id: string) {
-  store.invite(id, props.roomCode);
+  store.invite(id, props.roomCode, props.kind);
 }
 </script>
 

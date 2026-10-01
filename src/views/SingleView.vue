@@ -85,6 +85,7 @@ function onHud(state: HudState) {
 
 function onEvent(e: SimEvent) {
   if (e.type === 'hit') sfx.hit(e.kind ?? 'drive');
+  else if (e.type === 'belly') sfx.hit('lift');
   else if (e.type === 'net') sfx.net();
   else if (e.type === 'land') sfx.land();
   else if (e.type === 'point') sfx.point();
@@ -121,10 +122,10 @@ onBeforeUnmount(() => {
           v-if="!isMachine"
           class="icon-btn jelly"
           type="button"
-          :title="`难度：${store.difficulty}`"
+          :title="`难度：${store.difficulty}（点一下换）`"
           @click="cycleDifficulty"
         >
-          🎯
+          难度 {{ store.difficulty === 'easy' ? '简单' : store.difficulty === 'hard' ? '困难' : '普通' }}
         </button>
         <button
           v-if="touch"
@@ -133,7 +134,7 @@ onBeforeUnmount(() => {
           title="摇杆布局"
           @click="canvas?.toggleEditMode()"
         >
-          🕹
+          摇杆布局
         </button>
       </template>
 
@@ -183,18 +184,6 @@ onBeforeUnmount(() => {
         />
       </template>
 
-      <template #foot>
-        <template v-if="hud?.machine">
-          连击 <b class="ui-num" style="color: var(--accent)">{{ hud.machine.streak }}</b>
-          · 最高 <b class="ui-num" style="color: var(--accent-2)">{{ hud.machine.best }}</b>
-          · 接球 {{ hud.machine.returns }} / 失误 {{ hud.machine.misses }}
-        </template>
-        <template v-else>
-          比分 <b class="ui-num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
-          : <b class="ui-num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
-          · 先到 11 分获胜
-        </template>
-      </template>
     </PageShell>
   </div>
 </template>

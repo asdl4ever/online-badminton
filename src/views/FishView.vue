@@ -168,22 +168,22 @@ onBeforeUnmount(() => {
         <button
           class="icon-btn jelly"
           type="button"
-          :title="`卖鱼 ¥${basket.value}`"
+          :title="`把鱼篓换成金币（¥${basket.value}）`"
           @click="sell"
         >
-          💰
+          卖鱼 ¥{{ basket.value }}
         </button>
         <button
           v-if="!rodMaxed"
           class="icon-btn jelly"
           type="button"
-          title="鱼竿升级"
+          :title="`鱼竿升级（¥${nextRodCost}）`"
           @click="upgradeRod"
         >
-          🎣
+          鱼竿 Lv.{{ progress.rodLevel }}
         </button>
         <button v-if="touch" class="icon-btn jelly" type="button" title="摇杆布局" @click="toggleEdit">
-          🕹
+          摇杆布局
         </button>
       </template>
 

@@ -39,6 +39,11 @@ export function homeX(index: 0 | 1): number {
   return index === 0 ? NET_X - 300 : NET_X + 300;
 }
 
+/** U熊肚皮的圆：中心离脚 `BELLY_CY`，半径 `BELLY_R`，弹性 `BELLY_REST` */
+const BELLY_R = 28;
+const BELLY_CY = 42;
+const BELLY_REST = 0.92;
+
 export function makePlayer(index: 0 | 1): PlayerState {
   const facing: 1 | -1 = index === 0 ? 1 : -1;
   return {
@@ -93,6 +98,8 @@ export function createWorld(optionId: string = DEFAULT_OPTION_ID): World {
     config: cfg,
     configId: optionId,
     mode,
+    // 装扮由场景写进来（`GameScene` 每帧按本地/对方的 cosmetic 同步）
+    skins: ['none', 'none'],
     juggle: freshJuggle(),
     machine,
   };
@@ -550,6 +557,30 @@ function stepShuttleSlice(world: World, dt: number): void {
     shuttle.vy = Math.abs(shuttle.vy) * 0.25;
     world.events.push({ type: 'net' });
     return;
+  }
+
+  // U熊的肚皮：球撞上来会被弹开（果冻式反弹，不掉速太多）
+  for (let i = 0; i < 2; i++) {
+    if (world.skins[i] !== 'ubear') continue;
+    const p = world.players[i];
+    const bx = p.x;
+    const by = p.y - BELLY_CY;
+    const dx = shuttle.x - bx;
+    const dy = shuttle.y - by;
+    const d = Math.hypot(dx, dy);
+    const contact = BELLY_R + cfg.shuttleR;
+    if (d >= contact) continue;
+    const nx = d > 1e-3 ? dx / d : -p.facing;
+    const ny = d > 1e-3 ? dy / d : -1;
+    const vn = shuttle.vx * nx + shuttle.vy * ny;
+    // 正在离开 / 只是擦过：不算撞击
+    if (vn > -30) continue;
+    shuttle.vx -= (1 + BELLY_REST) * vn * nx;
+    shuttle.vy -= (1 + BELLY_REST) * vn * ny;
+    // 推到肚皮表面外，免得下一小步又判定一次
+    shuttle.x = bx + nx * (contact + 1);
+    shuttle.y = by + ny * (contact + 1);
+    world.events.push({ type: 'belly', player: i, power: clamp(-vn / 1400, 0, 1) });
   }
 
   if (shuttle.y >= GROUND_Y - cfg.shuttleR) {

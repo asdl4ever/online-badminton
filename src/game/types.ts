@@ -1,4 +1,5 @@
 import type { WorldConfig, WorldMode } from './config';
+import type { CharacterSkin } from './cosmetics';
 
 export interface PlayerInput {
   left: boolean;
@@ -64,7 +65,7 @@ export type Phase = 'serve' | 'rally' | 'point' | 'gameover';
 export type ShotKind = 'lift' | 'drive' | 'clear' | 'smash' | 'serve';
 
 export interface SimEvent {
-  type: 'hit' | 'net' | 'land' | 'point' | 'serve' | 'gameover';
+  type: 'hit' | 'net' | 'land' | 'point' | 'serve' | 'gameover' | 'belly';
   player?: number;
   kind?: ShotKind;
   /** racket swing speed at contact, normalised 0..1 against the speed cap */
@@ -102,6 +103,12 @@ export interface World {
   /** id of the party option the config came from */
   configId: string;
   mode: WorldMode;
+  /**
+   * 两名玩家各自的角色形象。U熊的肚皮会把球弹开，属于会影响轨迹的规则，
+   * 所以放在世界上而不是只放在渲染层——两边都由「自己 + 对方的装扮」写进来，
+   * 预测与权威模拟才不会分叉。
+   */
+  skins: [CharacterSkin, CharacterSkin];
   juggle: JuggleState;
   machine: MachineState;
 }

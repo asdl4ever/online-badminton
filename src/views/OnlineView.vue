@@ -157,16 +157,15 @@ async function joinRoom() {
 }
 
 // a friend invite (accepted in the global toast) hands over a room code to
-// auto-join; consume it once when this view is on screen
+// auto-join; take the ones that belong to a *match* once this view is on screen
 watch(
   () => lobby.pendingJoin,
-  (code) => {
+  () => {
+    if (playing.value) return;
+    const code = lobby.consumeInvite('match');
     if (!code) return;
-    const c = lobby.takePendingJoin();
-    if (c && !playing.value) {
-      joinCode.value = c;
-      void joinRoom();
-    }
+    joinCode.value = code;
+    void joinRoom();
   },
   { immediate: true },
 );
@@ -192,6 +191,7 @@ function onMetrics(m: NetMetrics) {
 
 function onEvent(e: SimEvent) {
   if (e.type === 'hit') sfx.hit(e.kind ?? 'drive');
+  else if (e.type === 'belly') sfx.hit('lift');
   else if (e.type === 'net') sfx.net();
   else if (e.type === 'land') sfx.land();
   else if (e.type === 'point') sfx.point();
@@ -228,9 +228,11 @@ onBeforeUnmount(() => {
     <!-- 对局：统一外壳（顶栏 + 铺满画面 + 右上图标行 + 右侧坞 + 底部比分行） -->
     <PageShell v-if="playing" title="联机对战" back @back="back">
       <template #icons>
-        <button class="icon-btn jelly" type="button" title="表情" @click="emoteOpen = !emoteOpen">
-          🙂
+        <button class="icon-btn jelly" type="button" title="发一个表情" @click="emoteOpen = !emoteOpen">
+          表情
         </button>
+        <!-- 挂在图标行上：模式设置面板收起来时也要能看到/点到 -->
+        <EmotePicker v-if="emoteOpen" @pick="pickEmote" @close="emoteOpen = false" />
         <button
           v-if="touch"
           class="icon-btn jelly"
@@ -238,18 +240,18 @@ onBeforeUnmount(() => {
           title="摇杆布局"
           @click="canvas?.toggleEditMode()"
         >
-          🕹
+          摇杆布局
         </button>
         <button class="icon-btn jelly" type="button" title="邀请好友" @click="friendsOpen = true">
-          👥
+          邀请好友
         </button>
       </template>
 
       <template #dock>
         <SideDock>
           <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
+          <!-- 右上角那排图标可以整体收起，所以这里再给一个入口；表情面板本身挂在图标行上 -->
           <Button size="sm" block @click="emoteOpen = !emoteOpen">表情</Button>
-          <EmotePicker v-if="emoteOpen" @pick="pickEmote" @close="emoteOpen = false" />
           <Button v-if="touch" size="sm" block @click="canvas?.toggleEditMode()">
             {{ editing ? '完成' : '摇杆布局' }}
           </Button>
@@ -286,29 +288,6 @@ onBeforeUnmount(() => {
         />
       </template>
 
-      <template #foot>
-        <template v-if="partyState.active">
-          第 {{ partyState.round }} / {{ partyState.total }} 轮 · 积分
-          <b class="ui-num" style="color: var(--accent)">{{ partyState.scores[0] }}</b>
-          : <b class="ui-num" style="color: var(--accent-2)">{{ partyState.scores[1] }}</b>
-          · 每轮投票选玩法
-        </template>
-        <template v-else>
-          比分 <b class="ui-num" style="color: var(--accent)">{{ hud?.score[0] ?? 0 }}</b>
-          : <b class="ui-num" style="color: var(--accent-2)">{{ hud?.score[1] ?? 0 }}</b>
-          · 先到 11 分获胜
-        </template>
-        <span>
-          你是{{ store.role === 'host' ? '左侧（蓝）' : '右侧（橙）' }}选手
-          <template v-if="store.transport">
-            · {{ store.transport
-            }}<template v-if="store.metrics">
-              <span class="ui-num"> {{ store.metrics.rttMs.toFixed(0) }}ms</span>
-            </template>
-          </template>
-        </span>
-        <span v-if="onRelay" style="color: var(--warn)">走中继延迟偏高</span>
-      </template>
     </PageShell>
 
     <!-- 大厅：非对局时是居中卡片（不进外壳，页面可滚动） -->
@@ -391,7 +370,12 @@ onBeforeUnmount(() => {
     </div>
 
     <AppModal v-model="friendsOpen" title="邀请好友" max-width="560px">
-      <FriendsPanel variant="invite" :room-code="store.roomCode" :can-invite="waiting" />
+      <FriendsPanel
+        variant="invite"
+        kind="match"
+        :room-code="store.roomCode"
+        :can-invite="waiting"
+      />
     </AppModal>
   </div>
 </template>

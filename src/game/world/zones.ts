@@ -4,6 +4,8 @@
  *
  * 只影响 UI 与路由，和玩法逻辑无关。
  */
+import { BARBER_COST } from '../items';
+
 export interface WorldZone {
   id: string;
   /** 平面坐标（左上角为原点） */
@@ -51,6 +53,15 @@ export const WORLD_ZONES: WorldZone[] = [
     name: '攀岩崖',
     meta: 'Matter 刚体攀爬',
     route: '/climb',
+  },
+  {
+    id: 'barber',
+    x: 1520,
+    y: 620,
+    sign: '💈',
+    name: '理发店',
+    meta: `表情 / 配色 / 主题 · ¥${BARBER_COST} 一次`,
+    route: '/barber',
   },
   {
     id: 'pond',

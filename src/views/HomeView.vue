@@ -4,9 +4,10 @@ import { useRouter } from 'vue-router';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import AppModal from '../components/ui/AppModal.vue';
-import CustomizePanel from '../components/CustomizePanel.vue';
 import FriendsPanel from '../components/FriendsPanel.vue';
 import RankPanel from '../components/RankPanel.vue';
+import SettingsPanel from '../components/SettingsPanel.vue';
+import ProfilePanel from '../components/ProfilePanel.vue';
 import BackpackPanel from '../components/BackpackPanel.vue';
 import ChestPanel from '../components/ChestPanel.vue';
 import PetEggPanel from '../components/PetEggPanel.vue';
@@ -18,12 +19,13 @@ const router = useRouter();
 const lobby = useLobbyStore();
 const progress = useProgressStore();
 
-const showLook = ref(false);
 const showFriends = ref(false);
 const showRank = ref(false);
 const showBag = ref(false);
 const showChest = ref(false);
 const showEgg = ref(false);
+const showSettings = ref(false);
+const showProfile = ref(false);
 /** the little tool icons live behind a toggle to the right of the main buttons */
 const toolsOpen = ref(false);
 
@@ -60,14 +62,15 @@ function goParty() {
   void router.push({ path: '/online', query: { party: '1' } });
 }
 
-function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
+function open(which: 'friends' | 'rank' | 'bag' | 'chest' | 'egg' | 'settings' | 'profile') {
   sfx.unlock();
   sfx.click();
-  if (which === 'look') showLook.value = true;
-  else if (which === 'friends') showFriends.value = true;
+  if (which === 'friends') showFriends.value = true;
   else if (which === 'bag') showBag.value = true;
   else if (which === 'chest') showChest.value = true;
   else if (which === 'egg') showEgg.value = true;
+  else if (which === 'settings') showSettings.value = true;
+  else if (which === 'profile') showProfile.value = true;
   else showRank.value = true;
 }
 </script>
@@ -145,6 +148,27 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
               </button>
 
               <div v-if="toolsOpen" class="tools__list">
+                <button class="tool" type="button" title="个人主页" @click="open('profile')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle
+                      cx="12"
+                      cy="8.5"
+                      r="3.6"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M4.5 20a7.5 7.5 0 0 1 15 0"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <span>个人主页</span>
+                </button>
+
                 <button class="tool" type="button" title="段位" @click="open('rank')">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
@@ -157,21 +181,6 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
                   </svg>
                   <span>段位</span>
                   <span v-if="rankBadge" class="tool__badge">{{ rankBadge }}</span>
-                </button>
-
-                <button class="tool" type="button" title="外观自定义" @click="open('look')">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.2 0-.9.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                    />
-                    <circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" />
-                    <circle cx="12" cy="7.5" r="1.2" fill="currentColor" />
-                    <circle cx="16.5" cy="10.5" r="1.2" fill="currentColor" />
-                  </svg>
-                  <span>外观</span>
                 </button>
 
                 <button class="tool" type="button" title="背包" @click="open('bag')">
@@ -266,6 +275,27 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
                   <span>好友</span>
                   <span v-if="friendBadge" class="tool__badge">{{ friendBadge }}</span>
                 </button>
+
+                <button class="tool" type="button" title="设置 / 兑换码" @click="open('settings')">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="3"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M12 3.5v2.2M12 18.3v2.2M4.9 7.6l1.9 1.1M17.2 15.3l1.9 1.1M4.9 16.4l1.9-1.1M17.2 8.7l1.9-1.1"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <span>设置</span>
+                </button>
               </div>
             </div>
           </div>
@@ -298,10 +328,6 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
       <RankPanel />
     </AppModal>
 
-    <AppModal v-model="showLook" title="外观自定义">
-      <CustomizePanel />
-    </AppModal>
-
     <AppModal v-model="showBag" title="背包" max-width="760px">
       <BackpackPanel @open-chest="openChestFromBag" />
     </AppModal>
@@ -316,6 +342,14 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
 
     <AppModal v-model="showFriends" title="好友" max-width="720px">
       <FriendsPanel room-code="" :can-invite="false" bare />
+    </AppModal>
+
+    <AppModal v-model="showSettings" title="设置" max-width="480px">
+      <SettingsPanel />
+    </AppModal>
+
+    <AppModal v-model="showProfile" title="个人主页" max-width="620px">
+      <ProfilePanel />
     </AppModal>
   </div>
 </template>

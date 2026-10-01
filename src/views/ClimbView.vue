@@ -73,7 +73,7 @@ onBeforeUnmount(() => {
   <div class="page page--playing">
     <PageShell title="攀爬挑战" back @back="back">
       <template #icons>
-        <button class="icon-btn jelly" type="button" title="重来" @click="restart">↺</button>
+        <button class="icon-btn jelly" type="button" title="重来一局" @click="restart">重来</button>
       </template>
 
       <template #dock>

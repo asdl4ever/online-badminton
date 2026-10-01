@@ -63,6 +63,7 @@ import {
   AI_COSMETIC,
   DEFAULT_COSMETIC,
   sanitizeCosmetic,
+  type CharacterSkin,
   type Cosmetic,
   type TrailId,
 } from '../cosmetics';
@@ -212,6 +213,18 @@ export class GameScene extends Phaser.Scene {
   private trailEmitAcc = 0;
   private scoreLeft!: Phaser.GameObjects.Text;
   private scoreRight!: Phaser.GameObjects.Text;
+  /** 画面底部的一行说明（模式补充信息 / 联机状态），低频刷新 */
+  private infoLine!: Phaser.GameObjects.Text;
+  private infoAccum = 0;
+  /** 断线之类的提示直接写在画面底部（以前是网页底栏 / 大厅里的提示） */
+  private netNotice = '';
+  private infoNotice = false;
+  /**
+   * U熊肚皮的果冻形变：被球撞到时置 1，之后按阻尼弹簧来回荡回 0。
+   * 一个是本地角色、一个是对手（索引和对局里的 0/1 一致）。
+   */
+  private belly = [0, 0];
+  private bellyVel = [0, 0];
   private message!: Phaser.GameObjects.Text;
   private subMessage!: Phaser.GameObjects.Text;
   private replayBg!: Phaser.GameObjects.Graphics;
@@ -241,6 +254,8 @@ export class GameScene extends Phaser.Scene {
     this.hasSnapshot = false;
     this.remoteInput = { ...EMPTY_INPUT };
     this.lastHud = '';
+    this.netNotice = '';
+    this.infoNotice = false;
     this.trail = [];
     this.flashes = [];
     this.netEvents = [];
@@ -329,6 +344,11 @@ export class GameScene extends Phaser.Scene {
     };
     this.scoreLeft = this.add.text(VIEW_W / 2 - 90, 40, '0', style).setOrigin(0.5, 0);
     this.scoreRight = this.add.text(VIEW_W / 2 + 90, 40, '0', style).setOrigin(0.5, 0);
+    // 画面底部那一行补充说明（原来的网页底栏；分数是上面的大字，普通对局这行是空的）
+    this.infoLine = this.add
+      .text(VIEW_W / 2, VIEW_H - 26, '', { fontFamily: FONT_UI, fontSize: '18px', color: P.sub })
+      .setOrigin(0.5)
+      .setDepth(9);
     this.message = this.add
       .text(VIEW_W / 2, VIEW_H / 2 - 110, '', {
         fontFamily: FONT_UI,
@@ -350,8 +370,15 @@ export class GameScene extends Phaser.Scene {
     const session = this.cfg.session;
     if (session) {
       session.onMessage = (m) => this.handleNetMessage(m);
-      session.onDisconnected = () => this.cfg.onDisconnect('连接已断开');
-      session.onError = (message) => this.cfg.onDisconnect(message);
+      // 断线提示除了抛给页面，也直接写在画面底部——对局中不该只在退出后才知道
+      session.onDisconnected = () => {
+        this.netNotice = '对手已离开对局';
+        this.cfg.onDisconnect('连接已断开');
+      };
+      session.onError = (message) => {
+        this.netNotice = message;
+        this.cfg.onDisconnect(message);
+      };
       // announce our look so the peer can draw us the same way (visual only).
       // repeated a couple of times because the first can race the peer's own
       // scene setup and be dropped before it installs onMessage.
@@ -371,18 +398,42 @@ export class GameScene extends Phaser.Scene {
     if (isTouchDevice()) {
       this.input.addPointer(3);
       this.touchControls = new TouchControls(this);
-      // the HTML bar overlays the top of the canvas, so drop the score below it
-      this.scoreLeft.setY(126);
-      this.scoreRight.setY(126);
-      this.debugText?.setY(132);
-      this.plateCy = 158;
       this.events.once('shutdown', () => {
         this.touchControls?.destroy();
         this.touchControls = null;
       });
     }
 
+    this.syncSkins();
+
     if (this.cfg.party) this.startParty();
+  }
+
+  /**
+   * 把双方的角色形象写进世界：U熊的肚皮反弹会改球的轨迹，属于规则的一部分，
+   * 所以不能只存在渲染层——两边都按「自己 + hello 收到的对方」写同一份数据，
+   * 房主的权威模拟和访客的预测才不会分叉。
+   */
+  private syncSkins(): void {
+    const local = this.localCosmetic.characterSkin;
+    const remote = this.remoteCosmetic.characterSkin;
+    const skins: [CharacterSkin, CharacterSkin] =
+      this.localIndex() === 0 ? [local, remote] : [remote, local];
+    this.world.skins = skins;
+    this.target.skins = skins;
+  }
+
+  /** U熊肚皮的果冻：受击后按阻尼弹簧回弹，荡几下再停 */
+  private stepBelly(dt: number): void {
+    for (let i = 0; i < 2; i++) {
+      if (this.belly[i] === 0 && this.bellyVel[i] === 0) continue;
+      this.bellyVel[i] += (-90 * this.belly[i] - 7 * this.bellyVel[i]) * dt;
+      this.belly[i] += this.bellyVel[i] * dt;
+      if (Math.abs(this.belly[i]) < 0.004 && Math.abs(this.bellyVel[i]) < 0.05) {
+        this.belly[i] = 0;
+        this.bellyVel[i] = 0;
+      }
+    }
   }
 
   // ---- fun mode -----------------------------------------------------------
@@ -535,6 +586,7 @@ export class GameScene extends Phaser.Scene {
       if (m.s.ev) for (const e of m.s.ev) this.world.events.push(e);
     } else if (m.t === 'hello') {
       this.remoteCosmetic = sanitizeCosmetic(m.cosmetic);
+      this.syncSkins();
       const name = typeof m.name === 'string' ? m.name.trim() : '';
       if (name) this.remoteName = name.slice(0, 16);
       if (isTierId(m.rank)) this.remoteRank = m.rank;
@@ -942,11 +994,55 @@ export class GameScene extends Phaser.Scene {
       else if (this.party.stage === 'play') this.checkPartyRoundEnd();
     }
 
+    this.stepBelly(rawDt);
     this.drawDynamic();
     this.touchControls?.draw();
     this.refreshMessages();
+    // 底部说明行里含 RTT 这类一直在变的数字，0.4s 刷一次就够
+    this.infoAccum += rawDt;
+    if (this.infoAccum >= 0.4) {
+      this.infoAccum = 0;
+      this.refreshInfoLine();
+    }
     this.publishHud(false);
     this.publishMetrics(dt);
+  }
+
+  /**
+   * 底部那行说明：只在真的有补充信息时出现——
+   * 连击模式报得失球数、乐趣模式报轮次与积分、联机报你是哪一侧和链路状况。
+   * 普通对局留空（比分是画面上方的大字，不需要再解释一遍）。
+   */
+  private refreshInfoLine(): void {
+    const w = this.world;
+    // 断线之类的提示优先，用警告色
+    if (this.netNotice) {
+      if (!this.infoNotice) {
+        this.infoNotice = true;
+        this.infoLine.setColor(P.msgLose);
+      }
+      if (this.infoLine.text !== this.netNotice) this.infoLine.setText(this.netNotice);
+      return;
+    }
+    if (this.infoNotice) {
+      this.infoNotice = false;
+      this.infoLine.setColor(P.sub);
+    }
+
+    let text = '';
+    if (this.party.active) {
+      text = `第 ${this.party.round} / ${this.party.total} 轮 · 积分 ${this.party.scores[0]} : ${this.party.scores[1]}`;
+    } else if (w.mode === 'machine') {
+      text = `接球 ${w.machine.returns} / 失误 ${w.machine.misses}`;
+    } else if (this.cfg.session) {
+      const side = this.localIndex() === 0 ? '左侧（蓝）' : '右侧（橙）';
+      const rtt = this.telemetry.rttMs;
+      const net = [this.telemetry.transport, rtt > 0 ? `${Math.round(rtt)}ms` : '']
+        .filter(Boolean)
+        .join(' · ');
+      text = `你是${side}选手${net ? ` · ${net}` : ''}`;
+    }
+    if (text !== this.infoLine.text) this.infoLine.setText(text);
   }
 
   private publishMetrics(dt: number): void {
@@ -1142,6 +1238,16 @@ export class GameScene extends Phaser.Scene {
         this.shakeFor(e.kind, e.power ?? 0);
         if (e.kind === 'smash') this.smashText(e.power ?? 0);
       }
+      if (e.type === 'belly') {
+        // U熊肚皮把球弹开：肚子上砸出一个果冻坑 + 音效 + 一点震动
+        const who: 0 | 1 = e.player === 1 ? 1 : 0;
+        const power = e.power ?? 0.4;
+        this.belly[who] = 0.55 + 0.45 * power;
+        this.bellyVel[who] = -4 - 6 * power;
+        // 音效走 Vue 层（场景不发声音），见两个对局页的 onEvent
+        this.cameras.main.shake(90 + 90 * power, 0.003 + 0.005 * power);
+        this.bellyText(who);
+      }
       if (e.type === 'gameover') {
         if (this.gameoverSeen) continue;
         this.gameoverSeen = true;
@@ -1163,6 +1269,32 @@ export class GameScene extends Phaser.Scene {
     const strength = weight * power;
     if (strength < 0.12) return; // light tap: no shake
     this.cameras.main.shake(80 + 190 * strength, 0.004 + 0.011 * strength);
+  }
+
+  /** U熊把球弹开时冒一个「弹！」 */
+  private bellyText(i: 0 | 1): void {
+    const p = this.world.players[i];
+    const label = this.add
+      .text(p.x, p.y - PLAYER_H * 0.55, '弹！', {
+        fontFamily: FONT_UI,
+        fontSize: '26px',
+        color: '#ffb02a',
+        stroke: '#3a2c18',
+        strokeThickness: 5,
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(50);
+    this.tweens.add({
+      targets: label,
+      y: label.y - 40,
+      scale: 1.15,
+      alpha: 0,
+      delay: 120,
+      duration: 520,
+      ease: 'Cubic.Out',
+      onComplete: () => label.destroy(),
+    });
   }
 
   /** the smash gets its name on screen, bigger the harder it was swung */
@@ -1231,6 +1363,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreLeft.setColor(P.score);
     this.scoreRight.setColor(P.score);
     this.subMessage.setColor(P.sub);
+    this.infoLine.setColor(P.sub);
     this.debugText?.setColor(P.debugText);
   }
 
@@ -1673,6 +1806,7 @@ export class GameScene extends Phaser.Scene {
       feetY: pos.y,
       facing: p.facing,
       color: i === 0 ? P.player0 : P.player1,
+      belly: this.belly[i],
     }, { face: this.faces[i] });
 
     this.drawRacket(g, p, pos.x, pos.y, cos);

@@ -20,6 +20,8 @@ export interface PresencePlayer {
   pending: boolean;
   /** 已经在他的对局里 */
   joined: boolean;
+  /** 已经和你站在同一张地图上（不需要申请加入 / 观战） */
+  nearby?: boolean;
 }
 
 export const usePresenceStore = defineStore('presence', () => {

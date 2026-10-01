@@ -1,0 +1,318 @@
+/**
+ * 潜水抓鱼的静态数据：鱼种、海岛、三条升级线。
+ *
+ * 设计上的三个环：**氧气**（能待多久 / 敢潜多深）、**背包**（一趟能带多少）、
+ * **渔具**（能拉多大的鱼）。稀有度和深度绑定——浅水只有小鱼，越深越贵也越难拉，
+ * 所以"下潜"才有取舍。
+ */
+
+export interface Species {
+  id: string;
+  name: string;
+  emoji: string;
+  /** 体重范围（kg），越大越值钱 */
+  kg: [number, number];
+  /** 每公斤价值 + 基础价值 */
+  perKg: number;
+  base: number;
+  /** 活动深度带（世界坐标 y，0 = 水面） */
+  band: [number, number];
+  /** 出现权重（越大越常见） */
+  weight: number;
+  /** 游速（px/s） */
+  speed: number;
+  /** 逃跑倾向：0 = 无视你，1 = 一靠近就跑 */
+  flee: number;
+  /** 需要的最低渔具等级（不够会被挣脱） */
+  gear: number;
+  /** 拉扯强度：越大越难收杆（0.2 轻松 ~ 1.2 要满级渔具） */
+  pull: number;
+  /** 群游条数（生成时一次来几条） */
+  school: number;
+  /** 贴海底活动（龙虾/石斑之类） */
+  bottom?: boolean;
+}
+
+/** 鱼种表：按深度排开，浅 → 深 = 便宜 → 贵 */
+export const SPECIES: Species[] = [
+  {
+    id: 'sardine',
+    name: '沙丁鱼',
+    emoji: '🐟',
+    kg: [0.1, 0.35],
+    perKg: 26,
+    base: 4,
+    band: [40, 420],
+    weight: 26,
+    speed: 150,
+    flee: 0.95,
+    gear: 1,
+    pull: 0.2,
+    school: 5,
+  },
+  {
+    id: 'clown',
+    name: '小丑鱼',
+    emoji: '🐠',
+    kg: [0.2, 0.7],
+    perKg: 30,
+    base: 6,
+    band: [60, 520],
+    weight: 20,
+    speed: 120,
+    flee: 0.8,
+    gear: 1,
+    pull: 0.28,
+    school: 2,
+  },
+  {
+    id: 'bass',
+    name: '海鲈',
+    emoji: '🐟',
+    kg: [1, 3.5],
+    perKg: 34,
+    base: 18,
+    band: [260, 900],
+    weight: 16,
+    speed: 105,
+    flee: 0.6,
+    gear: 1,
+    pull: 0.48,
+    school: 1,
+  },
+  {
+    id: 'octopus',
+    name: '章鱼',
+    emoji: '🐙',
+    kg: [1.5, 4],
+    perKg: 42,
+    base: 24,
+    band: [420, 1100],
+    weight: 12,
+    speed: 70,
+    flee: 0.45,
+    gear: 2,
+    pull: 0.66,
+    school: 1,
+    bottom: true,
+  },
+  {
+    id: 'lobster',
+    name: '龙虾',
+    emoji: '🦞',
+    kg: [0.8, 3],
+    perKg: 60,
+    base: 30,
+    band: [700, 1500],
+    weight: 9,
+    speed: 55,
+    flee: 0.35,
+    gear: 2,
+    pull: 0.4,
+    school: 1,
+    bottom: true,
+  },
+  {
+    id: 'amberjack',
+    name: '鰤鱼',
+    emoji: '🐟',
+    kg: [3, 9],
+    perKg: 44,
+    base: 60,
+    band: [700, 1300],
+    weight: 10,
+    speed: 130,
+    flee: 0.7,
+    gear: 2,
+    pull: 0.72,
+    school: 2,
+  },
+  {
+    id: 'tuna',
+    name: '金枪鱼',
+    emoji: '🐟',
+    kg: [8, 26],
+    perKg: 52,
+    base: 120,
+    band: [900, 1600],
+    weight: 7,
+    speed: 170,
+    flee: 0.75,
+    gear: 3,
+    pull: 0.88,
+    school: 1,
+  },
+  {
+    id: 'angler',
+    name: '深海鮟鱇',
+    emoji: '🎣',
+    kg: [5, 16],
+    perKg: 88,
+    base: 180,
+    band: [1100, 1800],
+    weight: 5,
+    speed: 60,
+    flee: 0.3,
+    gear: 3,
+    pull: 0.8,
+    school: 1,
+  },
+  {
+    id: 'grouper',
+    name: '巨型石斑',
+    emoji: '🐟',
+    kg: [20, 60],
+    perKg: 74,
+    base: 260,
+    band: [1300, 2000],
+    weight: 3,
+    speed: 48,
+    flee: 0.2,
+    gear: 4,
+    pull: 1.0,
+    school: 1,
+    bottom: true,
+  },
+  {
+    id: 'oarfish',
+    name: '深海龙王',
+    emoji: '🐉',
+    kg: [30, 95],
+    perKg: 150,
+    base: 600,
+    band: [1500, 2200],
+    weight: 1.4,
+    speed: 90,
+    flee: 0.5,
+    gear: 5,
+    pull: 1.2,
+    school: 1,
+  },
+];
+
+export function speciesById(id: string): Species | undefined {
+  return SPECIES.find((s) => s.id === id);
+}
+
+/** 一条鱼的售价：基础 + 每公斤 × 体重，稀有鱼靠 perKg 拉开差距 */
+export function fishValue(s: Species, kg: number): number {
+  return Math.round(s.base + s.perKg * kg);
+}
+
+// ---- 海岛 -----------------------------------------------------------------
+
+export interface IslandHazards {
+  /** 水母数量 */
+  jelly: number;
+  /** 鲨鱼数量 */
+  shark: number;
+  /** 暗流条数 */
+  current: number;
+}
+
+export interface Island {
+  id: string;
+  name: string;
+  desc: string;
+  /** 出海花费（0 = 本岛不用钱） */
+  cost: number;
+  /** 需要的渔具等级 */
+  gear: number;
+  /** 需要先买船 */
+  boat?: boolean;
+  /** 水下配色 */
+  palette: { shallow: number; deep: number; accent: number };
+  /** 海床深度（世界坐标 y） */
+  floor: number;
+  /** 这里有的鱼 */
+  fish: string[];
+  hazards: IslandHazards;
+}
+
+export const ISLANDS: Island[] = [
+  {
+    id: 'shore',
+    name: '近岸浅滩',
+    desc: '家门口的浅水，小鱼多、水母少，练手够用',
+    cost: 0,
+    gear: 1,
+    palette: { shallow: 0x3fa9d8, deep: 0x0b2e4a, accent: 0x9fe8ff },
+    floor: 1200,
+    fish: ['sardine', 'clown', 'bass', 'octopus'],
+    hazards: { jelly: 3, shark: 0, current: 0 },
+  },
+  {
+    id: 'coral',
+    name: '珊瑚环礁',
+    desc: '彩色礁盘，鱼多但水母也密',
+    cost: 600,
+    gear: 2,
+    boat: true,
+    palette: { shallow: 0x35c4c0, deep: 0x083b46, accent: 0xffe6a3 },
+    floor: 1600,
+    fish: ['clown', 'bass', 'octopus', 'lobster', 'amberjack'],
+    hazards: { jelly: 7, shark: 0, current: 1 },
+  },
+  {
+    id: 'trench',
+    name: '深海沟',
+    desc: '又深又冷，金枪鱼与鮟鱇在这里',
+    cost: 1200,
+    gear: 3,
+    boat: true,
+    palette: { shallow: 0x1f6f9e, deep: 0x061b33, accent: 0x8fd8ff },
+    floor: 2000,
+    fish: ['amberjack', 'tuna', 'angler', 'grouper'],
+    hazards: { jelly: 4, shark: 1, current: 2 },
+  },
+  {
+    id: 'wreck',
+    name: '沉船湾',
+    desc: '沉船残骸盘着石斑，龙王偶尔路过',
+    cost: 2000,
+    gear: 4,
+    boat: true,
+    palette: { shallow: 0x2d7f8f, deep: 0x04101f, accent: 0x7fe0c0 },
+    floor: 2400,
+    fish: ['tuna', 'grouper', 'oarfish', 'lobster'],
+    hazards: { jelly: 6, shark: 2, current: 3 },
+  },
+];
+
+export function islandById(id: string): Island {
+  return ISLANDS.find((i) => i.id === id) ?? ISLANDS[0];
+}
+
+// ---- 升级 -----------------------------------------------------------------
+
+export const MAX_LEVEL = 5;
+
+/** 升到下一级的价格：三件装备一个曲线 */
+export const UPGRADE_COSTS = [0, 300, 700, 1400, 2400];
+
+export function upgradeCost(level: number): number {
+  return UPGRADE_COSTS[Math.min(level, UPGRADE_COSTS.length - 1)];
+}
+
+/** 氧气上限（秒）：越高级待得越久、敢下得更深 */
+export function oxygenMax(level: number): number {
+  return 26 + (level - 1) * 7;
+}
+
+/** 背包容量：条数 / 总重量（kg） */
+export function bagLimits(level: number): { count: number; kg: number } {
+  return { count: 6 + (level - 1) * 3, kg: 14 + (level - 1) * 9 };
+}
+
+/** 渔具：钩子半径 + 能拉住的体重上限（kg） */
+export function gearStats(level: number): { hook: number; maxKg: number; reel: number } {
+  return {
+    hook: 34 + (level - 1) * 6,
+    maxKg: 4 + (level - 1) * 14,
+    // 收杆速度倍率
+    reel: 1 + (level - 1) * 0.18,
+  };
+}
+
+/** 买船的价格 */
+export const BOAT_COST = 2500;

@@ -4,6 +4,7 @@ import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import { useMobileShell } from './composables/useMobileShell';
 import { useLobbyStore, type FriendRequest, type Invite } from './stores/lobby';
 import { useProgressStore } from './stores/progress';
+import type { InviteKind } from './net/lobby';
 import Button from './components/ui/Button.vue';
 import AppToast from './components/ui/AppToast.vue';
 
@@ -14,9 +15,21 @@ const router = useRouter();
 const lobby = useLobbyStore();
 const progress = useProgressStore();
 
+/** 邀请是哪个场景发出来的，接受后就去哪个页面（页面自己再取房间号入房） */
+const INVITE_LANDING: Record<InviteKind, { path: string; label: string }> = {
+  match: { path: '/online', label: '对局' },
+  map: { path: '/', label: '大地图' },
+  fish: { path: '/fish', label: '钓鱼塘' },
+  mine: { path: '/mine', label: '矿洞' },
+};
+
+function inviteLabel(inv: Invite): string {
+  return INVITE_LANDING[inv.kind]?.label ?? '对局';
+}
+
 function acceptInvite(inv: Invite) {
   lobby.acceptInvite(inv);
-  void router.push('/online');
+  void router.push(INVITE_LANDING[inv.kind]?.path ?? '/online');
 }
 
 function acceptRequest(req: FriendRequest) {
@@ -36,7 +49,7 @@ function acceptRequest(req: FriendRequest) {
 
     <div v-for="inv in lobby.invites" :key="`inv-${inv.from}`" class="toast">
       <p class="toast__title">
-        <b>{{ inv.name }}</b> 邀请你加入对局
+        <b>{{ inv.name }}</b> 邀请你加入{{ inviteLabel(inv) }}
       </p>
       <p class="toast__sub num">房间 {{ inv.code }}</p>
       <div class="toast__actions">

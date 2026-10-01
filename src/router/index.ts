@@ -37,6 +37,11 @@ export const router = createRouter({
       name: 'mine',
       component: () => import('../views/MineView.vue'),
     },
+    {
+      path: '/barber',
+      name: 'barber',
+      component: () => import('../views/BarberView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 
   ],

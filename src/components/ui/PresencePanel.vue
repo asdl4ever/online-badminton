@@ -47,8 +47,8 @@ const hidden = useLocalStorage('bmt-presence-hidden', false);
           <span class="presence__mode">{{ p.icon }} {{ p.mode || '在地图上' }}</span>
         </div>
 
-        <!-- 第二行两列：申请加入 / 观战 -->
-        <div class="presence__actions">
+        <!-- 第二行两列：申请加入 / 观战（就在你旁边的人不需要这两个按钮） -->
+        <div v-if="!p.nearby" class="presence__actions">
           <Button
             size="sm"
             :variant="watching === p.id ? 'default' : 'default'"
@@ -90,7 +90,8 @@ const hidden = useLocalStorage('bmt-presence-hidden', false);
 .presence__ghost {
   position: absolute;
   left: max(var(--s2), env(safe-area-inset-left));
-  top: calc(env(safe-area-inset-top) + var(--s2));
+  /* 收起的箭头也排在左上角那排按钮下面 */
+  top: calc(env(safe-area-inset-top) + var(--s2) + var(--ui-top-h) + 6px);
   z-index: 27;
 }
 </style>

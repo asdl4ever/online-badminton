@@ -344,8 +344,9 @@ export type RacketSkinId =
   | 'toxic'
   | 'ember';
 
-export type CharacterSkin = 'none' | 'godzilla';
-const SKIN_IDS: CharacterSkin[] = ['none', 'godzilla'];
+/** 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮，羽毛球弹上去会被弹开） */
+export type CharacterSkin = 'none' | 'godzilla' | 'ubear';
+const SKIN_IDS: CharacterSkin[] = ['none', 'godzilla', 'ubear'];
 
 export interface Cosmetic {
   /** whole-body character form (the streak-100 Godzilla, else 'none') */

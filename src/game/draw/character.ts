@@ -1405,6 +1405,11 @@ export interface CharacterPose {
   facing: 1 | -1;
   /** body colour */
   color: number;
+  /**
+   * 仅 U熊：肚皮的果冻形变，0 = 静止，正数 = 被砸扁、负数 = 回弹鼓出。
+   * 由场景的阻尼弹簧驱动（见 `GameScene.stepBelly`）。
+   */
+  belly?: number;
 }
 
 export interface CharacterOpts {
@@ -1466,6 +1471,91 @@ function drawGodzilla(g: Phaser.GameObjects.Graphics, now: number, pose: Charact
   g.fillCircle(pose.x + pose.facing * 12, topY + 11, 1.4);
 }
 
+/**
+ * U熊：敦实的熊，胸口有肌肉、肚子很大。肚子被打中时会像果冻一样变宽变扁
+ * （`pose.belly`），和模拟层那块「把球弹开」的肚皮圆（见 simulation.ts 的
+ * `BELLY_R / BELLY_CY`）位置一致，所以看起来就是那里把球弹走的。
+ */
+function drawUBear(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const b = pose.belly ?? 0;
+  const breathe = Math.sin(now / 620) * 1.2;
+  const fur = 0x8b5a2b;
+  const furDark = 0x6f4620;
+  const furLight = 0xa9703a;
+  const belly = 0xf0cf9e;
+  const bellyLight = 0xffe6c2;
+
+  // 尾巴
+  g.fillStyle(furDark, 1);
+  g.fillEllipse(x - f * 24, pose.feetY - 44, 24, 18);
+
+  // 腿
+  g.fillStyle(furDark, 1);
+  g.fillRoundedRect(x - 16, pose.feetY - 30, 14, 30, 7);
+  g.fillRoundedRect(x + 2, pose.feetY - 30, 14, 30, 7);
+
+  // 后侧手臂（压在身体后面）
+  g.fillStyle(furDark, 1);
+  g.fillRoundedRect(x - f * 30 - 8, topY + 46, 16, 46, 8);
+
+  // 躯干
+  g.fillStyle(fur, 1);
+  g.fillRoundedRect(x - 26, topY + 34, 52, PLAYER_H - 60, 16);
+
+  // 胸肌
+  g.fillStyle(furLight, 1);
+  g.fillEllipse(x - f * 11, topY + 44, 24, 16);
+  g.fillEllipse(x + f * 11, topY + 44, 24, 16);
+
+  // 大肚皮：果冻形变 = 变宽 + 变扁，回弹时反过来
+  const rx = 26 * (1 + 0.42 * b) + breathe;
+  const ry = 27 * (1 - 0.34 * b);
+  g.fillStyle(belly, 1);
+  g.fillEllipse(x, topY + 66, rx * 2, ry * 2);
+  g.fillStyle(bellyLight, 1);
+  g.fillEllipse(x, topY + 66, rx * 1.34, ry * 1.18);
+  // 肚皮上的 U
+  g.lineStyle(4, 0xffffff, 0.85);
+  g.beginPath();
+  g.arc(x, topY + 62, 9, 0, Math.PI, false, 0);
+  g.strokePath();
+  g.lineBetween(x - 9, topY + 62, x - 9, topY + 48);
+  g.lineBetween(x + 9, topY + 62, x + 9, topY + 48);
+
+  // 前侧手臂 + 二头肌 + 拳头
+  g.fillStyle(fur, 1);
+  g.fillRoundedRect(x + f * 22 - 9, topY + 46, 18, 48, 9);
+  g.fillStyle(furLight, 1);
+  g.fillEllipse(x + f * 22, topY + 56, 20, 16);
+  g.fillStyle(fur, 1);
+  g.fillCircle(x + f * 22, topY + 94, 11);
+
+  // 头
+  g.fillStyle(fur, 1);
+  g.fillCircle(x, topY + 18, 17);
+  // 耳朵
+  g.fillCircle(x - 13, topY + 4, 7);
+  g.fillCircle(x + 13, topY + 4, 7);
+  g.fillStyle(furLight, 1);
+  g.fillCircle(x - 13, topY + 4, 3.6);
+  g.fillCircle(x + 13, topY + 4, 3.6);
+  // 口鼻 + 鼻子
+  g.fillStyle(belly, 1);
+  g.fillEllipse(x + f * 6, topY + 25, 20, 14);
+  g.fillStyle(0x3a2a1c, 1);
+  g.fillEllipse(x + f * 10, topY + 21, 8, 6);
+  // 眼睛
+  g.fillStyle(0x2a1c12, 1);
+  g.fillCircle(x + f * 3, topY + 14, 2.6);
+  g.fillCircle(x + f * 12, topY + 13, 2.6);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillCircle(x + f * 3.8, topY + 13.2, 0.9);
+  g.fillCircle(x + f * 12.8, topY + 12.2, 0.9);
+}
+
 export function drawCharacter(
   g: Phaser.GameObjects.Graphics,
   now: number,
@@ -1484,14 +1574,17 @@ export function drawCharacter(
   if (cos.cape !== 'none') drawCape(g, now, pose.x, topY, cos.cape);
   if (cos.wings !== 'none') drawWings(g, now, pose.x, topY, cos);
 
-  if (cos.characterSkin === 'godzilla') {
+  if (cos.characterSkin === 'ubear') {
+    drawUBear(g, now, pose);
+  } else if (cos.characterSkin === 'godzilla') {
     drawGodzilla(g, now, pose);
   } else {
     g.fillStyle(pose.color, 1);
     g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
   }
 
-  if (cos.characterSkin === 'godzilla') {
+  if (cos.characterSkin !== 'none') {
+    // 整只角色都换掉了，emoji 头就不画了
     opts.face?.setVisible(false);
   } else if (cos.emoji && opts.face) {
     const face = opts.face;

@@ -9,6 +9,20 @@
 
 export type LobbyConnState = 'off' | 'connecting' | 'online';
 
+/**
+ * Which screen an invite belongs to. The host invites from the room he is
+ * sitting in; the guest is routed to the matching page on accept.
+ */
+export type InviteKind = 'match' | 'map' | 'fish' | 'mine';
+
+export const INVITE_KINDS: readonly InviteKind[] = ['match', 'map', 'fish', 'mine'];
+
+export function normaliseInviteKind(raw: unknown): InviteKind {
+  return typeof raw === 'string' && (INVITE_KINDS as readonly string[]).includes(raw)
+    ? (raw as InviteKind)
+    : 'match';
+}
+
 export interface LobbyHooks {
   onOpen?: () => void;
   onClose?: () => void;
@@ -18,7 +32,7 @@ export interface LobbyHooks {
   onFriendAccepted?: (from: string, name: string) => void;
   onFriendDeclined?: (from: string) => void;
   onUnfriended?: (from: string) => void;
-  onInvite?: (from: string, name: string, code: string) => void;
+  onInvite?: (from: string, name: string, code: string, kind: InviteKind) => void;
   onError?: (code: string, message: string) => void;
 }
 
@@ -94,8 +108,8 @@ export class LobbyClient {
   unfriend(target: string): void {
     this.send({ t: 'unfriend', target });
   }
-  invite(target: string, code: string): void {
-    this.send({ t: 'invite', target, code });
+  invite(target: string, code: string, kind: InviteKind = 'match'): void {
+    this.send({ t: 'invite', target, code, kind });
   }
 
   private open(): void {
@@ -186,7 +200,7 @@ export class LobbyClient {
         this.hooks.onUnfriended?.(str(msg.from));
         break;
       case 'invite':
-        this.hooks.onInvite?.(str(msg.from), str(msg.name), str(msg.code));
+        this.hooks.onInvite?.(str(msg.from), str(msg.name), str(msg.code), normaliseInviteKind(msg.kind));
         break;
       case 'error':
         this.hooks.onError?.(str(msg.code), str(msg.m));

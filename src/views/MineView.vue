@@ -136,9 +136,9 @@ onBeforeUnmount(() => {
   <div class="page page--playing">
     <PageShell title="采矿场" back @back="back">
       <template #icons>
-        <span class="icon-btn ui-num mine-earn" title="本场收益">¥{{ sessionTotal }}</span>
+        <span class="icon-btn ui-num mine-earn" title="本场收益">本场 ¥{{ sessionTotal }}</span>
         <button v-if="touch" class="icon-btn jelly" type="button" title="摇杆布局" @click="toggleEdit">
-          🕹
+          摇杆布局
         </button>
       </template>
 

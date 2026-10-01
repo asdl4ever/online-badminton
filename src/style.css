@@ -567,6 +567,8 @@ button {
   --ui-bar-h: 44px;
   --ui-dock-w: 200px;
   --ui-icon: 34px;
+  /* 左上角那排按钮（退出 / 模式设置）的高度——下面所有浮层都靠它让位 */
+  --ui-top-h: var(--ui-icon);
   --ui-btn-sm: 36px;
   --ui-btn-md: 44px;
   --ui-btn-lg: 52px;
@@ -797,7 +799,7 @@ h3 {
 
 /* ==========================================================================
    PageShell —— 所有对局页共用的外壳
-   顶部一条 44px、画面区自适应铺满、右上角一排横向小图标、右侧功能坞、底部比分行。
+   没有顶栏：左上角「退出 + 模式设置」，右上角一排横向小图标，中间整块是画面。
    ========================================================================== */
 .shell-ui {
   position: relative;
@@ -808,49 +810,66 @@ h3 {
   gap: 0;
 }
 
-/* 顶栏：一条固定高度的玻璃，可整条收起 */
-/* stylelint-disable-next-line selector-class-pattern */
-.shell-ui__bar {
-  position: relative;
-  z-index: 22;
-  flex: none;
-  height: var(--ui-bar-h);
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: 0 var(--s2);
-  padding-left: max(var(--s2), env(safe-area-inset-left));
-  padding-right: max(var(--s2), env(safe-area-inset-right));
-  padding-top: env(safe-area-inset-top);
-  border-bottom: 1px solid var(--glass-border);
-  background: rgba(255, 252, 240, 0.72);
-  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  box-shadow: 0 12px 26px -24px rgba(150, 112, 30, 0.7);
-}
-
-.shell-ui__bar.is-hidden {
-  display: none;
-}
-
-.shell-ui__title {
-  flex: 1;
-  min-width: 0;
-  text-align: center;
-  font-family: var(--font-display);
-  font-size: var(--ui-font-lg);
-  font-weight: 700;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .shell-ui__main {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* 左上角：退出 + 模式设置（原来顶栏的位置） */
+.hud-top {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + var(--s2));
+  left: max(var(--s2), env(safe-area-inset-left));
+  z-index: 27;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - var(--s2) * 2);
+}
+
+.hud-top__title {
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 带文字的方形按钮：模式设置 */
+.dock-btn {
+  flex: none;
+  height: var(--ui-top-h);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: var(--lg-radius);
+  background: color-mix(in srgb, var(--accent) 16%, var(--glass-bg));
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+  color: var(--accent);
+  font-size: var(--ui-font-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dock-btn__icon {
+  flex: none;
+}
+
+.dock-btn.is-open {
+  background: color-mix(in srgb, var(--accent) 30%, var(--glass-bg));
+}
+
+/* 模式设置面板展开时，左边那块玩家面板先让位（两者都在左上角） */
+.shell-ui.is-dock-open .presence {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* 画面区：默认按 16:9 等比居中（桌面）；手机端在下面铺满 */
@@ -900,7 +919,7 @@ h3 {
   }
 }
 
-/* 右上角：一排横向小图标，收起时只剩一个箭头 */
+/* 右上角：一排**文字**按钮（个人主页 / 页面功能 / 设置），收起时只剩一个「收起」 */
 .hud-icons {
   position: absolute;
   top: calc(env(safe-area-inset-top) + var(--s2));
@@ -908,12 +927,15 @@ h3 {
   z-index: 26;
   display: flex;
   justify-content: flex-end;
+  max-width: calc(100% - var(--s2) * 2);
 }
 
 .hud-icons__row {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 3px;
   border: 1px solid var(--glass-border);
   border-radius: var(--lg-radius);
@@ -924,11 +946,20 @@ h3 {
   transition: opacity var(--dur-1) var(--ease);
 }
 
+/* 行里的按钮写成文字胶囊（原来是图标） */
 .hud-icons__row .icon-btn {
+  width: auto;
+  min-width: var(--ui-icon);
+  height: var(--ui-icon);
+  padding: 0 10px;
+  gap: 4px;
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-  font-size: 16px;
+  color: var(--text);
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .hud-icons__row .icon-btn:hover {
@@ -943,30 +974,15 @@ h3 {
   display: none;
 }
 
-/* 底部比分行：固定高度的一条玻璃 */
-.hud-foot {
-  flex: none;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s3);
-  padding: 4px var(--s4);
-  padding-bottom: max(4px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--glass-border);
-  background: rgba(255, 252, 240, 0.72);
-  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  color: var(--text-dim);
-  font-size: var(--ui-font-sm);
-}
 
 /* ---------- 左侧：房间在线玩家（大地图） ---------- */
 .presence {
   position: absolute;
   left: max(var(--s2), env(safe-area-inset-left));
-  top: calc(env(safe-area-inset-top) + var(--s2));
-  bottom: var(--s3);
+  /* 让开左上角那排按钮（退出 / 模式设置） */
+  top: calc(env(safe-area-inset-top) + var(--s2) + var(--ui-top-h) + 6px);
+  /* 只占内容高度，别把左侧整屏铺满；列表超出时自己滚 */
+  max-height: min(52%, 380px);
   z-index: 28;
   width: var(--ui-dock-w);
   display: flex;
@@ -979,7 +995,9 @@ h3 {
   backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
   -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
   box-shadow: var(--glass-shadow), var(--glass-hi);
-  transition: transform 320ms var(--ease-jelly);
+  transition:
+    transform 320ms var(--ease-jelly),
+    opacity 180ms var(--ease);
 }
 
 .presence.is-hidden {

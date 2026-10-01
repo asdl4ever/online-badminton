@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import PresencePanel from '../components/ui/PresencePanel.vue';
 import Button from '../components/ui/Button.vue';
+import StatusChip from '../components/ui/StatusChip.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import RankPanel from '../components/RankPanel.vue';
-import CustomizePanel from '../components/CustomizePanel.vue';
 import BackpackPanel from '../components/BackpackPanel.vue';
 import ChestPanel from '../components/ChestPanel.vue';
 import PetEggPanel from '../components/PetEggPanel.vue';
@@ -16,17 +16,20 @@ import FriendsPanel from '../components/FriendsPanel.vue';
 import type { PresencePlayer } from '../stores/presence';
 import { WORLD_H, WORLD_W, WORLD_ZONES, ZONE_RADIUS, type WorldZone } from '../game/world/zones';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
+import { P } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
+import { useMapSession } from '../composables/useMapSession';
 import { usePresenceStore } from '../stores/presence';
+import { BARBER_COST } from '../game/items';
 import { useProgressStore } from '../stores/progress';
-import { useGameStore } from '../stores/game';
+import { useLobbyStore } from '../stores/lobby';
 import { useCustomizeStore } from '../stores/customize';
 
 const router = useRouter();
 const presence = usePresenceStore();
 const progress = useProgressStore();
-const game = useGameStore();
+const lobby = useLobbyStore();
 const customize = useCustomizeStore();
 
 /* --- 地图上的角色：用游戏里那套绘制，所以装扮和球拍皮肤都跟着走 --------- */
@@ -34,6 +37,7 @@ const AVATAR_SCALE = 0.8;
 const avatarBox = avatarBoxSize(AVATAR_SCALE);
 const avatarFeetPad = Math.round(AVATAR_FEET_PAD * AVATAR_SCALE);
 const meCanvas = ref<HTMLCanvasElement | null>(null);
+const peerCanvas = ref<HTMLCanvasElement | null>(null);
 let facing: 1 | -1 = 1;
 
 function paintMe(now: number): void {
@@ -41,8 +45,57 @@ function paintMe(now: number): void {
   if (!canvas) return;
   paintAvatar(canvas, customize.cosmetic, now, { scale: AVATAR_SCALE, facing });
 }
-/** 有房间号说明已经联机开房，可以邀请好友进地图 */
-const roomCode = computed(() => game.roomCode);
+
+/* --- 一起逛：好友被邀请进来后，就站在这张地图上 ------------------------- */
+const map = useMapSession();
+// 解构成顶层 ref，模板里才会自动解包
+const { code: mapCode, phase: mapPhase, waiting: mapWaiting, connState: mapConn, peer: mapPeer } = map;
+const mapJoinCode = ref('');
+
+/** 客人第一次拿到房主的位置时，站到他旁边 */
+map.onFirstPeer = (x, y) => {
+  me.value = clampToWorld(x + 70, y + 30);
+};
+
+function paintPeer(now: number): void {
+  const peer = mapPeer.value;
+  const canvas = peerCanvas.value;
+  if (!peer || !canvas) return;
+  // 对方用对战里 2 号位的颜色，和自己的 1 号位区分开
+  paintAvatar(canvas, peer.cosmetic, now, {
+    scale: AVATAR_SCALE,
+    facing: peer.facing,
+    color: P.player1,
+  });
+}
+
+/** 左侧列表：好友就在旁边，不需要"申请加入/观战" */
+watch(
+  () => mapPeer.value?.name ?? '',
+  (name) => {
+    presence.populate(
+      name
+        ? [{ id: 'map-peer', name, mode: '', icon: '🧭', joinable: false, nearby: true }]
+        : [],
+    );
+  },
+);
+
+/** 接受好友的地图邀请后，直接进他的营地 */
+watch(
+  () => lobby.pendingJoin,
+  () => {
+    const code = lobby.consumeInvite('map');
+    if (!code) return;
+    mapJoinCode.value = code;
+    void map.join(code);
+  },
+  { immediate: true },
+);
+
+function joinMapByCode(): void {
+  void map.join(mapJoinCode.value);
+}
 
 /** 角色在平面上的坐标 + 摇杆推力 + 键盘按住的方向 */
 const me = ref({ x: 620, y: 760 });
@@ -55,7 +108,6 @@ const plane = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
 
 const showRank = ref(false);
-const showLook = ref(false);
 const showBag = ref(false);
 const showChest = ref(false);
 const showEgg = ref(false);
@@ -130,13 +182,21 @@ function loop(now: number): void {
     if (Math.abs(vx) > 0.06) facing = vx > 0 ? 1 : -1;
   }
   updateCamera();
+  // 自己的位姿发给对方（12Hz），对方的位置插值过来
+  map.tick(dt, { x: me.value.x, y: me.value.y, facing });
   paintMe(now);
+  paintPeer(now);
   raf = requestAnimationFrame(loop);
 }
 
 function enterZone(z: WorldZone): void {
   if (!z.route) {
     toastWarn(`${z.name} 还没开放`);
+    return;
+  }
+  // 理发店要收金币，钱不够就别白跑一趟了（真正扣费在 BarberView 里）
+  if (z.id === 'barber' && progress.coins < BARBER_COST) {
+    toastWarn(`理发要 ¥${BARBER_COST}，先去钓鱼塘或矿洞赚点金币吧`);
     return;
   }
   sfx.click();
@@ -167,7 +227,7 @@ function join(p: PresencePlayer): void {
   toastGood(`已向 ${p.name} 发送加入申请，等对方同意`);
 }
 
-function watch(p: PresencePlayer): void {
+function spectate(p: PresencePlayer): void {
   sfx.click();
   if (presence.watching === p.id) {
     presence.setWatching(null);
@@ -179,11 +239,15 @@ function watch(p: PresencePlayer): void {
 
 /* --- 坞里的功能 ----------------------------------------------------------- */
 function copyCode(): void {
-  const code = roomCode.value || '本地地图';
+  const code = mapCode.value;
   sfx.click();
+  if (!code) {
+    toastWarn('先建房才能分享房号');
+    return;
+  }
   void navigator.clipboard?.writeText(code).then(
-    () => toastGood(`地图口令 ${code} 已复制`),
-    () => toastWarn('复制失败，请手动备份地图口令'),
+    () => toastGood(`房号 ${code} 已复制，发给好友即可一起逛`),
+    () => toastWarn('复制失败，请手动记下房号'),
   );
 }
 
@@ -194,10 +258,17 @@ onMounted(() => {
   raf = requestAnimationFrame(loop);
 });
 
+function leaveMap(): void {
+  sfx.click();
+  map.leave();
+  toastGood('已离开营地');
+}
+
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf);
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('keyup', onKeyUp);
+  map.leave();
 });
 </script>
 
@@ -206,22 +277,45 @@ onBeforeUnmount(() => {
   <div class="page page--playing">
     <PageShell title="大世界 · 营地" back @back="router.push('/home')">
     <template #icons>
-      <button class="icon-btn jelly" type="button" title="段位" @click="showRank = true">🏅</button>
-      <button class="icon-btn jelly" type="button" title="外观" @click="showLook = true">🎨</button>
-      <button class="icon-btn jelly" type="button" title="背包" @click="showBag = true">🎒</button>
-      <button class="icon-btn jelly" type="button" title="宝箱" @click="showChest = true">🎁</button>
-      <button class="icon-btn jelly" type="button" title="宠物蛋" @click="showEgg = true">🥚</button>
-      <button class="icon-btn jelly" type="button" title="好友" @click="showFriends = true">👥</button>
+      <button class="icon-btn jelly" type="button" title="段位与奖励" @click="showRank = true">段位</button>
+      <button class="icon-btn jelly" type="button" title="背包" @click="showBag = true">背包</button>
+      <button class="icon-btn jelly" type="button" title="宝箱" @click="showChest = true">宝箱</button>
+      <button class="icon-btn jelly" type="button" title="宠物蛋" @click="showEgg = true">宠物蛋</button>
+      <button class="icon-btn jelly" type="button" title="好友与邀请" @click="showFriends = true">好友</button>
     </template>
 
     <template #dock>
       <SideDock>
         <span class="presence__mode">🪙 {{ progress.coins }}</span>
-        <Button v-if="roomCode" size="sm" block @click="showFriends = true">邀请好友</Button>
-        <Button v-else size="sm" block @click="router.push('/online')">去联机建房</Button>
-        <Button size="sm" @click="copyCode">复制地图口令</Button>
+        <StatusChip :tone="mapConn === 'online' ? 'ok' : mapWaiting ? 'warn' : 'idle'">
+          {{ mapConn === 'online' ? '好友在营地' : mapCode ? `房间 ${mapCode}` : '一个人逛' }}
+        </StatusChip>
+
+        <!-- 房主：建房 → 邀请好友 -->
+        <Button v-if="!mapCode && mapConn === 'off'" size="sm" block :disabled="mapWaiting" @click="map.host()">
+          建房一起逛
+        </Button>
+        <Button v-if="mapCode" size="sm" block @click="showFriends = true">邀请好友</Button>
+
+        <!-- 客人：输房号直接进 -->
+        <template v-if="!mapCode && mapConn === 'off'">
+          <input
+            v-model="mapJoinCode"
+            class="world-code"
+            maxlength="6"
+            placeholder="房号"
+            @keyup.enter="joinMapByCode"
+          />
+          <Button size="sm" block :disabled="mapWaiting" @click="joinMapByCode">加入好友营地</Button>
+        </template>
+
+        <Button v-if="mapCode" size="sm" block @click="copyCode">复制房号</Button>
+        <Button v-if="mapConn === 'online'" size="sm" block @click="leaveMap">离开营地</Button>
+
+        <span v-if="mapPhase" class="dock-note">{{ mapPhase }}</span>
+        <Button size="sm" variant="quiet" block @click="router.push('/online')">去联机对战</Button>
         <p class="dock-note">
-          摇杆 / WASD 在平面上走动，走进区域圈里按 E 进入；邀请来的好友会直接站在这张地图上。
+          摇杆 / WASD 走动，走进区域圈里按 E 进入；建房后邀请好友，他们会直接站到这张地图上。
         </p>
       </SideDock>
     </template>
@@ -260,6 +354,22 @@ onBeforeUnmount(() => {
             <canvas ref="meCanvas" class="avatar__rig" />
             <div class="avatar__name">你</div>
           </div>
+
+          <!-- 好友：同样的绘制，用 2 号位颜色区分，位置来自 12Hz 同步 -->
+          <div
+            v-if="mapPeer"
+            class="avatar is-friend"
+            :style="{
+              left: `${mapPeer.x}px`,
+              top: `${mapPeer.y}px`,
+              width: `${avatarBox.w}px`,
+              height: `${avatarBox.h}px`,
+              transform: `translate(-50%, calc(-100% + ${avatarFeetPad}px))`,
+            }"
+          >
+            <canvas ref="peerCanvas" class="avatar__rig" />
+            <div class="avatar__name">{{ mapPeer.name }}</div>
+          </div>
         </div>
 
         <div class="world__prompt" :class="{ 'is-on': !!nearZone }">
@@ -271,7 +381,7 @@ onBeforeUnmount(() => {
           :players="players"
           :watching="presence.watching"
           @join="join"
-          @watch="watch"
+          @watch="spectate"
         />
 
         <Joystick @move="(x, y) => (joy = { x, y })" />
@@ -280,13 +390,12 @@ onBeforeUnmount(() => {
   </PageShell>
 
   <AppModal v-model="showRank" title="段位" max-width="600px"><RankPanel /></AppModal>
-  <AppModal v-model="showLook" title="外观自定义"><CustomizePanel /></AppModal>
   <AppModal v-model="showBag" title="背包" max-width="760px"><BackpackPanel /></AppModal>
   <AppModal v-model="showChest" title="宝箱" max-width="540px"><ChestPanel /></AppModal>
   <AppModal v-model="showEgg" title="宠物蛋" max-width="480px"><PetEggPanel /></AppModal>
-    <AppModal v-model="showFriends" title="好友" max-width="720px">
-      <FriendsPanel :room-code="roomCode" :can-invite="!!roomCode" />
-    </AppModal>
+  <AppModal v-model="showFriends" title="好友" max-width="720px">
+    <FriendsPanel kind="map" :room-code="mapCode" :can-invite="!!mapCode" />
+  </AppModal>
   </div>
 </template>
 
@@ -296,6 +405,20 @@ onBeforeUnmount(() => {
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-dim);
+}
+
+/* 坞里的房号输入：手机端也刚好能戳 */
+.world-code {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* 角色用 canvas 画（见 game/draw/canvas2d.ts），外面这个盒子只负责定位 */

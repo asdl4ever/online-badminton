@@ -18,6 +18,8 @@ export interface RigPose {
   facing: 1 | -1;
   /** body colour */
   color: number;
+  /** U熊肚皮的果冻形变（0 = 静止），见 `CharacterPose.belly` */
+  belly?: number;
 }
 
 export interface PlayerRig {
@@ -94,6 +96,7 @@ export function drawRigGraphics(
     feetY: pose.feetY,
     facing: pose.facing,
     color: pose.color,
+    belly: pose.belly,
   }, { face });
 
   // arm from shoulder to just behind the racket head

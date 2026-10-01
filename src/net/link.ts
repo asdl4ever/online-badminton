@@ -33,6 +33,8 @@ export type NetMessage =
   | { t: 'minePose'; x: number; y: number; a: number; r: number }
   /** mining: this player just broke an ore block (display only, no sim) */
   | { t: 'mineBreak'; ore: string; value: number }
+  /** world map: where the other player is standing (light pose, ~12Hz) */
+  | { t: 'mapPose'; x: number; y: number; f: 1 | -1 }
   /** latency probe — the sender stamps it and measures its own round trip */
   | { t: 'ping'; ts: number }
   | { t: 'pong'; ts: number };

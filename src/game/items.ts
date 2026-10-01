@@ -31,7 +31,8 @@ export interface Item {
   rarity: Rarity;
   /** display rating, 1–5 */
   stars: number;
-  source: 'free' | 'gacha' | 'egg' | 'streak' | TierId;
+  /** `code` = 兑换码获得（见 progress.redeem） */
+  source: 'free' | 'gacha' | 'egg' | 'streak' | 'code' | TierId;
 }
 
 export const SLOT_ORDER: ItemSlot[] = [
@@ -84,6 +85,7 @@ export const ITEMS: Item[] = [
   // --- character skin (special: earned by machine-mode combo milestones) ---
   it('skin', 'none', '默认', 'common', 1, 'free'),
   it('skin', 'godzilla', '哥斯拉', 'legendary', 5, 'streak'),
+  it('skin', 'ubear', 'U熊', 'legendary', 5, 'code'),
   // --- hat ---
   it('hat', 'none', '无', 'common', 1, 'free'),
   it('hat', 'cap', '鸭舌帽', 'rare', 3, 'silver'),
@@ -434,6 +436,8 @@ export const GACHA_POOL = ITEMS.filter((i) => i.source === 'gacha');
 /** every hatching pet (the "none" placeholder is not hatchable) */
 export const PETS = ITEMS.filter((i) => i.slot === 'pet' && i.ref !== 'none');
 
+/** 理发店（大地图上的外观自定义）：进门一次的花费 */
+export const BARBER_COST = 100;
 export const CHEST_COST = 120;
 export const PITY_LIMIT = 10;
 

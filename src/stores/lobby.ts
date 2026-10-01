@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
-import { LobbyClient, type LobbyConnState } from '../net/lobby';
+import { LobbyClient, type InviteKind, type LobbyConnState } from '../net/lobby';
 import { randomRoomCode, normaliseCode } from '../net/link';
 
 export interface Friend {
@@ -16,6 +16,8 @@ export interface Invite {
   from: string;
   name: string;
   code: string;
+  /** 邀请是哪个场景发出的：对局 / 大地图 / 钓鱼塘 / 矿洞 */
+  kind: InviteKind;
 }
 
 function randomName(): string {
@@ -41,8 +43,12 @@ export const useLobbyStore = defineStore('lobby', () => {
   const invites = ref<Invite[]>([]);
   const status = ref<LobbyConnState>('off');
   const lastError = ref('');
-  /** room code handed over by an accepted invite, consumed by OnlineView */
-  const pendingJoin = ref('');
+  /**
+   * Room code + kind handed over by an accepted invite. The page that the kind
+   * belongs to picks it up (see `consumeInvite`), so an accepted map invite
+   * cannot accidentally land in the matchmaker.
+   */
+  const pendingJoin = ref<{ code: string; kind: InviteKind } | null>(null);
 
   let client: LobbyClient | null = null;
 
@@ -98,10 +104,10 @@ export const useLobbyStore = defineStore('lobby', () => {
         friends.value = friends.value.filter((f) => f.id !== from);
         online.value = online.value.filter((x) => x !== from);
       },
-      onInvite: (from, name, code) => {
+      onInvite: (from, name, code, kind) => {
         if (!from || !code) return;
         if (invites.value.some((v) => v.from === from)) return;
-        invites.value = [...invites.value, { from, name: name || from, code }];
+        invites.value = [...invites.value, { from, name: name || from, code, kind }];
       },
       onError: (_code, message) => {
         lastError.value = message;
@@ -153,27 +159,32 @@ export const useLobbyStore = defineStore('lobby', () => {
     client?.unfriend(id);
   }
 
-  function invite(friendId: string, code: string): void {
+  function invite(friendId: string, code: string, kind: InviteKind = 'match'): void {
     lastError.value = '';
     if (!code) {
       lastError.value = '请先创建房间再邀请';
       return;
     }
-    client?.invite(friendId, code);
+    client?.invite(friendId, code, kind);
   }
 
   function acceptInvite(inv: Invite): void {
     invites.value = invites.value.filter((v) => v.from !== inv.from);
-    pendingJoin.value = inv.code;
+    pendingJoin.value = { code: inv.code, kind: inv.kind };
   }
 
   function declineInvite(inv: Invite): void {
     invites.value = invites.value.filter((v) => v.from !== inv.from);
   }
 
-  function takePendingJoin(): string {
-    const code = pendingJoin.value;
-    pendingJoin.value = '';
+  /**
+   * A page asks for the invite that belongs to it ("I am the map, is there a
+   * map invite waiting?"). Anything else is left alone for its own page.
+   */
+  function consumeInvite(kind: InviteKind): string {
+    if (pendingJoin.value?.kind !== kind) return '';
+    const code = pendingJoin.value.code;
+    pendingJoin.value = null;
     return code;
   }
 
@@ -197,7 +208,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     invite,
     acceptInvite,
     declineInvite,
-    takePendingJoin,
+    consumeInvite,
     syncWatch,
   };
 });

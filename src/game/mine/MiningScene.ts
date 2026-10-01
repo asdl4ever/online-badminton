@@ -5,6 +5,7 @@ import {
   PLAYER_H,
   PLAYER_JUMP_V,
   PLAYER_SPEED,
+  PLAYER_W,
   RACKET_HEAD_R,
   RACKET_MAX,
   RACKET_SPEED_CAP,
@@ -99,7 +100,6 @@ export class MiningScene extends Phaser.Scene {
   /** shared character rigs — drawn exactly like the match scene's players */
   private rigMe!: PlayerRig;
   private rigOther!: PlayerRig;
-  private hud!: Phaser.GameObjects.Text;
   private pops: { t: Phaser.GameObjects.Text; life: number }[] = [];
 
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -123,10 +123,8 @@ export class MiningScene extends Phaser.Scene {
     this.g = this.add.graphics();
     this.rigMe = createPlayerRig(this);
     this.rigOther = createPlayerRig(this);
-    this.hud = this.add
-      .text(16, 12, '', { fontSize: '17px', color: '#3a2c18', fontStyle: 'bold' })
-      .setDepth(10);
-    this.refreshHud();
+    // 左上角不再写矿石耐久 / 金币：耐久看裂纹，收获看破坏时的金币跳动
+    this.cfg.onEarn?.(this.total);
 
     const kb = this.input.keyboard;
     if (kb) {
@@ -203,14 +201,46 @@ export class MiningScene extends Phaser.Scene {
       this.me.onGround = false;
     }
 
+    const prevY = this.me.y;
     this.me.vy += PLAYER_GRAVITY * dt;
-    this.me.x = Phaser.Math.Clamp(this.me.x + this.me.vx * dt, 60, ROCK_X - ROCK_R - 40);
+    this.me.x = Phaser.Math.Clamp(this.me.x + this.me.vx * dt, 60, VIEW_W - 60);
     this.me.y += this.me.vy * dt;
     if (this.me.y >= GROUND_Y) {
       this.me.y = GROUND_Y;
       this.me.vy = 0;
       this.me.onGround = true;
+    } else {
+      this.me.onGround = false;
     }
+    this.resolveRockCollision(prevY);
+  }
+
+  /**
+   * 矿石是实体，不能穿过去：从侧面撞上会被顶开，从上方落下则站在矿石顶上
+   * （顶面当成平的，和画出来的方块一致）。
+   */
+  private resolveRockCollision(prevY: number): void {
+    const me = this.me;
+    const halfW = PLAYER_W / 2 + 2;
+    const left = ROCK_X - ROCK_R;
+    const right = ROCK_X + ROCK_R;
+    const top = GROUND_Y - ROCK_R * 2 + 6; // 与 draw() 里的方块顶面对齐
+
+    // 水平方向没碰上，或者整个人已经在矿石上方 → 不碰
+    if (me.x + halfW <= left || me.x - halfW >= right) return;
+    if (me.y <= top) return;
+
+    // 这一帧是从矿石上方落下来的 → 踩上去
+    if (prevY <= top + 2 && me.vy >= 0) {
+      me.y = top;
+      me.vy = 0;
+      me.onGround = true;
+      return;
+    }
+
+    // 其余情况从侧面顶出去（哪边近就往哪边）
+    me.x = me.x < ROCK_X ? left - halfW : right + halfW;
+    me.vx = 0;
   }
 
   /**
@@ -292,9 +322,9 @@ export class MiningScene extends Phaser.Scene {
     this.spawnDebris(ROCK_X, GROUND_Y - ROCK_R, kind.color, 14);
     this.spawnDebris(ROCK_X, GROUND_Y - ROCK_R, kind.ore, 8);
     this.total += kind.value;
-    this.pop(`${kind.name} 碎了 +¥${kind.value}`, kind.ore);
+    this.coinPop(kind.value);
     this.cfg.session?.send({ t: 'mineBreak', ore: kind.name, value: kind.value });
-    this.refreshHud();
+    this.cfg.onEarn?.(this.total);
 
     // next block in the cycle
     this.kindIdx = (this.kindIdx + 1) % ORE_KINDS.length;
@@ -358,10 +388,59 @@ export class MiningScene extends Phaser.Scene {
     this.pops = this.pops.filter((p) => p.life > 0);
   }
 
-  private refreshHud(): void {
-    const kind = ORE_KINDS[this.kindIdx];
-    this.hud.setText(`当前 ${kind.name} · 耐久 ${this.hp}/${kind.hp} · 已挖 ¥${this.total}`);
-    this.cfg.onEarn?.(this.total);
+  /**
+   * 破坏矿石时的收获反馈：金币图标 + 跳动的数字。
+   * 先弹出来（回弹缩放），再向上跳一下，最后飘起淡出。
+   */
+  private coinPop(value: number): void {
+    const x = ROCK_X;
+    const y = GROUND_Y - ROCK_R * 2 - 12;
+    const icon = this.add
+      .text(x - 12, y, '🪙', { fontSize: '36px' })
+      .setOrigin(0.5)
+      .setDepth(14)
+      .setScale(0.3);
+    const num = this.add
+      .text(x + 18, y, `+${value}`, {
+        fontSize: '30px',
+        color: '#ffd45c',
+        fontStyle: 'bold',
+        stroke: '#3a2c18',
+        strokeThickness: 5,
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(14)
+      .setScale(0.3);
+
+    // 1) 弹出来（回弹）
+    this.tweens.add({
+      targets: [icon, num],
+      scale: 1,
+      duration: 260,
+      ease: 'Back.Out',
+    });
+    // 2) 跳一下再落回原位
+    this.tweens.add({
+      targets: [icon, num],
+      y: y - 44,
+      duration: 240,
+      ease: 'Quad.Out',
+      yoyo: true,
+      hold: 40,
+    });
+    // 3) 飘起淡出，收尾销毁
+    this.tweens.add({
+      targets: [icon, num],
+      y: y - 76,
+      alpha: 0,
+      delay: 900,
+      duration: 420,
+      ease: 'Sine.In',
+      onComplete: () => {
+        icon.destroy();
+        num.destroy();
+      },
+    });
   }
 
   // ---- networking ----------------------------------------------------------

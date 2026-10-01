@@ -20,6 +20,12 @@ function send(ws, obj) {
 }
 
 /**
+ * Which screen an invite should open on. The hub only relays the label; the
+ * client decides what to do with it. Anything unknown falls back to a match.
+ */
+const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine']);
+
+/**
  * Attaches a lightweight presence / friend / invite hub to an existing http
  * server. Unlike the match relay this socket is *long lived*: every client
  * keeps it open while the app is on screen, so friends can see who is online
@@ -185,8 +191,9 @@ export function attachLobby(server, path = '/lobby') {
           .toUpperCase()
           .replace(/[^A-Z0-9]/g, '')
           .slice(0, 8);
+        const kind = INVITE_KINDS.has(msg.kind) ? msg.kind : 'match';
         if (!target || !code) return;
-        if (!deliver(target, { t: 'invite', from: u.id, name: u.name, code })) {
+        if (!deliver(target, { t: 'invite', from: u.id, name: u.name, code, kind })) {
           send(ws, { t: 'error', code: 'offline', m: '对方不在线，邀请未送达' });
         }
         return;
