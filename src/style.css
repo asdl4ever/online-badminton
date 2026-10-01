@@ -154,11 +154,25 @@ button {
 }
 
 .shell {
+  position: relative;
   width: 100%;
   max-width: 1120px;
   display: flex;
   flex-direction: column;
   gap: var(--s4);
+}
+
+/* collapsed top bar: floats above the court so the stage gets the whole area */
+.topbar.topbar--collapsed {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .page--narrow .shell {
@@ -414,6 +428,10 @@ button {
     height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
+    /* playing on a phone: no accidental text selection or tap flash */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .page--playing .shell {
@@ -443,10 +461,40 @@ button {
     max-width: 100%;
     border-radius: 0;
     box-shadow: none;
+    /* the court is a game surface, not a scrollable page */
+    touch-action: none;
   }
 
   .page--playing .climb-note {
     display: none;
+  }
+
+  /* Notched phones: the bar sits against the screen edge, so keep its buttons
+     out of the notch and the court off the home indicator. These are 0 on
+     devices without an inset, so it is a no-op everywhere else. */
+  .page--playing .topbar.hud-bar {
+    padding-left: max(var(--s2), env(safe-area-inset-left));
+    padding-right: max(var(--s2), env(safe-area-inset-right));
+    padding-top: max(3px, env(safe-area-inset-top));
+  }
+
+  .page--playing .stage {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* collapsed bar: float the fold button over the court, the stage then gets
+     the whole screen (the 16:9 court letterboxes inside it as before) */
+  .page--playing .topbar--collapsed {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 20;
+    padding: 2px 4px;
+    padding-top: max(2px, env(safe-area-inset-top));
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .page--playing .topbar.hud-bar {

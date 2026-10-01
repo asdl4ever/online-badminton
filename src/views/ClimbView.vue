@@ -71,7 +71,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="page page--playing">
     <div class="shell">
-      <TopBar @back="back">
+      <TopBar collapsible @back="back">
         <template #title>攀爬挑战</template>
         <template #aside>
           <Button size="sm" @click="restart">重来</Button>

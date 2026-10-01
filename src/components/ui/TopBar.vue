@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import Button from './Button.vue';
 
-defineProps<{ backLabel?: string }>();
+defineProps<{ backLabel?: string; collapsible?: boolean }>();
 defineEmits<{ back: [] }>();
+
+/** when collapsible, the whole bar can tuck away to give the court the screen */
+const collapsed = ref(false);
 </script>
 
 <template>
-  <header class="topbar surface hud-bar">
-    <Button variant="quiet" size="sm" @click="$emit('back')">
+  <header
+    class="topbar surface hud-bar"
+    :class="{ 'topbar--collapsed': collapsible && collapsed }"
+  >
+    <Button v-show="!(collapsible && collapsed)" variant="quiet" size="sm" @click="$emit('back')">
       <svg class="topbar__icon" viewBox="0 0 24 24" aria-hidden="true">
         <path
           d="M15 5 8 12l7 7"
@@ -21,49 +28,53 @@ defineEmits<{ back: [] }>();
       <span>{{ backLabel ?? '返回' }}</span>
     </Button>
 
-    <div class="topbar__title">
+    <div v-show="!(collapsible && collapsed)" class="topbar__title">
       <slot name="title" />
     </div>
 
     <div class="topbar__aside">
-      <slot name="aside" />
+      <span v-show="!(collapsible && collapsed)" class="topbar__aside-main">
+        <slot name="aside" />
+      </span>
+      <Button
+        v-if="collapsible"
+        variant="quiet"
+        size="sm"
+        :title="collapsed ? '展开工具栏' : '收起工具栏'"
+        @click="collapsed = !collapsed"
+      >
+        <svg
+          class="topbar__icon topbar__fold"
+          :class="{ 'topbar__fold--up': collapsed }"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            d="m6 9 6 6 6-6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </Button>
     </div>
   </header>
 </template>
 
 <style scoped>
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s3);
-  flex-wrap: wrap;
-  padding: var(--s2) var(--s3);
-  border-radius: var(--r-md);
-}
-
-.topbar__icon {
-  width: 18px;
-  height: 18px;
-  margin-right: 2px;
-}
-
-.topbar__title {
-  flex: 1 1 auto;
-  text-align: center;
-}
-
-.topbar__title :deep(h2) {
-  font-size: 19px;
-}
-
-.topbar__aside {
+.topbar__aside-main {
   display: flex;
   align-items: center;
   gap: var(--s2);
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  /* anchors the emote picker popup */
-  position: relative;
+}
+
+.topbar__fold {
+  transition: transform var(--t-fast, 0.15s) ease;
+}
+
+.topbar__fold--up {
+  transform: rotate(180deg);
 }
 </style>

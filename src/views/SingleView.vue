@@ -91,7 +91,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="page page--playing">
     <div class="shell">
-      <TopBar @back="back">
+      <TopBar collapsible @back="back">
         <template #title>单机练习</template>
         <template #aside>
           <SegmentedChoice

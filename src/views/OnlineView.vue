@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="page" :class="{ 'page--playing': playing }">
     <div class="shell">
-      <TopBar @back="back">
+      <TopBar collapsible @back="back">
         <template #title>联机对战</template>
         <template #aside>
           <Button
