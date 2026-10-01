@@ -6,6 +6,7 @@ import TopBar from '../components/ui/TopBar.vue';
 import ScoreLine from '../components/ui/ScoreLine.vue';
 import Button from '../components/ui/Button.vue';
 import SegmentedChoice from '../components/ui/SegmentedChoice.vue';
+import SideDock from '../components/ui/SideDock.vue';
 import { toastGood } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
 import type { Choice } from '../components/ui/types';
@@ -117,36 +118,37 @@ onBeforeUnmount(() => {
     <div class="shell">
       <TopBar collapsible @back="back">
         <template #title>单机练习</template>
-        <template #aside>
-          <SegmentedChoice
-            :model-value="store.practice"
-            :options="practices"
-            label="模式"
-            @update:model-value="setPractice"
-          />
-          <SegmentedChoice
-            v-if="!isMachine"
-            :model-value="store.difficulty"
-            :options="difficulties"
-            label="难度"
-            @update:model-value="setDifficulty"
-          />
-          <Button v-if="touch" size="sm" @click="canvas?.toggleEditMode()">
-            <svg class="gear" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-              <circle cx="16" cy="7" r="2.5" fill="currentColor" />
-              <circle cx="10" cy="12" r="2.5" fill="currentColor" />
-              <circle cx="14" cy="17" r="2.5" fill="currentColor" />
-            </svg>
-            <span>{{ editing ? '完成' : '摇杆' }}</span>
-          </Button>
-        </template>
       </TopBar>
+
+      <SideDock>
+        <SegmentedChoice
+          :model-value="store.practice"
+          :options="practices"
+          label="模式"
+          @update:model-value="setPractice"
+        />
+        <SegmentedChoice
+          v-if="!isMachine"
+          :model-value="store.difficulty"
+          :options="difficulties"
+          label="难度"
+          @update:model-value="setDifficulty"
+        />
+        <Button v-if="touch" size="sm" @click="canvas?.toggleEditMode()">
+          <svg class="gear" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <circle cx="16" cy="7" r="2.5" fill="currentColor" />
+            <circle cx="10" cy="12" r="2.5" fill="currentColor" />
+            <circle cx="14" cy="17" r="2.5" fill="currentColor" />
+          </svg>
+          <span>{{ editing ? '完成' : '摇杆' }}</span>
+        </Button>
+      </SideDock>
 
       <div class="stage">
         <GameCanvas

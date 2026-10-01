@@ -6,6 +6,7 @@ import { VProgressCircular, VTextField } from 'vuetify/components';
 import GameCanvas from '../components/GameCanvas.vue';
 import PartyOverlay from '../components/PartyOverlay.vue';
 import TopBar from '../components/ui/TopBar.vue';
+import SideDock from '../components/ui/SideDock.vue';
 import ScoreLine from '../components/ui/ScoreLine.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
@@ -225,50 +226,51 @@ onBeforeUnmount(() => {
     <div class="shell">
       <TopBar collapsible @back="back">
         <template #title>联机对战</template>
-        <template #aside>
-          <Button
-            v-if="playing"
-            size="sm"
-            aria-haspopup="dialog"
-            :aria-expanded="emoteOpen"
-            @click="emoteOpen = !emoteOpen"
-          >
-            <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
-              <circle cx="9" cy="10" r="1.3" fill="currentColor" />
-              <circle cx="15" cy="10" r="1.3" fill="currentColor" />
-              <path
-                d="M8.4 14.4a4.6 4.6 0 0 0 7.2 0"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-              />
-            </svg>
-            <span>表情</span>
-          </Button>
-          <EmotePicker
-            v-if="emoteOpen && playing"
-            @pick="pickEmote"
-            @close="emoteOpen = false"
-          />
-          <Button v-if="touch && playing" size="sm" @click="canvas?.toggleEditMode()">
-            <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-              <circle cx="16" cy="7" r="2.5" fill="currentColor" />
-              <circle cx="10" cy="12" r="2.5" fill="currentColor" />
-              <circle cx="14" cy="17" r="2.5" fill="currentColor" />
-            </svg>
-            <span>{{ editing ? '完成' : '摇杆' }}</span>
-          </Button>
-          <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
-        </template>
       </TopBar>
+
+      <SideDock>
+        <Button
+          v-if="playing"
+          size="sm"
+          aria-haspopup="dialog"
+          :aria-expanded="emoteOpen"
+          @click="emoteOpen = !emoteOpen"
+        >
+          <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <circle cx="9" cy="10" r="1.3" fill="currentColor" />
+            <circle cx="15" cy="10" r="1.3" fill="currentColor" />
+            <path
+              d="M8.4 14.4a4.6 4.6 0 0 0 7.2 0"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>表情</span>
+        </Button>
+        <EmotePicker
+          v-if="emoteOpen && playing"
+          @pick="pickEmote"
+          @close="emoteOpen = false"
+        />
+        <Button v-if="touch && playing" size="sm" @click="canvas?.toggleEditMode()">
+          <svg class="hud-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <circle cx="16" cy="7" r="2.5" fill="currentColor" />
+            <circle cx="10" cy="12" r="2.5" fill="currentColor" />
+            <circle cx="14" cy="17" r="2.5" fill="currentColor" />
+          </svg>
+          <span>{{ editing ? '完成' : '摇杆' }}</span>
+        </Button>
+        <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
+      </SideDock>
 
       <div v-if="partyMode && !playing" class="muted party-hint">
         乐趣模式已开启：一局 3 轮，每轮开始前投票选玩法

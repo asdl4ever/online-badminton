@@ -113,6 +113,7 @@ function open(which: 'look' | 'friends' | 'rank' | 'bag' | 'chest' | 'egg') {
             <Button size="lg" @click="goParty">乐趣模式</Button>
             <Button size="lg" @click="go('/climb')">攀爬挑战</Button>
             <Button size="lg" @click="go('/fish')">钓鱼塘</Button>
+            <Button size="lg" @click="go('/mine')">采矿场</Button>
 
             <div class="tools" :class="{ 'is-open': toolsOpen }">
               <button

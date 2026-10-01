@@ -25,6 +25,11 @@ export const router = createRouter({
       name: 'fish',
       component: () => import('../views/FishView.vue'),
     },
+    {
+      path: '/mine',
+      name: 'mine',
+      component: () => import('../views/MineView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });

@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import TopBar from '../components/ui/TopBar.vue';
+import SideDock from '../components/ui/SideDock.vue';
 import Button from '../components/ui/Button.vue';
 import { ClimbScene } from '../game/climb/ClimbScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
@@ -73,10 +74,11 @@ onBeforeUnmount(() => {
     <div class="shell">
       <TopBar collapsible @back="back">
         <template #title>攀爬挑战</template>
-        <template #aside>
-          <Button size="sm" @click="restart">重来</Button>
-        </template>
       </TopBar>
+
+      <SideDock>
+        <Button size="sm" @click="restart">重来</Button>
+      </SideDock>
 
       <div class="stage">
         <div ref="container" class="climb-canvas" />

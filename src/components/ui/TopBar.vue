@@ -40,6 +40,7 @@ const collapsed = ref(false);
         v-if="collapsible"
         variant="quiet"
         size="sm"
+        class="topbar__fold-btn"
         :title="collapsed ? '展开工具栏' : '收起工具栏'"
         @click="collapsed = !collapsed"
       >
@@ -64,6 +65,19 @@ const collapsed = ref(false);
 </template>
 
 <style scoped>
+/* the fold toggle is easy to miss, so paint it loud: accent ring + tint */
+.topbar__fold-btn {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface-2));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent),
+    var(--e1);
+}
+
+.topbar__fold-btn:hover {
+  background: color-mix(in srgb, var(--accent) 34%, var(--surface-2));
+}
+
 .topbar__aside-main {
   display: flex;
   align-items: center;

@@ -304,7 +304,12 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   if (world.mode === 'juggle') {
     world.juggle.count[index]++;
   } else {
-    world.events.push({ type: 'hit', player: index, kind: classifyShot(elevation) });
+    world.events.push({
+      type: 'hit',
+      player: index,
+      kind: classifyShot(elevation),
+      power: clamp(raw / cfg.racketSpeedCap, 0, 1),
+    });
     if (world.mode === 'machine' && index === 0) {
       const m = world.machine;
       m.returns++;

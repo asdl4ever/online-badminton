@@ -1139,7 +1139,8 @@ export class GameScene extends Phaser.Scene {
     for (const e of this.world.events) {
       if (e.type === 'hit') {
         this.spawnHitEffect(e.player === 1 ? 1 : 0, e.kind);
-        this.shakeFor(e.kind);
+        this.shakeFor(e.kind, e.power ?? 0);
+        if (e.kind === 'smash') this.smashText(e.power ?? 0);
       }
       if (e.type === 'gameover') {
         if (this.gameoverSeen) continue;
@@ -1152,17 +1153,42 @@ export class GameScene extends Phaser.Scene {
     this.world.events.length = 0;
   }
 
-  /** hit impact: the harder the shot, the harder the screen kicks */
-  private shakeFor(kind?: ShotKind): void {
-    const [ms, intensity]: [number, number] =
-      kind === 'smash'
-        ? [220, 0.014]
-        : kind === 'clear'
-          ? [140, 0.008]
-          : kind === 'drive'
-            ? [110, 0.006]
-            : [70, 0.003]; // lift / serve
-    this.cameras.main.shake(ms, intensity);
+  /**
+   * Hit impact scales with the actual swing speed, tempered by shot type (a
+   * fast lift kicks less than a fast smash). A gentle touch shakes nothing.
+   */
+  private shakeFor(kind: ShotKind | undefined, power: number): void {
+    const weight =
+      kind === 'smash' ? 1 : kind === 'clear' ? 0.6 : kind === 'drive' ? 0.45 : 0.25;
+    const strength = weight * power;
+    if (strength < 0.12) return; // light tap: no shake
+    this.cameras.main.shake(80 + 190 * strength, 0.004 + 0.011 * strength);
+  }
+
+  /** the smash gets its name on screen, bigger the harder it was swung */
+  private smashText(power: number): void {
+    const s = this.world.shuttle;
+    const label = this.add
+      .text(s.x, s.y - 34, power > 0.72 ? '扣杀！！' : '扣杀！', {
+        fontFamily: 'inherit',
+        fontSize: `${Math.round(24 + 18 * power)}px`,
+        color: '#ffb02a',
+        stroke: '#1b2740',
+        strokeThickness: 5,
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(50);
+    this.tweens.add({
+      targets: label,
+      y: label.y - 46,
+      scale: 1.12,
+      alpha: 0,
+      delay: 160,
+      duration: 520,
+      ease: 'Cubic.Out',
+      onComplete: () => label.destroy(),
+    });
   }
 
   private spawnHitEffect(player: 0 | 1, kind?: ShotKind): void {

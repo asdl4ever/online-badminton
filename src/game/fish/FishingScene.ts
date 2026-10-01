@@ -7,15 +7,20 @@ import {
   PLAYER_JUMP_V,
   PLAYER_SPEED,
   RACKET_HEAD_R,
+  RACKET_SPEED_CAP,
+  RACKET_SMOOTH,
+  RACKET_TELEPORT,
   VIEW_H,
   VIEW_W,
 } from '../constants';
 import { drawCharacter } from '../draw/character';
 import { drawRacketHead, racketFrameColor } from '../draw/racket';
+import { RacketTracker } from '../racket';
+import { TouchControls, isTouchDevice } from '../touch';
+import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
 import { P } from '../theme';
 import type { NetLink } from '../../net/link';
-import { isTouchDevice } from '../device';
 import { sfx } from '../audio';
 
 // ---- fish table (name, value, radius, leap chance weight) ------------------
@@ -100,9 +105,9 @@ export class FishingScene extends Phaser.Scene {
 
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private poseClock = 0;
-  /** touch: drag anywhere to move, the round button jumps */
-  private touch = isTouchDevice();
-  private pointerWasDown = false;
+  /** exactly the match controls: tracker + sticks on touch */
+  private racket = new RacketTracker();
+  private touchControls: TouchControls | null = null;
 
   constructor() {
     super('FishingScene');
@@ -136,6 +141,7 @@ export class FishingScene extends Phaser.Scene {
         Phaser.Input.Keyboard.Key
       >;
     }
+    this.touchControls = isTouchDevice() ? new TouchControls(this) : null;
 
     const link = this.cfg.session;
     if (link) {
@@ -168,7 +174,7 @@ export class FishingScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     const dt = Math.min(delta / 1000, 1 / 20);
     this.stepPlayer(dt);
-    this.stepRacket();
+    this.stepRacket(dt);
     this.stepFish(dt);
     this.stepPops(dt);
     this.draw();
@@ -178,17 +184,11 @@ export class FishingScene extends Phaser.Scene {
   // ---- player --------------------------------------------------------------
   private stepPlayer(dt: number): void {
     const k = this.keys;
-    const p = this.input.activePointer;
-    let dir = 0;
-    if (k?.A.isDown || k?.LEFT.isDown) dir -= 1;
-    if (k?.D.isDown || k?.RIGHT.isDown) dir += 1;
-
-    if (this.touch && p.isDown) {
-      // touch: chase the finger (the jump button is handled below)
-      const target = Phaser.Math.Clamp(p.worldX, 60, WATER_X - 40);
-      const dx = target - this.me.x;
-      if (Math.abs(dx) > 8) dir = Math.sign(dx);
-    }
+    // one read() per frame: it consumes the queued jump
+    const t = this.touchControls?.read();
+    const left = k?.A.isDown || k?.LEFT.isDown || !!t?.left;
+    const right = k?.D.isDown || k?.RIGHT.isDown || !!t?.right;
+    const dir = (left ? -1 : 0) + (right ? 1 : 0);
 
     if (dir !== 0) {
       this.me.vx = dir * PLAYER_SPEED;
@@ -197,11 +197,10 @@ export class FishingScene extends Phaser.Scene {
       this.me.vx *= 0.72;
       if (Math.abs(this.me.vx) < 6) this.me.vx = 0;
     }
-    if ((k?.SPACE.isDown || k?.W.isDown || this.jumpPressed()) && this.me.onGround) {
+    if ((k?.SPACE.isDown || k?.W.isDown || !!t?.jump) && this.me.onGround) {
       this.me.vy = PLAYER_JUMP_V;
       this.me.onGround = false;
     }
-    this.pointerWasDown = p.isDown;
 
     this.me.vy += PLAYER_GRAVITY * dt;
     this.me.x = Phaser.Math.Clamp(this.me.x + this.me.vx * dt, 60, WATER_X - 40);
@@ -213,33 +212,41 @@ export class FishingScene extends Phaser.Scene {
     }
   }
 
-  /** the racket is a rod: head sits between the shoulder and the pointer */
-  private stepRacket(): void {
-    const p = this.input.activePointer;
-    const sx = this.me.x;
-    const sy = this.me.y - PLAYER_H * 0.72;
-    const maxReach = 80 + this.rodLevel * 14;
-    const dx = p.worldX - sx;
-    const dy = p.worldY - sy;
-    this.reach = Phaser.Math.Clamp(Math.hypot(dx, dy) * 0.9, 34, maxReach);
-    this.racketAng = Math.atan2(dy, dx);
-    if (Math.abs(this.racketAng) > Math.PI / 2) this.me.facing = -1;
-    else this.me.facing = 1;
-  }
+  /**
+   * The racket is a rod, driven exactly like the match racket: the tracker
+   * pins the head to the pointer (or the right stick), clamps it to the rod's
+   * reach and smooths its velocity. A longer rod (upgrades) extends the clamp.
+   */
+  private stepRacket(dt: number): void {
+    const shoulderX = this.me.x;
+    const shoulderY = this.me.y - PLAYER_H * 0.72;
+    const rodMax = 80 + this.rodLevel * 14;
+    const cfg = {
+      racketMax: rodMax,
+      racketTeleport: RACKET_TELEPORT,
+      racketSpeedCap: RACKET_SPEED_CAP,
+      racketSmooth: RACKET_SMOOTH,
+    } as unknown as WorldConfig;
 
-  /** the on-screen jump button (touch only) */
-  private jumpButton(): { x: number; y: number; r: number } {
-    return { x: 86, y: GROUND_Y - 66, r: 36 };
-  }
+    const tc = this.touchControls;
+    let targetX: number;
+    let targetY: number;
+    let freeze: boolean;
+    if (tc) {
+      targetX = shoulderX + tc.joyX * rodMax;
+      targetY = shoulderY + tc.joyY * rodMax;
+      // released stick snaps the rod home; that motion is not a swing
+      freeze = !tc.joyActive;
+    } else {
+      const p = this.input.activePointer;
+      targetX = p.worldX;
+      targetY = p.worldY;
+      freeze = false;
+    }
 
-  private jumpPressed(): boolean {
-    if (!this.touch) return false;
-    const p = this.input.activePointer;
-    const b = this.jumpButton();
-    const inside =
-      p.isDown && Phaser.Math.Distance.Between(p.worldX, p.worldY, b.x, b.y) <= b.r;
-    // fire on the press edge so holding the button doesn't pogo
-    return inside && !this.pointerWasDown;
+    const st = this.racket.update(targetX, targetY, shoulderX, shoulderY, dt, freeze, cfg);
+    this.racketAng = Math.atan2(st.ry, st.rx);
+    this.reach = Math.hypot(st.rx, st.ry);
   }
 
   private headX(): number {
@@ -436,19 +443,6 @@ export class FishingScene extends Phaser.Scene {
     this.drawAngler(g, this.me, this.cfg.cosmetic, this.racketAng, this.reach, true);
     if (this.remote)
       this.drawAngler(g, this.remote, this.remoteSkin ?? this.cfg.cosmetic, this.remoteAng, this.remoteReach, false);
-
-    if (this.touch) {
-      const b = this.jumpButton();
-      const p = this.input.activePointer;
-      const on =
-        p.isDown && Phaser.Math.Distance.Between(p.worldX, p.worldY, b.x, b.y) <= b.r;
-      g.fillStyle(0x1f3a52, on ? 0.5 : 0.28);
-      g.fillCircle(b.x, b.y, b.r);
-      g.lineStyle(2, 0x1f3a52, 0.6);
-      g.strokeCircle(b.x, b.y, b.r);
-      g.lineStyle(4, 0x1f3a52, 0.85);
-      g.strokeTriangle(b.x - 12, b.y + 10, b.x + 12, b.y + 10, b.x, b.y - 14);
-    }
   }
 
   private drawAngler(

@@ -67,6 +67,8 @@ export interface SimEvent {
   type: 'hit' | 'net' | 'land' | 'point' | 'serve' | 'gameover';
   player?: number;
   kind?: ShotKind;
+  /** racket swing speed at contact, normalised 0..1 against the speed cap */
+  power?: number;
   x?: number;
   scorer?: number;
 }
