@@ -99,7 +99,8 @@ export type HitStyle =
   | 'thorncrown'
   | 'tide'
   | 'starfall'
-  | 'prismfan';
+  | 'prismfan'
+  | PlusEffectId;
 
 export type WingId =
   | 'none'
@@ -364,11 +365,16 @@ export interface Cosmetic {
   trailStyle: TrailId;
 }
 
+/** the 100 generated "plus" hit styles: p1..p100 (see effects/plus.ts) */
+export type PlusEffectId = `p${number}`;
+export const PLUS_EFFECT_IDS: PlusEffectId[] = Array.from({ length: 100 }, (_, i): PlusEffectId => `p${i + 1}`);
+
 const HIT_STYLE_IDS: HitStyle[] = [
   'ring', 'spark', 'slash', 'burst', 'shock', 'frost', 'petal', 'lightning', 'star', 'prism', 'vortex',
   'shards', 'ripple', 'confetti', 'cross', 'hex', 'spiral', 'web', 'bubble', 'feather', 'comet', 'shatter', 'smoke', 'sonic', 'gear', 'nova', 'rune',
   'bomb', 'flamenova', 'icicle', 'sword', 'claw', 'meteor', 'beam', 'poison', 'note', 'heart', 'coin', 'dice', 'arrow', 'shield', 'chain', 'thorn', 'blossom', 'cube', 'pyramid', 'aim', 'sonar', 'wind', 'sand', 'acid', 'sun', 'moon', 'eye', 'portal', 'dna', 'atom', 'sparkle', 'ink',
   'firework', 'ringburst', 'swordcross', 'shuriken', 'boulder', 'quake', 'tornado', 'blizzard', 'volcano', 'tsunami', 'aurora', 'starlight', 'galaxy', 'blackhole', 'meteorrain', 'rainbow', 'laser', 'plasma', 'magnet', 'foam', 'leafstorm', 'sakura', 'mushroom', 'pixelate', 'glitch', 'binary', 'ringdance', 'butterfly', 'phantom', 'holy', 'thorncrown', 'tide', 'starfall', 'prismfan',
+  ...PLUS_EFFECT_IDS,
 ];
 const WING_IDS: WingId[] = [
   'none', 'light', 'frost', 'flame', 'thunder', 'shine', 'butterfly', 'dragon', 'angel', 'demon', 'mech', 'neon', 'star', 'crystal',

@@ -5,6 +5,7 @@ import { petal, feather, blossom, sakura, leafstorm, mushroom, wind, tornado, sa
 import { lightning, beam, laser, plasma, magnet, portal, blackhole, galaxy, starlight, starfall, aurora, rainbow, holy, sun, moon, atom, dna, sparkle } from './energy';
 import { bubble, note, heart, coin, dice, cube, pyramid, gear, sonic, sonar, web, confetti, comet, bomb, firework, flamenova } from './toy';
 import { eye, ink, pixelate, glitch, binary, butterfly, phantom } from './odd';
+import { PLUS_PAINTERS, PLUS_SPAN } from './plus';
 import { paintDefault } from './basic';
 import type { EffectPainter } from './types';
 
@@ -13,6 +14,7 @@ export { paintDefault };
 
 /** lifetime of each hit-effect style, in seconds */
 export const EFFECT_SPAN: Record<HitStyle, number> = {
+  ...PLUS_SPAN,
   ring: 0.36,
   spark: 0.4,
   slash: 0.22,
@@ -110,6 +112,7 @@ export const EFFECT_SPAN: Record<HitStyle, number> = {
 
 /** every style that has a bespoke painter; the rest use `paintDefault` */
 export const EFFECT_PAINTERS: Partial<Record<HitStyle, EffectPainter>> = {
+  ...PLUS_PAINTERS,
   acid,
   aim,
   arrow,

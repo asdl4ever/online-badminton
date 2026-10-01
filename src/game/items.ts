@@ -8,6 +8,7 @@
  * Equipping writes the item's `ref` into the cosmetic store.
  */
 import type { TierId } from './ranks';
+import { PLUS_META } from './effects/plus';
 
 export type ItemSlot =
   | 'skin'
@@ -418,6 +419,13 @@ export const ITEMS: Item[] = [
   it('effect', 'blackhole', '黑洞', 'legendary', 5, 'gacha'),
   it('effect', 'meteorrain', '流星雨', 'legendary', 5, 'gacha'),
   it('effect', 'phantom', '幻影', 'legendary', 5, 'gacha'),
+  // --- generated plus effects: 100 parametric styles (see effects/plus.ts) ---
+  ...PLUS_META.map(({ id, label }, i): Item => {
+    const roll = (i * 7 + 13) % 100;
+    const rarity: Rarity = roll < 58 ? 'common' : roll < 86 ? 'rare' : roll < 96 ? 'epic' : 'legendary';
+    const stars = rarity === 'legendary' ? 5 : rarity === 'epic' ? 4 : rarity === 'rare' ? 3 : 2;
+    return it('effect', id, label, rarity, stars, 'gacha');
+  }),
   it('effect', 'holy', '圣十字', 'legendary', 5, 'gacha'),
 ];
 
