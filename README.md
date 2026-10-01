@@ -1,13 +1,14 @@
 # 羽毛球 · Badminton
 
-浏览器里的 2D 侧视角羽毛球单打游戏。Vue 3 + TypeScript + Vite 前端，Phaser 4 渲染，支持单机对战 AI 和 WebRTC 点对点联机。
+浏览器里的 2D 侧视角羽毛球游戏，外加一个用球拍攀岩的小游戏。Vue 3 + TypeScript + Vite 前端，Phaser 4 渲染，支持单机（对战 AI / 发球机）、WebRTC 点对点联机，以及 321 件可收集的外观装扮。
 
-- **物理**：自己写的（重力 + 二次空气阻力），不用 Phaser 内置物理——羽毛球的高速衰减必须靠二次阻力，而且联机需要确定性
+- **物理**：羽毛球是**自己写的**（重力 + 二次空气阻力），不用 Phaser 内置物理——高速衰减必须靠二次阻力，而且联机需要确定性；攀爬模式则用 **Phaser 内置的 Matter**（需要真正的刚体和转轴约束）
 - **网战**：房主权威 + 客户端预测 + 快照推算 + 延迟补偿
 - **传输**：PeerJS(WebRTC) 直连优先，打不通自动降级到自己服务器上的 WebSocket 中继
 - **界面**：Soft UI Evolution 亮色主题，桌面 + 手机双端
+- **外观**：头饰 / 翅膀 / 披风 / 光环 / 宠物 / 球拍皮肤 / 拖尾 / 命中特效，共 321 件，宝箱与宠物蛋抽取
 
-源码约 5100 行。
+源码约 15000 行。
 
 ---
 
@@ -44,25 +45,38 @@ npm run serve      # = build && start
 │
 ├─ src/
 │  ├─ main.ts                    入口：Pinia / Router / Vuetify / 字体
-│  ├─ App.vue                    路由出口 + 手机竖屏提示遮罩
+│  ├─ App.vue                    路由出口 + 手机竖屏提示遮罩 + 全局 Toast 容器
 │  ├─ style.css                  全部 CSS：设计 token + 组件样式 + Vuetify 覆写
-│  ├─ router/index.ts            3 条路由（首页 / 单机 / 联机），游戏页懒加载
+│  ├─ router/index.ts            4 条路由（首页 / 单机 / 联机 / 攀爬），游戏页懒加载
 │  │
 │  ├─ game/                      ← 游戏本体，不依赖 Vue
 │  │  ├─ constants.ts            所有可调数值：场地尺寸、物理、球拍、击球、网战频率
 │  │  ├─ types.ts                共享类型：PlayerInput / World / NetMessage 等
 │  │  ├─ theme.ts                画布上所有颜色 + 字体栈（改主题只改这里）
+│  │  ├─ config.ts               WorldConfig（玩法参数）+ WorldMode + 乐趣模式候选
 │  │  ├─ physics.ts              弹道积分、过网角度下限、落点解算
-│  │  ├─ simulation.ts           ★ 游戏规则核心：世界状态、每帧步进、击球、判分、序列化
+│  │  ├─ simulation.ts           ★ 羽毛球规则核心：世界状态、每帧步进、击球、判分、序列化
 │  │  ├─ ai.ts                   单机 AI（带难度参数：预判误差、反应延迟、接触误差）
 │  │  ├─ racket.ts               鼠标位移 → 拍头位置 + 拍头速度（含平滑与瞬移保护）
 │  │  ├─ input.ts                键盘绑定（左右移动 / 起跳）
-│  │  ├─ touch.ts                手机双摇杆 + 布局编辑器（全画布内绘制）
+│  │  ├─ touch.ts                手机双摇杆 + 布局编辑器 + 楔形跳跃区（全画布内绘制）
+│  │  ├─ cosmetics.ts            外观系统：全部部位的类型 / 白名单 / 配色 / 形状表
+│  │  ├─ items.ts                ★ 321 件物品登记 + 稀有度 + 来源 + 宝箱/宠物蛋掉率
+│  │  ├─ ranks.ts                段位表与奖励
 │  │  ├─ emotes.ts               表情定义 + 冷却时间
 │  │  ├─ telemetry.ts            客户端网络遥测（RTT / 抖动 / 快照频率 / 球滞后）
 │  │  ├─ device.ts               设备与 URL 参数探测（零依赖，不能引 Phaser）
 │  │  ├─ audio.ts                Web Audio 合成音效（无音频素材）
-│  │  └─ scenes/GameScene.ts     ★ Phaser 场景：渲染 + 主循环 + 网络收发（最大的文件）
+│  │  ├─ draw/                   ★ 角色与球拍的绘制原语（两个玩法共用）
+│  │  │  ├─ character.ts         角色各部位：光环 / 披风 / 翅膀 / 头饰 / 宠物 + 组合函数
+│  │  │  └─ racket.ts            球拍头（局部空间）+ 各皮肤的装饰层
+│  │  ├─ effects/                ★ 93 种命中特效，按风格拆成独立 painter 模块
+│  │  │  ├─ index.ts             EFFECT_SPAN 寿命表 + EFFECT_PAINTERS 注册表
+│  │  │  └─ basic/shard/nature/energy/toy/odd.ts
+│  │  ├─ climb/                  ★ 攀爬玩法（Matter 刚体）
+│  │  │  ├─ level.ts             关卡数据：岩壁 / 出生点 / 顶点
+│  │  │  └─ ClimbScene.ts        独立 Phaser 场景：身体 + 球拍转轴 + 相机跟随
+│  │  └─ scenes/GameScene.ts     ★ 羽毛球场景：渲染 + 主循环 + 网络收发
 │  │
 │  ├─ net/                       ← 联机传输层
 │  │  ├─ link.ts                 NetLink 接口 + NetMessage 协议 + 房间号生成
@@ -71,24 +85,37 @@ npm run serve      # = build && start
 │  │  ├─ connect.ts              连接策略：先试直连，失败降级中继，记住上次结果
 │  │  └─ ice.ts                  STUN/TURN 配置（可注入自建 TURN）
 │  │
-│  ├─ stores/game.ts             Pinia：房间/连接/难度（持久化）/遥测快照
+│  ├─ stores/                    Pinia：游戏 / 外观 / 进度 / 大厅（全部持久化）
 │  ├─ composables/
-│  │  └─ useMobileShell.ts       手机首次触摸时请求全屏 + 锁横屏
+│  │  ├─ useMobileShell.ts       手机首次触摸时请求全屏 + 锁横屏
+│  │  ├─ useToast.ts             全局 Toast 队列（VSnackbarQueue 封装）
+│  │  └─ celebrate.ts            彩带庆祝（按稀有度/星级分级）
 │  │
 │  ├─ components/
 │  │  ├─ GameCanvas.vue          Phaser 实例的生命周期宿主
+│  │  ├─ CharacterPreview.vue    角色预览（实时反映已装备外观）
+│  │  ├─ BackpackPanel.vue       背包：按部位浏览 / 装备
+│  │  ├─ ChestPanel.vue          宝箱：单抽 / 十连 / 保底
+│  │  ├─ PetEggPanel.vue         宠物蛋：按星级概率孵化
+│  │  ├─ RankPanel.vue           段位与奖励
+│  │  ├─ FriendsPanel.vue        好友
+│  │  ├─ PartyOverlay.vue        乐趣模式的投票 / 比分浮层
 │  │  └─ ui/                     可复用 UI 组件
 │  │     ├─ Panel.vue            软阴影面板（三级高度）
 │  │     ├─ Button.vue           按钮（default/primary/quiet × sm/md/lg）
+│  │     ├─ AppModal.vue         弹窗（VDialog 封装，含进出场过渡）
+│  │     ├─ AppToast.vue         底部 Toast 出队渲染
+│  │     ├─ Stars.vue            星级（支持入场动画）
 │  │     ├─ StatusChip.vue       状态胶囊
 │  │     ├─ TopBar.vue           顶栏（返回 + 标题 + 右侧插槽）
 │  │     ├─ ScoreLine.vue        底部比分行
-│  │     ├─ SegmentedChoice.vue  分段选择器（难度切换）
+│  │     ├─ SegmentedChoice.vue  分段选择器（难度 / 模式切换）
 │  │     └─ EmotePicker.vue      表情选择面板
 │  └─ views/
-│     ├─ HomeView.vue            首页
-│     ├─ SingleView.vue          单机对局
-│     └─ OnlineView.vue          联机大厅 + 对局
+│     ├─ HomeView.vue            首页（右上角可折叠工具坞）
+│     ├─ SingleView.vue          单机：对战 AI / 发球机
+│     ├─ OnlineView.vue          联机大厅 + 对局
+│     └─ ClimbView.vue           攀爬挑战（独立 Phaser 实例，启用 Matter）
 │
 ├─ .opencode/skills/             已安装的 AI 设计 skill（ui-ux-pro-max 等）
 └─ railway.json                  部署配置：build = npm run build，start = npm start
@@ -97,6 +124,8 @@ npm run serve      # = build && start
 ---
 
 ## 操作
+
+（羽毛球的两个模式；攀爬的操控见「攀爬挑战」一节）
 
 | 操作 | 桌面 | 手机 |
 |---|---|---|
@@ -114,6 +143,65 @@ npm run serve      # = build && start
 **发球规则**：发球阶段双方都会被挡在离网一定距离外（画面上有虚线标出这条界），过不去；发球必须在重置后稍作停顿、并**向前或向上**挥出才生效（向后收拍、纯站位移动不会误发球）。
 
 ---
+
+## 单机：对战 AI / 发球机
+
+「单机练习」页面顶部可以切两种模式，难度档会同时切换：
+
+| 模式 | 说明 |
+|---|---|
+| **对战 AI** | 标准 11 分制，AI 带预判误差 / 反应延迟 / 接触误差三档 |
+| **发球机** | 无限练习。右侧一台发射器按节奏喂球，**计连击**：接到 +1，落地归零，历史最高单独记录 |
+
+发球机的参数全部在 `WorldConfig` 上（`machineInterval` 出球间隔 / `machineSpeed` 球速 / `machineSpread` 落点散布 / `machineAimAt` 是否瞄人 / `machineHighBias` 高球比例），三个难度对应三套预设。喂球落点用**二分速度**解出来——固定仰角下射程随速度单调，不会掉进 45° 峰的另一侧，而且解算用的是模拟器同一个积分器，所以落点是真的准。
+
+发球机是独立的 `WorldMode = 'machine'`，机器没有身体（不占位、不挥拍），第一版**故意不放进乐趣模式的投票池**——party 靠 `phase === 'gameover'` + `winScore` 结束回合，发球机没有比分，放进去会卡死回合流程。
+
+---
+
+## 攀爬挑战
+
+主页第四个按钮，**独立路由 `/climb`、独立 Phaser 实例**（因为这个玩法需要真正的刚体求解器，羽毛球不需要）。
+
+用羽毛球拍去攀岩。**人物是有物理的**：会摔、有摩擦，可以直接 `A`/`D`（或 `←`/`→`）行走；**球拍 360° 跟随鼠标**，并且和挥拍一样**会伸出/收回**（指针远就伸出去够，近就收回来）。把拍头撑住地面或岩壁、再转动它，反作用力就能把自己顶上去、勾上岩台。
+
+实现要点（也是踩过的坑）：
+
+- **两套物理并存**：羽毛球是自写的运动学积分，攀爬用 Matter。Phaser 4 默认包里就带着 Matter，所以**没有新增依赖**；Matter 通过 `this.matter` 暴露原始 API（`bodies` / `constraint` / `composite`）
+- **人物与球拍共用外观**：绘制原语抽到了 `src/game/draw/`，两个场景画出来的是同一套角色和球拍皮肤
+- **手臂是变长度约束**：`constraint.length` 每步都被求解器重新读取，平滑地改它就能让手伸缩，**不会产生冲量尖峰**
+- **自身体和球拍共用一个负碰撞组**，否则手臂转到一半会被自己的躯干卡死，转不满 360°
+- **单位陷阱**：Matter 的 `body.velocity` 是**像素/步**不是像素/秒，差 60 倍；力矩则是 `Δω = torque/inertia · Δt²`（Δt 以毫秒计）。这两处弄错一个，角色要么动不了要么上天
+
+手感旋钮全部集中在 `src/game/climb/ClimbScene.ts` 顶部（`ARM_KP/KD/ALPHA`、`WALK_SPEED`、`BODY_R`、`ROD_LEN`…），改完按 `R` 重开即可。
+
+---
+
+## 外观系统（321 件）
+
+八个可装备部位，全部只影响画面、不影响判定：
+
+| 部位 | 数量 | 说明 |
+|---|---|---|
+| 头饰 | 20 | 王冠 / 法师帽 / 恶魔角 / 天使光环 / 耳机… |
+| 翅膀 | 52 | 按剪影分成 11 种形态（羽毛 / 蝠翼膜 / 蝶翼 / 机械 / 冰晶 / 火焰 / 利刃 / 叶片 / 鱼鳍 / 飘带 / 尖刺），不是只换色 |
+| 披风 | 22 | 5 种形态：布面摆动 / 撕裂锯齿 / 燃烧火舌 / 飘落羽片 / 镶边王袍 |
+| 光环 | 70 | 每种有独立运动：上窜火舌 / 跳动电弧 / 飘雪飘花 / 环绕星点 / 旋转齿轮环 / 雷云放电 / 循环变色… |
+| 宠物 | 12 | 独立造型与动作，跟随玩家浮动，带星级 |
+| 球拍皮肤 | 42 | 各有独立装饰层（电路走线 / 尖刺 / 圣环 / 故障错位 / 龙鳞…） |
+| 拖尾 | 10 | 按"最后击球者"的风格渲染：火焰 / 电弧 / 冰痕 / 像素 / 彩虹 / 虚空… |
+| 命中特效 | 93 | 每种一个独立 painter，形状与运动完全不同 |
+
+获取途径：**宝箱**（金币单抽 / 十连，10 抽保底出史诗+）、**宠物蛋**（按星级概率孵化，孵出同种更高星直接升星，否则返还金币）、**段位奖励**（白银到超神各送对应物品）。
+
+工程上的两个决定：
+
+- **命中特效拆成模块**：93 个 painter 按 `basic/shard/nature/energy/toy/odd` 分目录，加一个注册表项就能上新特效，不用再动 `GameScene`。当时是从一个 1356 行的 `switch` 机械抽取的，并用脚本逐字校验过抽取前后一致
+- **角色绘制抽成共享模块**：`src/game/draw/` 下的 `drawCharacter()` / `drawRacketHead()` 同时被羽毛球和攀爬两个场景使用，外观在两个玩法里表现完全一致
+
+---
+
+
 
 ## 乐趣模式（Party）
 
@@ -176,11 +264,16 @@ npm run serve      # = build && start
 | 想改什么 | 改哪里 |
 |---|---|
 | 手感：重力 / 阻力 / 球拍长度 / 击球力度 / 判分 | `src/game/constants.ts` |
+| 玩法参数：发球机节奏 / 乐趣模式候选 / `WorldConfig` | `src/game/config.ts` |
 | 球场和球员的颜色 | `src/game/theme.ts` |
 | UI 配色、圆角、阴影、动效时长 | `src/style.css` 顶部的 `:root` |
 | 网络频率、延迟补偿上限 | `src/game/constants.ts` 的 `NET_*` / `LAG_COMP_*` |
 | AI 难度 | `src/game/ai.ts` 的 `TUNING` |
-| 摇杆死区 / 起跳阈值 | `src/game/touch.ts` 顶部 |
+| 摇杆死区 / 跳跃区角度与深度 | `src/game/touch.ts` 顶部 |
+| **攀爬手感：手臂力度 / 伸缩范围 / 行走 / 身体尺寸** | `src/game/climb/ClimbScene.ts` 顶部 |
+| 攀爬关卡（岩壁 / 出生点 / 顶点） | `src/game/climb/level.ts` |
+| 命中特效（新增 / 改寿命） | `src/game/effects/` + `index.ts` 注册表 |
+| 物品（新增 / 稀有度 / 掉率 / 来源） | `src/game/items.ts` |
 | 自建 TURN | 环境变量 `VITE_TURN_URL` / `VITE_TURN_USER` / `VITE_TURN_PASS` |
 
 ---
@@ -202,10 +295,14 @@ npm run serve      # = build && start
 - **表情用系统 emoji**：Windows / 安卓 / iOS 上长得不一样，低端安卓可能出黑白。要一致就得内嵌 Twemoji SVG
 - **没有观战 / 匹配 / 排行榜**：目前只有"建房 + 输入房号"
 - **服务器权威只在房主浏览器**：房主关掉页面这局就结束了（没有断线重连）
+- **攀爬暂不支持手机**：手臂靠鼠标指针定位，手机上还没有摇杆映射；联机也还没接（Matter 不跨机器确定，需要做成 host 权威 + 访客纯插值，不能用羽毛球的预测方案）
+- **攀爬手感未定稿**：手臂的力度/阻尼是按"不抖动、不把人弹飞"取的保守值，最终手感需要实际玩过再调
 
 ---
 
-## 未使用的依赖
+## 依赖说明
+
+实际用到的：`phaser`（渲染 + 攀爬的 Matter）、`@vueuse/core`、`@formkit/auto-animate`（列表 FLIP 动画）、`canvas-confetti`（抽卡/升段庆祝）、`peerjs`、`vuetify`（按钮 / 输入框 / 弹窗 / Toast 队列）、`ws`。
 
 `package.json` 里这两个已经没有任何代码引用，可以删：
 

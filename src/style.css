@@ -404,6 +404,11 @@ button {
      Selectors are deliberately 3 classes deep so they outrank the scoped
      component styles, which are injected later in the cascade. */
   .page--playing {
+    /* `flex: none` matters: the base `.page` is a flex item with flex-basis 0,
+       which would let the court's own height size the page and push it past
+       the viewport. Pinning the height here is what makes everything below
+       actually fit. */
+    flex: none;
     padding: 0;
     height: 100vh;
     height: 100dvh;
@@ -418,27 +423,39 @@ button {
     gap: 0;
   }
 
+  /* The stage flexes into whatever the top bar leaves, and the court is
+     letterboxed inside it. It must NOT be `height: 100%`: that ignores the bar
+     and overflows the viewport, which clips the floor and the score. */
   .page--playing .stage {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .page--playing .stage .game-canvas {
-    aspect-ratio: auto;
+  /* both games letterbox a 16:9 court inside the stage */
+  .page--playing .stage .game-canvas,
+  .page--playing .stage .climb-canvas {
+    aspect-ratio: 16 / 9;
+    width: auto;
     height: 100%;
+    max-width: 100%;
     border-radius: 0;
     box-shadow: none;
   }
 
+  .page--playing .climb-note {
+    display: none;
+  }
+
   .page--playing .topbar.hud-bar {
-    position: fixed;
-    inset: 0 0 auto 0;
-    z-index: 10;
+    flex: none;
     flex-wrap: nowrap;
     gap: var(--s1);
     padding: 3px var(--s2);
     border: none;
     border-radius: 0;
-    background: linear-gradient(180deg, rgba(238, 243, 250, 0.94), rgba(238, 243, 250, 0));
     box-shadow: none;
   }
 
