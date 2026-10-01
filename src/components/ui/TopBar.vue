@@ -59,6 +59,7 @@ const collapsed = ref(false);
             stroke-linejoin="round"
           />
         </svg>
+        <span>{{ collapsed ? '展开' : '收起' }}</span>
       </Button>
     </div>
   </header>

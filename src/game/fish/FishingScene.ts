@@ -13,8 +13,7 @@ import {
   VIEW_H,
   VIEW_W,
 } from '../constants';
-import { drawCharacter } from '../draw/character';
-import { drawRacketHead, racketFrameColor } from '../draw/racket';
+import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
 import type { WorldConfig } from '../config';
@@ -90,6 +89,9 @@ export class FishingScene extends Phaser.Scene {
   private remoteSkin: Cosmetic | null = null;
   private racketAng = -0.6;
   private reach = 0;
+  /** smoothed head velocity from the tracker (drives the swing trail) */
+  private swingVX = 0;
+  private swingVY = 0;
 
   private fish: Fish[] = [];
   private leapTimer = 1;
@@ -99,7 +101,9 @@ export class FishingScene extends Phaser.Scene {
   private rodLevel = 1;
 
   private g!: Phaser.GameObjects.Graphics;
-  private face: Phaser.GameObjects.Text | null = null;
+  /** shared character rigs — drawn exactly like the match scene's players */
+  private rigMe!: PlayerRig;
+  private rigOther!: PlayerRig;
   private hud!: Phaser.GameObjects.Text;
   private pops: { t: Phaser.GameObjects.Text; life: number }[] = [];
 
@@ -123,7 +127,8 @@ export class FishingScene extends Phaser.Scene {
     this.reelFish = null;
 
     this.g = this.add.graphics();
-    this.face = this.add.text(0, 0, this.cfg.cosmetic.emoji, { fontSize: '24px' }).setDepth(6);
+    this.rigMe = createPlayerRig(this);
+    this.rigOther = createPlayerRig(this);
     this.hud = this.add
       .text(16, 12, '', {
         fontFamily: 'inherit',
@@ -141,6 +146,8 @@ export class FishingScene extends Phaser.Scene {
         Phaser.Input.Keyboard.Key
       >;
     }
+    // multi-touch: the default single pointer cannot move and aim at once
+    this.input.addPointer(3);
     this.touchControls = isTouchDevice() ? new TouchControls(this) : null;
 
     const link = this.cfg.session;
@@ -252,6 +259,8 @@ export class FishingScene extends Phaser.Scene {
     const st = this.racket.update(targetX, targetY, shoulderX, shoulderY, dt, freeze, cfg);
     this.racketAng = Math.atan2(st.ry, st.rx);
     this.reach = Math.hypot(st.rx, st.ry);
+    this.swingVX = st.rvx;
+    this.swingVY = st.rvy;
   }
 
   private headX(): number {
@@ -458,24 +467,23 @@ export class FishingScene extends Phaser.Scene {
     reach: number,
     isMe: boolean,
   ): void {
-    // rod line: shoulder → racket head
-    const hx = a.x + Math.cos(ang) * reach;
-    const hy = a.y - PLAYER_H * 0.72 + Math.sin(ang) * reach;
-    g.lineStyle(3, 0x6b5233, 0.95);
-    g.lineBetween(a.x, a.y - PLAYER_H * 0.72, hx, hy);
-
-    drawCharacter(
+    // same rig the match scene uses: body + arm + racket, identical visuals
+    const rig = isMe ? this.rigMe : this.rigOther;
+    const swing = Math.hypot(this.swingVX, this.swingVY);
+    rig.draw(
       g,
       this.time.now,
       cos,
-      { x: a.x, feetY: a.y, facing: a.facing, color: isMe ? P.player0 : 0xd4902c },
-      { face: isMe ? this.face : null },
+      {
+        x: a.x,
+        feetY: a.y,
+        facing: a.facing,
+        color: isMe ? P.player0 : P.player1,
+      },
+      Math.cos(ang) * reach,
+      Math.sin(ang) * reach,
+      swing,
+      isMe ? RACKET_HEAD_R + this.rodLevel * 2 : RACKET_HEAD_R,
     );
-
-    g.save();
-    g.translateCanvas(hx, hy);
-    g.rotateCanvas(ang);
-    drawRacketHead(g, this.time.now, cos.racketSkin, racketFrameColor(cos.racketSkin, cos.racket));
-    g.restore();
   }
 }

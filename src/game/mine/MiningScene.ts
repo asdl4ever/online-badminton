@@ -13,8 +13,7 @@ import {
   VIEW_H,
   VIEW_W,
 } from '../constants';
-import { drawCharacter } from '../draw/character';
-import { drawRacketHead, racketFrameColor } from '../draw/racket';
+import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
 import type { WorldConfig } from '../config';
@@ -97,7 +96,9 @@ export class MiningScene extends Phaser.Scene {
   private debris: Debris[] = [];
 
   private g!: Phaser.GameObjects.Graphics;
-  private face: Phaser.GameObjects.Text | null = null;
+  /** shared character rigs — drawn exactly like the match scene's players */
+  private rigMe!: PlayerRig;
+  private rigOther!: PlayerRig;
   private hud!: Phaser.GameObjects.Text;
   private pops: { t: Phaser.GameObjects.Text; life: number }[] = [];
 
@@ -120,7 +121,8 @@ export class MiningScene extends Phaser.Scene {
     this.me = { x: 430, y: GROUND_Y, vx: 0, vy: 0, onGround: true, facing: 1 };
 
     this.g = this.add.graphics();
-    this.face = this.add.text(0, 0, this.cfg.cosmetic.emoji, { fontSize: '24px' }).setDepth(6);
+    this.rigMe = createPlayerRig(this);
+    this.rigOther = createPlayerRig(this);
     this.hud = this.add
       .text(16, 12, '', { fontSize: '17px', color: '#3a2c18', fontStyle: 'bold' })
       .setDepth(10);
@@ -133,6 +135,8 @@ export class MiningScene extends Phaser.Scene {
         Phaser.Input.Keyboard.Key
       >;
     }
+    // multi-touch: the default single pointer cannot move and aim at once
+    this.input.addPointer(3);
     this.touchControls = isTouchDevice() ? new TouchControls(this) : null;
 
     const link = this.cfg.session;
@@ -435,24 +439,22 @@ export class MiningScene extends Phaser.Scene {
     reach: number,
     isMe: boolean,
   ): void {
-    // handle: shoulder → racket head
-    const hx = a.x + Math.cos(ang) * reach;
-    const hy = a.y - PLAYER_H * 0.72 + Math.sin(ang) * reach;
-    g.lineStyle(3, 0x6b5233, 0.95);
-    g.lineBetween(a.x, a.y - PLAYER_H * 0.72, hx, hy);
-
-    drawCharacter(
+    // same rig the match scene uses: body + arm + racket, identical visuals
+    const rig = isMe ? this.rigMe : this.rigOther;
+    rig.draw(
       g,
       this.time.now,
       cos,
-      { x: a.x, feetY: a.y, facing: a.facing, color: isMe ? P.player0 : 0xd4902c },
-      { face: isMe ? this.face : null },
+      {
+        x: a.x,
+        feetY: a.y,
+        facing: a.facing,
+        color: isMe ? P.player0 : P.player1,
+      },
+      Math.cos(ang) * reach,
+      Math.sin(ang) * reach,
+      Math.hypot(this.swingVX, this.swingVY),
+      RACKET_HEAD_R,
     );
-
-    g.save();
-    g.translateCanvas(hx, hy);
-    g.rotateCanvas(ang);
-    drawRacketHead(g, this.time.now, cos.racketSkin, racketFrameColor(cos.racketSkin, cos.racket));
-    g.restore();
   }
 }
