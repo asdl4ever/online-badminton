@@ -15,6 +15,7 @@ import { drawRacketHead, racketFrameColor } from '../draw/racket';
 import type { Cosmetic } from '../cosmetics';
 import { P } from '../theme';
 import type { NetLink } from '../../net/link';
+import { isTouchDevice } from '../device';
 import { sfx } from '../audio';
 
 // ---- fish table (name, value, radius, leap chance weight) ------------------
@@ -99,6 +100,9 @@ export class FishingScene extends Phaser.Scene {
 
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private poseClock = 0;
+  /** touch: drag anywhere to move, the round button jumps */
+  private touch = isTouchDevice();
+  private pointerWasDown = false;
 
   constructor() {
     super('FishingScene');
@@ -174,9 +178,18 @@ export class FishingScene extends Phaser.Scene {
   // ---- player --------------------------------------------------------------
   private stepPlayer(dt: number): void {
     const k = this.keys;
+    const p = this.input.activePointer;
     let dir = 0;
     if (k?.A.isDown || k?.LEFT.isDown) dir -= 1;
     if (k?.D.isDown || k?.RIGHT.isDown) dir += 1;
+
+    if (this.touch && p.isDown) {
+      // touch: chase the finger (the jump button is handled below)
+      const target = Phaser.Math.Clamp(p.worldX, 60, WATER_X - 40);
+      const dx = target - this.me.x;
+      if (Math.abs(dx) > 8) dir = Math.sign(dx);
+    }
+
     if (dir !== 0) {
       this.me.vx = dir * PLAYER_SPEED;
       this.me.facing = dir > 0 ? 1 : -1;
@@ -184,10 +197,11 @@ export class FishingScene extends Phaser.Scene {
       this.me.vx *= 0.72;
       if (Math.abs(this.me.vx) < 6) this.me.vx = 0;
     }
-    if ((k?.SPACE.isDown || k?.W.isDown) && this.me.onGround) {
+    if ((k?.SPACE.isDown || k?.W.isDown || this.jumpPressed()) && this.me.onGround) {
       this.me.vy = PLAYER_JUMP_V;
       this.me.onGround = false;
     }
+    this.pointerWasDown = p.isDown;
 
     this.me.vy += PLAYER_GRAVITY * dt;
     this.me.x = Phaser.Math.Clamp(this.me.x + this.me.vx * dt, 60, WATER_X - 40);
@@ -211,6 +225,21 @@ export class FishingScene extends Phaser.Scene {
     this.racketAng = Math.atan2(dy, dx);
     if (Math.abs(this.racketAng) > Math.PI / 2) this.me.facing = -1;
     else this.me.facing = 1;
+  }
+
+  /** the on-screen jump button (touch only) */
+  private jumpButton(): { x: number; y: number; r: number } {
+    return { x: 86, y: GROUND_Y - 66, r: 36 };
+  }
+
+  private jumpPressed(): boolean {
+    if (!this.touch) return false;
+    const p = this.input.activePointer;
+    const b = this.jumpButton();
+    const inside =
+      p.isDown && Phaser.Math.Distance.Between(p.worldX, p.worldY, b.x, b.y) <= b.r;
+    // fire on the press edge so holding the button doesn't pogo
+    return inside && !this.pointerWasDown;
   }
 
   private headX(): number {
@@ -407,6 +436,19 @@ export class FishingScene extends Phaser.Scene {
     this.drawAngler(g, this.me, this.cfg.cosmetic, this.racketAng, this.reach, true);
     if (this.remote)
       this.drawAngler(g, this.remote, this.remoteSkin ?? this.cfg.cosmetic, this.remoteAng, this.remoteReach, false);
+
+    if (this.touch) {
+      const b = this.jumpButton();
+      const p = this.input.activePointer;
+      const on =
+        p.isDown && Phaser.Math.Distance.Between(p.worldX, p.worldY, b.x, b.y) <= b.r;
+      g.fillStyle(0x1f3a52, on ? 0.5 : 0.28);
+      g.fillCircle(b.x, b.y, b.r);
+      g.lineStyle(2, 0x1f3a52, 0.6);
+      g.strokeCircle(b.x, b.y, b.r);
+      g.lineStyle(4, 0x1f3a52, 0.85);
+      g.strokeTriangle(b.x - 12, b.y + 10, b.x + 12, b.y + 10, b.x, b.y - 14);
+    }
   }
 
   private drawAngler(

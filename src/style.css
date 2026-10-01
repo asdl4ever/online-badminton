@@ -454,7 +454,8 @@ button {
 
   /* both games letterbox a 16:9 court inside the stage */
   .page--playing .stage .game-canvas,
-  .page--playing .stage .climb-canvas {
+  .page--playing .stage .climb-canvas,
+  .page--playing .stage .fish-canvas {
     aspect-ratio: 16 / 9;
     width: auto;
     height: 100%;
@@ -465,9 +466,10 @@ button {
     touch-action: none;
   }
 
-  /* badminton runs in Scale.STRETCH on touch, so the container can be the
-     whole stage: the court fills the screen instead of letterboxing */
-  .page--playing .stage .game-canvas {
+  /* badminton and fishing stretch their canvas by CSS, so the container can
+     be the whole stage: the court fills the screen instead of letterboxing */
+  .page--playing .stage .game-canvas,
+  .page--playing .stage .fish-canvas {
     aspect-ratio: auto;
     width: 100%;
   }

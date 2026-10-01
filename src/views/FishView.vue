@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
 
       <div class="muted fish-note">
         <span>
-          `A`/`D` 走动，`空格` 起跳。鱼会跳出水面——用球拍（鱼竿）碰它就上钩，收进鱼篓后点「卖鱼」换金币。
+          键盘：`A`/`D` 走动、`空格` 起跳；手机：按住屏幕拖动走位，左下角按钮起跳。鱼会跳出水面——用球拍（鱼竿）碰它就上钩，收进鱼篓后点「卖鱼」换金币。
         </span>
         <span class="fish-shop">
           鱼竿 Lv.{{ progress.rodLevel }}
