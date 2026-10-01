@@ -42,6 +42,8 @@ const ORE_KINDS: OreKind[] = [
 const ROCK_X = 600;
 const ROCK_R = 56;
 const HIT_COOLDOWN = 0.22;
+/** head speed (px/s) needed for a contact to count as a strike */
+const SWING_MIN = 550;
 
 // debris shares the shuttle's gravity + quadratic drag
 const DEBRIS_GRAVITY = 1350;
@@ -84,6 +86,9 @@ export class MiningScene extends Phaser.Scene {
   private remote: Miner | null = null;
   private racketAng = -0.6;
   private reach = 0;
+  /** smoothed head velocity from the tracker — a strike needs real speed */
+  private swingVX = 0;
+  private swingVY = 0;
 
   private kindIdx = 0;
   private hp = ORE_KINDS[0].hp;
@@ -165,7 +170,12 @@ export class MiningScene extends Phaser.Scene {
     this.stepDebris(dt);
     this.stepPops(dt);
     this.draw();
+    this.touchControls?.draw();
     this.sendPose(dt);
+  }
+
+  toggleEditMode(): void {
+    this.touchControls?.setEditing(!this.touchControls.editing);
   }
 
   // ---- player --------------------------------------------------------------
@@ -232,6 +242,8 @@ export class MiningScene extends Phaser.Scene {
     const st = this.racket.update(targetX, targetY, shoulderX, shoulderY, dt, freeze, cfg);
     this.racketAng = Math.atan2(st.ry, st.rx);
     this.reach = Math.hypot(st.rx, st.ry);
+    this.swingVX = st.rvx;
+    this.swingVY = st.rvy;
   }
 
   private headX(): number {
@@ -252,7 +264,15 @@ export class MiningScene extends Phaser.Scene {
     const dy = hy - (GROUND_Y - ROCK_R);
     const touching = Math.hypot(dx, dy) < ROCK_R + RACKET_HEAD_R;
 
-    if (touching && this.cooldown <= 0) {
+    // only a real swing breaks ore: the head must be moving fast enough and
+    // travelling towards the rock — resting it against the surface does nothing
+    const toRockX = -dx;
+    const toRockY = -dy;
+    const closing = this.swingVX * toRockX + this.swingVY * toRockY;
+    const swinging =
+      Math.hypot(this.swingVX, this.swingVY) >= SWING_MIN && closing > 0;
+
+    if (touching && swinging && this.cooldown <= 0) {
       this.cooldown = HIT_COOLDOWN;
       this.hp -= 1;
       sfx.hit('drive');

@@ -13,6 +13,7 @@ import { sfx } from '../game/audio';
 import { toastWarn } from '../composables/useToast';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
+import { isTouchDevice } from '../game/device';
 import { useCustomizeStore } from '../stores/customize';
 import { useProgressStore } from '../stores/progress';
 
@@ -27,7 +28,15 @@ const joinCode = ref('');
 const roomCode = ref('');
 const waiting = ref(false);
 const phase = ref('');
+const editing = ref(false);
+const touch = isTouchDevice();
 let link: NetLink | null = null;
+
+function toggleEdit() {
+  const scene = game?.scene.getScene('MiningScene') as MiningScene | undefined;
+  scene?.toggleEditMode();
+  editing.value = !editing.value;
+}
 
 function back() {
   sfx.click();
@@ -137,30 +146,26 @@ onBeforeUnmount(() => {
         <StatusChip :tone="roomCode ? 'ok' : 'idle'">
           {{ roomCode ? `房间 ${roomCode}` : '单机' }}
         </StatusChip>
+        <span class="num mine-earn">本场 ¥{{ sessionTotal }}</span>
+        <span v-if="phase" class="muted">{{ phase }}</span>
+        <template v-if="!roomCode">
+          <input
+            v-model="joinCode"
+            class="mine-code"
+            maxlength="6"
+            placeholder="房号"
+            @keyup.enter="join"
+          />
+          <Button size="sm" :disabled="waiting" @click="host">建房</Button>
+          <Button size="sm" :disabled="waiting" @click="join">加入</Button>
+        </template>
+        <Button v-if="touch" size="sm" @click="toggleEdit">
+          {{ editing ? '完成' : '摇杆' }}
+        </Button>
       </SideDock>
 
       <div class="stage">
         <div ref="container" class="mine-canvas" />
-      </div>
-
-      <div class="muted mine-note">
-        <span>
-          键盘：`A`/`D` 走动、`空格` 起跳；手机：按住屏幕拖动走位，左下角按钮起跳。挥拍砸面前的矿石，砸碎就得金币；石头→铁矿→金矿→钻石矿循环刷新，越往后越硬也越值钱。
-        </span>
-        <span class="mine-shop">
-          <template v-if="!roomCode">
-            <input
-              v-model="joinCode"
-              class="mine-code"
-              maxlength="6"
-              placeholder="房号"
-              @keyup.enter="join"
-            />
-            <Button size="sm" :disabled="waiting" @click="host">建房</Button>
-            <Button size="sm" :disabled="waiting" @click="join">加入</Button>
-          </template>
-          <template v-if="phase && waiting">{{ phase }}</template>
-        </span>
       </div>
     </div>
   </div>
@@ -188,24 +193,8 @@ onBeforeUnmount(() => {
   color: var(--accent-2);
 }
 
-.mine-note {
-  margin-top: var(--s3);
-  font-size: 13px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.mine-shop {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-
 .mine-code {
-  width: 76px;
+  width: 100%;
   padding: 6px 8px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line);
@@ -214,5 +203,6 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 2px;
   font-weight: 600;
+  text-align: center;
 }
 </style>

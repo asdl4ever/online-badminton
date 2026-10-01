@@ -7,6 +7,7 @@ import GameCanvas from '../components/GameCanvas.vue';
 import PartyOverlay from '../components/PartyOverlay.vue';
 import TopBar from '../components/ui/TopBar.vue';
 import SideDock from '../components/ui/SideDock.vue';
+import AppModal from '../components/ui/AppModal.vue';
 import ScoreLine from '../components/ui/ScoreLine.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
@@ -41,6 +42,7 @@ const phaseText = ref('');
 const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
 const editing = ref(false);
 const emoteOpen = ref(false);
+const friendsOpen = ref(false);
 const touch = isTouchDevice();
 
 /** fun mode: entered from the home page, driven by the host */
@@ -270,7 +272,14 @@ onBeforeUnmount(() => {
           <span>{{ editing ? '完成' : '摇杆' }}</span>
         </Button>
         <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
+        <Button size="sm" aria-haspopup="dialog" :aria-expanded="friendsOpen" @click="friendsOpen = !friendsOpen">
+          <span>邀请好友</span>
+        </Button>
       </SideDock>
+
+      <AppModal v-model="friendsOpen" title="邀请好友" max-width="560px">
+        <FriendsPanel variant="invite" :room-code="store.roomCode" :can-invite="waiting" />
+      </AppModal>
 
       <div v-if="partyMode && !playing" class="muted party-hint">
         乐趣模式已开启：一局 3 轮，每轮开始前投票选玩法
@@ -400,8 +409,6 @@ onBeforeUnmount(() => {
             会先尝试 WebRTC 点对点直连（延迟更低）；如果双方网络打不通，自动切换到本服务器的 WebSocket 中继。
           </p>
         </Panel>
-
-        <FriendsPanel variant="invite" :room-code="store.roomCode" :can-invite="waiting" />
       </template>
     </div>
   </div>

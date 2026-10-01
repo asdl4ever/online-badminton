@@ -42,16 +42,10 @@ const practices: Choice[] = [
   { value: 'machine', label: '发球机' },
 ];
 
-/** the ball machine has one preset per difficulty */
-const MACHINE_OPTION: Record<Difficulty, string> = {
-  easy: 'machineEasy',
-  normal: 'machine',
-  hard: 'machineHard',
-};
-
 const isMachine = computed(() => store.practice === 'machine');
-/** the machine ramps its own difficulty with the streak, so one base preset */
-const optionId = computed(() => (isMachine.value ? 'machineEasy' : MACHINE_OPTION[store.difficulty]));
+/** the machine ramps its own difficulty with the streak, so one base preset;
+    the AI modes build their standard world (no option patch at all) */
+const optionId = computed(() => (isMachine.value ? 'machineEasy' : undefined));
 /** the scene builds its world once, so the mode switch has to remount it */
 const canvasKey = computed(() =>
   isMachine.value ? store.practice : `${store.practice}-${store.difficulty}`,

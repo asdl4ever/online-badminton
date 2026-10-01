@@ -178,7 +178,12 @@ export class FishingScene extends Phaser.Scene {
     this.stepFish(dt);
     this.stepPops(dt);
     this.draw();
+    this.touchControls?.draw();
     this.sendPose(dt);
+  }
+
+  toggleEditMode(): void {
+    this.touchControls?.setEditing(!this.touchControls.editing);
   }
 
   // ---- player --------------------------------------------------------------

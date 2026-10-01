@@ -13,6 +13,7 @@ import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
+import { isTouchDevice } from '../game/device';
 import { useCustomizeStore } from '../stores/customize';
 import { useProgressStore } from '../stores/progress';
 
@@ -29,7 +30,15 @@ const joinCode = ref('');
 const roomCode = ref('');
 const waiting = ref(false);
 const phase = ref('');
+const editing = ref(false);
+const touch = isTouchDevice();
 let link: NetLink | null = null;
+
+function toggleEdit() {
+  const scene = game?.scene.getScene('FishingScene') as FishingScene | undefined;
+  scene?.toggleEditMode();
+  editing.value = !editing.value;
+}
 
 const nextRodCost = computed(() => ROD_COST * progress.rodLevel);
 const rodMaxed = computed(() => progress.rodLevel >= 5);
@@ -170,31 +179,25 @@ onBeforeUnmount(() => {
           鱼竿升级 ¥{{ nextRodCost }}
         </Button>
         <span v-else class="muted">鱼竿已满级</span>
+        <span v-if="phase" class="muted">{{ phase }}</span>
+        <template v-if="!roomCode">
+          <input
+            v-model="joinCode"
+            class="fish-code"
+            maxlength="6"
+            placeholder="房号"
+            @keyup.enter="join"
+          />
+          <Button size="sm" :disabled="waiting" @click="host">建房</Button>
+          <Button size="sm" :disabled="waiting" @click="join">加入</Button>
+        </template>
+        <Button v-if="touch" size="sm" @click="toggleEdit">
+          {{ editing ? '完成' : '摇杆' }}
+        </Button>
       </SideDock>
 
       <div class="stage">
         <div ref="container" class="fish-canvas" />
-      </div>
-
-      <div class="muted fish-note">
-        <span>
-          键盘：`A`/`D` 走动、`空格` 起跳；手机：按住屏幕拖动走位，左下角按钮起跳。鱼会跳出水面——用球拍（鱼竿）碰它就上钩，收进鱼篓后点「卖鱼」换金币。
-        </span>
-        <span class="fish-shop">鱼竿 Lv.{{ progress.rodLevel }}</span>
-        <span class="fish-shop">
-          <template v-if="!roomCode">
-            <input
-              v-model="joinCode"
-              class="fish-code"
-              maxlength="6"
-              placeholder="房号"
-              @keyup.enter="join"
-            />
-            <Button size="sm" :disabled="waiting" @click="host">建房</Button>
-            <Button size="sm" :disabled="waiting" @click="join">加入</Button>
-          </template>
-          <template v-if="phase && waiting">{{ phase }}</template>
-        </span>
       </div>
     </div>
   </div>
@@ -217,24 +220,8 @@ onBeforeUnmount(() => {
   height: 100% !important;
 }
 
-.fish-note {
-  margin-top: var(--s3);
-  font-size: 13px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.fish-shop {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-
 .fish-code {
-  width: 76px;
+  width: 100%;
   padding: 6px 8px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line);
@@ -243,5 +230,6 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 2px;
   font-weight: 600;
+  text-align: center;
 }
 </style>
