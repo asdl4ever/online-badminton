@@ -251,6 +251,24 @@ export const PRACTICE_OPTIONS: PartyOption[] = [
     mode: 'machine',
     patch: { machineInterval: 0.7, machineSpeed: 1750, machineSpread: 290, machineAngle: 0.16 },
   },
+  // ---- 小黄龙联名：趣味模式（见 game/nailong.ts）--------------------------
+  {
+    id: 'nailongFun',
+    label: '小黄龙滚滚',
+    desc: '趣味模式：先到 5 分，大奶团球慢慢飘，小黄龙一身果冻会把球弹回来',
+    mode: 'match',
+    patch: {
+      // 短局：一局两三分钟
+      winScore: 5,
+      // 球是个大奶团：又大又飘，落得慢
+      shuttleR: 18,
+      shuttleGravity: 620,
+      shuttleDrag: 0.0034,
+      shuttleMaxSpeed: 1450,
+      // 手感放软一点
+      pointPause: 1.1,
+    },
+  },
 ];
 
 const ALL_OPTIONS: PartyOption[] = [...PARTY_OPTIONS, ...PRACTICE_OPTIONS];

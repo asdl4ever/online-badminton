@@ -34,7 +34,8 @@ export type SceneId =
   | 'climb'
   | 'petshop'
   | 'hall'
-  | 'farm';
+  | 'farm'
+  | 'nailong';
 
 export const SCENE_IDS: readonly SceneId[] = [
   'off',
@@ -47,6 +48,7 @@ export const SCENE_IDS: readonly SceneId[] = [
   'petshop',
   'hall',
   'farm',
+  'nailong',
 ];
 
 export function normaliseScene(raw: unknown): SceneId {

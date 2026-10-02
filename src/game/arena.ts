@@ -59,6 +59,15 @@ export const ARENA_WINS_NEEDED = ARENA_ROUNDS.length;
 /** 一届打完后该杯赛的冷却时间 */
 export const ARENA_COOLDOWN_MS = 5 * 60 * 1000;
 
+/**
+ * 前几档杯赛用「临时弱对手」。
+ *
+ * 名人堂里最弱的球员 rating 也在 900 上下、还可能穿着传说装饰，对 0 积分的新号
+ * 依然太强，所以新芽 / 青竹 / 曙光这三档直接在报名时**现场生成一批路人**：
+ * 四维逐档递进（28→38 → 34→44 → 40→50），并且只穿普通 / 稀有的低星装备。
+ */
+export const ROOKIE_TIERS = 3;
+
 /** 各名次的金币比例：冠军 / 亚军 / 4强 / 8强（16强只有半价退款） */
 export const PLACE_GOLD = [1, 0.6, 0.4, 0.2] as const;
 /** 全胜夺冠满贯加成 */
@@ -73,7 +82,8 @@ export type ArenaPlace = 'champion' | 'runner' | 'third' | 'fourth' | 'qf';
 export const PLACE_LABEL: Record<ArenaPlace, string> = {
   champion: '冠军 🏆',
   runner: '亚军 🥈',
-  third: '4 强',
+  // 赛制里没有三四名决赛：半决赛输的两位并列季军
+  third: '季军 🥉',
   fourth: '8 强',
   qf: '16 强',
 };
@@ -95,6 +105,30 @@ export function goldForPlace(a: ArenaTier, place: ArenaPlace, wins: number): num
 export function pointsForPlace(a: ArenaTier, place: ArenaPlace): number {
   const idx = place === 'champion' ? 0 : place === 'runner' ? 1 : place === 'third' ? 2 : place === 'fourth' ? 3 : 4;
   return Math.round(a.points * PLACE_POINTS[idx]);
+}
+
+// ---- 荣誉点 -----------------------------------------------------------------
+
+/** 各名次的荣誉点基数：只有冠亚季军有（8 强 / 16 强为 0） */
+export const PLACE_HONOR: Record<ArenaPlace, number> = {
+  champion: 40,
+  runner: 25,
+  third: 15,
+  fourth: 0,
+  qf: 0,
+};
+
+/** 荣誉点的杯赛档位倍率：最低档 ×1，最高档 ×3（所以打高级赛事才划算） */
+export function honorTierScale(tier: GroupId): number {
+  const idx = Math.max(0, ARENA_TIERS.findIndex((t) => t.tier === tier));
+  const max = Math.max(1, ARENA_TIERS.length - 1);
+  return 1 + (idx * 2) / max;
+}
+
+/** 这个杯赛里拿到这个名次，能得多少荣誉点 */
+export function honorForPlace(tier: GroupId, place: ArenaPlace): number {
+  const base = PLACE_HONOR[place];
+  return base ? Math.round(base * honorTierScale(tier)) : 0;
 }
 
 // ---- 赛事名池 ---------------------------------------------------------------

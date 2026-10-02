@@ -260,7 +260,60 @@ export type HatId =
   | 'featherCrest'
   | 'captain'
   | 'catEars'
-  | 'dragonHelm';
+  | 'dragonHelm'
+  // ---- 以下 50 款：每款一个独立造型（不是同形状换色） ----
+  | 'rabbitEars'
+  | 'bearEars'
+  | 'mouseEars'
+  | 'sharkFin'
+  | 'dinoHorns'
+  | 'unicornHorn'
+  | 'afro'
+  | 'mohawk'
+  | 'ponytail'
+  | 'bun'
+  | 'pigtails'
+  | 'braids'
+  | 'spikyHair'
+  | 'longHair'
+  | 'curlyHair'
+  | 'bobHair'
+  | 'buzzCut'
+  | 'antenna'
+  | 'cowboy'
+  | 'bowler'
+  | 'newsboy'
+  | 'turban'
+  | 'wreath'
+  | 'bamboo'
+  | 'conical'
+  | 'veil'
+  | 'brideVeil'
+  | 'headband'
+  | 'hood'
+  | 'knightHelm'
+  | 'armyHelm'
+  | 'fireHelm'
+  | 'kabukiMask'
+  | 'eyepatch'
+  | 'monocle'
+  | 'sailorHat'
+  | 'gasMask'
+  | 'skullMask'
+  | 'ghostHat'
+  | 'pumpkin'
+  | 'iceCream'
+  | 'cupcake'
+  | 'burger'
+  | 'watermelon'
+  | 'screw'
+  | 'gear'
+  | 'minerLamp'
+  | 'candle'
+  | 'starCrown'
+  | 'moonCrown'
+  // 小黄龙联名
+  | 'nailongHood';
 
 export type PetId =
   | 'none'
@@ -274,7 +327,8 @@ export type PetId =
   | 'robot'
   | 'star'
   | 'flame'
-  | 'ghost';
+  | 'ghost'
+  | 'nailong';
 
 export type TrailId =
   | 'none'
@@ -306,6 +360,25 @@ export type SwingTrailId =
   | 'thorn'
   | 'prism'
   | 'voidcut';
+
+/**
+ * 坐骑：纯装饰，画在角色脚下、跟着他一起跑和跳。
+ * **不参与任何物理**——不影响移动速度、判定半径，也不需要联机同步轨迹。
+ */
+export type MountId =
+  | 'none'
+  | 'board'
+  | 'bubble'
+  | 'cloud'
+  | 'sword'
+  | 'horse'
+  | 'carpet'
+  | 'star'
+  | 'dragon'
+  | 'rocket'
+  | 'throne'
+  // 小黄龙联名
+  | 'nailongRoll';
 
 /** 地环：显示在角色脚下的装饰环（积分荣誉奖励） */
 export type RingId =
@@ -475,9 +548,29 @@ export type RacketSkinId =
   | 'willow'
   | 'blossom';
 
-/** 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮）/ 老皮（两个钢铁屁股，球弹上去会被弹开） */
-export type CharacterSkin = 'none' | 'godzilla' | 'ubear' | 'laopi';
-const SKIN_IDS: CharacterSkin[] = ['none', 'godzilla', 'ubear', 'laopi'];
+/**
+ * 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮）/ 老皮（两个钢铁屁股，球弹上去会被弹开），
+ * 以及荣誉商店的三款：冠军铠甲 / 不灭凤凰 / 龙王。
+ */
+export type CharacterSkin =
+  | 'none'
+  | 'godzilla'
+  | 'ubear'
+  | 'laopi'
+  | 'champion'
+  | 'phoenix'
+  | 'dragonlord'
+  | 'nailong';
+const SKIN_IDS: CharacterSkin[] = [
+  'none',
+  'godzilla',
+  'ubear',
+  'laopi',
+  'champion',
+  'phoenix',
+  'dragonlord',
+  'nailong',
+];
 
 export interface Cosmetic {
   /** whole-body character form (the streak-100 Godzilla, else 'none') */
@@ -499,6 +592,8 @@ export interface Cosmetic {
   trailStyle: TrailId;
   /** 挥拍时那条弧线的风格（与球拖尾独立） */
   swingTrail: SwingTrailId;
+  /** 坐骑：纯装饰，画在角色脚下 */
+  mount: MountId;
 }
 
 /** the 100 generated "plus" hit styles: p1..p100 (see effects/plus.ts) */
@@ -532,9 +627,21 @@ const HAT_IDS: HatId[] = [
   'pirate', 'chef', 'astro', 'mushroom', 'beanie', 'antler', 'jester', 'sombrero',
   'samurai', 'foxMask', 'frostCrown', 'flameCrown', 'witch', 'beret', 'vr', 'sunCrown', 'plague', 'graduation',
   'propeller', 'jelly', 'oni', 'snorkel', 'thornCrown', 'raincloud', 'featherCrest', 'captain', 'catEars', 'dragonHelm',
+  // 后加的 50 款（漏了它们的话，联机 / AI 戴这些帽子会被 sanitize 回退成默认）
+  'rabbitEars', 'bearEars', 'mouseEars', 'sharkFin', 'dinoHorns', 'unicornHorn',
+  'afro', 'mohawk', 'ponytail', 'bun', 'pigtails', 'braids', 'spikyHair', 'longHair',
+  'curlyHair', 'bobHair', 'buzzCut', 'antenna',
+  'cowboy', 'bowler', 'newsboy', 'turban', 'wreath', 'bamboo', 'conical', 'veil',
+  'brideVeil', 'headband', 'hood', 'knightHelm', 'armyHelm', 'fireHelm',
+  'kabukiMask', 'eyepatch', 'monocle', 'sailorHat', 'gasMask', 'skullMask', 'ghostHat', 'pumpkin',
+  'iceCream', 'cupcake', 'burger', 'watermelon', 'screw', 'gear', 'minerLamp', 'candle',
+  'starCrown', 'moonCrown',
+  // 小黄龙联名
+  'nailongHood',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
+  'nailong',
 ];
 const TRAIL_IDS: TrailId[] = [
   'none', 'classic', 'fire', 'ice', 'rainbow', 'electric', 'leaf', 'void', 'gold', 'pixel',
@@ -542,6 +649,10 @@ const TRAIL_IDS: TrailId[] = [
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
   'frostbite', 'orbit', 'wave', 'thorn', 'prism', 'voidcut',
+];
+const MOUNT_IDS: MountId[] = [
+  'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
+  'star', 'dragon', 'rocket', 'throne', 'nailongRoll',
 ];
 const RING_IDS: RingId[] = [
   'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
@@ -879,7 +990,58 @@ export type HatKind =
   | 'featherCrest'
   | 'captain'
   | 'catEars'
-  | 'dragonHelm';
+  | 'dragonHelm'
+  | 'rabbitEars'
+  | 'bearEars'
+  | 'mouseEars'
+  | 'sharkFin'
+  | 'dinoHorns'
+  | 'unicornHorn'
+  | 'afro'
+  | 'mohawk'
+  | 'ponytail'
+  | 'bun'
+  | 'pigtails'
+  | 'braids'
+  | 'spikyHair'
+  | 'longHair'
+  | 'curlyHair'
+  | 'bobHair'
+  | 'buzzCut'
+  | 'antenna'
+  | 'cowboy'
+  | 'bowler'
+  | 'newsboy'
+  | 'turban'
+  | 'wreath'
+  | 'bamboo'
+  | 'conical'
+  | 'veil'
+  | 'brideVeil'
+  | 'headband'
+  | 'hood'
+  | 'knightHelm'
+  | 'armyHelm'
+  | 'fireHelm'
+  | 'kabukiMask'
+  | 'eyepatch'
+  | 'monocle'
+  | 'sailorHat'
+  | 'gasMask'
+  | 'skullMask'
+  | 'ghostHat'
+  | 'pumpkin'
+  | 'iceCream'
+  | 'cupcake'
+  | 'burger'
+  | 'watermelon'
+  | 'screw'
+  | 'gear'
+  | 'minerLamp'
+  | 'candle'
+  | 'starCrown'
+  | 'moonCrown'
+  | 'nailongHood';
 
 export const HAT_COLORS: Record<HatId, number> = {
   none: 0x000000,
@@ -922,6 +1084,58 @@ export const HAT_COLORS: Record<HatId, number> = {
   captain: 0x2a3a5a,
   catEars: 0xe8a33d,
   dragonHelm: 0x53e0a0,
+  // ---- 后加的 50 款 ----
+  rabbitEars: 0xf3e9dc,
+  bearEars: 0x8b5a2b,
+  mouseEars: 0x2b2b33,
+  sharkFin: 0x6f8fa8,
+  dinoHorns: 0x5fae6a,
+  unicornHorn: 0xffe08a,
+  afro: 0x2b2228,
+  mohawk: 0xff5a4d,
+  ponytail: 0x8a5a2b,
+  bun: 0x3a2a22,
+  pigtails: 0xffb03a,
+  braids: 0xc98a4b,
+  spikyHair: 0x4a90d9,
+  longHair: 0x1f1a24,
+  curlyHair: 0x8b3a2b,
+  bobHair: 0x39d0a0,
+  buzzCut: 0x5a5a64,
+  antenna: 0x9fe8b0,
+  cowboy: 0xa9703a,
+  bowler: 0x2b2b33,
+  newsboy: 0x6f5b40,
+  turban: 0xdcd0b0,
+  wreath: 0x7ed957,
+  bamboo: 0xc9a86a,
+  conical: 0xd8c08a,
+  veil: 0xd9c6e8,
+  brideVeil: 0xfff4f8,
+  headband: 0xff5a4d,
+  hood: 0x3a4a6a,
+  knightHelm: 0xaab4c2,
+  armyHelm: 0x5a6a3a,
+  fireHelm: 0xd42a3a,
+  kabukiMask: 0xf2e7d8,
+  eyepatch: 0x1a1a22,
+  monocle: 0xffd45c,
+  sailorHat: 0xf2f6fa,
+  gasMask: 0x4a5a4a,
+  skullMask: 0xdfe6f0,
+  ghostHat: 0xe8eeff,
+  pumpkin: 0xff8a2a,
+  iceCream: 0xffb7d5,
+  cupcake: 0xffd0e0,
+  burger: 0xd9a05a,
+  watermelon: 0x3fae4a,
+  screw: 0x9aa7b8,
+  gear: 0xb08a4a,
+  minerLamp: 0xffd45c,
+  candle: 0xfff0d0,
+  starCrown: 0xffd45c,
+  moonCrown: 0xcfe3ff,
+  nailongHood: 0xffd93d,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -965,9 +1179,63 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   captain: 'captain',
   catEars: 'catEars',
   dragonHelm: 'dragonHelm',
+  // ---- 后加的 50 款（每款一个独立形状）----
+  rabbitEars: 'rabbitEars',
+  bearEars: 'bearEars',
+  mouseEars: 'mouseEars',
+  sharkFin: 'sharkFin',
+  dinoHorns: 'dinoHorns',
+  unicornHorn: 'unicornHorn',
+  afro: 'afro',
+  mohawk: 'mohawk',
+  ponytail: 'ponytail',
+  bun: 'bun',
+  pigtails: 'pigtails',
+  braids: 'braids',
+  spikyHair: 'spikyHair',
+  longHair: 'longHair',
+  curlyHair: 'curlyHair',
+  bobHair: 'bobHair',
+  buzzCut: 'buzzCut',
+  antenna: 'antenna',
+  cowboy: 'cowboy',
+  bowler: 'bowler',
+  newsboy: 'newsboy',
+  turban: 'turban',
+  wreath: 'wreath',
+  bamboo: 'bamboo',
+  conical: 'conical',
+  veil: 'veil',
+  brideVeil: 'brideVeil',
+  headband: 'headband',
+  hood: 'hood',
+  knightHelm: 'knightHelm',
+  armyHelm: 'armyHelm',
+  fireHelm: 'fireHelm',
+  kabukiMask: 'kabukiMask',
+  eyepatch: 'eyepatch',
+  monocle: 'monocle',
+  sailorHat: 'sailorHat',
+  gasMask: 'gasMask',
+  skullMask: 'skullMask',
+  ghostHat: 'ghostHat',
+  pumpkin: 'pumpkin',
+  iceCream: 'iceCream',
+  cupcake: 'cupcake',
+  burger: 'burger',
+  watermelon: 'watermelon',
+  screw: 'screw',
+  gear: 'gear',
+  minerLamp: 'minerLamp',
+  candle: 'candle',
+  starCrown: 'starCrown',
+  moonCrown: 'moonCrown',
+  nailongHood: 'nailongHood',
 };
 
-export type PetKind = 'orb' | 'bird' | 'cat' | 'dragon' | 'fairy' | 'skull' | 'fox' | 'robot' | 'star' | 'flame' | 'ghost';
+export type PetKind =
+  | 'orb' | 'bird' | 'cat' | 'dragon' | 'fairy' | 'skull' | 'fox' | 'robot' | 'star' | 'flame' | 'ghost'
+  | 'nailong';
 
 export const PET_COLORS: Record<PetId, number> = {
   none: 0x000000,
@@ -982,6 +1250,7 @@ export const PET_COLORS: Record<PetId, number> = {
   star: 0xffd45c,
   flame: 0xff7a2a,
   ghost: 0xdfe8ff,
+  nailong: 0xffd93d,
 };
 
 export const PET_KIND: Record<PetId, PetKind> = {
@@ -997,6 +1266,7 @@ export const PET_KIND: Record<PetId, PetKind> = {
   star: 'star',
   flame: 'flame',
   ghost: 'ghost',
+  nailong: 'nailong',
 };
 
 export const TRAIL_COLORS: Record<TrailId, number> = {
@@ -1027,6 +1297,22 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   thorn: 0x7ed957,
   prism: 0xff8ad4,
   voidcut: 0x9b5cff,
+};
+
+/** 坐骑各款的主色 */
+export const MOUNT_COLORS: Record<MountId, number> = {
+  none: 0x000000,
+  board: 0x8a6a3a,
+  bubble: 0x7fd4ff,
+  cloud: 0xffffff,
+  sword: 0xcfd8e3,
+  horse: 0xb06a3a,
+  carpet: 0xc0392b,
+  star: 0xffd45c,
+  dragon: 0x39d0a0,
+  rocket: 0xe8eef5,
+  throne: 0xffd45c,
+  nailongRoll: 0xffd93d,
 };
 
 export const AURA_COLORS: Record<AuraId, number> = {
@@ -1212,6 +1498,7 @@ export const DEFAULT_COSMETIC: Cosmetic = {
   racketSkin: 'default',
   trailStyle: 'classic',
   swingTrail: 'none',
+  mount: 'none',
 };
 
 /** the CPU opponent gets a fixed look so it reads as "not you" */
@@ -1231,6 +1518,7 @@ export const AI_COSMETIC: Cosmetic = {
   racketSkin: 'default',
   trailStyle: 'classic',
   swingTrail: 'none',
+  mount: 'none',
 };
 
 export function toHex(n: number): string {
@@ -1269,5 +1557,6 @@ export function sanitizeCosmetic(input: Partial<Cosmetic> | undefined): Cosmetic
     racketSkin: pick(RACKET_SKIN_IDS, input.racketSkin, d.racketSkin),
     trailStyle: pick(TRAIL_IDS, input.trailStyle, d.trailStyle),
     swingTrail: pick(SWING_TRAIL_IDS, input.swingTrail, d.swingTrail),
+    mount: pick(MOUNT_IDS, input.mount, d.mount),
   };
 }

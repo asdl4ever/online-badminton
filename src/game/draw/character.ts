@@ -19,6 +19,7 @@ import {
 } from '../cosmetics';
 import { PLAYER_H } from '../constants';
 import { P } from '../theme';
+import { drawMount } from './mounts';
 
 /**
  * Draws a player character and every cosmetic slot it can wear.
@@ -601,6 +602,620 @@ export function drawHat(g: Phaser.GameObjects.Graphics, x: number, topY: number,
       g.fillCircle(x, hy - 2, 2.5);
       break;
     }
+    // ==================== 后加的 50 款：每款一个独立造型 ====================
+    case 'rabbitEars': {
+      // 兔耳：两只长耳，内侧粉色
+      for (const s of [-1, 1] as const) {
+        g.fillStyle(color, 1);
+        g.fillEllipse(x + s * 9, hy - 20, 9, 30);
+        g.fillStyle(0xffb7d5, 1);
+        g.fillEllipse(x + s * 9, hy - 20, 4.5, 22);
+      }
+      break;
+    }
+    case 'bearEars': {
+      // 熊耳：两只圆耳 + 浅色内耳
+      for (const s of [-1, 1] as const) {
+        g.fillStyle(color, 1);
+        g.fillCircle(x + s * 13, hy - 8, 9);
+        g.fillStyle(0xf0cf9e, 1);
+        g.fillCircle(x + s * 13, hy - 8, 4.5);
+      }
+      break;
+    }
+    case 'mouseEars': {
+      // 鼠耳：两只大圆盘
+      for (const s of [-1, 1] as const) {
+        g.fillStyle(color, 1);
+        g.fillCircle(x + s * 16, hy - 10, 11);
+        g.fillStyle(0xffb7d5, 1);
+        g.fillCircle(x + s * 16, hy - 10, 6.5);
+      }
+      break;
+    }
+    case 'sharkFin': {
+      // 鲨鱼鳍：头顶背鳍 + 两侧胸鳍
+      g.fillStyle(color, 1);
+      g.fillTriangle(x, hy - 26, x - 9, hy + 4, x + 9, hy + 4);
+      g.fillStyle(0xdfe6f0, 0.9);
+      g.fillTriangle(x, hy - 20, x - 4, hy - 2, x + 4, hy - 2);
+      g.fillStyle(color, 0.9);
+      g.fillTriangle(x - 24, hy - 2, x - 30, hy + 8, x - 16, hy + 6);
+      g.fillTriangle(x + 24, hy - 2, x + 30, hy + 8, x + 16, hy + 6);
+      break;
+    }
+    case 'dinoHorns': {
+      // 恐龙角：两根短粗后掠角
+      g.fillStyle(color, 1);
+      g.fillTriangle(x - 14, hy - 4, x - 26, hy - 20, x - 5, hy - 10);
+      g.fillTriangle(x + 14, hy - 4, x + 26, hy - 20, x + 5, hy - 10);
+      g.fillStyle(0xffffff, 0.25);
+      g.fillCircle(x - 16, hy - 12, 3);
+      g.fillCircle(x + 16, hy - 12, 3);
+      break;
+    }
+    case 'unicornHorn': {
+      // 独角：一根螺旋尖角
+      g.fillStyle(color, 1);
+      g.fillTriangle(x, hy - 34, x - 8, hy + 2, x + 8, hy + 2);
+      g.lineStyle(1.6, 0xffffff, 0.7);
+      for (let k = 0; k < 4; k++) {
+        const yy = hy - 4 - k * 7;
+        g.lineBetween(x - 5 + k, yy, x + 5 - k, yy - 3);
+      }
+      break;
+    }
+    case 'afro': {
+      // 爆炸头：一坨蓬松的圆
+      g.fillStyle(color, 1);
+      const puffs: [number, number, number][] = [
+        [0, -16, 13], [-14, -9, 10], [14, -9, 10], [-8, -22, 9], [8, -22, 9], [0, -4, 14],
+      ];
+      for (const [dx, dy, r] of puffs) g.fillCircle(x + dx, hy + dy, r);
+      break;
+    }
+    case 'mohawk': {
+      // 莫西干：中间一排竖刺
+      for (let k = -2; k <= 2; k++) {
+        const h = 22 - Math.abs(k) * 4;
+        g.fillStyle(k % 2 ? 0xffd45c : color, 1);
+        g.fillTriangle(x + k * 6 - 4, hy + 2, x + k * 6 + 4, hy + 2, x + k * 6, hy + 2 - h);
+      }
+      break;
+    }
+    case 'ponytail': {
+      // 马尾：后脑一束 + 金色发圈
+      g.fillStyle(color, 1);
+      g.fillEllipse(x - 16, hy - 8, 26, 16);
+      g.fillEllipse(x - 26, hy + 2, 16, 22);
+      g.fillStyle(0xffd45c, 1);
+      g.fillCircle(x - 18, hy - 2, 4);
+      break;
+    }
+    case 'bun': {
+      // 丸子头：顶上一个丸子 + 发圈
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy - 16, 12);
+      g.fillStyle(0xffd45c, 1);
+      g.fillEllipse(x, hy - 6, 20, 5);
+      break;
+    }
+    case 'pigtails': {
+      // 双马尾：两侧翘起的辫子
+      for (const s of [-1, 1] as const) {
+        g.fillStyle(color, 1);
+        g.fillEllipse(x + s * 20, hy - 6, 14, 18);
+        g.fillEllipse(x + s * 26, hy - 20, 10, 14);
+        g.fillStyle(0xffd45c, 1);
+        g.fillCircle(x + s * 17, hy - 2, 3.5);
+      }
+      break;
+    }
+    case 'braids': {
+      // 麻花辫：两条三节辫子垂在肩前
+      for (const s of [-1, 1] as const) {
+        for (let k = 0; k < 3; k++) {
+          g.fillStyle(color, 1);
+          g.fillCircle(x + s * 15, hy + 6 + k * 9, 7 - k);
+        }
+        g.fillStyle(0xff5a4d, 1);
+        g.fillCircle(x + s * 15, hy + 32, 2.5);
+      }
+      break;
+    }
+    case 'spikyHair': {
+      // 刺猬头：一圈外放的尖刺
+      for (let k = -3; k <= 3; k++) {
+        g.fillStyle(color, 1);
+        g.fillTriangle(
+          x + k * 6 - 4, hy + 2,
+          x + k * 6 + 4, hy + 2,
+          x + k * 7, hy - 22 + Math.abs(k) * 4,
+        );
+      }
+      break;
+    }
+    case 'longHair': {
+      // 长发：两侧披到肩下
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 20, hy - 10, 40, 22, 10);
+      g.fillRoundedRect(x - 26, hy - 4, 14, 44, 7);
+      g.fillRoundedRect(x + 12, hy - 4, 14, 44, 7);
+      break;
+    }
+    case 'curlyHair': {
+      // 卷发：一圈小卷
+      g.fillStyle(color, 1);
+      for (let k = 0; k < 7; k++) {
+        const a = Math.PI + (k / 6) * Math.PI;
+        g.fillCircle(x + Math.cos(a) * 17, hy - 4 + Math.sin(a) * 12, 7.5);
+      }
+      break;
+    }
+    case 'bobHair': {
+      // 波波头：齐耳短发
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 20, hy - 12, 40, 30, 12);
+      g.fillStyle(0xffffff, 0.16);
+      g.fillEllipse(x, hy - 8, 30, 10);
+      break;
+    }
+    case 'buzzCut': {
+      // 平头：贴头皮的极短一层
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy - 3, 36, 16);
+      g.fillRect(x - 18, hy - 4, 36, 8);
+      break;
+    }
+    case 'antenna': {
+      // 外星天线：两根细杆 + 顶球
+      g.lineStyle(2.5, color, 1);
+      g.lineBetween(x - 8, hy, x - 13, hy - 20);
+      g.lineBetween(x + 8, hy, x + 13, hy - 20);
+      g.fillStyle(0xff5a4d, 1);
+      g.fillCircle(x - 13, hy - 22, 4);
+      g.fillStyle(0x7fd4ff, 1);
+      g.fillCircle(x + 13, hy - 22, 4);
+      break;
+    }
+    case 'cowboy': {
+      // 牛仔帽：上翘宽檐 + 高帽筒 + 帽带
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.moveTo(x - 30, hy + 6);
+      g.lineTo(x - 22, hy - 2);
+      g.lineTo(x + 22, hy - 2);
+      g.lineTo(x + 30, hy + 6);
+      g.lineTo(x + 18, hy + 4);
+      g.lineTo(x - 18, hy + 4);
+      g.closePath();
+      g.fillPath();
+      g.fillRoundedRect(x - 13, hy - 18, 26, 18, 5);
+      g.fillStyle(0x6f4620, 1);
+      g.fillRect(x - 14, hy - 4, 28, 4);
+      g.fillStyle(0xffd45c, 1);
+      g.fillCircle(x, hy - 4, 2.5);
+      break;
+    }
+    case 'bowler': {
+      // 圆顶硬礼帽：小圆顶 + 卷边 + 缎带
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 4, 40, 10);
+      g.fillEllipse(x, hy - 8, 26, 20);
+      g.fillStyle(0xd42a3a, 1);
+      g.fillRect(x - 13, hy - 6, 26, 4);
+      break;
+    }
+    case 'newsboy': {
+      // 报童帽：八角帽 + 短檐 + 顶扣
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy - 4, 34, 20);
+      g.fillEllipse(x + 2, hy + 2, 36, 10);
+      g.fillTriangle(x + 14, hy - 2, x + 24, hy + 4, x + 10, hy + 4);
+      g.fillStyle(0x1a1a22, 1);
+      g.fillCircle(x, hy - 14, 3);
+      break;
+    }
+    case 'turban': {
+      // 头巾：缠绕的布条 + 宝石
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy - 6, 38, 24);
+      g.lineStyle(2, 0xb8a88a, 0.9);
+      for (let k = -1; k <= 1; k++) {
+        g.beginPath();
+        g.arc(x, hy - 6 + k * 6, 17 - Math.abs(k) * 2, Math.PI * 1.1, Math.PI * 1.9, false, 0);
+        g.strokePath();
+      }
+      g.fillStyle(0xff5a4d, 1);
+      g.fillCircle(x, hy - 14, 4);
+      break;
+    }
+    case 'wreath': {
+      // 花环：一圈绿叶 + 三朵小花
+      g.fillStyle(color, 1);
+      for (let k = 0; k < 9; k++) {
+        const a = Math.PI + (k / 8) * Math.PI;
+        g.fillEllipse(x + Math.cos(a) * 18, hy - 3 + Math.sin(a) * 12, 9, 6);
+      }
+      for (const dx of [-14, 0, 14]) {
+        g.fillStyle(0xffb7d5, 1);
+        g.fillCircle(x + dx, hy - 12 + Math.abs(dx) * 0.2, 4.5);
+        g.fillStyle(0xfff0a0, 1);
+        g.fillCircle(x + dx, hy - 12 + Math.abs(dx) * 0.2, 2);
+      }
+      break;
+    }
+    case 'bamboo': {
+      // 竹笠：锥形 + 编织段
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.moveTo(x, hy - 22);
+      g.lineTo(x - 30, hy + 6);
+      g.lineTo(x + 30, hy + 6);
+      g.closePath();
+      g.fillPath();
+      g.lineStyle(1.5, 0x8a6a3a, 0.7);
+      for (let k = 1; k <= 3; k++) {
+        const w = 30 * (k / 4);
+        const yy = hy + 6 - 22 * (1 - k / 4);
+        g.lineBetween(x - w, yy, x + w, yy);
+      }
+      break;
+    }
+    case 'conical': {
+      // 斗笠：宽大斗笠 + 系带
+      g.fillStyle(color, 1);
+      g.fillTriangle(x, hy - 18, x - 34, hy + 8, x + 34, hy + 8);
+      g.fillStyle(0xb09868, 1);
+      g.fillTriangle(x, hy - 18, x - 34, hy + 8, x - 10, hy + 8);
+      g.lineStyle(1.5, 0x8a6a3a, 0.6);
+      g.lineBetween(x - 20, hy - 2, x + 20, hy - 2);
+      break;
+    }
+    case 'veil': {
+      // 面纱：半透明垂纱遮住下半脸
+      g.fillStyle(color, 0.6);
+      g.fillRoundedRect(x - 18, hy - 8, 36, 22, 8);
+      g.lineStyle(1.5, 0xffffff, 0.5);
+      for (let k = -2; k <= 2; k++) g.lineBetween(x + k * 7, hy + 2, x + k * 7, hy + 12);
+      break;
+    }
+    case 'brideVeil': {
+      // 婚纱头纱：脑后的长纱 + 花饰
+      g.fillStyle(color, 0.75);
+      g.beginPath();
+      g.moveTo(x - 18, hy - 6);
+      g.lineTo(x - 26, hy + 34);
+      g.lineTo(x + 26, hy + 34);
+      g.lineTo(x + 18, hy - 6);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xffb7d5, 1);
+      g.fillCircle(x, hy - 10, 4);
+      g.fillCircle(x - 8, hy - 7, 3);
+      g.fillCircle(x + 8, hy - 7, 3);
+      break;
+    }
+    case 'headband': {
+      // 运动发带：额前一圈 + 侧边飘带
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 17, hy - 2, 34, 8, 3);
+      g.fillStyle(0xffffff, 0.85);
+      g.fillRect(x - 17, hy, 34, 2);
+      g.fillStyle(color, 1);
+      g.fillTriangle(x - 16, hy, x - 30, hy + 12, x - 14, hy + 8);
+      break;
+    }
+    case 'hood': {
+      // 兜帽：罩住头顶的尖帽 + 内里阴影
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.arc(x, hy + 4, 20, Math.PI, Math.PI * 2, false, 0);
+      g.lineTo(x + 20, hy + 12);
+      g.lineTo(x - 20, hy + 12);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0x2a3442, 0.5);
+      g.fillEllipse(x, hy + 2, 26, 14);
+      break;
+    }
+    case 'knightHelm': {
+      // 骑士盔：全罩盔 + 面甲缝 + 红缨
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy + 2, 18);
+      g.fillStyle(0x7a8698, 1);
+      g.fillRoundedRect(x - 15, hy - 2, 30, 10, 3);
+      g.fillStyle(0x1a1a22, 1);
+      g.fillRect(x - 12, hy + 1, 24, 3);
+      g.fillStyle(0xff5a4d, 1);
+      g.fillEllipse(x, hy - 16, 7, 14);
+      break;
+    }
+    case 'armyHelm': {
+      // 军盔：锅盖盔 + 伪装带 + 护耳
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 2, 38, 22);
+      g.fillRect(x - 19, hy + 2, 38, 5);
+      g.fillStyle(0x4a5a2a, 0.8);
+      g.fillRect(x - 19, hy - 2, 38, 3);
+      g.fillStyle(color, 1);
+      g.fillTriangle(x - 19, hy + 6, x - 26, hy + 12, x - 14, hy + 8);
+      g.fillTriangle(x + 19, hy + 6, x + 26, hy + 12, x + 14, hy + 8);
+      break;
+    }
+    case 'fireHelm': {
+      // 消防盔：红盔 + 前檐 + 金色徽章
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy, 34, 20);
+      g.fillRect(x - 17, hy + 2, 34, 5);
+      g.fillStyle(0xffd45c, 1);
+      g.fillEllipse(x, hy - 4, 12, 8);
+      g.fillStyle(0xd42a3a, 1);
+      g.fillCircle(x, hy - 4, 2.5);
+      break;
+    }
+    case 'kabukiMask': {
+      // 歌舞伎面具：白面 + 红纹 + 黑眉
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 4, 32, 26);
+      g.fillStyle(0xd42a3a, 1);
+      g.fillTriangle(x - 14, hy + 2, x - 6, hy - 2, x - 6, hy + 8);
+      g.fillTriangle(x + 14, hy + 2, x + 6, hy - 2, x + 6, hy + 8);
+      g.fillStyle(0x1a1a22, 1);
+      g.fillRect(x - 11, hy - 3, 8, 2.5);
+      g.fillRect(x + 3, hy - 3, 8, 2.5);
+      g.fillEllipse(x - 7, hy + 4, 4, 3);
+      g.fillEllipse(x + 7, hy + 4, 4, 3);
+      break;
+    }
+    case 'eyepatch': {
+      // 眼罩：斜跨的皮眼罩 + 绑带
+      g.lineStyle(2.5, color, 0.9);
+      g.lineBetween(x - 20, hy - 6, x + 20, hy - 2);
+      g.fillStyle(color, 1);
+      g.fillEllipse(x - 7, hy - 3, 15, 12);
+      break;
+    }
+    case 'monocle': {
+      // 单片眼镜：一只圆镜片 + 垂链
+      g.fillStyle(0x9be8ff, 0.3);
+      g.fillCircle(x + 8, hy - 2, 7);
+      g.lineStyle(2.5, color, 1);
+      g.strokeCircle(x + 8, hy - 2, 8);
+      g.lineStyle(1.5, color, 0.8);
+      g.lineBetween(x + 14, hy + 4, x + 18, hy + 18);
+      break;
+    }
+    case 'sailorHat': {
+      // 水手帽：白色圆帽 + 蓝帽檐 + 蓝绒球
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy - 2, 32, 18);
+      g.fillStyle(0x2a5fbf, 1);
+      g.fillRect(x - 16, hy + 2, 32, 5);
+      g.fillCircle(x, hy - 12, 4);
+      break;
+    }
+    case 'gasMask': {
+      // 防毒面具：面罩 + 双滤罐
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 16, hy - 6, 32, 18, 7);
+      g.fillStyle(0x8a9a8a, 1);
+      g.fillCircle(x - 11, hy + 10, 5.5);
+      g.fillCircle(x + 11, hy + 10, 5.5);
+      g.fillStyle(0x1a2a1a, 0.8);
+      g.fillRoundedRect(x - 13, hy - 3, 11, 6, 3);
+      g.fillRoundedRect(x + 2, hy - 3, 11, 6, 3);
+      break;
+    }
+    case 'skullMask': {
+      // 骷髅面：白头骨 + 黑眼窝 + 牙
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy + 4, 16);
+      g.fillRect(x - 11, hy + 10, 22, 10);
+      g.fillStyle(0x1a1a22, 1);
+      g.fillEllipse(x - 6, hy + 1, 8, 9);
+      g.fillEllipse(x + 6, hy + 1, 8, 9);
+      g.fillTriangle(x, hy + 8, x - 3, hy + 12, x + 3, hy + 12);
+      g.fillRect(x - 4, hy + 14, 2, 6);
+      g.fillRect(x + 2, hy + 14, 2, 6);
+      break;
+    }
+    case 'ghostHat': {
+      // 幽灵帽：半透明飘浮的幽灵头
+      g.fillStyle(color, 0.72);
+      g.fillCircle(x, hy - 2, 17);
+      g.fillRect(x - 17, hy - 2, 34, 14);
+      for (let k = 0; k < 4; k++) {
+        g.fillTriangle(
+          x - 17 + k * 9, hy + 12,
+          x - 8 + k * 9, hy + 12,
+          x - 12.5 + k * 9, hy + 20,
+        );
+      }
+      g.fillStyle(0x2a3442, 0.75);
+      g.fillCircle(x - 6, hy - 4, 3);
+      g.fillCircle(x + 6, hy - 4, 3);
+      break;
+    }
+    case 'pumpkin': {
+      // 南瓜头：橙色南瓜 + 瓜瓣 + 绿蒂 + 鬼脸
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy - 2, 40, 30);
+      g.fillStyle(0xd96a10, 1);
+      for (let k = -1; k <= 1; k++) g.fillEllipse(x + k * 11, hy - 2, 6, 28);
+      g.fillStyle(0x2f7a3a, 1);
+      g.fillRect(x - 2, hy - 20, 4, 8);
+      g.fillStyle(0x1a0a00, 1);
+      g.fillTriangle(x - 10, hy - 6, x - 4, hy - 6, x - 7, hy - 1);
+      g.fillTriangle(x + 10, hy - 6, x + 4, hy - 6, x + 7, hy - 1);
+      g.fillTriangle(x - 8, hy + 6, x + 8, hy + 6, x, hy + 1);
+      break;
+    }
+    case 'iceCream': {
+      // 冰淇淋：蛋筒 + 双球 + 樱桃
+      g.fillStyle(0xd9a05a, 1);
+      g.fillTriangle(x - 12, hy + 12, x + 12, hy + 12, x, hy - 2);
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy - 6, 9);
+      g.fillStyle(0xf0e0c0, 1);
+      g.fillCircle(x, hy - 15, 8.5);
+      g.fillStyle(0xd42a3a, 1);
+      g.fillCircle(x, hy - 24, 3);
+      break;
+    }
+    case 'cupcake': {
+      // 纸杯蛋糕：纸杯 + 两团奶油 + 樱桃
+      g.fillStyle(0xd9a05a, 1);
+      g.fillTriangle(x - 14, hy + 12, x + 14, hy + 12, x + 9, hy - 2);
+      g.fillTriangle(x - 14, hy + 12, x - 9, hy - 2, x + 9, hy - 2);
+      g.fillStyle(color, 1);
+      g.fillEllipse(x - 7, hy - 6, 14, 12);
+      g.fillEllipse(x + 7, hy - 6, 14, 12);
+      g.fillEllipse(x, hy - 12, 16, 12);
+      g.fillStyle(0xd42a3a, 1);
+      g.fillCircle(x, hy - 20, 3);
+      break;
+    }
+    case 'burger': {
+      // 汉堡帽：面包 + 生菜 + 肉饼 + 芝麻
+      g.fillStyle(0xe0a860, 1);
+      g.fillEllipse(x, hy - 10, 38, 20);
+      g.fillStyle(0x7ed957, 1);
+      g.fillEllipse(x, hy - 1, 42, 8);
+      g.fillStyle(0x8b4a2a, 1);
+      g.fillRoundedRect(x - 19, hy + 1, 38, 8, 3);
+      g.fillStyle(0xe0a860, 1);
+      g.fillRoundedRect(x - 20, hy + 8, 40, 7, 3);
+      g.fillStyle(0xfff4dc, 1);
+      for (const dx of [-9, 0, 9]) g.fillCircle(x + dx, hy - 14, 2);
+      break;
+    }
+    case 'watermelon': {
+      // 西瓜帽：绿皮 + 白瓤 + 红瓤 + 籽
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.arc(x, hy + 6, 24, Math.PI, Math.PI * 2, false, 0);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xf2f6fa, 1);
+      g.beginPath();
+      g.arc(x, hy + 6, 20, Math.PI, Math.PI * 2, false, 0);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xff5a6a, 1);
+      g.beginPath();
+      g.arc(x, hy + 6, 16, Math.PI, Math.PI * 2, false, 0);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0x1a1a22, 1);
+      for (const [dx, dy] of [[-7, -6], [5, -9], [2, -2], [10, -3], [-3, -12]] as const) {
+        g.fillEllipse(x + dx, hy + 6 + dy, 2.4, 3.4);
+      }
+      break;
+    }
+    case 'screw': {
+      // 螺丝钉：六角螺帽 + 螺纹
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 16, hy - 4, 32, 14, 4);
+      g.lineStyle(2, 0x5a6472, 0.9);
+      for (let k = 0; k < 3; k++) g.lineBetween(x - 14, hy + k * 4, x + 14, hy - 1 + k * 4);
+      g.fillStyle(0x5a6472, 1);
+      g.fillCircle(x, hy - 10, 9);
+      g.fillStyle(0xdfe6f0, 1);
+      g.fillCircle(x, hy - 10, 4);
+      break;
+    }
+    case 'gear': {
+      // 齿轮：八轮齿 + 轴心
+      g.fillStyle(color, 1);
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        g.fillRect(x + Math.cos(a) * 16 - 4, hy - 2 + Math.sin(a) * 16 - 4, 8, 8);
+      }
+      g.fillCircle(x, hy - 2, 15);
+      g.fillStyle(0x5a4a2a, 1);
+      g.fillCircle(x, hy - 2, 6);
+      break;
+    }
+    case 'minerLamp': {
+      // 矿工灯：黄色安全帽 + 前灯
+      g.fillStyle(0xffb03a, 1);
+      g.fillEllipse(x, hy + 2, 34, 20);
+      g.fillStyle(0xd98a20, 1);
+      g.fillRect(x - 17, hy + 2, 34, 5);
+      g.fillStyle(0xfff0b0, 1);
+      g.fillCircle(x, hy - 4, 6);
+      g.fillStyle(0x6a5a3a, 1);
+      g.fillRect(x - 3, hy - 2, 6, 4);
+      break;
+    }
+    case 'candle': {
+      // 蜡烛：白蜡烛 + 跳动的火苗
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 7, hy - 10, 14, 18, 4);
+      g.fillStyle(0x9aa7b8, 1);
+      g.fillRect(x - 1.5, hy - 14, 3, 5);
+      g.fillStyle(0xffb03a, 0.95);
+      g.fillEllipse(x, hy - 20, 9, 14);
+      g.fillStyle(0xfff0b0, 1);
+      g.fillEllipse(x, hy - 20, 4.5, 8);
+      break;
+    }
+    case 'starCrown': {
+      // 星星冠：三颗五角星串成的冠
+      const star = (cx: number, cy: number, r: number): void => {
+        g.fillStyle(color, 1);
+        for (let k = 0; k < 5; k++) {
+          const a = -Math.PI / 2 + (k / 5) * Math.PI * 2;
+          g.fillTriangle(
+            cx + Math.cos(a - 0.35) * r * 0.5, cy + Math.sin(a - 0.35) * r * 0.5,
+            cx + Math.cos(a + 0.35) * r * 0.5, cy + Math.sin(a + 0.35) * r * 0.5,
+            cx + Math.cos(a) * r, cy + Math.sin(a) * r,
+          );
+        }
+        g.fillCircle(cx, cy, r * 0.45);
+      };
+      star(x, hy - 16, 13);
+      star(x - 15, hy - 7, 8);
+      star(x + 15, hy - 7, 8);
+      break;
+    }
+    case 'moonCrown': {
+      // 月牙冠：一道粗弯月 + 两颗小星
+      g.lineStyle(8, color, 1);
+      g.beginPath();
+      g.arc(x, hy - 8, 13, Math.PI * 0.35, Math.PI * 1.15, false, 0);
+      g.strokePath();
+      g.fillStyle(0xfff0b0, 1);
+      g.fillCircle(x + 14, hy - 20, 2.5);
+      g.fillCircle(x - 12, hy - 22, 2);
+      break;
+    }
+    case 'nailongHood': {
+      // 小黄龙头套：黄色恐龙兜帽，包住整个头 + 呆萌大眼 + 小圆角
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy - 2, 22);
+      g.fillStyle(0xefb81e, 1);
+      g.fillCircle(x - 11, hy - 22, 5.5);
+      g.fillCircle(x + 11, hy - 22, 5.5);
+      // 浅色口鼻
+      g.fillStyle(0xfff3bd, 1);
+      g.fillEllipse(x, hy + 8, 26, 16);
+      // 大眼
+      g.fillStyle(0x3a2a06, 1);
+      g.fillCircle(x - 7, hy - 4, 4);
+      g.fillCircle(x + 7, hy - 4, 4);
+      g.fillStyle(0xffffff, 0.95);
+      g.fillCircle(x - 6, hy - 5.2, 1.4);
+      g.fillCircle(x + 8, hy - 5.2, 1.4);
+      // 腮红 + 嘴
+      g.fillStyle(0xffa8a8, 0.55);
+      g.fillEllipse(x - 14, hy + 4, 8, 5);
+      g.fillEllipse(x + 14, hy + 4, 8, 5);
+      g.fillStyle(0x8a3a2a, 1);
+      g.fillEllipse(x, hy + 9, 9, 6);
+      break;
+    }
   }
 }
 
@@ -734,6 +1349,29 @@ export function drawPet(
       g.fillStyle(0x1a1a22, 1);
       g.fillCircle(px - 3, py - 3, 1.8);
       g.fillCircle(px + 3, py - 3, 1.8);
+      break;
+    }
+    case 'nailong': {
+      // 小黄龙宝宝：黄色圆滚滚，小短手短腿 + 头顶小圆角 + 腮红
+      g.fillStyle(0xefb81e, 1);
+      g.fillEllipse(px - dir * 9, py + 5, 20, 10);
+      g.fillStyle(color, 1);
+      g.fillCircle(px, py + 3, 11);
+      g.fillStyle(0xfff3bd, 1);
+      g.fillEllipse(px, py + 5, 13, 11);
+      g.fillStyle(color, 1);
+      g.fillCircle(px, py - 8, 10);
+      g.fillStyle(0xefb81e, 1);
+      g.fillCircle(px - 5, py - 16, 3);
+      g.fillCircle(px + 5, py - 16, 3);
+      g.fillStyle(0x3a2a06, 1);
+      g.fillCircle(px - 3.5, py - 9, 1.8);
+      g.fillCircle(px + 3.5, py - 9, 1.8);
+      g.fillStyle(0xffa8a8, 0.6);
+      g.fillCircle(px - 8, py - 5, 2);
+      g.fillCircle(px + 8, py - 5, 2);
+      g.fillStyle(0x8a3a2a, 1);
+      g.fillEllipse(px, py - 4, 5, 3);
       break;
     }
   }
@@ -2090,6 +2728,265 @@ function drawGodzilla(g: Phaser.GameObjects.Graphics, now: number, pose: Charact
 }
 
 /**
+ * 小黄龙（联名形象）：黄色圆滚滚的小恐龙——大头、呆萌圆眼、浅色圆肚、小短手短腿，
+ * 头顶两个小圆角，身后一条粗尾巴，脸颊带腮红。
+ */
+function drawNailong(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const bob = Math.sin(now / 520) * 1.4;
+  const body = 0xffd93d;
+  const bodyDark = 0xefb81e;
+  const belly = 0xfff3bd;
+  const ink = 0x3a2a06;
+  const bodyCy = topY + PLAYER_H - 26 + bob;
+
+  // 粗尾巴
+  g.fillStyle(bodyDark, 1);
+  g.fillEllipse(x - f * 32, bodyCy + 12, 36, 18);
+  g.fillStyle(body, 1);
+  g.fillEllipse(x - f * 28, bodyCy + 10, 26, 13);
+
+  // 两条小短腿
+  g.fillStyle(bodyDark, 1);
+  g.fillRoundedRect(x - 18, pose.feetY - 24, 16, 24, 8);
+  g.fillRoundedRect(x + 2, pose.feetY - 24, 16, 24, 8);
+
+  // 圆胖身体 + 浅色圆肚
+  g.fillStyle(body, 1);
+  g.fillEllipse(x, bodyCy, 64, 62);
+  g.fillStyle(belly, 1);
+  g.fillEllipse(x, bodyCy + 6, 42, 44);
+
+  // 小短手
+  g.fillStyle(body, 1);
+  g.fillEllipse(x - f * 28, bodyCy - 8, 18, 15);
+  g.fillEllipse(x + f * 28, bodyCy - 8, 18, 15);
+  g.fillStyle(bodyDark, 1);
+  g.fillCircle(x - f * 33, bodyCy - 5, 5);
+  g.fillCircle(x + f * 33, bodyCy - 5, 5);
+
+  // 大头 + 头顶两个小圆角
+  const headCy = topY + 32 + bob;
+  g.fillStyle(body, 1);
+  g.fillCircle(x, headCy, 30);
+  g.fillStyle(bodyDark, 1);
+  g.fillCircle(x - 15, headCy - 26, 7.5);
+  g.fillCircle(x + 15, headCy - 26, 7.5);
+
+  // 浅色口鼻
+  g.fillStyle(belly, 1);
+  g.fillEllipse(x + f * 7, headCy + 11, 36, 25);
+
+  // 呆萌圆眼
+  g.fillStyle(ink, 1);
+  g.fillCircle(x + f * 1, headCy - 6, 5);
+  g.fillCircle(x + f * 17, headCy - 6, 5);
+  g.fillStyle(0xffffff, 0.95);
+  g.fillCircle(x + f * 2.6, headCy - 7.6, 1.8);
+  g.fillCircle(x + f * 18.6, headCy - 7.6, 1.8);
+
+  // 腮红
+  g.fillStyle(0xffa8a8, 0.5);
+  g.fillEllipse(x - f * 13, headCy + 8, 13, 8);
+  g.fillEllipse(x + f * 27, headCy + 8, 13, 8);
+
+  // 张嘴笑
+  g.fillStyle(0x8a3a2a, 1);
+  g.fillEllipse(x + f * 8, headCy + 18, 13, 9);
+  g.fillStyle(0xff8a8a, 1);
+  g.fillEllipse(x + f * 8, headCy + 20, 8, 4.5);
+}
+
+/**
+ * 冠军铠甲（荣誉商店 800）：金甲骑士——全罩头盔 + 红缨 + 桂冠，胸口一枚小奖杯纹章。
+ */
+function drawChampion(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const glow = 0.6 + 0.4 * Math.sin(now / 420);
+  const gold = 0xffd45c;
+  const goldDark = 0xc99a2e;
+  const goldLight = 0xfff0b8;
+  const steel = 0xcfd8e3;
+
+  // 腿甲 + 靴
+  g.fillStyle(goldDark, 1);
+  g.fillRoundedRect(x - 15, pose.feetY - 34, 13, 34, 5);
+  g.fillRoundedRect(x + 2, pose.feetY - 34, 13, 34, 5);
+  g.fillStyle(gold, 1);
+  g.fillEllipse(x - 8, pose.feetY - 2, 20, 9);
+  g.fillEllipse(x + 8, pose.feetY - 2, 20, 9);
+
+  // 胸甲
+  g.fillStyle(gold, 1);
+  g.fillRoundedRect(x - 24, topY + 34, 48, PLAYER_H - 58, 12);
+  g.fillStyle(goldLight, 1);
+  g.fillRoundedRect(x - 18, topY + 40, 36, 26, 8);
+  // 奖杯纹章
+  g.fillStyle(0xfff6d8, 1);
+  g.fillRect(x - 9, topY + 44, 18, 4);
+  g.fillRoundedRect(x - 7, topY + 48, 14, 9, 3);
+  g.fillStyle(goldDark, 1);
+  g.fillRect(x - 3, topY + 57, 6, 5);
+
+  // 肩甲
+  g.fillStyle(goldDark, 1);
+  g.fillEllipse(x - f * 26, topY + 41, 26, 18);
+  g.fillEllipse(x + f * 26, topY + 41, 26, 18);
+  g.fillStyle(gold, 1);
+  g.fillEllipse(x - f * 26, topY + 38, 20, 13);
+  g.fillEllipse(x + f * 26, topY + 38, 20, 13);
+
+  // 手臂 + 护手
+  g.fillStyle(gold, 1);
+  g.fillRoundedRect(x + f * 20 - 8, topY + 46, 16, 42, 8);
+  g.fillStyle(steel, 1);
+  g.fillCircle(x + f * 20, topY + 90, 10);
+
+  // 头盔
+  g.fillStyle(steel, 1);
+  g.fillCircle(x, topY + 18, 17);
+  g.fillStyle(0x8b98a8, 1);
+  g.fillRoundedRect(x - 15, topY + 14, 30, 9, 3);
+  g.fillStyle(0x2a3442, 1);
+  g.fillRect(x - 11, topY + 17, 22, 3);
+  // 红缨 + 桂冠
+  g.fillStyle(0xd23b3b, 1);
+  g.fillEllipse(x, topY + 2, 8, 13);
+  g.fillStyle(gold, 1);
+  g.fillEllipse(x - 15, topY + 8, 12, 7);
+  g.fillEllipse(x + 15, topY + 8, 12, 7);
+  // 金光
+  g.lineStyle(2, gold, 0.35 * glow);
+  g.strokeCircle(x, topY + 20, 24);
+}
+
+/**
+ * 不灭凤凰（荣誉商店 1200）：浑身火羽的人形，背后一对燃翼，头顶三根冠羽，脚边火星飞舞。
+ */
+function drawPhoenix(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const flick = Math.sin(now / 130);
+  const flame = 0xff6b2c;
+  const flameLight = 0xffb03a;
+  const core = 0xffe08a;
+
+  // 燃翼
+  g.fillStyle(flame, 0.85);
+  g.fillTriangle(x - 6, topY + 40, x - f * 46, topY + 6 + flick * 4, x - f * 18, topY + 62);
+  g.fillTriangle(x + 6, topY + 40, x + f * 46, topY + 6 - flick * 4, x + f * 18, topY + 62);
+  g.fillStyle(flameLight, 0.8);
+  g.fillTriangle(x - 4, topY + 44, x - f * 34, topY + 20 + flick * 3, x - f * 14, topY + 58);
+  g.fillTriangle(x + 4, topY + 44, x + f * 34, topY + 20 - flick * 3, x + f * 14, topY + 58);
+
+  // 腿
+  g.fillStyle(flame, 1);
+  g.fillRoundedRect(x - 14, pose.feetY - 32, 12, 32, 6);
+  g.fillRoundedRect(x + 2, pose.feetY - 32, 12, 32, 6);
+
+  // 躯干
+  g.fillStyle(flame, 1);
+  g.fillRoundedRect(x - 20, topY + 34, 40, PLAYER_H - 58, 12);
+  g.fillStyle(flameLight, 1);
+  g.fillRoundedRect(x - 12, topY + 42, 24, 30, 8);
+
+  // 手臂
+  g.fillStyle(flameLight, 1);
+  g.fillRoundedRect(x + f * 18 - 8, topY + 46, 16, 42, 8);
+
+  // 头 + 冠羽
+  g.fillStyle(flame, 1);
+  g.fillCircle(x, topY + 18, 15);
+  g.fillStyle(core, 1);
+  g.fillCircle(x, topY + 18, 9);
+  for (let i = -1; i <= 1; i++) {
+    g.fillStyle(i === 0 ? core : flameLight, 1);
+    g.fillTriangle(
+      x + i * 8,
+      topY + 4,
+      x + i * 13,
+      topY - 16 + flick * 2,
+      x + i * 4,
+      topY + 2,
+    );
+  }
+  g.fillStyle(0xfff2b0, 1);
+  g.fillCircle(x + f * 7, topY + 17, 3);
+
+  // 脚边火星
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + now / 600;
+    g.fillStyle(flameLight, 0.35 + 0.4 * Math.sin(now / 200 + i));
+    g.fillCircle(x + Math.cos(a) * 22, pose.feetY + Math.sin(a) * 4, 2.5);
+  }
+}
+
+/**
+ * 龙王（荣誉商店 1600）：青鳞龙人——金色龙角、身后甩动的龙尾，胸口一道金鳞纹。
+ */
+function drawDragonlord(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const scale = 0x2f9a78;
+  const scaleDark = 0x1f6e56;
+  const scaleLight = 0x7fe0c0;
+  const gold = 0xffd45c;
+
+  // 龙尾
+  g.fillStyle(scaleDark, 1);
+  g.fillEllipse(x - f * 40, pose.feetY - 26 + Math.sin(now / 340) * 3, 34, 16);
+  g.fillStyle(gold, 1);
+  g.fillTriangle(x - f * 56, pose.feetY - 32, x - f * 64, pose.feetY - 46, x - f * 48, pose.feetY - 30);
+
+  // 腿
+  g.fillStyle(scaleDark, 1);
+  g.fillRoundedRect(x - 15, pose.feetY - 34, 13, 34, 5);
+  g.fillRoundedRect(x + 2, pose.feetY - 34, 13, 34, 5);
+
+  // 躯干 + 金鳞
+  g.fillStyle(scale, 1);
+  g.fillRoundedRect(x - 22, topY + 34, 44, PLAYER_H - 58, 12);
+  g.fillStyle(scaleLight, 1);
+  g.fillRoundedRect(x - 13, topY + 42, 26, 28, 8);
+  g.fillStyle(gold, 0.9);
+  for (let i = 0; i < 3; i++) g.fillCircle(x, topY + 52 + i * 12, 2.5);
+
+  // 手臂 + 爪
+  g.fillStyle(scale, 1);
+  g.fillRoundedRect(x + f * 20 - 8, topY + 46, 16, 42, 8);
+  g.fillStyle(0xd8e8e0, 1);
+  g.fillCircle(x + f * 20, topY + 90, 9);
+
+  // 头 + 吻部
+  g.fillStyle(scale, 1);
+  g.fillCircle(x, topY + 18, 16);
+  g.fillStyle(scaleLight, 1);
+  g.fillEllipse(x + f * 10, topY + 24, 20, 12);
+  // 龙角
+  g.fillStyle(gold, 1);
+  g.fillTriangle(x - 12, topY + 6, x - 23, topY - 15, x - 4, topY + 2);
+  g.fillTriangle(x + 12, topY + 6, x + 23, topY - 15, x + 4, topY + 2);
+  // 鬃毛
+  g.fillStyle(0xd23b3b, 1);
+  g.fillEllipse(x - f * 14, topY + 12 + Math.sin(now / 260) * 2, 12, 18);
+  // 眼
+  g.fillStyle(gold, 1);
+  g.fillCircle(x + f * 6, topY + 15, 3);
+  g.fillStyle(0x1c1410, 1);
+  g.fillCircle(x + f * 6.8, topY + 15, 1.4);
+
+  // 龙气
+  g.fillStyle(scaleLight, 0.14 + 0.08 * Math.sin(now / 500));
+  g.fillCircle(x, topY + 30, 30);
+}
+
+/**
  * U熊：敦实的熊，胸口有肌肉、肚子很大。肚子被打中时会像果冻一样变宽变扁
  * （`pose.belly`），和模拟层那块「把球弹开」的肚皮圆（见 simulation.ts 的
  * `BELLY_R / BELLY_CY`）位置一致，所以看起来就是那里把球弹走的。
@@ -2385,6 +3282,9 @@ export function drawCharacter(
     g.fillEllipse(pose.x, pose.feetY + 2, 46, 10);
   }
 
+  // 坐骑：压在最底层（光环之下），跟着角色跑跳，纯装饰
+  if (cos.mount !== 'none') drawMount(g, now, cos.mount, pose);
+
   if (cos.aura !== 'none') drawAura(g, now, pose.x, pose.feetY, cos.aura, AURA_COLORS[cos.aura]);
   if (cos.cape !== 'none') drawCape(g, now, pose.x, topY, cos.cape);
   if (cos.wings !== 'none') drawWings(g, now, pose.x, topY, cos);
@@ -2395,6 +3295,14 @@ export function drawCharacter(
     drawGodzilla(g, now, pose);
   } else if (cos.characterSkin === 'laopi') {
     drawLaopi(g, now, pose);
+  } else if (cos.characterSkin === 'champion') {
+    drawChampion(g, now, pose);
+  } else if (cos.characterSkin === 'phoenix') {
+    drawPhoenix(g, now, pose);
+  } else if (cos.characterSkin === 'dragonlord') {
+    drawDragonlord(g, now, pose);
+  } else if (cos.characterSkin === 'nailong') {
+    drawNailong(g, now, pose);
   } else {
     g.fillStyle(pose.color, 1);
     g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);

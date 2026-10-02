@@ -45,6 +45,15 @@ const BELLY_R = 28;
 const BELLY_CY = 42;
 const BELLY_REST = 0.92;
 
+/**
+ * 小黄龙：**整个身子都是果冻**——球撞上去软软地弹回去。
+ * 弹性比 U熊肚皮小得多（掉一半多的速度），所以球弹回玩家半场时很慢、很好接，
+ * 回合会被拖长，纯搞笑的趣味模式手感。
+ */
+const NAILONG_R = 40;
+const NAILONG_CY = 52;
+const NAILONG_REST = 0.42;
+
 /** 老皮的钢铁屁股：hip 高度左右各一个钢板圆，钢铁弹性（几乎不掉速） */
 const BUTT_R = 17;
 const BUTT_OFF = 17;
@@ -598,6 +607,29 @@ function stepShuttleSlice(world: World, dt: number): void {
     shuttle.vx -= (1 + BELLY_REST) * vn * nx;
     shuttle.vy -= (1 + BELLY_REST) * vn * ny;
     // 推到肚皮表面外，免得下一小步又判定一次
+    shuttle.x = bx + nx * (contact + 1);
+    shuttle.y = by + ny * (contact + 1);
+    world.events.push({ type: 'belly', player: i, power: clamp(-vn / 1400, 0, 1) });
+  }
+
+  // 小黄龙的果冻身子：球撞上来软软弹回去（和肚皮同一套，但弹性小得多）
+  for (let i = 0; i < 2; i++) {
+    if (world.skins[i] !== 'nailong') continue;
+    const p = world.players[i];
+    const bx = p.x;
+    const by = p.y - NAILONG_CY;
+    const dx = shuttle.x - bx;
+    const dy = shuttle.y - by;
+    const d = Math.hypot(dx, dy);
+    const contact = NAILONG_R + cfg.shuttleR;
+    if (d >= contact) continue;
+    const nx = d > 1e-3 ? dx / d : -p.facing;
+    const ny = d > 1e-3 ? dy / d : -1;
+    const vn = shuttle.vx * nx + shuttle.vy * ny;
+    // 正在离开 / 只是擦过：不算撞击
+    if (vn > -30) continue;
+    shuttle.vx -= (1 + NAILONG_REST) * vn * nx;
+    shuttle.vy -= (1 + NAILONG_REST) * vn * ny;
     shuttle.x = bx + nx * (contact + 1);
     shuttle.y = by + ny * (contact + 1);
     world.events.push({ type: 'belly', player: i, power: clamp(-vn / 1400, 0, 1) });

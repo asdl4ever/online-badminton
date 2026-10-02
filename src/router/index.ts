@@ -72,6 +72,12 @@ export const router = createRouter({
       name: 'farm',
       component: () => import('../views/FarmView.vue'),
     },
+    // 小黄龙联名活动（入口在主世界右侧的悬浮图标上）
+    {
+      path: '/nailong',
+      name: 'nailong',
+      component: () => import('../views/NailongView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 
   ],

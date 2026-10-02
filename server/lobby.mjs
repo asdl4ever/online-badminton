@@ -31,7 +31,19 @@ const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine']);
  * line to their watchers — that is what fills the on-line friend list with
  * 「在对局中 / 在潜水 …」 and lets a friend join the very same room.
  */
-const SCENES = new Set(['off', 'home', 'map', 'match', 'fish', 'mine', 'climb', 'petshop', 'hall', 'farm']);
+const SCENES = new Set([
+  'off',
+  'home',
+  'map',
+  'match',
+  'fish',
+  'mine',
+  'climb',
+  'petshop',
+  'hall',
+  'farm',
+  'nailong',
+]);
 
 function normaliseScene(raw) {
   return SCENES.has(raw) ? raw : 'off';

@@ -18,6 +18,7 @@ import {
   PLACE_LABEL,
   arenaByTier,
   goldForPlace,
+  honorForPlace,
   type ArenaEntrant,
   type ArenaPlace,
 } from '../game/arena';
@@ -303,6 +304,7 @@ function onEvent(e: SimEvent): void {
                   <div>报名 <b class="num">🪙{{ c.fee }}</b></div>
                   <div>冠军 <b class="num">🪙{{ goldForPlace(c, 'champion', 4) }}</b></div>
                   <div>冠军积分 <b class="num">+{{ c.points }}</b></div>
+                  <div>冠军荣誉 <b class="num">🏅{{ honorForPlace(c.tier, 'champion') }}</b></div>
                 </div>
 
                 <div class="cup-card__foot">

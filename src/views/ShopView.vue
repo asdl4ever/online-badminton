@@ -6,11 +6,13 @@ import SideDock from '../components/ui/SideDock.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import ChestPanel from '../components/ChestPanel.vue';
+import HonorShopPanel from '../components/HonorShopPanel.vue';
 import { useProgressStore } from '../stores/progress';
 import { useWalk } from '../composables/useWalk';
 import { isTouchDevice } from '../game/device';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
 import { useCustomizeStore } from '../stores/customize';
+import { sfx } from '../game/audio';
 
 /**
  * 大地图上的「商店」：一间可以走动的小房间——
@@ -38,12 +40,21 @@ function paintMe(now: number): void {
 }
 
 const OBJECTS = [
-  { id: 'notice', x: 380, y: 430 },
-  { id: 'chest', x: 820, y: 430 },
+  { id: 'notice', x: 320, y: 430 },
+  { id: 'honor', x: 600, y: 430 },
+  { id: 'chest', x: 880, y: 430 },
 ];
 
 const showEvents = ref(false);
+const showHonor = ref(false);
 const showChest = ref(false);
+
+/** 活动卡：小黄龙联名那张可以点开跳转（其余还是占位） */
+function openEvent(id: string): void {
+  if (id !== 'nailong') return;
+  sfx.click();
+  void router.push('/nailong');
+}
 
 const walk = useWalk({
   stage,
@@ -55,6 +66,7 @@ const walk = useWalk({
   onEnter: (id) => {
     if (id === 'notice') showEvents.value = true;
     else if (id === 'chest') showChest.value = true;
+    else if (id === 'honor') showHonor.value = true;
   },
   onFrame: paintMe,
 });
@@ -75,6 +87,15 @@ function back(): void {
 
 /* --- 活动告示板上的内容（占位卡，数据后续接） ----------------------------- */
 const EVENTS = [
+  {
+    id: 'nailong',
+    icon: '🐲',
+    title: '小黄龙联名 · 转盘抽奖',
+    desc: '点这里去挑战小黄龙（趣味模式），赢球换抽奖券，转盘抽「小黄龙头套 / 小黄龙宝宝 / 小黄龙滚滚」',
+    time: '活动进行中',
+    tone: 'gold',
+    tag: '联动',
+  },
   {
     id: 'double-coins',
     icon: '🪙',
@@ -125,8 +146,9 @@ const countdown = computed(() => {
       <template #dock>
         <SideDock>
           <span class="dock-coins">🪙 {{ progress.coins }}</span>
+          <span class="dock-honor">🏅 {{ progress.honor }}</span>
           <p class="dock-note">
-            {{ touch ? '拖动摇杆走动，点按告示板或宝箱柜查看。' : '摇杆 / WASD 走动，走到告示板或宝箱柜前按 E。' }}
+            {{ touch ? '拖动摇杆走动，点按柜台查看。' : '摇杆 / WASD 走动，走到柜台前按 E。' }}
           </p>
         </SideDock>
       </template>
@@ -142,7 +164,8 @@ const countdown = computed(() => {
             <div
               v-for="o in [
                 { ...OBJECTS[0], sign: '🎪', name: '活动告示板' },
-                { ...OBJECTS[1], sign: '🎁', name: '宝箱柜' },
+                { ...OBJECTS[1], sign: '🏅', name: '荣誉柜台' },
+                { ...OBJECTS[2], sign: '🎁', name: '宝箱柜' },
               ]"
               :key="o.id"
               class="counter jelly"
@@ -193,7 +216,8 @@ const countdown = computed(() => {
         v-for="e in EVENTS"
         :key="e.id"
         class="event-card"
-        :class="`is-${e.tone}`"
+        :class="[`is-${e.tone}`, { 'is-clickable': e.id === 'nailong' }]"
+        @click="openEvent(e.id)"
       >
         <span class="event-card__icon">{{ e.icon }}</span>
         <div class="event-card__body">
@@ -207,10 +231,16 @@ const countdown = computed(() => {
       </div>
     </AppModal>
 
+    <!-- 荣誉柜台 -->
+    <AppModal v-model="showHonor" title="🏅 荣誉柜台" max-width="620px">
+      <HonorShopPanel />
+    </AppModal>
+
     <!-- 宝箱柜 -->
     <AppModal v-model="showChest" title="🎁 宝箱柜" max-width="540px">
       <ChestPanel />
     </AppModal>
+
   </div>
 </template>
 
@@ -219,6 +249,12 @@ const countdown = computed(() => {
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
+}
+
+.dock-honor {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8a33d;
 }
 
 .dock-note {
@@ -366,6 +402,15 @@ const countdown = computed(() => {
 .event-card.is-gold {
   border-color: color-mix(in srgb, #e8a33d 55%, var(--line));
   background: color-mix(in srgb, #e8a33d 8%, var(--surface-2));
+}
+
+.event-card.is-clickable {
+  cursor: pointer;
+}
+
+.event-card.is-clickable:hover {
+  border-color: color-mix(in srgb, #ffd93d 75%, var(--line));
+  background: color-mix(in srgb, #ffd93d 12%, var(--surface-2));
 }
 
 .event-card.is-blue {

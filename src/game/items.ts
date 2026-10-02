@@ -21,6 +21,7 @@ export type ItemSlot =
   | 'racketSkin'
   | 'trail'
   | 'swingTrail'
+  | 'mount'
   | 'effect';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
@@ -33,8 +34,8 @@ export interface Item {
   rarity: Rarity;
   /** display rating, 1–5 */
   stars: number;
-  /** `code` = 兑换码获得（见 progress.redeem） */
-  source: 'free' | 'gacha' | 'egg' | 'streak' | 'code' | TierId;
+  /** `code` = 兑换码获得；`honor` = 荣誉点兑换；`event` = 活动（转盘等）限定 */
+  source: 'free' | 'gacha' | 'egg' | 'streak' | 'code' | 'honor' | 'event' | TierId;
 }
 
 export const SLOT_ORDER: ItemSlot[] = [
@@ -48,6 +49,7 @@ export const SLOT_ORDER: ItemSlot[] = [
   'racketSkin',
   'trail',
   'swingTrail',
+  'mount',
   'effect',
 ];
 
@@ -62,6 +64,7 @@ export const SLOT_LABELS: Record<ItemSlot, string> = {
   racketSkin: '球拍皮肤',
   trail: '击球拖尾',
   swingTrail: '挥拍拖尾',
+  mount: '坐骑',
   effect: '命中特效',
 };
 
@@ -93,6 +96,12 @@ export const ITEMS: Item[] = [
   it('skin', 'godzilla', '哥斯拉', 'legendary', 5, 'streak'),
   it('skin', 'ubear', 'U熊', 'legendary', 5, 'code'),
   it('skin', 'laopi', '老皮', 'legendary', 5, 'code'),
+  // 荣誉商店专属形象：只能靠晋级赛的冠亚季军攒荣誉点兑换
+  it('skin', 'champion', '冠军铠甲', 'legendary', 5, 'honor'),
+  it('skin', 'phoenix', '不灭凤凰', 'legendary', 5, 'honor'),
+  it('skin', 'dragonlord', '龙王', 'legendary', 5, 'honor'),
+  // 小黄龙联名（转盘限定）
+  it('skin', 'nailong', '小黄龙', 'legendary', 5, 'event'),
   // --- ring（地环：积分达到组别门槛后在荣誉面板领取） ---
   it('ring', 'none', '无', 'common', 1, 'free'),
   it('ring', 'sprout', '新芽地环', 'rare', 3, 'bronze'),
@@ -144,6 +153,59 @@ export const ITEMS: Item[] = [
   it('hat', 'captain', '船长帽', 'rare', 3, 'gacha'),
   it('hat', 'catEars', '猫耳', 'rare', 3, 'gacha'),
   it('hat', 'dragonHelm', '龙角盔', 'legendary', 5, 'gacha'),
+  // --- 后加的 50 款头饰：每款一个独立造型 ---
+  it('hat', 'rabbitEars', '兔耳', 'rare', 3, 'gacha'),
+  it('hat', 'bearEars', '熊耳', 'rare', 3, 'gacha'),
+  it('hat', 'mouseEars', '鼠耳', 'rare', 3, 'gacha'),
+  it('hat', 'sharkFin', '鲨鱼鳍', 'rare', 3, 'gacha'),
+  it('hat', 'dinoHorns', '恐龙角', 'rare', 3, 'gacha'),
+  it('hat', 'unicornHorn', '独角', 'epic', 4, 'gacha'),
+  it('hat', 'afro', '爆炸头', 'rare', 3, 'gacha'),
+  it('hat', 'mohawk', '莫西干', 'rare', 3, 'gacha'),
+  it('hat', 'ponytail', '马尾', 'rare', 3, 'gacha'),
+  it('hat', 'bun', '丸子头', 'rare', 3, 'gacha'),
+  it('hat', 'pigtails', '双马尾', 'rare', 3, 'gacha'),
+  it('hat', 'braids', '麻花辫', 'rare', 3, 'gacha'),
+  it('hat', 'spikyHair', '刺猬头', 'rare', 3, 'gacha'),
+  it('hat', 'longHair', '长发', 'rare', 3, 'gacha'),
+  it('hat', 'curlyHair', '卷发', 'rare', 3, 'gacha'),
+  it('hat', 'bobHair', '波波头', 'rare', 3, 'gacha'),
+  it('hat', 'buzzCut', '平头', 'rare', 3, 'gacha'),
+  it('hat', 'antenna', '外星天线', 'epic', 4, 'gacha'),
+  it('hat', 'cowboy', '牛仔帽', 'epic', 4, 'gacha'),
+  it('hat', 'bowler', '圆顶礼帽', 'rare', 3, 'gacha'),
+  it('hat', 'newsboy', '报童帽', 'rare', 3, 'gacha'),
+  it('hat', 'turban', '头巾', 'epic', 4, 'gacha'),
+  it('hat', 'wreath', '花环', 'epic', 4, 'gacha'),
+  it('hat', 'bamboo', '竹笠', 'epic', 4, 'gacha'),
+  it('hat', 'conical', '斗笠', 'rare', 3, 'gacha'),
+  it('hat', 'veil', '面纱', 'epic', 4, 'gacha'),
+  it('hat', 'brideVeil', '婚纱头纱', 'legendary', 5, 'gacha'),
+  it('hat', 'headband', '运动发带', 'rare', 3, 'gacha'),
+  it('hat', 'hood', '兜帽', 'epic', 4, 'gacha'),
+  it('hat', 'knightHelm', '骑士盔', 'epic', 4, 'gacha'),
+  it('hat', 'armyHelm', '军盔', 'epic', 4, 'gacha'),
+  it('hat', 'fireHelm', '消防盔', 'epic', 4, 'gacha'),
+  it('hat', 'kabukiMask', '歌舞伎面具', 'legendary', 5, 'gacha'),
+  it('hat', 'eyepatch', '眼罩', 'epic', 4, 'gacha'),
+  it('hat', 'monocle', '单片眼镜', 'legendary', 5, 'gacha'),
+  it('hat', 'sailorHat', '水手帽', 'epic', 4, 'gacha'),
+  it('hat', 'gasMask', '防毒面具', 'epic', 4, 'gacha'),
+  it('hat', 'skullMask', '骷髅面', 'legendary', 5, 'gacha'),
+  it('hat', 'ghostHat', '幽灵帽', 'legendary', 5, 'gacha'),
+  it('hat', 'pumpkin', '南瓜头', 'legendary', 5, 'gacha'),
+  it('hat', 'iceCream', '冰淇淋帽', 'epic', 4, 'gacha'),
+  it('hat', 'cupcake', '纸杯蛋糕帽', 'epic', 4, 'gacha'),
+  it('hat', 'burger', '汉堡帽', 'epic', 4, 'gacha'),
+  it('hat', 'watermelon', '西瓜帽', 'epic', 4, 'gacha'),
+  it('hat', 'screw', '螺丝钉帽', 'rare', 3, 'gacha'),
+  it('hat', 'gear', '齿轮帽', 'epic', 4, 'gacha'),
+  it('hat', 'minerLamp', '矿工灯', 'epic', 4, 'gacha'),
+  it('hat', 'candle', '蜡烛帽', 'legendary', 5, 'gacha'),
+  it('hat', 'starCrown', '星星冠', 'legendary', 5, 'gacha'),
+  it('hat', 'moonCrown', '月牙冠', 'legendary', 5, 'gacha'),
+  // 小黄龙联名（转盘限定）
+  it('hat', 'nailongHood', '小黄龙头套', 'legendary', 5, 'event'),
 
   // --- wings ---
   it('wings', 'none', '无', 'common', 1, 'free'),
@@ -368,6 +430,8 @@ export const ITEMS: Item[] = [
   it('pet', 'dragon', '幼龙', 'legendary', 1, 'egg'),
   it('pet', 'skull', '骷髅', 'legendary', 1, 'egg'),
   it('pet', 'ghost', '幽灵', 'legendary', 1, 'egg'),
+  // 小黄龙联名（转盘限定）
+  it('pet', 'nailong', '小黄龙宝宝', 'legendary', 3, 'event'),
 
   // --- racket skin ---
   it('racketSkin', 'default', '默认', 'common', 1, 'free'),
@@ -459,6 +523,21 @@ export const ITEMS: Item[] = [
   it('swingTrail', 'orbit', '星轨', 'legendary', 5, 'gacha'),
   it('swingTrail', 'prism', '棱光', 'legendary', 5, 'gacha'),
   it('swingTrail', 'voidcut', '虚空斩', 'legendary', 5, 'gacha'),
+
+  // --- mount（坐骑：纯装饰，站在/跳到哪它就跟到哪，不影响任何判定） ---
+  it('mount', 'none', '无', 'common', 1, 'free'),
+  it('mount', 'board', '滑板', 'rare', 3, 'honor'),
+  it('mount', 'bubble', '泡泡', 'rare', 3, 'honor'),
+  it('mount', 'cloud', '筋斗云', 'rare', 3, 'honor'),
+  it('mount', 'sword', '御剑', 'epic', 4, 'honor'),
+  it('mount', 'horse', '战马', 'epic', 4, 'honor'),
+  it('mount', 'carpet', '魔毯', 'epic', 4, 'honor'),
+  it('mount', 'star', '流星', 'legendary', 5, 'honor'),
+  it('mount', 'dragon', '幼龙', 'legendary', 5, 'honor'),
+  it('mount', 'rocket', '火箭', 'legendary', 5, 'honor'),
+  it('mount', 'throne', '浮空王座', 'legendary', 5, 'honor'),
+  // 小黄龙联名（转盘限定）
+  it('mount', 'nailongRoll', '小黄龙滚滚', 'legendary', 5, 'event'),
 
   // --- hit effect ---
   it('effect', 'ring', '冲击环', 'common', 1, 'free'),
@@ -584,6 +663,43 @@ export const FARM_MAX_LEVEL = 5;
 export const FARM_UPGRADE_COST = [0, 180, 520, 1400, 3600];
 /** 拖拉机：买断后可以在页面上「一键收全地」 */
 export const TRACTOR_COST = 3000;
+
+// ---- 荣誉商店 ---------------------------------------------------------------
+/**
+ * 荣誉点能兑换的东西：特殊角色形象 + 坐骑。
+ *
+ * 荣誉点只有晋级赛的冠亚季军才有（见 arena.honorForPlace），且随杯赛档位放大，
+ * 所以定价刻意压得比宝箱贵：一件坐骑 ≈ 打几届中高级杯赛，传说款要打十几届。
+ * 物品本身的来源标记是 'honor'，这里只管价格。
+ */
+export const HONOR_SHOP: { id: string; price: number }[] = [
+  // --- 坐骑（纯装饰）---
+  { id: 'mount:board', price: 200 },
+  { id: 'mount:bubble', price: 200 },
+  { id: 'mount:cloud', price: 300 },
+  { id: 'mount:sword', price: 500 },
+  { id: 'mount:horse', price: 500 },
+  { id: 'mount:carpet', price: 600 },
+  { id: 'mount:star', price: 900 },
+  { id: 'mount:dragon', price: 900 },
+  { id: 'mount:rocket', price: 1200 },
+  { id: 'mount:throne', price: 1200 },
+  // --- 角色形象 ---
+  { id: 'skin:champion', price: 800 },
+  { id: 'skin:phoenix', price: 1200 },
+  { id: 'skin:dragonlord', price: 1600 },
+];
+
+/** 荣誉商店里的商品（按价格从低到高，界面直接用） */
+export const HONOR_ITEMS: { item: Item; price: number }[] = HONOR_SHOP.map((e) => ({
+  item: ITEMS.find((i) => i.id === e.id)!,
+  price: e.price,
+})).filter((e) => !!e.item);
+
+/** 某件荣誉商品的价格（不是荣誉商品时返回 0） */
+export function honorPriceOf(id: string): number {
+  return HONOR_SHOP.find((e) => e.id === id)?.price ?? 0;
+}
 
 /** ten draws cost 10% less than ten singles */
 export const TEN_PULL_COST = Math.round(CHEST_COST * 10 * 0.9);

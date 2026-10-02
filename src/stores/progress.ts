@@ -17,6 +17,7 @@ import {
   FARM_MAX_LEVEL,
   FARM_UPGRADE_COST,
   GACHA_POOL,
+  honorPriceOf,
   ITEMS,
   PET_EGGS,
   PET_STAR_META,
@@ -26,6 +27,7 @@ import {
   TEN_PULL_COST,
   TRACTOR_COST,
   type Item,
+  type ItemSlot,
   type Rarity,
 } from '../game/items';
 import { BOAT_COST, islandById, MAX_LEVEL, upgradeCost } from '../game/dive/fish';
@@ -40,7 +42,9 @@ import {
   syncDerived,
   withLegend,
   type AiPlayer,
+  type PlayerStats,
 } from '../game/players';
+import { DEFAULT_COSMETIC, type Cosmetic } from '../game/cosmetics';
 import {
   effectiveAlloc,
   emptyAlloc,
@@ -51,6 +55,13 @@ import {
 } from '../game/attrs';
 import { ACHIEVEMENTS, type AchMetric, type Achievement } from '../game/achievements';
 import {
+  NAILONG_DAILY_MAX,
+  NAILONG_DUP_COINS,
+  NAILONG_PITY,
+  rollWheelIndex,
+  WHEEL_PRIZES,
+} from '../game/nailong';
+import {
   ARENA_COOLDOWN_MS,
   ARENA_ROUNDS,
   PLACE_LABEL,
@@ -59,9 +70,11 @@ import {
   buildBracket,
   fillNextRound,
   goldForPlace,
+  honorForPlace,
   myMatchIndex,
   pickCupName,
   pointsForPlace,
+  ROOKIE_TIERS,
   simulateArenaMatch,
   type ArenaBracket,
   type ArenaEntrant,
@@ -70,6 +83,28 @@ import {
 
 /** 晋级赛对阵树里代表「玩家自己」的参赛者 id */
 const ME_ID = '__me__';
+
+/** 低档杯赛的临时弱手名字池（15 位对手从这里抽，不重复） */
+const ROOKIE_NAMES = [
+  '小张同学', '隔壁老王', '球场阿呆', '新手小美', '临时工', '手抖小王',
+  '菜鸟阿飞', '慢半拍', '热身选手', '陪练小刘', '挥空大王', '三分钟热度',
+  '刚学会发球', '今天刚来', '球拍借的', '业余爱好', '打了两次', '重在参与',
+];
+
+/** Fisher-Yates 洗牌（原地） */
+function shuffleList<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/** 本地日期键（YYYY-MM-DD）——每日限次按它重置（用本地时区，不用 UTC） */
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export type PullResult = { kind: 'item'; item: Item; duplicate: boolean; refund: number };
 
@@ -118,6 +153,26 @@ export const useProgressStore = defineStore('progress', () => {
   const points = useLocalStorage('bmt-points', 0);
   const claimed = useLocalStorage<TierId[]>('bmt-claimed', []);
   const coins = useLocalStorage('bmt-coins', 0);
+  /**
+   * 荣誉点：晋级赛拿冠亚季军才有（随杯赛档位放大），是「荣誉商店」的唯一货币。
+   * 跟金币不同，它**永久不清零**——积分每月清零，荣誉不该跟着掉。
+   */
+  const honor = useLocalStorage('bmt-honor', 0);
+  // ---- 小黄龙联动：抽奖券与转盘 ----
+  /** 手上的转盘抽奖券 */
+  const nailongTickets = useLocalStorage('bmt-nailong-tickets', 0);
+  /** 今天已经赢了几场小黄龙 */
+  const nailongWins = useLocalStorage('bmt-nailong-wins', 0);
+  /** 上面那个计数属于哪一天（YYYY-MM-DD，跨天自动重新计） */
+  const nailongDay = useLocalStorage('bmt-nailong-day', '');
+  /** 连续没抽到限定物品的次数（保底计数） */
+  const nailongPity = useLocalStorage('bmt-nailong-pity', 0);
+
+  /** 今天还能靠赢小黄龙拿几张券 */
+  const nailongLeftToday = computed(() => {
+    const used = nailongDay.value === todayKey() ? nailongWins.value : 0;
+    return Math.max(0, NAILONG_DAILY_MAX - used);
+  });
   /** ids of gacha items the player has won */
   const owned = useLocalStorage<string[]>('bmt-owned', []);
   /** highest star level owned per pet ref (absent = not hatched yet) */
@@ -215,6 +270,8 @@ export const useProgressStore = defineStore('progress', () => {
     if (item.source === 'gacha' || item.source === 'code') return owned.value.includes(item.id);
     if (item.source === 'egg') return (petStars.value[item.ref] ?? 0) > 0;
     if (item.source === 'streak') return milestones.value.includes(100);
+    // 荣誉商店 / 活动限定的东西：拿到过才算拥有（都记在 owned 里）
+    if (item.source === 'honor' || item.source === 'event') return owned.value.includes(item.id);
     return claimed.value.includes(item.source);
   }
 
@@ -391,23 +448,96 @@ export const useProgressStore = defineStore('progress', () => {
     return { ok: true, message: `「${cupName}」报名成功！-${a.fee} 金币，祝好运` };
   }
 
-  /** 生成 16 位参赛者：自己 + 从名录里抽 15 位（杯赛越高，抽到的一档越强） */
+  /**
+   * 临时弱手的装扮：只从**普通 / 稀有**里挑帽子、球拍皮肤、击球拖尾，
+   * 其余部位一律不穿——看上去就是个没见过世面的新手，不会一身传说。
+   */
+  function rookieCosmetic(): Cosmetic {
+    const pickLow = (slot: ItemSlot): string => {
+      const pool = ITEMS.filter(
+        (i) =>
+          i.slot === slot &&
+          (i.rarity === 'common' || i.rarity === 'rare') &&
+          i.ref !== 'none' &&
+          i.ref !== 'default',
+      );
+      return pool.length ? pool[Math.floor(Math.random() * pool.length)].ref : 'none';
+    };
+    const c = { ...DEFAULT_COSMETIC };
+    c.hat = pickLow('hat') as Cosmetic['hat'];
+    c.racketSkin = pickLow('racketSkin') as Cosmetic['racketSkin'];
+    c.trailStyle = pickLow('trail') as Cosmetic['trailStyle'];
+    return c;
+  }
+
+  /**
+   * 现场生成一位「临时弱手」（低档杯赛专用，不进名人堂）。
+   *
+   * 四维按档位递进：第 1 档 28~38、第 2 档 34~44、第 3 档 40~50 ——
+   * 比 0 积分新号的 52 明显低，所以新手也能稳稳打赢。
+   * 风格与难度照旧由四维派生，rating 只是个用来在对阵树上显示强弱的数字。
+   */
+  function makeRookie(tierIdx: number, name: string): ArenaEntrant {
+    const base = 28 + tierIdx * 6;
+    const roll = (): number => Math.round(base + Math.random() * 10);
+    const stats: PlayerStats = {
+      technique: roll(),
+      speed: roll(),
+      attack: roll(),
+      defense: roll(),
+      jump: roll(),
+    };
+    return {
+      id: `rookie-${tierIdx}-${name}-${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      isMe: false,
+      rating: 400 + tierIdx * 130 + Math.round(Math.random() * 80),
+      style: styleFromStats(stats),
+      difficulty: tierFromStats(stats),
+      cosmetic: rookieCosmetic(),
+      stats,
+    };
+  }
+
+  /**
+   * 生成 16 位参赛者：自己 + 15 位对手。
+   *
+   * - **前 3 档杯赛**（新芽 / 青竹 / 曙光）：现场生成临时弱手，完全不碰名人堂。
+   * - **其余杯赛**：从名人堂名录里抽（杯赛越高抽到的一档越强），最后两档必定拉上皮泽恩。
+   */
   function buildEntrants(tier: TierId, meName: string): ArenaEntrant[] {
     const tierIdx = TIERS.findIndex((t) => t.id === tier);
-    const sorted = [...aiPlayers.value].sort((a, b) => b.rating - a.rating);
     const want = 2 ** ARENA_ROUNDS.length - 1; // 16 人 → 15 位 AI
-    const span = Math.max(0, sorted.length - want);
-    // 低杯赛抽弱的一档、高杯赛抽强的一档
-    const start = Math.round((1 - tierIdx / Math.max(1, TIERS.length - 1)) * span);
-    const chosen = sorted.length <= want ? [...sorted] : sorted.slice(start, start + want);
-    // 传奇球员皮泽恩只打高级赛事：最后两档杯赛必定拉他进 16 人名单
-    // （低杯赛按 rating 抽不到他，他 rating 2400 落在榜尾档位之外）
-    if (tierIdx >= TIERS.length - 2 && !chosen.some((p) => p.id === LEGEND_ID) && chosen.length) {
-      const legend = sorted.find((p) => p.id === LEGEND_ID);
-      if (legend) chosen.splice(chosen.length - 1, 1, legend);
-    }
-    while (chosen.length < want && sorted.length) {
-      chosen.push(sorted[chosen.length % sorted.length]);
+
+    let opponents: ArenaEntrant[];
+    if (tierIdx < ROOKIE_TIERS) {
+      // 低档杯赛：当场生成一批路人弱手（名字池洗牌后取 15 个，不重复）
+      const names = shuffleList([...ROOKIE_NAMES]);
+      opponents = Array.from({ length: want }, (_, i) => makeRookie(tierIdx, names[i % names.length]));
+    } else {
+      const sorted = [...aiPlayers.value].sort((a, b) => b.rating - a.rating);
+      const span = Math.max(0, sorted.length - want);
+      // 杯赛越高，抽到的一档越强
+      const start = Math.round((1 - tierIdx / Math.max(1, TIERS.length - 1)) * span);
+      const chosen = sorted.length <= want ? [...sorted] : sorted.slice(start, start + want);
+      // 传奇球员皮泽恩只打高级赛事：最后两档杯赛必定拉他进 16 人名单
+      if (tierIdx >= TIERS.length - 2 && !chosen.some((p) => p.id === LEGEND_ID) && chosen.length) {
+        const legend = sorted.find((p) => p.id === LEGEND_ID);
+        if (legend) chosen.splice(chosen.length - 1, 1, legend);
+      }
+      while (chosen.length < want && sorted.length) {
+        chosen.push(sorted[chosen.length % sorted.length]);
+      }
+      opponents = chosen.map((p) => ({
+        id: p.id,
+        name: p.name,
+        isMe: false,
+        rating: p.rating,
+        style: p.style,
+        difficulty: p.difficulty,
+        cosmetic: p.cosmetic,
+        stats: ensureStats(p),
+      }));
     }
 
     const me: ArenaEntrant = {
@@ -419,25 +549,8 @@ export const useProgressStore = defineStore('progress', () => {
       difficulty: 'normal',
       stats: playerStats(points.value, attrEffective.value),
     };
-    const list: ArenaEntrant[] = [
-      me,
-      ...chosen.map((p) => ({
-        id: p.id,
-        name: p.name,
-        isMe: false,
-        rating: p.rating,
-        style: p.style,
-        difficulty: p.difficulty,
-        cosmetic: p.cosmetic,
-        stats: ensureStats(p),
-      })),
-    ];
     // 洗牌，让自己落在随机位置
-    for (let i = list.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [list[i], list[j]] = [list[j], list[i]];
-    }
-    return list;
+    return shuffleList([me, ...opponents]);
   }
 
   function settleArena(place: ArenaPlace): void {
@@ -446,11 +559,14 @@ export const useProgressStore = defineStore('progress', () => {
     const a = arenaByTier(run.tier);
     const gold = goldForPlace(a, place, run.wins);
     const gain = pointsForPlace(a, place);
+    // 荣誉点：冠亚季军才有，且随杯赛档位放大（荣誉商店的唯一货币，永久不清零）
+    const hon = honorForPlace(run.tier, place);
     coins.value += gold;
+    honor.value += hon;
     const before = tierForPoints(points.value).id;
     points.value += gain;
     trackSeasonPeak();
-    // 奖杯柜：冠亚季（4 强）各记一次
+    // 奖杯柜：冠亚季各记一次（季军 = 半决赛输的那两位）
     if (place === 'champion' || place === 'runner' || place === 'third') {
       const cur = trophies.value[run.tier] ?? { champion: 0, runner: 0, third: 0 };
       trophies.value = {
@@ -463,7 +579,10 @@ export const useProgressStore = defineStore('progress', () => {
       };
     }
     const after = tierForPoints(points.value);
-    let text = `「${run.cupName}」${PLACE_LABEL[place]}：金币 +${gold}` + (gain ? ` · 积分 +${gain}` : ' · 无积分');
+    let text =
+      `「${run.cupName}」${PLACE_LABEL[place]}：金币 +${gold}` +
+      (gain ? ` · 积分 +${gain}` : ' · 无积分') +
+      (hon ? ` · 荣誉 +${hon}` : '');
     if (after.id !== before) text += ` · 升入 ${after.label}！可领取荣誉奖励`;
     pushNotice(text);
     // 本届结束：该杯赛进入冷却
@@ -626,6 +745,79 @@ export const useProgressStore = defineStore('progress', () => {
     else if (which === 'bag') bagLv.value += 1;
     else rodLevel.value += 1;
     return true;
+  }
+
+  /**
+   * 荣誉商店兑换：花荣誉点买下特殊角色形象 / 坐骑。
+   * 买过就永久拥有（记进 `owned`，跟宝箱抽到的东西共用一套所有权）。
+   */
+  function buyHonorItem(id: string): { ok: boolean; message: string } {
+    const item = ITEMS.find((i) => i.id === id);
+    const price = honorPriceOf(id);
+    if (!item || !price) return { ok: false, message: '没有这件商品' };
+    if (owned.value.includes(id)) return { ok: false, message: `已经拥有「${item.label}」了` };
+    if (honor.value < price) {
+      return { ok: false, message: `荣誉点不够，还差 ${price - honor.value} 点` };
+    }
+    honor.value -= price;
+    owned.value = [...owned.value, id];
+    return { ok: true, message: `已兑换「${item.label}」` };
+  }
+
+  /** 打赢小黄龙：+1 张转盘抽奖券（每天最多 NAILONG_DAILY_MAX 张） */
+  function earnNailongTicket(): { ok: boolean; message: string } {
+    const today = todayKey();
+    if (nailongDay.value !== today) {
+      nailongDay.value = today;
+      nailongWins.value = 0;
+    }
+    if (nailongWins.value >= NAILONG_DAILY_MAX) {
+      return { ok: false, message: `今天已经赢满 ${NAILONG_DAILY_MAX} 场了，明天再来找小黄龙玩` };
+    }
+    nailongWins.value += 1;
+    nailongTickets.value += 1;
+    return { ok: true, message: `抽奖券 ×1（今日 ${nailongWins.value}/${NAILONG_DAILY_MAX}）` };
+  }
+
+  /**
+   * 转一次小黄龙转盘：扣一张券，按权重（或保底）决定落在哪一格并发奖。
+   * 返回格子下标，界面拿去把盘转到那一格。
+   */
+  function spinNailongWheel(): { ok: boolean; index: number; message: string } {
+    if (nailongTickets.value <= 0) {
+      return { ok: false, index: -1, message: '没有抽奖券了，先去打赢小黄龙' };
+    }
+    nailongTickets.value -= 1;
+
+    // 保底：连续多次没出限定，这次必给一件「还没拥有的限定」
+    const missing = WHEEL_PRIZES.filter(
+      (p) => p.grand && p.itemId && !owned.value.includes(p.itemId),
+    );
+    const index =
+      nailongPity.value >= NAILONG_PITY && missing.length
+        ? WHEEL_PRIZES.indexOf(missing[Math.floor(Math.random() * missing.length)])
+        : rollWheelIndex();
+
+    const prize = WHEEL_PRIZES[index];
+    nailongPity.value = prize.grand ? 0 : nailongPity.value + 1;
+
+    if (prize.kind === 'coins') {
+      coins.value += prize.amount ?? 0;
+      return { ok: true, index, message: `金币 +${prize.amount}` };
+    }
+    if (prize.kind === 'honor') {
+      honor.value += prize.amount ?? 0;
+      return { ok: true, index, message: `荣誉点 +${prize.amount}` };
+    }
+    const item = prize.itemId ? ITEMS.find((i) => i.id === prize.itemId) : undefined;
+    if (!item || !prize.itemId) return { ok: true, index, message: '谢谢参与' };
+    // 重复的限定 → 折成金币，不让玩家白抽
+    if (owned.value.includes(prize.itemId)) {
+      coins.value += NAILONG_DUP_COINS;
+      return { ok: true, index, message: `重复的「${item.label}」→ 金币 +${NAILONG_DUP_COINS}` };
+    }
+    owned.value = [...owned.value, prize.itemId];
+    return { ok: true, index, message: `🎉 获得限定「${item.label}」` };
   }
 
   /** 花金币升农场采摘等级：等级就是「一次挥拍能摘几朵棉花」 */
@@ -873,6 +1065,11 @@ export const useProgressStore = defineStore('progress', () => {
     upgradeDive,
     upgradeFarm,
     buyTractor,
+    buyHonorItem,
+    nailongTickets,
+    nailongLeftToday,
+    earnNailongTicket,
+    spinNailongWheel,
     sailTo,
     achStats,
     achDone,
@@ -901,6 +1098,7 @@ export const useProgressStore = defineStore('progress', () => {
     arenaQuit,
     aiPlayers,
     ensureLegend,
+    honor,
     playerRecord,
     recordVsAi,
     seasonId,

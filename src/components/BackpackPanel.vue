@@ -22,6 +22,7 @@ import type {
   CharacterSkin,
   HatId,
   HitStyle,
+  MountId,
   PetId,
   RacketSkinId,
   RingId,
@@ -85,6 +86,8 @@ function currentRef(slot: ItemSlot): string {
       return store.trailStyle;
     case 'swingTrail':
       return store.swingTrail;
+    case 'mount':
+      return store.mount;
     case 'effect':
       return store.effect;
   }
@@ -130,6 +133,9 @@ function equip(item: Item): void {
       break;
     case 'swingTrail':
       store.swingTrail = item.ref as SwingTrailId;
+      break;
+    case 'mount':
+      store.mount = item.ref as MountId;
       break;
     case 'effect':
       store.effect = item.ref as HitStyle;

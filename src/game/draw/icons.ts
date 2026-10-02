@@ -2,6 +2,7 @@ import { PLAYER_H } from '../constants';
 import {
   AURA_COLORS,
   DEFAULT_COSMETIC,
+  MOUNT_COLORS,
   RACKET_SKIN_COLORS,
   SWING_TRAIL_COLORS,
   TRAIL_COLORS,
@@ -11,6 +12,7 @@ import {
   type Cosmetic,
   type HatId,
   type HitStyle,
+  type MountId,
   type PetId,
   type RacketSkinId,
   type SwingTrailId,
@@ -20,6 +22,7 @@ import { EFFECT_PAINTERS, paintDefault, type HitFlash } from '../effects';
 import type { Item } from '../items';
 import { asGraphics, paintAvatar } from './canvas2d';
 import { drawAura, drawCape, drawHat, drawPet, drawRing, drawWings } from './character';
+import { drawMount } from './mounts';
 import { drawRacketHead } from './racket';
 
 /**
@@ -161,6 +164,29 @@ export function paintItemIcon(item: Item, canvas: HTMLCanvasElement): void {
       ctx.beginPath();
       ctx.arc(ex, ey, 7, 0, TAU);
       ctx.fill();
+      break;
+    }
+    case 'mount': {
+      if (item.ref === 'none') {
+        // 「无」：画个虚线圈示意
+        ctx.strokeStyle = '#9aa7b8';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([7, 6]);
+        ctx.beginPath();
+        ctx.arc(c, c, 32, 0, TAU);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        break;
+      }
+      // 坐骑：以「脚下」为锚，跟角色绘制里一样画法
+      ctx.translate(c, c + 14);
+      ctx.scale(fit(180), fit(180));
+      drawMount(g, NOW, item.ref as MountId, {
+        x: 0,
+        feetY: 0,
+        facing: 1,
+        color: MOUNT_COLORS[item.ref as MountId] ?? 0xffd45c,
+      });
       break;
     }
   }

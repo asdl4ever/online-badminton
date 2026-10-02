@@ -26,6 +26,12 @@ const progress = useProgressStore();
 const lobby = useLobbyStore();
 const customize = useCustomizeStore();
 
+/** 主世界右侧悬浮的小黄龙联名入口 */
+function openNailong(): void {
+  sfx.click();
+  void router.push('/nailong');
+}
+
 /* --- 地图上的角色：用游戏里那套绘制，所以装扮和球拍皮肤都跟着走 --------- */
 const AVATAR_SCALE = 0.8;
 const avatarBox = avatarBoxSize(AVATAR_SCALE);
@@ -367,6 +373,23 @@ onBeforeUnmount(() => {
         </div>
         <div class="world__hint">摇杆 / WASD 自由走动 · 走进区域圈里按 E 进入</div>
 
+        <!-- 小黄龙联名：右侧悬浮入口（活动随时可进，不用跑地图） -->
+        <button
+          class="world__event jelly"
+          type="button"
+          title="小黄龙联名 · 挑战 + 转盘抽奖"
+          @click="openNailong"
+        >
+          <span class="world__event-icon">🐲</span>
+          <span class="world__event-text">
+            <b>小黄龙联名</b>
+            <em>挑战 / 转盘抽奖</em>
+          </span>
+          <span v-if="progress.nailongTickets > 0" class="world__event-badge num">
+            {{ progress.nailongTickets }}
+          </span>
+        </button>
+
         <PresencePanel
           :players="players"
           :watching="presence.watching"
@@ -418,5 +441,61 @@ onBeforeUnmount(() => {
   bottom: calc(100% - 4px);
   left: 50%;
   transform: translateX(-50%);
+}
+/* --- 右侧的小黄龙联名入口 --- */
+.world__event {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--r-pill);
+  border: 2px solid #ffd93d;
+  background: linear-gradient(135deg, #fff6cf, #ffe07a);
+  box-shadow: 0 8px 18px -8px rgba(120, 90, 0, 0.6);
+  cursor: pointer;
+}
+
+.world__event-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.world__event-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.world__event-text b {
+  font-size: 13px;
+  color: #6a4a00;
+}
+
+.world__event-text em {
+  font-style: normal;
+  font-size: 10px;
+  color: #9a7a20;
+}
+
+.world__event-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 50%;
+  background: #d42a3a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
 }
 </style>
