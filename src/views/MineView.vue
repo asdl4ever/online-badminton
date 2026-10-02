@@ -12,6 +12,7 @@ import { applyTheme } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastWarn } from '../composables/useToast';
 import { hostOpen, joinMatch } from '../net/connect';
+import { waitForRoomCode } from '../composables/useInviteRoom';
 import { normaliseCode, type NetLink } from '../net/link';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
@@ -66,6 +67,15 @@ function boot(session: NetLink | null) {
       postBoot: (g) => g.scene.add('MiningScene', MiningScene, true, data),
     },
   });
+}
+
+/**
+ * 好友面板点「邀请」时若无房间：自动建房并等房号，不用先手动点「建房」。
+ */
+async function ensureInviteRoom(): Promise<string> {
+  if (roomCode.value) return roomCode.value;
+  host();
+  return waitForRoomCode(() => roomCode.value);
 }
 
 function host() {
@@ -133,7 +143,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page page--playing">
-    <PageShell title="采矿场" back @back="back">
+    <PageShell
+      title="采矿场"
+      back
+      friends-kind="mine"
+      :friends-code="roomCode"
+      :friends-ensure-room="ensureInviteRoom"
+      @back="back"
+    >
       <template #icons>
         <span class="icon-btn ui-num mine-earn" title="本场收益">本场 ¥{{ sessionTotal }}</span>
       </template>

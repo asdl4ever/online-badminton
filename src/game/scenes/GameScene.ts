@@ -123,6 +123,10 @@ export interface MatchConfig {
   localName?: string;
   /** the local player's rank tier (visual only) */
   localRank?: TierId;
+  /** 本地玩家的好友码：随 hello 发给对方，对方「见到就记住」装扮 */
+  localCode?: string;
+  /** 对方 hello（含好友码）到了：Vue 侧用它把好友装扮存进好友档案 */
+  onPeerHello?: (code: string, cosmetic: Cosmetic, name: string) => void;
   /** starting court theme */
   theme?: ThemeId;
   /** rotate the court theme once a match finishes */
@@ -447,6 +451,7 @@ export class GameScene extends Phaser.Scene {
           t: 'hello',
           name: this.localName,
           rank: this.localRank,
+          code: this.cfg.localCode,
           cosmetic: this.localCosmetic,
           attrs: this.localAttrs,
         });
@@ -661,6 +666,10 @@ export class GameScene extends Phaser.Scene {
       const name = typeof m.name === 'string' ? m.name.trim() : '';
       if (name) this.remoteName = name.slice(0, 16);
       if (isTierId(m.rank)) this.remoteRank = m.rank;
+      // 「见到就记住」：把对方（若是好友）的装扮交给 Vue 侧存档
+      if (typeof m.code === 'string' && m.code) {
+        this.cfg.onPeerHello?.(m.code, this.remoteCosmetic, this.remoteName);
+      }
     } else if (m.t === 'emote') {
       // the peer's reaction lands on their own player
       this.spawnEmote(this.cfg.role === 'host' ? 1 : 0, m.id);

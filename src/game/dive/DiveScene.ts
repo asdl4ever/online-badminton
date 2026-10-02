@@ -225,7 +225,7 @@ export interface DiveSceneData {
    */
   onShore?: (state: { onLand: boolean; nearHut: boolean; nearBoat: boolean }) => void;
   /** 在岸上、站在装备店门口按了 E */
-  onShop?: () => void;
+  onShop?: (fromHutTap?: boolean) => void;
   /** 点了岸边那条船（或站在旁边按 E）：买船 / 出海都从这里进 */
   onBoat?: () => void;
   /**
@@ -395,10 +395,16 @@ export class DiveScene extends Phaser.Scene {
     // 触屏必开；桌面端开了「摇杆常显」也开
     this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
 
-    // 岸边那条船：点一下就能交互（买船 / 出海）；海里的宝箱也一样
+    // 岸边那条船：点一下就能交互（买船 / 出海）；海里的宝箱也一样；
+    // 装备店小屋同样可以点（手机上没有 E 键）
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (this.boatHit(p.worldX, p.worldY)) {
         this.cfg.onBoat?.();
+        return;
+      }
+      if (this.hutHit(p.worldX, p.worldY)) {
+        // 点中了小屋 = 明确要进店，绕过"必须上岸"的状态判定（手机点不开的根源）
+        this.cfg.onShop?.(true);
         return;
       }
       if (
@@ -466,6 +472,12 @@ export class DiveScene extends Phaser.Scene {
     const dx = (x - BOAT_X) / 155;
     const dy = (y - (BOAT_Y + bob) + 34) / 120;
     return dx * dx + dy * dy <= 1;
+  }
+
+  /** 点到的位置在装备店小屋上吗（世界坐标），手机没有 E 键，点小屋=打开装备店 */
+  private hutHit(x: number, y: number): boolean {
+    const base = this.shoreFloor(HUT_X);
+    return Math.abs(x - HUT_X) < 130 && y > base - 280 && y < base + 16;
   }
 
   update(_time: number, delta: number): void {
@@ -1608,7 +1620,7 @@ export class DiveScene extends Phaser.Scene {
       this.nearChest
         ? '海底宝箱：按 E / 点一下打开！'
         : this.nearHut
-        ? '装备店门口：按 E 打开装备店（升级氧气罐 / 背包 / 渔具）'
+        ? '装备店门口：点小屋 / 按 E 打开（升级氧气罐 / 背包 / 渔具）'
         : this.nearBoat
           ? `岸边的船：点它或按 E ${this.cfg.boat ? '出海去别的海岛' : `买下它（¥${BOAT_COST}）`}`
           : this.onLand

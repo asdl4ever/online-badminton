@@ -4,16 +4,14 @@ import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
 import Joystick from '../components/ui/Joystick.vue';
-import PresencePanel from '../components/ui/PresencePanel.vue';
 import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
 import { isTouchDevice } from '../game/device';
 import { useJoystickPrefs } from '../composables/useJoystick';
 import AppModal from '../components/ui/AppModal.vue';
 import ComboPanel from '../components/ComboPanel.vue';
-import type { PresencePlayer } from '../stores/presence';
 import { WORLD_H, WORLD_W, WORLD_ZONES, ZONE_RADIUS, type WorldZone } from '../game/world/zones';
-import { SCENE_KIND, sceneMeta } from '../game/scenes';
+import { waitForRoomCode } from '../composables/useInviteRoom';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
 import { P } from '../game/theme';
 import { sfx } from '../game/audio';
@@ -113,6 +111,16 @@ function joinMapByCode(): void {
   void map.join(mapJoinCode.value);
 }
 
+/**
+ * 好友面板点「邀请」时若无房间：自动走一遍建房，等房号出来再发邀请。
+ * 有了它，邀请好友不用再先手动「建房一起逛」。
+ */
+async function ensureInviteRoom(): Promise<string> {
+  if (mapCode.value) return mapCode.value;
+  if (mapConn.value === 'off') map.host();
+  return waitForRoomCode(() => mapCode.value);
+}
+
 /** 角色在平面上的坐标 + 摇杆推力 + 键盘按住的方向 */
 const me = ref({ x: 620, y: 760 });
 const joy = ref({ x: 0, y: 0 });
@@ -129,8 +137,7 @@ const stage = ref<HTMLElement | null>(null);
 /** 段位/背包/宝箱(跳商店)/好友/成就都由 PageShell 内置，这里只留一个引用去调它的方法 */
 const shell = ref<{ openFriends: () => void } | null>(null);
 
-/** 在线玩家列表：联机时由 presence store 填充，单机为空 */
-const players = computed<PresencePlayer[]>(() => presence.players);
+/** 在线玩家列表已移除（左侧不再显示）；好友邀请走右上角好友面板 */
 
 const KEY_VECTORS: Record<string, [number, number]> = {
   arrowleft: [-1, 0],
@@ -232,36 +239,6 @@ function onKeyUp(e: KeyboardEvent): void {
   held.delete(e.key.toLowerCase());
 }
 
-/* --- 在线玩家：申请加入 / 观战 ------------------------------------------- */
-/**
- * 「申请加入」= 直接用他的房号进他那一局：跳到他所在的页面，房号交给那个页面
- * （页面自己的 join 流程会消费它），之后他就是房主、我跟着他走。
- */
-function join(p: PresencePlayer): void {
-  sfx.click();
-  if (!p.room || !p.scene || !SCENE_KIND[p.scene]) {
-    toastWarn(`${p.name} 还没开房：让他先「建房」再邀请你`);
-    return;
-  }
-  if (!lobby.requestJoin(p.id)) {
-    toastWarn(`${p.name} 的房间暂时进不去`);
-    return;
-  }
-  const meta = sceneMeta(p.scene);
-  toastGood(`加入 ${p.name} · ${meta.label}`);
-  void router.push(meta.route);
-}
-
-function spectate(p: PresencePlayer): void {
-  sfx.click();
-  if (presence.watching === p.id) {
-    presence.setWatching(null);
-    return;
-  }
-  presence.setWatching(p.id);
-  toastGood(`正在观战 ${p.name} 的「${p.mode}」`);
-}
-
 /* --- 坞里的功能 ----------------------------------------------------------- */
 function copyCode(): void {
   const code = mapCode.value;
@@ -307,6 +284,7 @@ onBeforeUnmount(() => {
       friends-kind="map"
       :friends-code="mapCode"
       :friends-can-invite="!!mapCode"
+      :friends-ensure-room="ensureInviteRoom"
       @back="router.push('/home')"
     >
     <template #dock>
@@ -320,7 +298,7 @@ onBeforeUnmount(() => {
         <Button v-if="!mapCode && mapConn === 'off'" size="sm" block :disabled="mapWaiting" @click="map.host()">
           建房一起逛
         </Button>
-        <Button v-if="mapCode" size="sm" block @click="shell?.openFriends()">邀请好友</Button>
+        <Button size="sm" block @click="shell?.openFriends()">邀请好友</Button>
 
         <!-- 客人：输房号直接进 -->
         <template v-if="!mapCode && mapConn === 'off'">
@@ -446,13 +424,6 @@ onBeforeUnmount(() => {
             </span>
           </button>
         </div>
-
-        <PresencePanel
-          :players="players"
-          :watching="presence.watching"
-          @join="join"
-          @watch="spectate"
-        />
 
         <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
       </div>

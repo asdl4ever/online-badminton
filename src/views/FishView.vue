@@ -25,6 +25,7 @@ import { applyTheme } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { hostOpen, joinMatch } from '../net/connect';
+import { waitForRoomCode } from '../composables/useInviteRoom';
 import { normaliseCode, type NetLink } from '../net/link';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
@@ -94,6 +95,8 @@ const codex = computed(() =>
 
 // ---- 每日钓鱼任务 -------------------------------------------------------------
 progress.ensureFishTask();
+/** 任务卡改为画面右侧浮动小卡，可折叠（仅内存，重进页面默认展开） */
+const taskOpen = ref(true);
 const task = computed(() => progress.fishTask);
 const taskPct = computed(() =>
   task.value.goal ? Math.min(1, progress.fishTaskProg / task.value.goal) : 1,
@@ -216,9 +219,12 @@ function boot(session: NetLink | null) {
   sessionEarned.value = 0;
 }
 
-/** 装备店只开在沙滩上：游在水里是开不了的 */
-function openShop(): void {
-  if (!onLand.value) {
+/**
+ * 打开装备店。`fromHutTap` = 手机上直接点了小屋本体——点都点中了，直接放行；
+ * 侧栏按钮仍然要求先上岸（游在水里时按钮是灰的）。
+ */
+function openShop(fromHutTap = false): void {
+  if (!fromHutTap && !onLand.value) {
     toastWarn('装备店在岸上：先游回沙滩再升级');
     return;
   }
@@ -314,6 +320,15 @@ function sell() {
   checkAch();
 }
 
+/**
+ * 好友面板点「邀请」时若无房间：自动建房并等房号，不用先手动点「建房」。
+ */
+async function ensureInviteRoom(): Promise<string> {
+  if (roomCode.value) return roomCode.value;
+  host();
+  return waitForRoomCode(() => roomCode.value);
+}
+
 function host() {
   sfx.click();
   waiting.value = true;
@@ -379,7 +394,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page page--playing">
-    <PageShell title="海湾 · 潜水" back @back="back">
+    <PageShell
+      title="海湾 · 潜水"
+      back
+      friends-kind="fish"
+      :friends-code="roomCode"
+      :friends-ensure-room="ensureInviteRoom"
+      @back="back"
+    >
       <template #icons>
       </template>
 
@@ -388,33 +410,47 @@ onBeforeUnmount(() => {
           <StatusChip :tone="roomCode ? 'ok' : 'idle'">
             {{ roomCode ? `房间 ${roomCode}` : '单机下潜' }}
           </StatusChip>
-          <span class="dive-num">🫧 {{ island.name }} · 本场 {{ sessionCaught }} 条</span>
-          <Button size="sm" variant="primary" block @click="sell">
-            卖鱼 ¥{{ bag.value }}（{{ bag.count }} 条）
-          </Button>
 
-          <!-- 装备店只开在岸上：人上岸了才能进店升级 -->
-          <Button
-            size="sm"
-            :variant="nearHut ? 'primary' : 'quiet'"
-            block
-            :disabled="!onLand"
-            @click="openShop"
-          >
-            {{ onLand ? (nearHut ? '装备店（门口 · 按 E）' : '装备店') : '装备店（要先上岸）' }}
-          </Button>
-          <span class="dive-num">
-            氧气 Lv.{{ progress.oxygenLv }} · 背包 Lv.{{ progress.bagLv }} · 渔具 Lv.{{
-              progress.rodLevel
-            }}
-          </span>
-
-          <!-- 每日钓鱼任务：跨天自动换一条 -->
-          <div class="fish-task" :class="{ 'is-done': taskDone }">
-            <div class="fish-task__head">
-              <b>📋 每日钓鱼任务</b>
-              <span class="muted num">{{ progress.fishTaskProg }}/{{ task.goal }}</span>
+          <template v-if="!roomCode">
+            <input
+              v-model="joinCode"
+              class="ui-input"
+              maxlength="6"
+              placeholder="房号"
+              @keyup.enter="join"
+            />
+            <div class="dive-pair">
+              <Button size="sm" :disabled="waiting" @click="host">建房</Button>
+              <Button size="sm" :disabled="waiting" @click="join">加入</Button>
             </div>
+          </template>
+          <span v-if="phase" class="dock-note">{{ phase }}</span>
+          <p class="dock-note">
+            左摇杆游动（上推上浮）· 右摇杆把拍头指到鱼身上勾住，之后朝鱼的方向收杆。
+            <b>卖鱼去栈桥边的船</b>（买船 / 出海 / 图鉴也在船上的卡片里）；升级装备去岸上的装备店。
+            氧气没了会被冲上水面并丢掉一半渔获。
+          </p>
+        </SideDock>
+      </template>
+
+      <template #stage>
+        <div ref="container" class="fish-canvas" />
+      </template>
+
+      <template #overlay>
+        <div v-if="nearHut" class="dive-prompt">🏠 装备店门口 · 点小屋 / 按 E 打开</div>
+        <div v-else-if="nearBoat" class="dive-prompt">
+          🛶 {{ progress.boat ? '点这条船出海 · 或按 E' : '点这条船买下它 · 或按 E' }}
+        </div>
+
+        <!-- 每日钓鱼任务：画面右侧浮动小卡，可折叠（跨天自动换一条） -->
+        <div class="task-card" :class="{ 'is-done': taskDone }">
+          <button class="task-card__pill" type="button" @click="taskOpen = !taskOpen">
+            📋 每日任务
+            <span class="muted num">{{ progress.fishTaskProg }}/{{ task.goal }}</span>
+            <span class="task-card__chev">{{ taskOpen ? '▸' : '◂' }}</span>
+          </button>
+          <div v-if="taskOpen" class="task-card__body">
             <p class="muted fish-task__text">{{ task.text }}</p>
             <div class="fish-task__bar">
               <i :style="{ width: `${taskPct * 100}%` }" />
@@ -435,37 +471,6 @@ onBeforeUnmount(() => {
               }}
             </Button>
           </div>
-
-          <template v-if="!roomCode">
-            <input
-              v-model="joinCode"
-              class="ui-input"
-              maxlength="6"
-              placeholder="房号"
-              @keyup.enter="join"
-            />
-            <div class="dive-pair">
-              <Button size="sm" :disabled="waiting" @click="host">建房</Button>
-              <Button size="sm" :disabled="waiting" @click="join">加入</Button>
-            </div>
-          </template>
-          <span v-if="phase" class="dock-note">{{ phase }}</span>
-          <p class="dock-note">
-            左摇杆游动（上推上浮）· 右摇杆把拍头指到鱼身上勾住，之后朝鱼的方向收杆。
-            <b>出海要走到栈桥边点那条船</b>（买船 / 换海岛都在船上的卡片里）；升级装备去岸上的装备店。
-            氧气没了会被冲上水面并丢掉一半渔获。
-          </p>
-        </SideDock>
-      </template>
-
-      <template #stage>
-        <div ref="container" class="fish-canvas" />
-      </template>
-
-      <template #overlay>
-        <div v-if="nearHut" class="dive-prompt">🏠 装备店门口 · 按 E 打开</div>
-        <div v-else-if="nearBoat" class="dive-prompt">
-          🛶 {{ progress.boat ? '点这条船出海 · 或按 E' : '点这条船买下它 · 或按 E' }}
         </div>
 
         <!-- 岸边那条船：点它（或站在旁边按 E）弹出的小卡片，出海都从这里走 -->
@@ -474,6 +479,12 @@ onBeforeUnmount(() => {
             <b>🛶 岸边的小船</b>
             <span class="muted boat-card__place">{{ island.name }}</span>
             <button class="boat-card__x" type="button" @click="boatOpen = false">✕</button>
+          </div>
+
+          <!-- 卖鱼在船上做：背包有鱼就亮出来 -->
+          <div v-if="bag.count" class="boat-card__sell">
+            <span class="muted">背包 {{ bag.count }} 条 · <b class="num">¥{{ bag.value }}</b></span>
+            <Button size="sm" variant="primary" @click="sell">卖鱼</Button>
           </div>
 
           <template v-if="!progress.boat">
@@ -595,37 +606,65 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.dive-num {
-  font-size: var(--ui-font-xs);
-  color: var(--text-dim);
-}
-
-/* 每日钓鱼任务卡 */
-.fish-task {
+/* 每日任务浮动小卡：贴画面右侧，可折叠 */
+.task-card {
+  position: absolute;
+  right: var(--s3);
+  top: calc(var(--ui-top-h) + var(--s3));
+  z-index: 32;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line);
-  background: var(--surface-2);
+  align-items: flex-end;
+  gap: 6px;
 }
 
-.fish-task.is-done {
-  border-color: #e8a33d;
-  background: color-mix(in srgb, #e8a33d 12%, var(--surface-2));
-}
-
-.fish-task__head {
+.task-card__pill {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
+  gap: var(--s2);
+  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.5);
   color: var(--text);
+  font-size: var(--ui-font-sm);
+  font-weight: 700;
+  cursor: pointer;
 }
 
-.fish-task__text {
+.task-card.is-done .task-card__pill {
+  border-color: #e8a33d;
+  background: color-mix(in srgb, #e8a33d 18%, var(--glass-bg));
+}
+
+.task-card__chev {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.task-card__body {
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.65);
+}
+
+.task-card__body .fish-task__text {
   margin: 0;
+}
+
+/* 任务卡内的文案与进度条 */
+.fish-task__text {
   font-size: 11px;
   line-height: 1.4;
 }
@@ -643,6 +682,19 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   background: linear-gradient(90deg, #54d6ff, #e8a33d);
   transition: width 0.3s ease;
+}
+
+/* 船卡片里的卖鱼行 */
+.boat-card__sell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s2);
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid color-mix(in srgb, #e8a33d 45%, var(--line));
+  background: color-mix(in srgb, #e8a33d 10%, var(--surface-2));
+  font-size: var(--ui-font-sm);
 }
 
 .dive-up {

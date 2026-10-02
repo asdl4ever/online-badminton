@@ -10,10 +10,13 @@ import {
 } from '../net/lobby';
 import { randomRoomCode, normaliseCode } from '../net/link';
 import { SCENE_KIND } from '../game/scenes';
+import type { Cosmetic } from '../game/cosmetics';
 
 export interface Friend {
   id: string;
   name: string;
+  /** 「见到就记住」：联机/同房见过一次就存下来，好友列表画他的角色；没见过是 undefined → 默认形象 */
+  cosmetic?: Cosmetic;
 }
 export interface FriendRequest {
   from: string;
@@ -140,6 +143,16 @@ export const useLobbyStore = defineStore('lobby', () => {
     if (i >= 0) friends.value[i] = f;
     else friends.value = [...friends.value, f];
     syncWatch();
+  }
+
+  /**
+   * 「见到就记住」：收到某人的装扮（联机 hello / 同房）时存进好友档案，
+   * 好友列表就能画出他的角色。同装扮重复上报不写，避免无意义的存储。
+   */
+  function rememberCosmetic(id: string, cosmetic: Cosmetic): void {
+    const f = friends.value.find((x) => x.id === id);
+    if (!f || f.cosmetic === cosmetic) return;
+    f.cosmetic = cosmetic;
   }
 
   function connect(): void {
@@ -292,6 +305,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     setScene,
     setRoom,
     clearRoom,
+    rememberCosmetic,
     requestJoin,
     joinable,
     isOnline,

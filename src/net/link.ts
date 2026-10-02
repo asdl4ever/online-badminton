@@ -5,7 +5,8 @@ import type { PlayerAttrs } from '../game/attrs';
 export type NetRole = 'host' | 'guest';
 
 export type NetMessage =
-  | { t: 'hello'; name?: string; rank?: string; cosmetic?: Cosmetic; attrs?: PlayerAttrs }
+  /** `code` = 发送方的好友码（playerId）：对方「见到就记住」装扮用 */
+  | { t: 'hello'; name?: string; rank?: string; code?: string; cosmetic?: Cosmetic; attrs?: PlayerAttrs }
   | { t: 'input'; i: PlayerInput }
   | { t: 'snap'; s: WorldSnapshot }
   | { t: 'rematch' }

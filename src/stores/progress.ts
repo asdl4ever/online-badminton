@@ -463,6 +463,12 @@ export const useProgressStore = defineStore('progress', () => {
     return true;
   }
   ensureLegend();
+
+  // 老存档兼容：以前 100 连击送「哥斯拉」，改版后哥斯拉由「哥斯拉来袭」首杀赠送。
+  // 已经打到 100 连击的老玩家，把哥斯拉按旧规则补进收藏，不让人白打。
+  if (milestones.value.includes(100) && !owned.value.includes('skin:godzilla')) {
+    owned.value = [...owned.value, 'skin:godzilla'];
+  }
   /** 玩家自己在单机 / 晋级赛里的胜负记录（排行榜里和自己对比用） */
   const playerRecord = useLocalStorage('bmt-player-record', { wins: 0, losses: 0 });
 
@@ -772,21 +778,16 @@ export const useProgressStore = defineStore('progress', () => {
 
   /**
    * 发球机连击里程碑（10/20/…/100），每个只算一次。
-   * 10~90 给「复古训练房」套装里为这个活动定制的同主题装扮
+   * 10~100 给「复古训练房」套装里为这个活动定制的同主题装扮
    * （固定对照表见 items.MILESTONE_REWARD，不进宝箱池）；
-   * 100 解锁传说角色形象「哥斯拉」，并**额外**送同主题的「发球机教练」形象。
+   * 100 连击的终极大奖是「发球机教练」形象。
+   * 哥斯拉皮肤不在这里——它是「哥斯拉来袭」活动的首杀奖励。
    */
-  function claimMilestone(n: number): { kind: 'item'; item: Item } | { kind: 'godzilla' } | null {
+  function claimMilestone(n: number): { kind: 'item'; item: Item } | null {
     if (n <= 0 || n % 10 !== 0 || milestones.value.includes(n)) return null;
     milestones.value = [...milestones.value, n];
-    if (n >= 100) {
-      // 哥斯拉之外，顺手把活动专属的教练形象也放进收藏（不自动换装）
-      const coach = ITEMS.find((i) => i.id === 'skin:coach');
-      if (coach && !owned.value.includes(coach.id)) owned.value = [...owned.value, coach.id];
-      return { kind: 'godzilla' };
-    }
-    const itemId = MILESTONE_REWARD[n];
-    const item = itemId ? ITEMS.find((i) => i.id === itemId) : undefined;
+    const itemId = MILESTONE_REWARD[n] ?? 'skin:coach';
+    const item = ITEMS.find((i) => i.id === itemId);
     if (!item) return null;
     if (!owned.value.includes(item.id)) owned.value = [...owned.value, item.id];
     milestoneLog.value = { ...milestoneLog.value, [String(n)]: item.id };

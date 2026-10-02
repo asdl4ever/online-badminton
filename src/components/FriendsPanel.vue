@@ -6,6 +6,8 @@ import { VTextField } from 'vuetify/components';
 import Panel from './ui/Panel.vue';
 import Button from './ui/Button.vue';
 import StatusChip from './ui/StatusChip.vue';
+import CharacterPreview from './CharacterPreview.vue';
+import { DEFAULT_COSMETIC } from '../game/cosmetics';
 import { toastBad, toastGood } from '../composables/useToast';
 import { useLobbyStore } from '../stores/lobby';
 import type { InviteKind } from '../net/lobby';
@@ -25,6 +27,11 @@ const props = withDefaults(
     variant?: 'manage' | 'invite';
     /** which screen the invite should open on (match / map / fish / mine) */
     kind?: InviteKind;
+    /**
+     * 没有房间时点「邀请」：页面提供的自动建房流程，返回房间号。
+     * 有了它就不用先手动建房——点邀请即自动开房再发邀请。
+     */
+    ensureRoom?: () => Promise<string>;
   }>(),
   { bare: false, variant: 'manage', kind: 'match' },
 );
@@ -33,6 +40,8 @@ const store = useLobbyStore();
 const { copy, copied, isSupported: clipboardSupported } = useClipboard();
 
 const addCode = ref('');
+/** 「新增好友」添加区默认收起，点右上角按钮展开 */
+const addOpen = ref(false);
 const nameDraft = ref(store.playerName);
 watch(
   () => store.playerName,
@@ -66,8 +75,30 @@ function commitName() {
   toastGood('昵称已保存');
 }
 
-function invite(id: string) {
-  store.invite(id, props.roomCode, props.kind);
+/** 邀请中（自动建房需要一两秒），防止连点 */
+const inviting = ref(false);
+
+async function invite(id: string) {
+  if (inviting.value) return;
+  let code = props.roomCode;
+  if (!code) {
+    if (!props.ensureRoom) return;
+    inviting.value = true;
+    try {
+      code = await props.ensureRoom();
+    } catch (e) {
+      toastBad(e instanceof Error ? e.message : '建房失败，稍后再试');
+      return;
+    } finally {
+      inviting.value = false;
+    }
+  }
+  if (!code) {
+    toastBad('建房失败，稍后再试');
+    return;
+  }
+  store.invite(id, code, props.kind);
+  toastGood('邀请已发送');
 }
 </script>
 
@@ -84,17 +115,26 @@ function invite(id: string) {
 
       <ul v-auto-animate="{ duration: 220 }" class="fp__list">
         <li v-for="f in store.friends" :key="f.id" class="fp__friend">
-          <span class="fp__dot" :class="{ 'fp__dot--on': store.isOnline(f.id) }" aria-hidden="true" />
-          <span class="fp__name">{{ f.name }}</span>
-          <span class="num fp__friend-id">{{ f.id }}</span>
+          <span class="fp__avatar">
+            <CharacterPreview :cosmetic="f.cosmetic ?? DEFAULT_COSMETIC" />
+            <span
+              class="fp__dot fp__dot--badge"
+              :class="{ 'fp__dot--on': store.isOnline(f.id) }"
+              aria-hidden="true"
+            />
+          </span>
+          <span class="fp__body">
+            <span class="fp__name">{{ f.name }}</span>
+            <span class="num fp__friend-id">{{ f.id }}</span>
+          </span>
           <Button
             size="sm"
             variant="primary"
-            :disabled="!canInvite || !store.isOnline(f.id)"
-            :title="canInvite ? '' : '先创建房间'"
+            :disabled="(!canInvite && !ensureRoom) || !store.isOnline(f.id) || inviting"
+            :title="inviting ? '正在建房…' : ''"
             @click="invite(f.id)"
           >
-            邀请
+            {{ inviting ? '建房中…' : '邀请' }}
           </Button>
         </li>
         <li v-if="!store.friends.length" class="muted">
@@ -105,60 +145,23 @@ function invite(id: string) {
       <p class="muted fp__hint">好友列表只存在本机，双方都在线时才能邀请。</p>
     </template>
 
-    <!-- ---------------- home page: left list / top-right add ---------------- -->
-    <div v-else class="fp__grid">
-      <section class="fp__col">
-        <div class="fp__head">
-          <h3 v-if="!bare">好友</h3>
-          <span v-else />
+    <!-- ---------------- home page: list + collapsible add box ---------------- -->
+    <div v-else class="fp__col">
+      <div class="fp__head">
+        <h3 v-if="!bare">好友</h3>
+        <span v-else />
+        <div class="fp__head-actions">
           <StatusChip :tone="store.status === 'online' ? 'ok' : 'warn'">
             {{ statusLabel() }}
           </StatusChip>
+          <Button size="sm" variant="primary" @click="addOpen = !addOpen">
+            {{ addOpen ? '收起' : '＋ 新增好友' }}
+          </Button>
         </div>
+      </div>
 
-        <ul v-auto-animate="{ duration: 220 }" class="fp__list">
-          <li v-for="f in store.friends" :key="f.id" class="fp__friend">
-            <span
-              class="fp__dot"
-              :class="{ 'fp__dot--on': store.isOnline(f.id) }"
-              aria-hidden="true"
-            />
-            <span class="fp__name">{{ f.name }}</span>
-            <span class="num fp__friend-id">{{ f.id }}</span>
-            <Button
-              v-if="canInvite"
-              size="sm"
-              variant="primary"
-              :disabled="!store.isOnline(f.id)"
-              @click="invite(f.id)"
-            >
-              邀请
-            </Button>
-            <Button size="sm" variant="quiet" @click="store.removeFriend(f.id)">删</Button>
-          </li>
-          <li v-if="!store.friends.length" class="muted">
-            还没有好友，把右边的好友码发给对方吧
-          </li>
-        </ul>
-
-        <template v-if="store.requests.length">
-          <p class="fp__subtitle">好友请求</p>
-          <ul v-auto-animate="{ duration: 220 }" class="fp__list">
-            <li v-for="r in store.requests" :key="r.from" class="fp__friend">
-              <span class="fp__name">{{ r.name }}</span>
-              <span class="num fp__friend-id">{{ r.from }}</span>
-              <Button size="sm" variant="primary" @click="store.acceptRequest(r)">接受</Button>
-              <Button size="sm" variant="quiet" @click="store.declineRequest(r)">忽略</Button>
-            </li>
-          </ul>
-        </template>
-
-        <p class="muted fp__hint">好友列表只存在本机。双方都在线时才能添加或邀请。</p>
-      </section>
-
-      <aside class="fp__col fp__add">
-        <h4 class="fp__add-title">添加好友</h4>
-
+      <!-- 添加区默认收起：我的好友码 + 输码发送请求（对方接受后互为好友） -->
+      <div v-if="addOpen" class="fp__add">
         <div class="fp__id">
           <div class="fp__id-text">
             <span class="muted">我的好友码</span>
@@ -169,16 +172,17 @@ function invite(id: string) {
           </Button>
         </div>
 
-        <VTextField
-          v-model="addCode"
-          class="soft-field"
-          placeholder="输入好友码"
-          maxlength="16"
-          hide-details
-          @keyup.enter="addFriend"
-        />
-        <Button size="sm" variant="primary" block @click="addFriend">添加好友</Button>
-
+        <div class="fp__add-row">
+          <VTextField
+            v-model="addCode"
+            class="soft-field"
+            placeholder="输入好友码"
+            maxlength="16"
+            hide-details
+            @keyup.enter="addFriend"
+          />
+          <Button size="sm" variant="primary" @click="addFriend">发送请求</Button>
+        </div>
         <p v-if="store.lastError" class="alert alert--warn">{{ store.lastError }}</p>
 
         <div class="fp__nick">
@@ -193,19 +197,62 @@ function invite(id: string) {
           />
           <Button size="sm" @click="commitName">保存</Button>
         </div>
-      </aside>
+      </div>
+
+      <ul v-auto-animate="{ duration: 220 }" class="fp__list">
+        <li v-for="f in store.friends" :key="f.id" class="fp__friend">
+          <span class="fp__avatar">
+            <CharacterPreview :cosmetic="f.cosmetic ?? DEFAULT_COSMETIC" />
+            <span
+              class="fp__dot fp__dot--badge"
+              :class="{ 'fp__dot--on': store.isOnline(f.id) }"
+              aria-hidden="true"
+            />
+          </span>
+          <span class="fp__body">
+            <span class="fp__name">{{ f.name }}</span>
+            <span class="num fp__friend-id">{{ f.id }}</span>
+          </span>
+          <Button
+            v-if="canInvite || ensureRoom"
+            size="sm"
+            variant="primary"
+            :disabled="!store.isOnline(f.id) || inviting"
+            :title="inviting ? '正在建房…' : ''"
+            @click="invite(f.id)"
+          >
+            {{ inviting ? '建房中…' : '邀请' }}
+          </Button>
+          <Button size="sm" variant="quiet" @click="store.removeFriend(f.id)">删</Button>
+        </li>
+        <li v-if="!store.friends.length" class="muted">
+          还没有好友，点右上角「＋ 新增好友」，把你的好友码发给对方吧
+        </li>
+      </ul>
+
+      <template v-if="store.requests.length">
+        <p class="fp__subtitle">好友请求</p>
+        <ul v-auto-animate="{ duration: 220 }" class="fp__list">
+          <li v-for="r in store.requests" :key="r.from" class="fp__friend">
+            <span class="fp__avatar">
+              <CharacterPreview :cosmetic="DEFAULT_COSMETIC" />
+            </span>
+            <span class="fp__body">
+              <span class="fp__name">{{ r.name }}</span>
+              <span class="num fp__friend-id">{{ r.from }}</span>
+            </span>
+            <Button size="sm" variant="primary" @click="store.acceptRequest(r)">接受</Button>
+            <Button size="sm" variant="quiet" @click="store.declineRequest(r)">忽略</Button>
+          </li>
+        </ul>
+      </template>
+
+      <p class="muted fp__hint">好友列表只存在本机。双方都在线时才能添加或邀请。</p>
     </div>
   </component>
 </template>
 
 <style scoped>
-.fp__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: var(--s4);
-  align-items: start;
-}
-
 .fp__col {
   display: flex;
   flex-direction: column;
@@ -213,25 +260,32 @@ function invite(id: string) {
 }
 
 .fp__add {
+  display: flex;
+  flex-direction: column;
   gap: var(--s2);
+  margin-top: var(--s2);
   padding: var(--s3);
   border-radius: var(--r-md);
   border: 1px solid var(--line);
   background: var(--surface-2);
 }
 
-.fp__add-title {
-  margin: 0 0 var(--s1);
-  font-size: 14px;
-  color: var(--text);
+.fp__add-row {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.fp__add-row :deep(.v-input) {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .fp__nick {
   display: flex;
   gap: var(--s2);
   align-items: center;
-  margin-top: var(--s2);
-  padding-top: var(--s3);
+  padding-top: var(--s2);
   border-top: 1px solid var(--line);
 }
 
@@ -240,22 +294,19 @@ function invite(id: string) {
   min-width: 0;
 }
 
-@media (max-width: 640px) {
-  .fp__grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* on phones the add box sits on top, the list below it */
-  .fp__add {
-    order: -1;
-  }
-}
-
 .fp__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s3);
+}
+
+.fp__head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .fp__id {
@@ -297,12 +348,48 @@ function invite(id: string) {
   background: var(--surface-2);
 }
 
+/* 角色小头像：游戏同一份绘制；在线状态点压在右上角 */
+.fp__avatar {
+  position: relative;
+  flex: none;
+  width: 46px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.fp__avatar :deep(.pc) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.fp__avatar :deep(.pc__badge) {
+  display: none;
+}
+
+.fp__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .fp__dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
   background: var(--line-strong);
   flex: none;
+}
+
+.fp__dot--badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 1;
+  box-shadow: 0 0 0 2px var(--surface-2);
 }
 
 .fp__dot--on {
@@ -318,7 +405,6 @@ function invite(id: string) {
 }
 
 .fp__friend-id {
-  flex: 1 1 auto;
   color: var(--text-dim);
   font-size: 12px;
   letter-spacing: 2px;

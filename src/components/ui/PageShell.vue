@@ -36,6 +36,8 @@ withDefaults(
     /** 当前房间号（有房间时好友面板才能邀请） */
     friendsCode?: string;
     friendsCanInvite?: boolean;
+    /** 没房间时点邀请：页面提供的自动建房流程（点邀请 = 自动建房 + 发邀请） */
+    friendsEnsureRoom?: () => Promise<string>;
   }>(),
   { title: '', back: false, friendsKind: 'match', friendsCode: '', friendsCanInvite: false },
 );
@@ -196,6 +198,7 @@ defineExpose({
         :kind="friendsKind"
         :room-code="friendsCode"
         :can-invite="friendsCanInvite"
+        :ensure-room="friendsEnsureRoom"
       />
     </AppModal>
   </div>

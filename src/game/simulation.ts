@@ -580,6 +580,13 @@ function stepShuttleSlice(world: World, dt: number): void {
   const crossedNet =
     (prevX < NET_X && shuttle.x >= NET_X) || (prevX > NET_X && shuttle.x <= NET_X);
   if (cfg.netEnabled && world.mode !== 'juggle' && crossedNet && shuttle.y >= NET_TOP) {
+    // 发球机的喂球自己挂网：机器的失误，不算玩家失误、不清连击，快速重新喂球
+    if (world.mode === 'machine' && world.lastHitter !== 0) {
+      shuttle.live = false;
+      world.machine.timer = 0.5;
+      world.events.push({ type: 'net' });
+      return;
+    }
     const side = prevX < NET_X ? -1 : 1;
     shuttle.x = NET_X + side * (NET_HALF_W + 1);
     shuttle.vx = -shuttle.vx * 0.15;

@@ -30,6 +30,7 @@ import { useGameStore } from '../stores/game';
 import { useLobbyStore } from '../stores/lobby';
 import { useCustomizeStore } from '../stores/customize';
 import { useProgressStore } from '../stores/progress';
+import { waitForRoomCode } from '../composables/useInviteRoom';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
@@ -107,6 +108,16 @@ function adopt(link: NetLink) {
   store.session = link;
   store.connState = 'connected';
   phaseText.value = '';
+}
+
+/**
+ * 好友面板点「邀请」时若无房间：自动建房并等房号。
+ * 已经在等对手 / 正在对局时直接用现有房间号。
+ */
+async function ensureInviteRoom(): Promise<string> {
+  if (store.roomCode) return store.roomCode;
+  if (store.connState === 'idle' || store.connState === 'error') await createRoom();
+  return waitForRoomCode(() => store.roomCode);
 }
 
 async function createRoom() {
@@ -237,7 +248,8 @@ onBeforeUnmount(() => {
       back
       friends-kind="match"
       :friends-code="store.roomCode"
-      :friends-can-invite="waiting"
+      :friends-can-invite="!!store.roomCode"
+      :friends-ensure-room="ensureInviteRoom"
       @back="back"
     >
       <template #icons>
@@ -271,6 +283,7 @@ onBeforeUnmount(() => {
           :attrs="progress.attrs"
           :local-name="lobby.playerName"
           :local-rank="progress.tier.id"
+          :local-code="lobby.playerId"
           :theme="customize.theme"
           :auto-cycle-theme="customize.autoCycle"
           :party="partyMode"

@@ -94,7 +94,8 @@ function it(
 export const ITEMS: Item[] = [
   // --- character skin (special: earned by machine-mode combo milestones) ---
   it('skin', 'none', '默认', 'common', 1, 'free'),
-  it('skin', 'godzilla', '哥斯拉', 'legendary', 5, 'streak'),
+  // 哥斯拉：现在是「哥斯拉来袭」活动的首杀奖励（以前是发球机 100 连击）
+  it('skin', 'godzilla', '哥斯拉', 'legendary', 5, 'event'),
   it('skin', 'ubear', 'U熊', 'legendary', 5, 'code'),
   it('skin', 'laopi', '老皮', 'legendary', 5, 'code'),
   // 荣誉商店专属形象：只能靠晋级赛的冠亚季军攒荣誉点兑换
@@ -737,6 +738,7 @@ export const MILESTONE_REWARD: Record<number, string> = {
   70: 'swingTrail:tempo',
   80: 'effect:pow',
   90: 'ring:courtline',
+  100: 'skin:coach',
 };
 
 /** ten draws cost 10% less than ten singles */

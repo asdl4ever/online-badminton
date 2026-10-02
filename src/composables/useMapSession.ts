@@ -82,10 +82,11 @@ export function useMapSession(): MapSession {
     onFirstPeer: null,
   };
 
-  function describeSelf(): { name: string; cosmetic: Cosmetic } {
+  function describeSelf(): { name: string; cosmetic: Cosmetic; code: string } {
     return {
       name: lobby.playerName || '好友',
       cosmetic: sanitizeCosmetic(customize.cosmetic),
+      code: lobby.playerId,
     };
   }
 
@@ -93,7 +94,8 @@ export function useMapSession(): MapSession {
       first hello races the other side installing its message handler */
   function announce(): void {
     const me = describeSelf();
-    const send = () => link?.send({ t: 'hello', name: me.name, cosmetic: me.cosmetic });
+    const send = () =>
+      link?.send({ t: 'hello', name: me.name, cosmetic: me.cosmetic, code: me.code });
     send();
     for (const ms of [300, 900]) window.setTimeout(send, ms);
   }
@@ -123,6 +125,10 @@ export function useMapSession(): MapSession {
           y: known?.y ?? peerTo.y,
           facing: known?.facing ?? 1,
         };
+        // 「见到就记住」：对方是好友就把他的装扮存进好友档案
+        if (typeof m.code === 'string' && m.code) {
+          lobby.rememberCosmetic(m.code, peer.value.cosmetic);
+        }
         if (!known) toastGood(`${name} 来到了营地`);
       } else if (m.t === 'mapPose') {
         peerTo = {

@@ -86,13 +86,11 @@ watch(
     progress.noteMachineStreak(streak);
     const reward = progress.claimMilestone(streak);
     if (!reward) return;
-    if (reward.kind === 'godzilla') {
-      customize.characterSkin = 'godzilla';
-      toastGood('100 连击达成！解锁传说角色形象「哥斯拉」，已自动装备！');
-      celebrate(3, ['#3a7d44', '#e8a33d', '#f2e7c9']);
+    toastGood(`${streak} 连击！获得「${reward.item.label}」`);
+    if (streak >= 100) {
+      celebrate(3, ['#ffd45c', '#e8a33d', '#4f8a5f']);
       sfx.win();
     } else {
-      toastGood(`${streak} 连击！获得「${reward.item.label}」`);
       celebrate(2, ['#ffd45c', '#3d8bfd', '#9b59d0']);
     }
   },

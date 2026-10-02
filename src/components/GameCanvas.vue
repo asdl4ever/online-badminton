@@ -11,6 +11,9 @@ import type { PlayerAttrs } from '../game/attrs';
 import type { ThemeId } from '../game/theme';
 import type { TierId } from '../game/ranks';
 import type { PartyState } from '../game/config';
+import { useLobbyStore } from '../stores/lobby';
+
+const lobby = useLobbyStore();
 
 const props = defineProps<{
   role: MatchRole;
@@ -20,6 +23,8 @@ const props = defineProps<{
   attrs?: PlayerAttrs;
   localName: string;
   localRank: TierId;
+  /** 本地玩家的好友码：随 hello 发给对方（对方记装扮用） */
+  localCode?: string;
   theme: ThemeId;
   autoCycleTheme: boolean;
   /** run the round-based fun mode (vote → play → scoreboard) */
@@ -82,6 +87,9 @@ onMounted(async () => {
     attrs: props.attrs,
     localName: props.localName,
     localRank: props.localRank,
+    localCode: props.localCode,
+    // 对方（若是好友）的装扮到了就存进好友档案，好友列表能画出他的角色
+    onPeerHello: (code, cosmetic) => lobby.rememberCosmetic(code, cosmetic),
     theme: props.theme,
     autoCycleTheme: props.autoCycleTheme,
     onThemeChange: (t) => emit('themechange', t),

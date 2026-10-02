@@ -79,6 +79,8 @@ function onEnd(win: boolean): void {
     celebrate(3, ['#3a7d44', '#e8a33d', '#8fe0ff']);
     const parts: string[] = [`🪙 +${r.coins}`, `🏅 +${r.honor}`];
     loot.value = r.items.map((i) => ({ label: i.label, color: RARITY_META[i.rarity].color }));
+    // 首杀送了哥斯拉本体：直接穿上，昭告天下
+    if (r.items.some((i) => i.id === 'skin:godzilla')) customize.characterSkin = 'godzilla';
     resultText.value = r.firstKill
       ? `🏆 首杀达成！${GZ_NAME}倒下了：${parts.join(' · ')}，限定套装已进背包`
       : `🏆 击杀成功！（累计 ${progress.gzKills} 杀）${parts.join(' · ')}`;

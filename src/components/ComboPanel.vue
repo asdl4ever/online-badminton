@@ -45,7 +45,6 @@ function unlocked(m: number): Item | undefined {
 function rewardLabel(m: number): string {
   const got = unlocked(m);
   if (got) return got.label;
-  if (m >= 100) return '哥斯拉 + 教练';
   const id = MILESTONE_REWARD[m];
   const item = id ? ITEMS.find((i) => i.id === id) : undefined;
   return item?.label ?? '神秘装扮';
@@ -99,9 +98,9 @@ function rewardLabel(m: number): string {
 
     <p class="muted combo__note">
       十档都是<b>发球机活动专属</b>的「复古训练房」套装（教练帽 / 涡轮双翼 / 冠军毛巾 /
-      训练聚光灯 / 复古木拍 / 荧光训练球 / 节拍器弧线 / 砰！贴纸 / 场地标线），
-      <b>100 连击</b>解锁传说角色形象「哥斯拉」（自动装备）+ 同主题的「发球机教练」形象。
-      只能靠连击解锁，宝箱里抽不到。
+      训练聚光灯 / 复古木拍 / 荧光训练球 / 节拍器弧线 / 砰！贴纸 / 场地标线 /
+      发球机教练形象），只能靠连击解锁，宝箱里抽不到。
+      想要「哥斯拉」形象？去<b>哥斯拉来袭</b>活动首杀它。
     </p>
 
     <Button variant="primary" block @click="emit('play')">🎯 去发球机练球</Button>
