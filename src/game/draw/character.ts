@@ -2748,6 +2748,11 @@ export interface CharacterOpts {
   shadow?: boolean;
   /** the emoji face is a Text object, so it has to be driven from outside */
   face?: FaceSink | null;
+  /**
+   * 帽子 / 宠物专用的高层画布：emoji 头是独立 Text（depth 高于身体 Graphics），
+   * 帽子必须画在比它更高的层上才能压住头。不传就画回 g 里（单层渲染的场景）。
+   */
+  overG?: Phaser.GameObjects.Graphics | null;
 }
 
 /**
@@ -3472,8 +3477,10 @@ export function drawCharacter(
     g.fillCircle(pose.x, topY + 16, 13);
   }
 
-  if (cos.hat !== 'none') drawHat(g, pose.x, topY, cos.hat);
+  // 帽子 / 宠物画在「头之上」的层（overG），没给就退回单层渲染
+  const over = opts.overG ?? g;
+  if (cos.hat !== 'none') drawHat(over, pose.x, topY, cos.hat);
   if (cos.pet !== 'none') {
-    drawPet(g, now, pose.x, topY, pose.facing < 0 ? 1 : 0, cos.pet, cos.petStar);
+    drawPet(over, now, pose.x, topY, pose.facing < 0 ? 1 : 0, cos.pet, cos.petStar);
   }
 }

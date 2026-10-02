@@ -99,7 +99,8 @@ function onZoneDown(e: PointerEvent): void {
   const a = clampAnchor(e.clientX, e.clientY, rect);
   cx = a.x;
   cy = a.y;
-  freePos.value = { x: a.x - rect.left, y: a.y - rect.top };
+  // 关键：left/top 定位的是圆盘「左上角」，要减掉半径才是圆心对准触点
+  freePos.value = { x: a.x - rect.left - ringPx.value / 2, y: a.y - rect.top - ringPx.value / 2 };
   live.value = true;
   apply(e.clientX, e.clientY);
 }

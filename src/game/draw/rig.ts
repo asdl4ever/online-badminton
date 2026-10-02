@@ -39,6 +39,8 @@ export interface PlayerRig {
     ry: number,
     swingSpeed?: number,
     contactR?: number,
+    /** 帽子 / 宠物专用高层：emoji 头（depth 3）之上 */
+    over?: Phaser.GameObjects.Graphics | null,
   ): { shoulder: { x: number; y: number }; head: { x: number; y: number }; ang: number };
 }
 
@@ -54,8 +56,8 @@ export function createPlayerRig(scene: Phaser.Scene): PlayerRig {
 
   return {
     face,
-    draw: (g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0) =>
-      drawRigGraphics(g, now, cos, pose, rx, ry, swingSpeed, contactR, face),
+    draw: (g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0, over = null) =>
+      drawRigGraphics(g, now, cos, pose, rx, ry, swingSpeed, contactR, face, over),
   };
 }
 
@@ -75,6 +77,7 @@ export function drawRigGraphics(
   swingSpeed = 0,
   contactR = 0,
   face: FaceSink | null = null,
+  over: Phaser.GameObjects.Graphics | null = null,
 ): { shoulder: { x: number; y: number }; head: { x: number; y: number }; ang: number } {
   const shoulder = {
     x: pose.x + pose.facing * SHOULDER_DX,
@@ -93,7 +96,7 @@ export function drawRigGraphics(
     facing: pose.facing,
     color: pose.color,
     belly: pose.belly,
-  }, { face });
+  }, { face, overG: over });
 
   // arm from shoulder to just behind the racket head
   const hx = head.x - Math.cos(ang) * 12;

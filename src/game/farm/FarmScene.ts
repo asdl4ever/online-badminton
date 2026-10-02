@@ -107,6 +107,8 @@ export class FarmScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
   /** 角色单独一层（depth 2）：emoji 脸在它之下，装备不会被脸盖住 */
   private charG!: Phaser.GameObjects.Graphics;
+  /** 帽子/宠物层：在 emoji 头（depth 3）之上 */
+  private charOverG!: Phaser.GameObjects.Graphics;
   private rigMe!: PlayerRig;
   private regenText!: Phaser.GameObjects.Text;
   private pops: { t: Phaser.GameObjects.Text; life: number }[] = [];
@@ -140,6 +142,7 @@ export class FarmScene extends Phaser.Scene {
 
     this.g = this.add.graphics();
     this.charG = this.add.graphics().setDepth(2);
+    this.charOverG = this.add.graphics().setDepth(4);
     this.rigMe = createPlayerRig(this);
     this.cfg.onEarn?.(this.total);
 
@@ -523,6 +526,7 @@ export class FarmScene extends Phaser.Scene {
       Math.sin(ang) * reach,
       Math.hypot(this.swingVX, this.swingVY),
       RACKET_HEAD_R,
+      this.charOverG,
     );
   }
 }

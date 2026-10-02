@@ -248,6 +248,8 @@ export class DiveScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
   /** 角色单独一层（depth 2）：emoji 脸在它之下，装备不会被脸盖住 */
   private charG!: Phaser.GameObjects.Graphics;
+  /** 帽子/宠物层：在 emoji 头（depth 3）之上 */
+  private charOverG!: Phaser.GameObjects.Graphics;
   private hudG!: Phaser.GameObjects.Graphics;
   private hudText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
@@ -332,6 +334,7 @@ export class DiveScene extends Phaser.Scene {
 
     this.g = this.add.graphics();
     this.charG = this.add.graphics().setDepth(2);
+    this.charOverG = this.add.graphics().setDepth(4);
     this.hudG = this.add.graphics().setScrollFactor(0).setDepth(40);
     this.rigMe = createPlayerRig(this);
     this.rigOther = createPlayerRig(this);
@@ -1519,6 +1522,7 @@ export class DiveScene extends Phaser.Scene {
       Math.sin(ang) * reach,
       0,
       gearStats(this.cfg.gearLv).hook,
+      this.charOverG,
     );
 
     if (isMe) {

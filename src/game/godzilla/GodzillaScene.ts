@@ -60,6 +60,8 @@ export class GodzillaScene extends Phaser.Scene {
 
   private g!: Phaser.GameObjects.Graphics;
   private charG!: Phaser.GameObjects.Graphics;
+  /** 帽子/宠物层：在 emoji 头（depth 3）之上 */
+  private charOverG!: Phaser.GameObjects.Graphics;
   private rigMe!: PlayerRig;
   private racket = new RacketTracker();
   private touchControls: TouchControls | null = null;
@@ -118,6 +120,7 @@ export class GodzillaScene extends Phaser.Scene {
   create(): void {
     this.g = this.add.graphics().setDepth(1);
     this.charG = this.add.graphics().setDepth(2);
+    this.charOverG = this.add.graphics().setDepth(4);
     this.rigMe = createPlayerRig(this);
     // 开场倒计时：手机上加载慢也能看清再开打
     this.readyText = this.add
@@ -179,6 +182,9 @@ export class GodzillaScene extends Phaser.Scene {
       { x: this.me.x, feetY: this.me.y, facing: this.me.facing, color: P.player0 },
       this.racketSt.rx,
       this.racketSt.ry,
+      0,
+      0,
+      this.charOverG,
     );
 
     this.g.clear();

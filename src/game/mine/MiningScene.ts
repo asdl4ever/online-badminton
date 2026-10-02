@@ -125,6 +125,8 @@ export class MiningScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
   /** 角色单独一层（depth 2）：emoji 脸在它之下，装备不会被脸盖住 */
   private charG!: Phaser.GameObjects.Graphics;
+  /** 帽子/宠物层：在 emoji 头（depth 3）之上 */
+  private charOverG!: Phaser.GameObjects.Graphics;
   /** shared character rigs — drawn exactly like the match scene's players */
   private rigMe!: PlayerRig;
   private rigOther!: PlayerRig;
@@ -161,6 +163,7 @@ export class MiningScene extends Phaser.Scene {
 
     this.g = this.add.graphics();
     this.charG = this.add.graphics().setDepth(2);
+    this.charOverG = this.add.graphics().setDepth(4);
     this.rigMe = createPlayerRig(this);
     this.rigOther = createPlayerRig(this);
     // 左上角不再写矿石耐久 / 金币：耐久看裂纹，收获看破坏时的金币跳动
@@ -669,6 +672,7 @@ export class MiningScene extends Phaser.Scene {
       Math.sin(ang) * reach,
       Math.hypot(this.swingVX, this.swingVY),
       RACKET_HEAD_R,
+      this.charOverG,
     );
   }
 }
