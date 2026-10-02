@@ -13,6 +13,7 @@ import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
 import { useWalk } from '../composables/useWalk';
 import { isTouchDevice } from '../game/device';
+import { useJoystickPrefs } from '../composables/useJoystick';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
 import { PETS, type Item } from '../game/items';
 
@@ -107,6 +108,9 @@ const { me, joy, nearId } = walk;
 
 /** 手机上没有键盘：提示文案跟着设备走 */
 const touch = isTouchDevice();
+// 摇杆：触屏必显；桌面端开了「摇杆常显」也显示（设置里改）
+const { always: joyAlways } = useJoystickPrefs();
+const showJoy = computed(() => touch || joyAlways.value);
 const nearHint = computed(() =>
   nearId.value ? (touch ? '点按查看这只宠物' : '按 E 看这只宠物') : '',
 );
@@ -201,7 +205,7 @@ function back(): void {
           </div>
           <div class="room__hint">{{ walkHint }}</div>
 
-          <Joystick @move="(x, y) => (joy = { x, y })" />
+          <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
         </div>
       </template>
     </PageShell>

@@ -50,7 +50,7 @@ import { attrsFromStats, type PlayerStats } from '../players';
 import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
-import { debugOverlayEnabled } from '../device';
+import { debugOverlayEnabled, joystickAlwaysOn } from '../device';
 import {
   applyTheme,
   FONT_EMOJI,
@@ -115,8 +115,6 @@ export interface MatchConfig {
   onEvent: (event: SimEvent) => void;
   /** throttled netcode telemetry, for the debug panel and the Pinia store */
   onMetrics?: (metrics: NetMetrics) => void;
-  /** true while the touch-layout editor is open */
-  onEditMode?: (editing: boolean) => void;
   /** the local player's look (purely visual) */
   cosmetic?: Cosmetic;
   /** 本地玩家的属性点倍率（速度 / 力量 / 容错，会改物理） */
@@ -171,7 +169,6 @@ export class GameScene extends Phaser.Scene {
   private specRightInput: PlayerInput = { ...EMPTY_INPUT };
   private racket!: RacketTracker;
   private touchControls: TouchControls | null = null;
-  private editShown = false;
   private telemetry = new Telemetry();
   private pingAccum = 0;
   private metricsAccum = 0;
@@ -456,7 +453,8 @@ export class GameScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown-R', () => this.requestRematch());
 
-    if (isTouchDevice() && !this.cfg.spectate) {
+    // 触屏设备必开摇杆；桌面端开了「摇杆常显」也开（观战不需要）
+    if ((isTouchDevice() || joystickAlwaysOn()) && !this.cfg.spectate) {
       this.input.addPointer(3);
       this.touchControls = new TouchControls(this);
       this.events.once('shutdown', () => {
@@ -890,6 +888,16 @@ export class GameScene extends Phaser.Scene {
           }
           break;
         }
+        case 'neon': {
+          // 荧光训练球：亮绿彗尾 + 间隔的白色闪点，像训练房的荧光标记
+          g.lineStyle(2 + f * 5, color, a * 1.35);
+          g.lineBetween(p0.x, p0.y, p1.x, p1.y);
+          if (i % 3 === 0) {
+            g.fillStyle(0xf4ffb0, a);
+            g.fillCircle(p1.x, p1.y, wdt * 0.32);
+          }
+          break;
+        }
         case 'pixel': {
           const sq = Math.max(3, wdt * 0.9);
           g.fillStyle(color, a * 1.25);
@@ -909,16 +917,6 @@ export class GameScene extends Phaser.Scene {
     g.fillCircle(head.x, head.y, 5);
   }
 
-  /** open/close the on-screen stick layout editor (touch devices only) */
-  setEditMode(on: boolean): void {
-    if (!this.touchControls) return;
-    this.touchControls.setEditing(on);
-    if (on) this.racket.reset();
-  }
-
-  toggleEditMode(): void {
-    this.setEditMode(!(this.touchControls?.editing ?? false));
-  }
 
   /**
    * React with an emote. Shown locally straight away (no round trip) and sent
@@ -975,8 +973,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildLocalInput(dt: number): PlayerInput {
-    // while the player is arranging the sticks, everyone stands still
-    if (this.touchControls?.editing) return { ...EMPTY_INPUT };
 
     const p = this.world.players[this.localIndex()];
     const shoulder = shoulderPoint(p);
@@ -1034,12 +1030,8 @@ export class GameScene extends Phaser.Scene {
     const dt = rawDt * (this.world.config.timeScale || 1);
     this.frameDt = rawDt;
     const role = this.cfg.role;
-    const editing = this.touchControls?.editing ?? false;
 
-    if (editing && role === 'single') {
-      // freeze the rally while the layout editor is open; online we keep the
-      // sim running so the opponent is not held hostage
-    } else if (role === 'guest') {
+    if (role === 'guest') {
       this.updateGuest(dt);
     } else {
       this.updateSimulated(dt, role);
@@ -1048,11 +1040,6 @@ export class GameScene extends Phaser.Scene {
     // how far we are into the next fixed step — used to interpolate rendering
     // so a 165Hz display does not show the 60Hz sim as stepped
     this.alpha = Math.min(1, Math.max(0, this.accum / FIXED_DT));
-
-    if (this.touchControls && editing !== this.editShown) {
-      this.editShown = editing;
-      this.cfg.onEditMode?.(editing);
-    }
 
     if (role !== 'single') {
       this.pingAccum += dt;

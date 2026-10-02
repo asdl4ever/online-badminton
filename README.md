@@ -468,3 +468,71 @@ npm run serve      # = build && start
 - `playpeerjs` — 装过但没用上
 
 另外 `src/components/HelloWorld.vue` 是脚手架残留，也可以删。
+
+---
+
+## 打包成 Android APK
+
+前端是纯静态站点，用 **Capacitor** 套一层 Android 壳出包（工程在 `android/`）。
+
+### 一、准备环境（只做一次）
+
+需要 **JDK 21** 与 **Android SDK**。最省事的是装 [Android Studio](https://developer.android.com/studio)：它自带 JDK 21（JBR）与 SDK，装完打开一次让 SDK 初始化完成即可。
+
+> **必须是 JDK 21**：Capacitor 8 的 `capacitor-android` 模块用 Java 21 编译，换成 JDK 17 会直接报
+> 「无效的源发行版：21」，JDK 11 更不行。
+> 还需要 `android/local.properties` 里写明 `sdk.dir=...`（Android Studio 会自动生成）。
+
+### 二、出包
+
+```powershell
+npm run build            # 1) 出 web 产物到 dist/
+npx cap sync android     # 2) 同步进 android/app/src/main/assets/public
+npx cap open android     # 3) 用 Android Studio 打开工程
+```
+
+在 Android Studio 里 `Build → Build Bundle(s) / APK(s) → Build APK(s)`，产物在
+`android/app/build/outputs/apk/debug/app-debug.apk`，直接传手机安装即可。
+
+不想开 IDE 也可以命令行出包：
+
+```powershell
+cd android
+.\gradlew assembleDebug      # 调试包
+.\gradlew assembleRelease    # 发布包（需先配签名）
+```
+
+### 三、联机服务器（重要）
+
+装成 App 后页面跑在 `https://localhost`，中继地址没法再从同源推导，**必须显式指定**：
+
+```powershell
+$env:VITE_RELAY_URL="wss://你的域名/relay"
+npm run build
+npx cap sync android
+```
+
+不设置就是**纯单机包**：点联机入口会提示「当前版本未配置联机服务器」，其余玩法
+（单机练习、晋级赛、农场、名人堂、小黄龙联名）全部正常。
+
+### 四、已经替你配好的
+
+| 项 | 值 |
+|---|---|
+| 包名 / 应用名 | `com.badminton.game` / 「羽毛球」（见 `capacitor.config.ts`） |
+| 屏幕方向 | 锁横屏 `sensorLandscape`（`AndroidManifest.xml`） |
+| 沉浸式 | `MainActivity.java` 隐藏状态栏与导航栏，边缘滑动可临时唤出 |
+| 权限 | 只有 `INTERNET` |
+| 安全区 | `index.html` 已带 `viewport-fit=cover` |
+| 忽略规则 | `.gitignore` 已排除 Gradle 产物、`assets/public` 与签名文件 |
+
+### 五、常见问题
+
+- **`npx cap add android` 报 safe-delete 错误**：个别环境会拦截删除操作，导致包名目录或 `build.gradle` 没改完。手动确认 `android/app/build.gradle` 的 `namespace` / `applicationId` 是 `com.badminton.game`，并删掉 `java/` 下残留的 `com/getcapacitor/`。
+- **`gradlew` 报找不到 SDK**：在 `android/local.properties` 写一行 `sdk.dir=C\:\\Users\\你\\AppData\\Local\\Android\\Sdk`（Android Studio 通常会自动生成）。
+- **`cap sync` 报 safe-delete、assets 没更新**：少数环境会拦截删除操作，导致 web 产物没拷进去（装出来的 APK 还是旧界面）。手动同步一次：把 `dist/` 的内容**覆盖复制**到 `android/app/src/main/assets/public/`，再重新 `gradlew assembleDebug`。
+- **联机在 App 里连不上**：直连（WebRTC）依赖 PeerJS 公共信令与 STUN，跨网络常常打不通；稳定做法是配 `VITE_RELAY_URL` 指向自建中继，或按 `src/net/ice.ts` 的说明补一个 TURN 服务器。
+- **首屏字体慢**：`index.html` 引了 Google Fonts 的 Outfit / Plus Jakarta Sans，国内网络会等超时再回落到系统字体。想彻底本地化：`npm i @fontsource/outfit @fontsource/plus-jakarta-sans`，在 `main.ts` 里 import 对应 css，再删掉 `index.html` 里的外链。
+- **想换图标 / 启动图**：Android Studio 里右键 `android/app/src/main/res` → `New → Image Asset`。
+- **WebView 调试**：Chrome 打开 `chrome://inspect`（`capacitor.config.ts` 里已开 `webContentsDebuggingEnabled`，上线前可关掉）。
+- **存档位置**：WebView 的 localStorage，卸载 App 会清空。

@@ -28,6 +28,7 @@ export const SCENE_META: Record<SceneId, SceneMeta> = {
   hall: { label: '在名人堂', icon: '🏛️', route: '/hall' },
   farm: { label: '在农场', icon: '🌾', route: '/farm' },
   nailong: { label: '在小黄龙联名', icon: '🐲', route: '/nailong' },
+  godzilla: { label: '在打哥斯拉', icon: '🦖', route: '/godzilla' },
 };
 
 /** 能从「好友在玩什么」直接进房间的界面（地图/对局/潜水/矿洞） */
@@ -52,6 +53,7 @@ export function sceneFromPath(path: string): SceneId {
   if (path.startsWith('/hall')) return 'hall';
   if (path.startsWith('/farm')) return 'farm';
   if (path.startsWith('/nailong')) return 'nailong';
+  if (path.startsWith('/godzilla')) return 'godzilla';
   if (path.startsWith('/home')) return 'home';
   if (path === '/' || path.startsWith('/world')) return 'map';
   return 'off';

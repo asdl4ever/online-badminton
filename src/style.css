@@ -1141,6 +1141,10 @@ h3 {
   border-radius: 50%;
   background: rgba(255, 246, 218, 0.32);
   z-index: -1;
+  /* 虚线大圈也算点击区域：卡片只有 172px 宽，手指够不准，
+     点「圈里」任何地方都算点中该区域，触屏好按很多 */
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .zone__sign {
@@ -1176,6 +1180,9 @@ h3 {
   /* 角色是 canvas 画的，这里只定位；压在区域卡片之上 */
   z-index: 6;
   transform: translate(-50%, -50%);
+  /* 角色只是「看得见」，不该抢走点击：它站在区域卡上时，手指点下去会命中角色本身，
+     卡片就点不动了（触屏又没有 E 键可以替代），于是「走上去就点不了」。 */
+  pointer-events: none;
 }
 
 .avatar__name {

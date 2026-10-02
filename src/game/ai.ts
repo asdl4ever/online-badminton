@@ -158,6 +158,13 @@ export class AIController {
   private targetX: number;
   private swingTimer = 0;
   private swing: { rx: number; ry: number; rvx: number; rvy: number } | null = null;
+  /** 拍头当前姿态（相对肩膀的偏移）：每帧朝目标平滑靠拢，不瞬移 */
+  private trk = { rx: 44, ry: -70 };
+  /** 本次挥拍的起点（引拍位）：挥拍动画从它扫向击球点 */
+  private swingFrom = { rx: 44, ry: -70 };
+  private swingAge = 0;
+  /** 累计时间：给待机拍头一点轻微的呼吸感 */
+  private t = 0;
 
   constructor(stats: PlayerStats = NEUTRAL_STATS, side: 0 | 1 = 1) {
     this.beh = behaviorFromStats(stats);
@@ -238,10 +245,18 @@ export class AIController {
 
     // --- serve ------------------------------------------------------------
     if (world.phase === 'serve') {
-      if (world.server === me && world.phaseTimer < 0.2) {
-        const speed = wc.serveSpeedMin + 220;
-        input.rvx = dir * speed * Math.cos(0.68);
-        input.rvy = -speed * Math.sin(0.68);
+      if (world.server === me) {
+        if (world.phaseTimer < 0.2) {
+          const speed = wc.serveSpeedMin + 220;
+          input.rvx = dir * speed * Math.cos(0.68);
+          input.rvy = -speed * Math.sin(0.68);
+        }
+        // 发球动作：与发球倒计时同步的「引拍 → 向前挥出」，不再是僵直的待机位
+        const T = wc.servePause;
+        const k = Math.min(1, Math.max(0, (T - world.phaseTimer) / (T - 0.2)));
+        const e = k * k * (3 - 2 * k); // smoothstep
+        input.rx = dir * (-30 + 76 * e);
+        input.ry = -95 + 25 * e;
       }
       return input;
     }
@@ -263,14 +278,45 @@ export class AIController {
 
       if (this.swingTimer > 0 && this.swing) {
         this.swingTimer -= dt;
-        input.rx = this.swing.rx;
-        input.ry = this.swing.ry;
+        this.swingAge += dt;
+        // 挥拍动画：拍头从引拍位沿一条外鼓的弧线扫向击球点。
+        // 目标点每帧追着球重算（球还在飞），保证弧线终点依然对准来球；
+        // easeOut 先快后缓，前几帧就基本到位 → 命中判定依旧可靠。
+        const reach = Math.min(dist, wc.racketMax);
+        const tx = dist > 1 ? (sdx / dist) * reach : 0;
+        const ty = dist > 1 ? (sdy / dist) * reach : -reach;
+        const k = Math.min(1, this.swingAge / 0.09);
+        const e = 1 - (1 - k) * (1 - k);
+        const mx = tx - this.swingFrom.rx;
+        const my = ty - this.swingFrom.ry;
+        const ml = Math.hypot(mx, my) || 1;
+        const bow = Math.sin(k * Math.PI) * 36 * dir; // 中途往外鼓一下 → 看得见的弧线
+        input.rx = this.swingFrom.rx + mx * e + (-my / ml) * bow;
+        input.ry = this.swingFrom.ry + my * e + (mx / ml) * bow;
         input.rvx = this.swing.rvx;
         input.rvy = this.swing.rvy;
         input.left = false;
         input.right = false;
         return input;
       }
+
+      // 不挥拍时拍头也不僵住：平滑跟随目标姿态。
+      // 球迎面而来（≤340px）先收到脑后做引拍；平时在体前待命。
+      let wantX = 44 * dir;
+      let wantY = -70;
+      if (incoming && dist > 1 && dist < 340) {
+        wantX = -dir * 26;
+        wantY = -88;
+      }
+      this.t += dt;
+      const sm = 1 - Math.exp(-10 * dt);
+      this.trk.rx += (wantX - this.trk.rx) * sm;
+      this.trk.ry += (wantY - this.trk.ry) * sm;
+      input.rx = this.trk.rx;
+      input.ry = this.trk.ry;
+      // 轻微的挥速起伏：像真人举着拍子在手里微调
+      input.rvx = dir * (110 + Math.sin(this.t * 3.1) * 50);
+      input.rvy = -70 + Math.cos(this.t * 2.4) * 40;
 
       if (incoming && dist > 1 && dist < 150) {
         // 扣杀门槛：球要高过网一定余量，技术低的人余量要求更大（于是不会一路扣到网上）
@@ -320,8 +366,11 @@ export class AIController {
           rvy: -speed * Math.sin(elevation),
         };
         this.swingTimer = SWING_COMMIT;
-        input.rx = this.swing.rx;
-        input.ry = this.swing.ry;
+        // 挥拍动画从「当前引拍位」出发，扫向击球点（位置在上方 commit 分支里逐帧插值）
+        this.swingFrom = { rx: this.trk.rx, ry: this.trk.ry };
+        this.swingAge = 0;
+        input.rx = this.swingFrom.rx;
+        input.ry = this.swingFrom.ry;
         input.rvx = this.swing.rvx;
         input.rvy = this.swing.rvy;
         input.left = false;

@@ -32,6 +32,7 @@ const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine']);
  * 「在对局中 / 在潜水 …」 and lets a friend join the very same room.
  */
 const SCENES = new Set([
+  'godzilla',
   'off',
   'home',
   'map',

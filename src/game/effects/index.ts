@@ -5,6 +5,8 @@ import { petal, feather, blossom, sakura, leafstorm, mushroom, wind, tornado, sa
 import { lightning, beam, laser, plasma, magnet, portal, blackhole, galaxy, starlight, starfall, aurora, rainbow, holy, sun, moon, atom, dna, sparkle } from './energy';
 import { bubble, note, heart, coin, dice, cube, pyramid, gear, sonic, sonar, web, confetti, comet, bomb, firework, flamenova } from './toy';
 import { eye, ink, pixelate, glitch, binary, butterfly, phantom } from './odd';
+import { pow } from './pow';
+import { gzfire } from './gzfire';
 import { PLUS_PAINTERS, PLUS_SPAN } from './plus';
 import { paintDefault } from './basic';
 import type { EffectPainter } from './types';
@@ -108,6 +110,8 @@ export const EFFECT_SPAN: Record<HitStyle, number> = {
   tide: 0.5,
   starfall: 0.56,
   prismfan: 0.5,
+  pow: 0.5,
+  gzfire: 0.5,
 };
 
 /** every style that has a bespoke painter; the rest use `paintDefault` */
@@ -167,6 +171,8 @@ export const EFFECT_PAINTERS: Partial<Record<HitStyle, EffectPainter>> = {
   plasma,
   poison,
   portal,
+  pow,
+  gzfire,
   prism,
   prismfan,
   pyramid,

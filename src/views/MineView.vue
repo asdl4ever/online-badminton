@@ -13,7 +13,6 @@ import { sfx } from '../game/audio';
 import { toastWarn } from '../composables/useToast';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
-import { isTouchDevice } from '../game/device';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
@@ -30,15 +29,7 @@ const joinCode = ref('');
 const roomCode = ref('');
 const waiting = ref(false);
 const phase = ref('');
-const editing = ref(false);
-const touch = isTouchDevice();
 let link: NetLink | null = null;
-
-function toggleEdit() {
-  const scene = game?.scene.getScene('MiningScene') as MiningScene | undefined;
-  scene?.toggleEditMode();
-  editing.value = !editing.value;
-}
 
 function back() {
   sfx.click();
@@ -145,9 +136,6 @@ onBeforeUnmount(() => {
     <PageShell title="采矿场" back @back="back">
       <template #icons>
         <span class="icon-btn ui-num mine-earn" title="本场收益">本场 ¥{{ sessionTotal }}</span>
-        <button v-if="touch" class="icon-btn jelly" type="button" title="摇杆布局" @click="toggleEdit">
-          摇杆布局
-        </button>
       </template>
 
       <template #dock>
@@ -168,9 +156,6 @@ onBeforeUnmount(() => {
             <Button size="sm" block :disabled="waiting" @click="host">建房</Button>
             <Button size="sm" block :disabled="waiting" @click="join">加入</Button>
           </template>
-          <Button v-if="touch" size="sm" block @click="toggleEdit">
-            {{ editing ? '完成' : '摇杆布局' }}
-          </Button>
         </SideDock>
       </template>
 

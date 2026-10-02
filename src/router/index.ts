@@ -78,6 +78,12 @@ export const router = createRouter({
       name: 'nailong',
       component: () => import('../views/NailongView.vue'),
     },
+    // 哥斯拉来袭（入口在主世界右侧活动栏 + 商店告示板）
+    {
+      path: '/godzilla',
+      name: 'godzilla',
+      component: () => import('../views/GodzillaView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 
   ],

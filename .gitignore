@@ -22,3 +22,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ---- Android / Capacitor ----------------------------------------------------
+# Gradle 与构建产物：都由 `npx cap sync android` / Android Studio 重新生成
+android/.gradle
+android/build
+android/app/build
+android/capacitor-cordova-android-plugins
+android/local.properties
+android/.idea
+# cap sync 会把 dist/ 拷到这里，不需要进版本库
+android/app/src/main/assets/public
+android/app/src/main/assets/capacitor.config.json
+# 正式签名的密钥库严禁提交（debug.keystore 由 Android 自动生成，可以忽略掉）
+*.jks
+*.keystore
+!debug.keystore

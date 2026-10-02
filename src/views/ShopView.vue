@@ -10,6 +10,7 @@ import HonorShopPanel from '../components/HonorShopPanel.vue';
 import { useProgressStore } from '../stores/progress';
 import { useWalk } from '../composables/useWalk';
 import { isTouchDevice } from '../game/device';
+import { useJoystickPrefs } from '../composables/useJoystick';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
 import { useCustomizeStore } from '../stores/customize';
 import { sfx } from '../game/audio';
@@ -49,11 +50,15 @@ const showEvents = ref(false);
 const showHonor = ref(false);
 const showChest = ref(false);
 
-/** 活动卡：小黄龙联名那张可以点开跳转（其余还是占位） */
+/** 活动卡：小黄龙 / 哥斯拉可以点开跳转（其余还是占位） */
 function openEvent(id: string): void {
-  if (id !== 'nailong') return;
-  sfx.click();
-  void router.push('/nailong');
+  if (id === 'nailong') {
+    sfx.click();
+    void router.push('/nailong');
+  } else if (id === 'godzilla') {
+    sfx.click();
+    void router.push('/godzilla');
+  }
 }
 
 const walk = useWalk({
@@ -74,6 +79,9 @@ const { me, joy, nearId, tryEnter } = walk;
 
 /** 手机上没有键盘：提示文案跟着设备走 */
 const touch = isTouchDevice();
+// 摇杆：触屏必显；桌面端开了「摇杆常显」也显示（设置里改）
+const { always: joyAlways } = useJoystickPrefs();
+const showJoy = computed(() => touch || joyAlways.value);
 const nearHint = computed(() =>
   nearId.value ? (touch ? '点按查看' : '按 E 查看') : '',
 );
@@ -95,6 +103,33 @@ const EVENTS = [
     time: '活动进行中',
     tone: 'gold',
     tag: '联动',
+  },
+  {
+    id: 'godzilla',
+    icon: '🦖',
+    title: '哥斯拉来袭 · 拍火球打巨兽',
+    desc: '用球拍把它的火球拍回去砸它扣血，躲开贴地激光；每天 3 次免费挑战，首杀送限定套装',
+    time: '限时活动',
+    tone: 'red',
+    tag: '新活动',
+  },
+  {
+    id: 'placeholder1',
+    icon: '🎪',
+    title: '敬请期待',
+    desc: '更多活动准备中',
+    time: '—',
+    tone: 'blue',
+    tag: '占位',
+  },
+  {
+    id: 'placeholder2',
+    icon: '🎪',
+    title: '敬请期待',
+    desc: '更多活动准备中',
+    time: '—',
+    tone: 'blue',
+    tag: '占位',
   },
   {
     id: 'double-coins',
@@ -198,7 +233,7 @@ const countdown = computed(() => {
           </div>
           <div class="room__hint">{{ walkHint }}</div>
 
-          <Joystick @move="(x, y) => (joy = { x, y })" />
+          <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
         </div>
       </template>
     </PageShell>

@@ -1,22 +1,31 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VTextField } from 'vuetify/components';
+import { VSlider, VSwitch, VTextField } from 'vuetify/components';
 import Button from './ui/Button.vue';
 import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
 import { toastBad, toastGood } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
+import { useJoystickPrefs } from '../composables/useJoystick';
 import { sfx } from '../game/audio';
 import { RARITY_META, type Rarity } from '../game/items';
 import type { CharacterSkin } from '../game/cosmetics';
 
 /**
- * 设置：目前主要是**兑换码**。
+ * 设置：兑换码 + 全局操作开关（摇杆常显 / 自由摇杆 / 摇杆大小）。
  * 码表在 `stores/progress.ts` 的 `REDEEM_CODES`（例：`ux7891` → U熊皮肤），
  * 一个码只能用一次，换到的东西直接进收藏（和宝箱一样），角色形象会顺手穿上。
  */
 const progress = useProgressStore();
 const customize = useCustomizeStore();
+const {
+  always: joyAlways,
+  setAlways: setJoyAlways,
+  free: joyFree,
+  setFree: setJoyFree,
+  scale: joyScale,
+  setScale: setJoyScale,
+} = useJoystickPrefs();
 
 const code = ref('');
 const unlocked = ref<{ label: string; rarity: Rarity } | null>(null);
@@ -71,6 +80,46 @@ function submit(): void {
     </section>
 
     <section class="set__block">
+      <h4 class="set__title">操作</h4>
+      <VSwitch
+        :model-value="joyAlways"
+        color="primary"
+        hide-details
+        label="桌面端也显示虚拟摇杆"
+        @update:model-value="setJoyAlways(!!$event)"
+      />
+      <VSwitch
+        :model-value="joyFree"
+        color="primary"
+        hide-details
+        label="自由摇杆（左侧按下才出现，松手消失）"
+        @update:model-value="setJoyFree(!!$event)"
+      />
+      <div class="set__slider">
+        <span class="set__slider-label">摇杆大小</span>
+        <VSlider
+          :model-value="joyScale"
+          :min="0.7"
+          :max="1.5"
+          :step="0.05"
+          color="primary"
+          thumb-label
+          hide-details
+          @update:model-value="setJoyScale(Number($event))"
+        />
+      </div>
+      <p class="muted set__hint">
+        自由摇杆：大地图 / 商店 / 宠物店在左侧区域按下，摇杆出现在手指下，松手消失；
+        比赛里是左半屏（右半屏仍然是瞄准球拍）。大小对全部摇杆生效（比赛下一局生效）。
+        比赛里把左摇杆往上推仍然是<b>起跳</b>，操作逻辑没有变化。
+      </p>
+      <p class="muted set__hint">
+        「桌面端也显示虚拟摇杆」：触屏设备始终显示；打开后电脑上也在大地图 / 商店 /
+        宠物店 / 比赛 / 矿洞 / 农场 / 潜水常显摇杆（比赛场景下一局生效）。
+      </p>
+    </section>
+
+    <section class="set__block">
       <h4 class="set__title">提示</h4>
       <ul class="set__list muted">
         <li>角色形象在「背包 → 角色形象」里换，U熊的肚皮能把球弹回去。</li>
@@ -117,6 +166,19 @@ function submit(): void {
 .set__hint {
   margin: 0;
   font-size: 12px;
+}
+
+.set__slider {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0 var(--s1);
+}
+
+.set__slider-label {
+  flex: none;
+  font-size: 13px;
+  color: var(--text);
 }
 
 .set__list {

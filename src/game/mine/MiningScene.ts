@@ -17,6 +17,7 @@ import {
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
 import { P } from '../theme';
@@ -174,7 +175,8 @@ export class MiningScene extends Phaser.Scene {
     }
     // multi-touch: the default single pointer cannot move and aim at once
     this.input.addPointer(3);
-    this.touchControls = isTouchDevice() ? new TouchControls(this) : null;
+    // 触屏必开；桌面端开了「摇杆常显」也开
+    this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
 
     const link = this.cfg.session;
     if (link) {
@@ -213,10 +215,6 @@ export class MiningScene extends Phaser.Scene {
     this.draw();
     this.touchControls?.draw();
     this.sendPose(dt);
-  }
-
-  toggleEditMode(): void {
-    this.touchControls?.setEditing(!this.touchControls.editing);
   }
 
   // ---- player --------------------------------------------------------------

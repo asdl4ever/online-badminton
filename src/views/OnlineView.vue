@@ -14,13 +14,18 @@ import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
 import EmotePicker from '../components/ui/EmotePicker.vue';
 import FriendsPanel from '../components/FriendsPanel.vue';
+import { NET_P2P_ONLY, NET_UNAVAILABLE, netAvailable, relayAvailable } from '../net/relay';
+
+/** 连直连都不行（罕见）：整页没法用 */
+const netBlocked = !netAvailable();
+/** App 里没配中继服务器：只剩直连通道，给个温和提醒 */
+const p2pOnly = netAvailable() && !relayAvailable();
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
 import { emptyPartyState, type PartyState } from '../game/config';
-import { isTouchDevice } from '../game/device';
 import { useGameStore } from '../stores/game';
 import { useLobbyStore } from '../stores/lobby';
 import { useCustomizeStore } from '../stores/customize';
@@ -40,10 +45,8 @@ const notice = ref('');
 const leaving = ref(false);
 const phaseText = ref('');
 const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
-const editing = ref(false);
 const emoteOpen = ref(false);
 const friendsOpen = ref(false);
-const touch = isTouchDevice();
 
 /** fun mode: entered from the home page, driven by the host */
 const partyMode = ref(route.query.party === '1');
@@ -243,15 +246,6 @@ onBeforeUnmount(() => {
         </button>
         <!-- 挂在图标行上：模式设置面板收起来时也要能看到/点到 -->
         <EmotePicker v-if="emoteOpen" @pick="pickEmote" @close="emoteOpen = false" />
-        <button
-          v-if="touch"
-          class="icon-btn jelly"
-          type="button"
-          title="摇杆布局"
-          @click="canvas?.toggleEditMode()"
-        >
-          摇杆布局
-        </button>
         <button class="icon-btn jelly" type="button" title="邀请好友" @click="friendsOpen = true">
           邀请好友
         </button>
@@ -259,12 +253,11 @@ onBeforeUnmount(() => {
 
       <template #dock>
         <SideDock>
+          <p v-if="netBlocked" class="dock-warn">⚠️ {{ NET_UNAVAILABLE }}</p>
+          <p v-else-if="p2pOnly" class="dock-warn">ℹ️ {{ NET_P2P_ONLY }}</p>
           <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
           <!-- 右上角那排图标可以整体收起，所以这里再给一个入口；表情面板本身挂在图标行上 -->
           <Button size="sm" block @click="emoteOpen = !emoteOpen">表情</Button>
-          <Button v-if="touch" size="sm" block @click="canvas?.toggleEditMode()">
-            {{ editing ? '完成' : '摇杆布局' }}
-          </Button>
           <Button size="sm" block @click="friendsOpen = true">邀请好友</Button>
         </SideDock>
       </template>
@@ -284,7 +277,6 @@ onBeforeUnmount(() => {
           @hud="onHud"
           @sim="onEvent"
           @metrics="onMetrics"
-          @editmode="editing = $event"
           @disconnect="onDisconnect"
           @themechange="customize.theme = $event"
           @party="partyState = $event"
@@ -468,5 +460,14 @@ onBeforeUnmount(() => {
   max-width: 210px;
   letter-spacing: 3px;
   text-transform: uppercase;
+}
+.dock-warn {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, #e8a33d 16%, transparent);
+  font-size: var(--ui-font-xs);
+  line-height: 1.5;
+  color: var(--text);
 }
 </style>

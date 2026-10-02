@@ -176,6 +176,30 @@ export function drawSwingTrail(
       arcAt(reach, 3 + 4 * hot, 0xffffff, 0.3 + 0.45 * hot);
       break;
     }
+    case 'atomic': {
+      // 原子吐息：三层电蓝能量弧 + 翻涌的白芯，像哥斯拉的吐息扫过
+      arcAt(reach, 13 + 9 * hot, 0x123a4a, 0.45 + 0.3 * hot);
+      for (let k = 0; k < 3; k++) {
+        arcAt(reach - k * 5, 4 - k, color, (0.42 - k * 0.1) * (0.6 + hot));
+      }
+      arcAt(reach + 2, 2 + 2 * hot, 0xffffff, 0.25 + 0.5 * hot);
+      break;
+    }
+    case 'tempo': {
+      // 节拍器：主弧 + 均匀刻度短线，像节拍器摆杆上的一格格刻度
+      arcAt(reach, 7 + 6 * hot, color, 0.4 + 0.3 * hot);
+      for (let k = 1; k <= 5; k++) {
+        const a = a0 + (a1 - a0) * (k / 6);
+        g.lineStyle(2, 0xffffff, 0.3 + 0.4 * hot);
+        g.lineBetween(
+          sx + Math.cos(a) * (reach - 6),
+          sy + Math.sin(a) * (reach - 6),
+          sx + Math.cos(a) * (reach + 6 + k * hot * 2),
+          sy + Math.sin(a) * (reach + 6 + k * hot * 2),
+        );
+      }
+      break;
+    }
     case 'shock': {
       for (let k = 0; k < 3; k++) arcAt(reach + k * 7, 5 - k, color, (0.34 - 0.09 * k) * (0.5 + hot));
       break;

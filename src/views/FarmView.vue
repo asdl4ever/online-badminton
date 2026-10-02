@@ -12,7 +12,6 @@ import { FARM_MAX_LEVEL, FARM_UPGRADE_COST, TRACTOR_COST } from '../game/items';
 import { applyTheme } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
-import { isTouchDevice } from '../game/device';
 import { useCustomizeStore } from '../stores/customize';
 import { useProgressStore } from '../stores/progress';
 
@@ -28,8 +27,6 @@ let game: Phaser.Game | null = null;
 
 const sessionTotal = ref(0);
 const remaining = ref(0);
-const editing = ref(false);
-const touch = isTouchDevice();
 let timer: number | undefined;
 
 const scene = (): FarmScene | undefined =>
@@ -37,11 +34,6 @@ const scene = (): FarmScene | undefined =>
 
 const upgradeCost = computed(() => FARM_UPGRADE_COST[progress.farmLevel] ?? 0);
 const maxed = computed(() => progress.farmLevel >= FARM_MAX_LEVEL);
-
-function toggleEdit(): void {
-  scene()?.toggleEditMode();
-  editing.value = !editing.value;
-}
 
 function back(): void {
   sfx.click();
@@ -131,9 +123,6 @@ onBeforeUnmount(() => {
     <PageShell title="农场" back @back="back">
       <template #icons>
         <span class="icon-btn ui-num farm-earn" title="本场收益">本场 ¥{{ sessionTotal }}</span>
-        <button v-if="touch" class="icon-btn jelly" type="button" title="摇杆布局" @click="toggleEdit">
-          摇杆布局
-        </button>
       </template>
 
       <template #dock>
@@ -152,9 +141,6 @@ onBeforeUnmount(() => {
           </Button>
           <Button v-else size="sm" block @click="harvestAll">🚜 一键收全地</Button>
 
-          <Button v-if="touch" size="sm" block @click="toggleEdit">
-            {{ editing ? '完成' : '摇杆布局' }}
-          </Button>
           <p class="dock-note">
             把球拍挥到棉花上就能摘；买断拖拉机后可以一键把整片地收完。
           </p>

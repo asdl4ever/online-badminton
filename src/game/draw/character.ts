@@ -166,6 +166,17 @@ export function drawCape(g: Phaser.GameObjects.Graphics, now: number, x: number,
       g.fillCircle(x, baseY + 4, 4);
       break;
     }
+    case 'towel': {
+      // 冠军毛巾：肩上一条白毛巾，红条纹，尾端随 sway 轻摆
+      g.fillStyle(color, 0.96);
+      g.fillRect(x - w * 0.5, baseY, w, len);
+      g.fillStyle(0xd42a3a, 0.9);
+      g.fillRect(x - w * 0.5, baseY + len - 10, w, 4);
+      g.fillRect(x - w * 0.5, baseY + len - 20, w, 3);
+      g.fillStyle(0xffffff, 0.35);
+      g.fillRect(x - w * 0.5, baseY + 4, w, 3);
+      break;
+    }
   }
 }
 
@@ -187,6 +198,19 @@ export function drawHat(g: Phaser.GameObjects.Graphics, x: number, topY: number,
       g.fillEllipse(x, hy + 2, 30, 20);
       g.fillRect(x - 16, hy + 2, 32, 5);
       g.fillRect(x + 2, hy + 2, 16, 4);
+      break;
+    }
+    case 'coachcap': {
+      // 教练帽：绿呢帽身 + 前伸帽檐 + 侧面小旗徽
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 2, 30, 20);
+      g.fillRect(x - 16, hy + 2, 32, 5);
+      g.fillStyle(0x24482c, 1);
+      g.fillRect(x - 16, hy + 4, 32, 3);
+      g.fillStyle(0xd8cba0, 1);
+      g.fillRect(x + 2, hy + 2, 18, 4); // 帽檐
+      g.fillStyle(0xe8a33d, 1); // 旗徽
+      g.fillTriangle(x - 10, hy - 4, x - 10, hy + 4, x - 2, hy);
       break;
     }
     case 'horn': {
@@ -2422,6 +2446,40 @@ export function drawAura(
       g.fillCircle(x, cy + 46 - rise, 4);
       break;
     }
+    case 'spotlight': {
+      // 训练聚光灯：一束从头顶打下来的暖光，微微摆动
+      const swayA = Math.sin(now / 900) * 0.08;
+      const topX = x + Math.sin(now / 900) * 20;
+      for (let k = 0; k < 2; k++) {
+        const spread = 34 + k * 16;
+        g.fillStyle(0xfff0c0, 0.1 - k * 0.03);
+        g.beginPath();
+        g.moveTo(topX - 10, cy - 90);
+        g.lineTo(topX + 10, cy - 90);
+        g.lineTo(x + spread + swayA * 40, cy + 70);
+        g.lineTo(x - spread + swayA * 40, cy + 70);
+        g.closePath();
+        g.fillPath();
+      }
+      g.fillStyle(0xfff6d8, 0.5 + 0.2 * pulse);
+      g.fillCircle(topX, cy - 90, 6);
+      break;
+    }
+    case 'dorsal': {
+      // 背鳍光焰：绕身一周的哥式背鳍，尖端窜着原子蓝的火苗
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2 + now / 1400;
+        const px = x + Math.cos(a) * 30;
+        const py = cy + Math.sin(a) * 40;
+        const tipX = px + Math.cos(a) * 13;
+        const tipY = py + Math.sin(a) * 15 - 4;
+        g.fillStyle(0x2c5f68, 0.95);
+        g.fillTriangle(px - 5, py, px + 5, py, tipX, tipY);
+        g.fillStyle(0x8fe0ff, 0.5 + 0.35 * Math.sin(now / 180 + k));
+        g.fillTriangle(px - 2.4, py - 2, px + 2.4, py - 2, tipX, tipY);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -2454,6 +2512,23 @@ export function drawWings(g: Phaser.GameObjects.Graphics, now: number, x: number
 
   for (const dir of [-1, 1]) {
     switch (shape.kind) {
+      case 'turbo': {
+        // 涡轮双翼：金属机翼 + 一圈旋转的涡轮叶片
+        const ang = -Math.PI / 2 + dir * (0.35 + flap * 0.4);
+        const tipX = x + Math.cos(ang) * shape.len;
+        const tipY = baseY + Math.sin(ang) * shape.len;
+        g.fillStyle(color, 0.9);
+        g.fillTriangle(x + dir * 6, baseY - 14, x + dir * 6, baseY + 12, tipX, tipY);
+        g.fillStyle(0xdfe8ff, 0.9);
+        g.fillTriangle(x + dir * 6, baseY - 14, x + dir * 6, baseY - 2, tipX, tipY);
+        // 涡轮：绕翼根转的小叶片
+        for (let k = 0; k < 3; k++) {
+          const a = now / 120 + (k / 3) * Math.PI * 2;
+          g.fillStyle(0xffb03a, 0.85);
+          g.fillCircle(x + dir * 10 + Math.cos(a) * 7, baseY - 4 + Math.sin(a) * 4, 2.2);
+        }
+        break;
+      }
       case 'membrane': {
         g.fillStyle(color, 0.85);
         g.beginPath();
@@ -2987,6 +3062,69 @@ function drawDragonlord(g: Phaser.GameObjects.Graphics, now: number, pose: Chara
 }
 
 /**
+ * 发球机教练（发球机活动专属）：运动服 + 哨子 + 腕带，肚兜式上衣配条纹，
+ * 手里那股「来，再练一筐球」的劲头全靠胸前的哨子表达。
+ */
+function drawCoach(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const shirt = 0x356a45;
+  const shirtLight = 0x4f8a5f;
+  const skin = 0xf0c9a0;
+  const whistle = Math.sin(now / 300) > 0.86;
+
+  // 腿 + 运动鞋
+  g.fillStyle(0x2a3442, 1);
+  g.fillRoundedRect(x - 14, pose.feetY - 32, 12, 32, 5);
+  g.fillRoundedRect(x + 2, pose.feetY - 32, 12, 32, 5);
+  g.fillStyle(0xf2f6ff, 1);
+  g.fillEllipse(x - 8, pose.feetY - 2, 18, 8);
+  g.fillEllipse(x + 8, pose.feetY - 2, 18, 8);
+  // 条纹袜
+  g.fillStyle(0xd42a3a, 1);
+  g.fillRect(x - 14, pose.feetY - 18, 12, 3);
+  g.fillRect(x + 2, pose.feetY - 18, 12, 3);
+
+  // 运动服躯干 + 白条纹
+  g.fillStyle(shirt, 1);
+  g.fillRoundedRect(x - 22, topY + 34, 44, PLAYER_H - 58, 12);
+  g.fillStyle(shirtLight, 1);
+  g.fillRoundedRect(x - 13, topY + 40, 26, 30, 8);
+  g.fillStyle(0xffffff, 0.85);
+  g.fillRect(x - 22, topY + 40, 44, 3);
+  g.fillRect(x - 22, topY + 46, 44, 2);
+
+  // 手臂 + 腕带
+  g.fillStyle(shirt, 1);
+  g.fillRoundedRect(x + f * 20 - 8, topY + 46, 16, 40, 8);
+  g.fillStyle(skin, 1);
+  g.fillCircle(x + f * 20, topY + 90, 8);
+  g.fillStyle(0xe8a33d, 1);
+  g.fillRect(x + f * 20 - 6, topY + 78, 12, 4);
+
+  // 头 + 鸭舌帽（同 coachcap 配色）
+  g.fillStyle(skin, 1);
+  g.fillCircle(x, topY + 18, 15);
+  g.fillStyle(0x2f5d3a, 1);
+  g.fillEllipse(x, topY + 6, 32, 14);
+  g.fillStyle(0xd8cba0, 1);
+  g.fillRect(x + f * 2, topY + 6, 16, 3);
+  g.fillStyle(0x1c2430, 1);
+  g.fillCircle(x + f * 6, topY + 20, 2.2);
+
+  // 胸前哨子：吹的瞬间亮一下
+  g.fillStyle(0xe8a33d, whistle ? 1 : 0.85);
+  g.fillRoundedRect(x - 4, topY + 52, 9, 6, 2);
+  g.fillStyle(0x8b5a2b, 1);
+  g.fillRect(x - 3, topY + 44, 2, 8);
+  if (whistle) {
+    g.lineStyle(2, 0xffffff, 0.5);
+    g.strokeCircle(x, topY + 55, 9 + Math.sin(now / 90) * 2);
+  }
+}
+
+/**
  * U熊：敦实的熊，胸口有肌肉、肚子很大。肚子被打中时会像果冻一样变宽变扁
  * （`pose.belly`），和模拟层那块「把球弹开」的肚皮圆（见 simulation.ts 的
  * `BELLY_R / BELLY_CY`）位置一致，所以看起来就是那里把球弹走的。
@@ -3178,6 +3316,17 @@ export function drawRing(
       g.fillEllipse(x + 10, y - 8, 9, 5);
       break;
     }
+    case 'courtline': {
+      // 场地标线：脚下画一圈球场边线 + 中线角标
+      g.lineStyle(3, color, 0.85);
+      g.strokeEllipse(x, y, 52, 16);
+      g.lineStyle(2, color, 0.6);
+      g.lineBetween(x, y - 8, x, y + 8);
+      g.fillStyle(color, 0.5 + 0.2 * Math.sin(now / 500));
+      g.fillEllipse(x - 26, y, 3, 10);
+      g.fillEllipse(x + 26, y, 3, 10);
+      break;
+    }
     case 'bamboo': {
       // 青竹：竹节虚线环
       g.lineStyle(3, color, 0.8);
@@ -3303,6 +3452,8 @@ export function drawCharacter(
     drawDragonlord(g, now, pose);
   } else if (cos.characterSkin === 'nailong') {
     drawNailong(g, now, pose);
+  } else if (cos.characterSkin === 'coach') {
+    drawCoach(g, now, pose);
   } else {
     g.fillStyle(pose.color, 1);
     g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);

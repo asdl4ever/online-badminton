@@ -7,7 +7,12 @@ import Button from '../components/ui/Button.vue';
 import GameCanvas from '../components/GameCanvas.vue';
 import NailongPanel from '../components/NailongPanel.vue';
 import { DEFAULT_COSMETIC } from '../game/cosmetics';
-import { NAILONG_NAME, NAILONG_OPTION_ID, NAILONG_STATS } from '../game/nailong';
+import {
+  NAILONG_DAILY_MAX,
+  NAILONG_NAME,
+  NAILONG_OPTION_ID,
+  NAILONG_STATS,
+} from '../game/nailong';
 import type { MatchOpponent } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import { sfx } from '../game/audio';
@@ -30,6 +35,8 @@ const progress = useProgressStore();
 const match = ref(false);
 const round = ref(0);
 const result = ref<'win' | 'lose' | null>(null);
+/** 结果横幅上的文字：把「券有没有加上 / 为什么没加」直接写出来，不靠一闪而过的 toast */
+const resultText = ref('');
 
 /** 小黄龙这位对手：联名形象 + 中等偏下的四维（新手也能赢下来） */
 const opponent: MatchOpponent = {
@@ -43,6 +50,7 @@ const canvasKey = computed(() => `nailong-${round.value}`);
 function start(): void {
   sfx.click();
   result.value = null;
+  resultText.value = '';
   round.value += 1;
   match.value = true;
 }
@@ -61,10 +69,15 @@ function onEvent(e: SimEvent): void {
       sfx.win();
       // 只算赢：打赢才给券，输了一分不给
       const r = progress.earnNailongTicket();
+      // 券加了 / 为什么没加，都直接写在横幅上（toast 一闪而过容易漏看）
+      resultText.value = r.ok
+        ? `🎉 赢下小黄龙！${r.message}`
+        : `🎉 赢了，但${r.message}（今日已赢满，券不再增加）`;
       if (r.ok) toastGood(r.message);
       else toastWarn(r.message);
     } else {
       sfx.lose();
+      resultText.value = '😵 输给小黄龙了 —— 只有赢球才给券哦';
       toastWarn('输给小黄龙啦，再来一场？');
     }
   }
@@ -90,7 +103,10 @@ function back(): void {
   <div class="page page--playing">
     <PageShell title="小黄龙联名" back @back="back">
       <template #icons>
-        <span class="icon-btn ui-num nl-tickets">🎟 {{ progress.nailongTickets }}</span>
+        <span class="icon-btn ui-num nl-tickets">
+          🎟 {{ progress.nailongTickets }}
+          <em class="nl-today">今日 {{ progress.nailongLeftToday }}/{{ NAILONG_DAILY_MAX }}</em>
+        </span>
       </template>
 
       <template #stage>
@@ -122,9 +138,7 @@ function back(): void {
 
         <div v-if="match" class="nl-banner">
           <span class="num">
-            <template v-if="result === 'win'">🎉 赢下小黄龙！抽奖券 +1</template>
-            <template v-else-if="result === 'lose'">输给小黄龙了，要再来一场吗？</template>
-            <template v-else>⚔️ 趣味模式 · 小黄龙滚滚（先到 5 分）</template>
+            {{ result ? resultText : '⚔️ 趣味模式 · 小黄龙滚滚（先到 5 分）' }}
           </span>
           <Button size="sm" @click="start">再来一场</Button>
           <Button size="sm" variant="quiet" @click="leave">回到转盘</Button>
@@ -139,6 +153,14 @@ function back(): void {
   font-weight: 700;
   color: #e8a33d;
   font-size: var(--ui-font-sm);
+}
+
+.nl-today {
+  margin-left: 4px;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 .nl-stage {

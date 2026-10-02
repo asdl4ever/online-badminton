@@ -19,6 +19,7 @@ import {
   GACHA_POOL,
   honorPriceOf,
   ITEMS,
+  MILESTONE_REWARD,
   PET_EGGS,
   PET_STAR_META,
   PETS,
@@ -61,6 +62,7 @@ import {
   rollWheelIndex,
   WHEEL_PRIZES,
 } from '../game/nailong';
+import { GZ_DIFFS, GZ_DAILY_MAX, GZ_SET_IDS, type GzDifficulty } from '../game/godzilla';
 import {
   ARENA_COOLDOWN_MS,
   ARENA_ROUNDS,
@@ -173,6 +175,68 @@ export const useProgressStore = defineStore('progress', () => {
     const used = nailongDay.value === todayKey() ? nailongWins.value : 0;
     return Math.max(0, NAILONG_DAILY_MAX - used);
   });
+  // ---- 哥斯拉来袭：每日次数 / 击杀数 / 首杀 ----
+  /** 今天已经用掉几次哥斯拉挑战 */
+  const gzUsed = useLocalStorage('bmt-gz-used', 0);
+  /** 次数属于哪一天（YYYY-MM-DD，跨天自动重置） */
+  const gzDay = useLocalStorage('bmt-gz-day', '');
+  /** 累计击杀哥斯拉的次数（刷战绩用） */
+  const gzKills = useLocalStorage('bmt-gz-kills', 0);
+  /** 是否已经拿过首杀限定套装 */
+  const gzFirstKill = useLocalStorage('bmt-gz-first-kill', false);
+
+  /** 今天还剩几次哥斯拉挑战 */
+  const gzLeftToday = computed(() =>
+    Math.max(0, GZ_DAILY_MAX - (gzDay.value === todayKey() ? gzUsed.value : 0)),
+  );
+
+  /**
+   * 开打前扣一次每日次数（失败也算）。
+   * 返回是否允许开打；不允许时 `message` 说明原因。
+   */
+  function useGodzillaAttempt(): { ok: boolean; message: string } {
+    if (gzDay.value !== todayKey()) {
+      gzDay.value = todayKey();
+      gzUsed.value = 0;
+    }
+    if (gzUsed.value >= GZ_DAILY_MAX) {
+      return { ok: false, message: `今天 ${GZ_DAILY_MAX} 次挑战已经用完了，明天再来` };
+    }
+    gzUsed.value += 1;
+    return { ok: true, message: `剩余次数 ${GZ_DAILY_MAX - gzUsed.value}` };
+  }
+
+  /**
+   * 击杀哥斯拉的结算：首杀（任意难度）送「哥斯拉来袭」限定套装，
+   * 重复击杀按难度给金币 + 荣誉点。返回界面拿来弹横幅的信息。
+   */
+  function grantGodzillaKill(difficulty: GzDifficulty): {
+    coins: number;
+    honor: number;
+    firstKill: boolean;
+    items: Item[];
+  } {
+    const cfg = GZ_DIFFS[difficulty];
+    coins.value += cfg.coins;
+    honor.value += cfg.honor;
+    gzKills.value += 1;
+
+    let first = false;
+    const items: Item[] = [];
+    if (!gzFirstKill.value) {
+      first = true;
+      gzFirstKill.value = true;
+      for (const id of GZ_SET_IDS) {
+        const it = ITEMS.find((i) => i.id === id);
+        if (it) {
+          if (!owned.value.includes(it.id)) owned.value = [...owned.value, it.id];
+          items.push(it);
+        }
+      }
+    }
+    return { coins: cfg.coins, honor: cfg.honor, firstKill: first, items };
+  }
+
   /** ids of gacha items the player has won */
   const owned = useLocalStorage<string[]>('bmt-owned', []);
   /** highest star level owned per pet ref (absent = not hatched yet) */
@@ -183,6 +247,10 @@ export const useProgressStore = defineStore('progress', () => {
   const pity = useLocalStorage('bmt-pity', 0);
   /** machine-mode combo milestones (10/20/…/100) already claimed */
   const milestones = useLocalStorage<number[]>('bmt-milestones', []);
+  /** 发球机模式的历史最高连击：里程碑详情页的进度条就是它 */
+  const machineBest = useLocalStorage('bmt-machine-best', 0);
+  /** 每一档里程碑实际解锁到的物品（"里程碑编号 → 物品 id"），详情页拿来回显 */
+  const milestoneLog = useLocalStorage<Record<string, string>>('bmt-milestone-log', {});
   /** 渔具等级（1-5，老存档的"鱼竿等级"沿用这个键）：钩子更大、能拉更大的鱼 */
   const rodLevel = useLocalStorage('bmt-rod-level', 1);
   /** 农场采摘等级：= 一次挥拍能同时摘下的棉花数（初始 1） */
@@ -270,8 +338,9 @@ export const useProgressStore = defineStore('progress', () => {
     if (item.source === 'gacha' || item.source === 'code') return owned.value.includes(item.id);
     if (item.source === 'egg') return (petStars.value[item.ref] ?? 0) > 0;
     if (item.source === 'streak') return milestones.value.includes(100);
-    // 荣誉商店 / 活动限定的东西：拿到过才算拥有（都记在 owned 里）
-    if (item.source === 'honor' || item.source === 'event') return owned.value.includes(item.id);
+    // 荣誉商店 / 活动限定 / 连击里程碑的东西：拿到过才算拥有（都记在 owned 里）
+    if (item.source === 'honor' || item.source === 'event' || item.source === 'combo')
+      return owned.value.includes(item.id);
     return claimed.value.includes(item.source);
   }
 
@@ -679,15 +748,32 @@ export const useProgressStore = defineStore('progress', () => {
   }
 
   /**
-   * A machine-mode combo milestone (10/20/…/100). First time only: 10..90 give
-   * one random gacha item, 100 unlocks the Godzilla character form.
+   * 发球机里连击涨了就报一笔：只用来刷新历史最高连击（里程碑进度条读数）。
+   */
+  function noteMachineStreak(streak: number): void {
+    if (streak > machineBest.value) machineBest.value = streak;
+  }
+
+  /**
+   * 发球机连击里程碑（10/20/…/100），每个只算一次。
+   * 10~90 给「复古训练房」套装里为这个活动定制的同主题装扮
+   * （固定对照表见 items.MILESTONE_REWARD，不进宝箱池）；
+   * 100 解锁传说角色形象「哥斯拉」，并**额外**送同主题的「发球机教练」形象。
    */
   function claimMilestone(n: number): { kind: 'item'; item: Item } | { kind: 'godzilla' } | null {
     if (n <= 0 || n % 10 !== 0 || milestones.value.includes(n)) return null;
     milestones.value = [...milestones.value, n];
-    if (n >= 100) return { kind: 'godzilla' };
-    const item = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
+    if (n >= 100) {
+      // 哥斯拉之外，顺手把活动专属的教练形象也放进收藏（不自动换装）
+      const coach = ITEMS.find((i) => i.id === 'skin:coach');
+      if (coach && !owned.value.includes(coach.id)) owned.value = [...owned.value, coach.id];
+      return { kind: 'godzilla' };
+    }
+    const itemId = MILESTONE_REWARD[n];
+    const item = itemId ? ITEMS.find((i) => i.id === itemId) : undefined;
+    if (!item) return null;
     if (!owned.value.includes(item.id)) owned.value = [...owned.value, item.id];
+    milestoneLog.value = { ...milestoneLog.value, [String(n)]: item.id };
     return { kind: 'item', item };
   }
 
@@ -1052,6 +1138,9 @@ export const useProgressStore = defineStore('progress', () => {
     resetAttrs,
     isOwned,
     milestones,
+    machineBest,
+    milestoneLog,
+    noteMachineStreak,
     rodLevel,
     farmLevel,
     tractor,
@@ -1070,6 +1159,10 @@ export const useProgressStore = defineStore('progress', () => {
     nailongLeftToday,
     earnNailongTicket,
     spinNailongWheel,
+    gzLeftToday,
+    useGodzillaAttempt,
+    grantGodzillaKill,
+    gzKills,
     sailTo,
     achStats,
     achDone,

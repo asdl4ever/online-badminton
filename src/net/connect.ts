@@ -1,4 +1,10 @@
-import { RelaySession } from './relay';
+import {
+  NET_UNAVAILABLE,
+  netAvailable,
+  p2pAvailable,
+  relayAvailable,
+  RelaySession,
+} from './relay';
 import { createHostSession, joinSession } from './session';
 import { normaliseCode, randomRoomCode, type NetLink, type NetStatus } from './link';
 
@@ -74,28 +80,35 @@ function wire(link: NetLink, hooks: ConnectHooks): void {
  * 就靠它），不传时才随机生成一个新号。
  */
 export async function hostOpen(hooks: ConnectHooks = {}, wantCode = ''): Promise<HostRoom> {
+  if (!netAvailable()) throw new Error(NET_UNAVAILABLE);
   const mode = netMode();
   const code = normaliseCode(wantCode) || randomRoomCode();
   const candidates: NetLink[] = [];
 
-  if (mode !== 'relay') {
+  // 两条通道各按自身可用性决定用不用（App 里没配中继 → 只剩直连，仍能尝试）
+  const useP2P = mode !== 'relay' && p2pAvailable();
+  const useRelay = mode !== 'p2p' && relayAvailable();
+  if (!useP2P && !useRelay) throw new Error(NET_UNAVAILABLE);
+
+  if (useP2P) {
     try {
       const s = await createHostSession(code);
       wire(s, hooks);
       candidates.push(s);
     } catch (err) {
-      if (mode === 'p2p') throw err;
+      // 只剩这一条通道时，错误才有必要抛给玩家
+      if (!useRelay) throw err;
       hooks.onPhase?.(`直连通道不可用：${(err as Error).message}`);
     }
   }
 
-  if (mode !== 'p2p') {
+  if (useRelay) {
     try {
       const s = await RelaySession.host(code);
       wire(s, hooks);
       candidates.push(s);
     } catch (err) {
-      if (mode === 'relay' || candidates.length === 0) {
+      if (!useP2P || candidates.length === 0) {
         throw new Error(`中继通道不可用：${(err as Error).message}`);
       }
     }
@@ -124,9 +137,13 @@ export async function hostOpen(hooks: ConnectHooks = {}, wantCode = ''): Promise
  * player is not stalled 6s on every match.
  */
 export async function joinMatch(code: string, hooks: ConnectHooks = {}): Promise<Match> {
+  if (!netAvailable()) throw new Error(NET_UNAVAILABLE);
   const mode = netMode();
+  const useP2P = mode !== 'relay' && p2pAvailable();
+  const useRelay = mode !== 'p2p' && relayAvailable();
+  if (!useP2P && !useRelay) throw new Error(NET_UNAVAILABLE);
 
-  if (mode !== 'relay') {
+  if (useP2P) {
     const grace = storedPreference() === 'relay' ? P2P_RETRY_MS : P2P_GRACE_MS;
     hooks.onPhase?.('尝试直连…');
     try {
@@ -137,9 +154,13 @@ export async function joinMatch(code: string, hooks: ConnectHooks = {}): Promise
       hooks.onPhase?.('');
       return { link, code };
     } catch (err) {
-      if (mode === 'p2p') throw err;
+      if (!useRelay) throw err;
       hooks.onPhase?.(`直连打不通（${(err as Error).message}），改用中继…`);
     }
+  }
+
+  if (!useRelay) {
+    throw new Error('直连打不通，且当前版本未配置中继服务器');
   }
 
   const link = await RelaySession.join(code);

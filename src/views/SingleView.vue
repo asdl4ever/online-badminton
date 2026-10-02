@@ -14,7 +14,6 @@ import type { SimEvent } from '../game/types';
 import { STYLE_META, tierFromStats } from '../game/ai';
 import { ensureStats, pickOpponent, type AiPlayer } from '../game/players';
 import { sfx } from '../game/audio';
-import { isTouchDevice } from '../game/device';
 import { useGameStore, type PracticeMode } from '../stores/game';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
@@ -26,10 +25,6 @@ const customize = useCustomizeStore();
 const lobby = useLobbyStore();
 const progress = useProgressStore();
 const hud = ref<HudState | null>(null);
-const canvas = ref<InstanceType<typeof GameCanvas> | null>(null);
-const editing = ref(false);
-/** the layout editor only makes sense where the on-screen sticks exist */
-const touch = isTouchDevice();
 
 const practices: Choice[] = [
   { value: 'ai', label: '对战 AI' },
@@ -87,6 +82,8 @@ watch(
   () => hud.value?.machine?.streak ?? 0,
   (streak) => {
     if (!isMachine.value || streak <= 0) return;
+    // 先记下历史最高连击（里程碑详情页的进度条用它），再看有没有新解锁的档位
+    progress.noteMachineStreak(streak);
     const reward = progress.claimMilestone(streak);
     if (!reward) return;
     if (reward.kind === 'godzilla') {
@@ -151,15 +148,6 @@ onBeforeUnmount(() => {
         >
           换对手
         </button>
-        <button
-          v-if="touch"
-          class="icon-btn jelly"
-          type="button"
-          title="摇杆布局"
-          @click="canvas?.toggleEditMode()"
-        >
-          摇杆布局
-        </button>
       </template>
 
       <template #dock>
@@ -170,9 +158,6 @@ onBeforeUnmount(() => {
             label="模式"
             @update:model-value="setPractice"
           />
-          <Button v-if="touch" size="sm" block @click="canvas?.toggleEditMode()">
-            {{ editing ? '完成' : '摇杆布局' }}
-          </Button>
           <div v-if="currentOpponent" class="dock-opponent">
             对手：{{ currentOpponent.name }} · {{ opponentStyleLabel }} · {{ opponentTierLabel }}
           </div>
@@ -187,7 +172,6 @@ onBeforeUnmount(() => {
       <template #stage>
         <GameCanvas
           :key="canvasKey"
-          ref="canvas"
           role="single"
           :option-id="optionId"
           :opponent="opponentConfig"
@@ -201,7 +185,6 @@ onBeforeUnmount(() => {
           :party="false"
           @hud="onHud"
           @sim="onEvent"
-          @editmode="editing = $event"
           @themechange="customize.theme = $event"
         />
       </template>

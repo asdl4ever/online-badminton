@@ -7,6 +7,10 @@ import Joystick from '../components/ui/Joystick.vue';
 import PresencePanel from '../components/ui/PresencePanel.vue';
 import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
+import { isTouchDevice } from '../game/device';
+import { useJoystickPrefs } from '../composables/useJoystick';
+import AppModal from '../components/ui/AppModal.vue';
+import ComboPanel from '../components/ComboPanel.vue';
 import type { PresencePlayer } from '../stores/presence';
 import { WORLD_H, WORLD_W, WORLD_ZONES, ZONE_RADIUS, type WorldZone } from '../game/world/zones';
 import { SCENE_KIND, sceneMeta } from '../game/scenes';
@@ -26,10 +30,32 @@ const progress = useProgressStore();
 const lobby = useLobbyStore();
 const customize = useCustomizeStore();
 
-/** 主世界右侧悬浮的小黄龙联名入口 */
+/* --- 右侧活动栏 ------------------------------------------------------------------ */
+/** 小黄龙联名：跳转到活动页面（挑战 + 转盘） */
 function openNailong(): void {
   sfx.click();
   void router.push('/nailong');
+}
+
+/** 哥斯拉来袭：跳转到活动页面 */
+function openGodzilla(): void {
+  sfx.click();
+  void router.push('/godzilla');
+}
+
+/** 发球机连击里程碑：不跳页，直接弹详情看进度 */
+const comboOpen = ref(false);
+
+function openCombo(): void {
+  sfx.click();
+  comboOpen.value = true;
+}
+
+/** 去看进度不如去练：跳到单机练习（在里面选发球机模式） */
+function goPractice(): void {
+  comboOpen.value = false;
+  sfx.click();
+  void router.push('/single');
 }
 
 /* --- 地图上的角色：用游戏里那套绘制，所以装扮和球拍皮肤都跟着走 --------- */
@@ -90,6 +116,9 @@ function joinMapByCode(): void {
 /** 角色在平面上的坐标 + 摇杆推力 + 键盘按住的方向 */
 const me = ref({ x: 620, y: 760 });
 const joy = ref({ x: 0, y: 0 });
+// 摇杆：触屏必显；桌面端开了「摇杆常显」也显示（设置里改）
+const { always: joyAlways } = useJoystickPrefs();
+const showJoy = computed(() => isTouchDevice() || joyAlways.value);
 const held = new Set<string>();
 const MOVED_SPEED = 400; // px/s
 const cam = ref({ x: 0, y: 0 });
@@ -373,22 +402,50 @@ onBeforeUnmount(() => {
         </div>
         <div class="world__hint">摇杆 / WASD 自由走动 · 走进区域圈里按 E 进入</div>
 
-        <!-- 小黄龙联名：右侧悬浮入口（活动随时可进，不用跑地图） -->
-        <button
-          class="world__event jelly"
-          type="button"
-          title="小黄龙联名 · 挑战 + 转盘抽奖"
-          @click="openNailong"
-        >
-          <span class="world__event-icon">🐲</span>
-          <span class="world__event-text">
-            <b>小黄龙联名</b>
-            <em>挑战 / 转盘抽奖</em>
-          </span>
-          <span v-if="progress.nailongTickets > 0" class="world__event-badge num">
-            {{ progress.nailongTickets }}
-          </span>
-        </button>
+        <!-- 活动栏：右侧悬浮入口（活动随时可进，不用跑地图） -->
+        <div class="world__events">
+          <button
+            class="world__event jelly"
+            type="button"
+            title="小黄龙联名 · 挑战 + 转盘抽奖"
+            @click="openNailong"
+          >
+            <span class="world__event-icon">🐲</span>
+            <span class="world__event-text">
+              <b>小黄龙联名</b>
+              <em>挑战 / 转盘抽奖</em>
+            </span>
+            <span v-if="progress.nailongTickets > 0" class="world__event-badge num">
+              {{ progress.nailongTickets }}
+            </span>
+          </button>
+
+          <button
+            class="world__event jelly"
+            type="button"
+            title="哥斯拉来袭 · 拍火球打巨兽"
+            @click="openGodzilla"
+          >
+            <span class="world__event-icon">🦖</span>
+            <span class="world__event-text">
+              <b>哥斯拉来袭</b>
+              <em>拍火球 · 拿限定装扮</em>
+            </span>
+          </button>
+
+          <button
+            class="world__event world__event--combo jelly"
+            type="button"
+            title="发球机连击里程碑 · 点击查看进度"
+            @click="openCombo"
+          >
+            <span class="world__event-icon">🎯</span>
+            <span class="world__event-text">
+              <b>连击里程碑</b>
+              <em>最高 {{ progress.machineBest }} 连击 · {{ progress.milestones.length }}/10 档</em>
+            </span>
+          </button>
+        </div>
 
         <PresencePanel
           :players="players"
@@ -397,10 +454,17 @@ onBeforeUnmount(() => {
           @watch="spectate"
         />
 
-        <Joystick @move="(x, y) => (joy = { x, y })" />
+        <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
       </div>
     </template>
   </PageShell>
+
+  <!-- 发球机连击里程碑：点右侧活动栏的 🎯 打开，看进度与奖励。
+       注意必须放在 PageShell 外面——它只有具名插槽，没有默认插槽，
+       写在里面的内容根本不会渲染（之前就是踩了这个坑）。 -->
+  <AppModal v-model="comboOpen" title="🎯 连击里程碑" max-width="560px">
+    <ComboPanel @play="goPractice" />
+  </AppModal>
   </div>
 </template>
 
@@ -442,13 +506,22 @@ onBeforeUnmount(() => {
   left: 50%;
   transform: translateX(-50%);
 }
-/* --- 右侧的小黄龙联名入口 --- */
-.world__event {
+/* --- 右侧的活动栏 --- */
+.world__events {
   position: absolute;
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 6;
+  /* 抬到区域卡与角色（都是 z-index 6）之上，保证活动栏一定点得到 */
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.world__event {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -458,6 +531,20 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #fff6cf, #ffe07a);
   box-shadow: 0 8px 18px -8px rgba(120, 90, 0, 0.6);
   cursor: pointer;
+}
+
+/* 连击里程碑换个色系，和联名活动区分开 */
+.world__event--combo {
+  border-color: #7fd4ff;
+  background: linear-gradient(135deg, #eaf8ff, #bfe9ff);
+}
+
+.world__event--combo .world__event-text b {
+  color: #14556e;
+}
+
+.world__event--combo .world__event-text em {
+  color: #3d7f96;
 }
 
 .world__event-icon {

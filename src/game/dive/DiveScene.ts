@@ -3,6 +3,7 @@ import { PLAYER_H, VIEW_H, VIEW_W } from '../constants';
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
 import { P } from '../theme';
@@ -360,7 +361,8 @@ export class DiveScene extends Phaser.Scene {
       this.shoreKey = this.keys.E ?? null;
     }
     this.input.addPointer(3);
-    this.touchControls = isTouchDevice() ? new TouchControls(this) : null;
+    // 触屏必开；桌面端开了「摇杆常显」也开
+    this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
 
     // 岸边那条船：点一下就能交互（买船 / 出海）
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -398,10 +400,6 @@ export class DiveScene extends Phaser.Scene {
   private hudAnchor(): Phaser.GameObjects.Zone {
     if (!this.anchor) this.anchor = this.add.zone(this.me.x, this.me.y, 1, 1);
     return this.anchor;
-  }
-
-  toggleEditMode(): void {
-    this.touchControls?.setEditing(!this.touchControls.editing);
   }
 
   /** 岸上升级完装备后热更新等级（不用重开一局，背包里的鱼也不会丢） */

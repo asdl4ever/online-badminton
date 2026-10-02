@@ -100,6 +100,8 @@ export type HitStyle =
   | 'tide'
   | 'starfall'
   | 'prismfan'
+  | 'pow'
+  | 'gzfire'
   | PlusEffectId;
 
 export type WingId =
@@ -174,7 +176,9 @@ export type WingId =
   | 'bambooLeaf'
   | 'fireflyWing'
   | 'obsidian'
-  | 'chrono';
+  | 'chrono'
+  // 发球机活动专属
+  | 'turbo';
 
 export type CapeId =
   | 'none'
@@ -218,7 +222,11 @@ export type CapeId =
   | 'mooncloak'
   | 'crimsonlord'
   | 'voidwalker'
-  | 'goldenflame';
+  | 'goldenflame'
+  // 发球机活动专属
+  | 'towel'
+  // 哥斯拉来袭限定
+  | 'scalecape';
 
 export type HatId =
   | 'none'
@@ -313,7 +321,9 @@ export type HatId =
   | 'starCrown'
   | 'moonCrown'
   // 小黄龙联名
-  | 'nailongHood';
+  | 'nailongHood'
+  // 发球机活动专属
+  | 'coachcap';
 
 export type PetId =
   | 'none'
@@ -337,6 +347,7 @@ export type TrailId =
   | 'ice'
   | 'rainbow'
   | 'electric'
+  | 'neon'
   | 'leaf'
   | 'void'
   | 'gold'
@@ -359,7 +370,10 @@ export type SwingTrailId =
   | 'wave'
   | 'thorn'
   | 'prism'
-  | 'voidcut';
+  | 'voidcut'
+  | 'tempo'
+  // 哥斯拉来袭限定
+  | 'atomic';
 
 /**
  * 坐骑：纯装饰，画在角色脚下、跟着他一起跑和跳。
@@ -390,7 +404,8 @@ export type RingId =
   | 'rock'
   | 'blaze'
   | 'sky'
-  | 'legend';
+  | 'legend'
+  | 'courtline';
 
 export type AuraId =
   | 'none'
@@ -482,7 +497,10 @@ export type AuraId =
   | 'sandstorm'
   | 'auroraring'
   | 'singularity'
-  | 'rebirth';
+  | 'rebirth'
+  | 'spotlight'
+  // 哥斯拉来袭限定
+  | 'dorsal';
 
 export type RacketSkinId =
   | 'default'
@@ -546,7 +564,9 @@ export type RacketSkinId =
   | 'gravity'
   | 'sonic'
   | 'willow'
-  | 'blossom';
+  | 'blossom'
+  // 发球机活动专属
+  | 'wood';
 
 /**
  * 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮）/ 老皮（两个钢铁屁股，球弹上去会被弹开），
@@ -560,7 +580,9 @@ export type CharacterSkin =
   | 'champion'
   | 'phoenix'
   | 'dragonlord'
-  | 'nailong';
+  | 'nailong'
+  // 发球机活动专属：发球机教练
+  | 'coach';
 const SKIN_IDS: CharacterSkin[] = [
   'none',
   'godzilla',
@@ -570,6 +592,7 @@ const SKIN_IDS: CharacterSkin[] = [
   'phoenix',
   'dragonlord',
   'nailong',
+  'coach',
 ];
 
 export interface Cosmetic {
@@ -602,7 +625,7 @@ export const PLUS_EFFECT_IDS: PlusEffectId[] = Array.from({ length: 100 }, (_, i
 
 const HIT_STYLE_IDS: HitStyle[] = [
   'ring', 'spark', 'slash', 'burst', 'shock', 'frost', 'petal', 'lightning', 'star', 'prism', 'vortex',
-  'shards', 'ripple', 'confetti', 'cross', 'hex', 'spiral', 'web', 'bubble', 'feather', 'comet', 'shatter', 'smoke', 'sonic', 'gear', 'nova', 'rune',
+  'shards', 'ripple', 'confetti', 'cross', 'hex', 'spiral', 'web', 'bubble', 'feather', 'comet', 'shatter', 'smoke', 'sonic', 'gear', 'nova', 'rune', 'gzfire',
   'bomb', 'flamenova', 'icicle', 'sword', 'claw', 'meteor', 'beam', 'poison', 'note', 'heart', 'coin', 'dice', 'arrow', 'shield', 'chain', 'thorn', 'blossom', 'cube', 'pyramid', 'aim', 'sonar', 'wind', 'sand', 'acid', 'sun', 'moon', 'eye', 'portal', 'dna', 'atom', 'sparkle', 'ink',
   'firework', 'ringburst', 'swordcross', 'shuriken', 'boulder', 'quake', 'tornado', 'blizzard', 'volcano', 'tsunami', 'aurora', 'starlight', 'galaxy', 'blackhole', 'meteorrain', 'rainbow', 'laser', 'plasma', 'magnet', 'foam', 'leafstorm', 'sakura', 'mushroom', 'pixelate', 'glitch', 'binary', 'ringdance', 'butterfly', 'phantom', 'holy', 'thorncrown', 'tide', 'starfall', 'prismfan',
   ...PLUS_EFFECT_IDS,
@@ -614,6 +637,8 @@ const WING_IDS: WingId[] = [
   'dragonfly', 'moth', 'seaWave', 'ribbonDance', 'crystalShard', 'holyWing', 'devilWing', 'mechWing', 'leafyWing', 'emberWing', 'sail', 'sailStar', 'featherStorm', 'toxicWing',
   'prism', 'stormcall', 'auroraBore', 'mothKing', 'abyss', 'sunfire', 'moonveil', 'gearsoul', 'glacier', 'rosewing', 'cirrus', 'plasmaWing', 'ghostWing', 'solaris', 'nightjar',
   'coralFin', 'bambooLeaf', 'fireflyWing', 'obsidian', 'chrono',
+  // 发球机活动专属
+  'turbo',
 ];
 const CAPE_IDS: CapeId[] = [
   'none', 'hero', 'shadow', 'storm', 'ember', 'frost', 'leaf', 'royal', 'void', 'dragon', 'angel', 'phoenix',
@@ -621,6 +646,8 @@ const CAPE_IDS: CapeId[] = [
   'auroraCape', 'stormlord', 'sakuraCape', 'ironclad', 'pharaoh', 'emberwind', 'abyssCape', 'jadeRobe', 'plaguecoat',
   'captainCape', 'stardust', 'warlord', 'frostlord', 'venomCape', 'cometCape', 'thunderCape', 'mooncloak',
   'crimsonlord', 'voidwalker', 'goldenflame',
+  // 发球机活动专属
+  'towel',
 ];
 const HAT_IDS: HatId[] = [
   'none', 'crown', 'cap', 'horn', 'halo', 'wizard', 'santa', 'ninja', 'flower', 'headphone', 'topHat', 'viking',
@@ -638,6 +665,8 @@ const HAT_IDS: HatId[] = [
   'starCrown', 'moonCrown',
   // 小黄龙联名
   'nailongHood',
+  // 发球机活动专属
+  'coachcap',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
@@ -645,10 +674,12 @@ const PET_IDS: PetId[] = [
 ];
 const TRAIL_IDS: TrailId[] = [
   'none', 'classic', 'fire', 'ice', 'rainbow', 'electric', 'leaf', 'void', 'gold', 'pixel',
+  'neon',
 ];
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
   'frostbite', 'orbit', 'wave', 'thorn', 'prism', 'voidcut',
+  'tempo', 'atomic',
 ];
 const MOUNT_IDS: MountId[] = [
   'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
@@ -656,6 +687,7 @@ const MOUNT_IDS: MountId[] = [
 ];
 const RING_IDS: RingId[] = [
   'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
+  'courtline',
 ];
 
 /** 地环配色（跟着组别走） */
@@ -669,6 +701,7 @@ export const RING_COLORS: Record<RingId, number> = {
   blaze: 0x7c5cff,
   sky: 0xffb020,
   legend: 0xff5a5a,
+  courtline: 0xfff2c8,
 };
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
@@ -677,6 +710,8 @@ const AURA_IDS: AuraId[] = [
   'firefly', 'vortex', 'nebula', 'eclipse', 'dawn', 'dusk', 'mist', 'thundercloud', 'golddust', 'frostbite', 'ember', 'sparkstorm', 'leafwind', 'petalrain', 'snowstorm', 'runering', 'starfield', 'haloRing', 'hexflame', 'bubblefield', 'prismatic', 'spring', 'autumn', 'voidRift',
   'blackhole', 'supernova', 'quantum', 'laserscan', 'holo', 'crystalline', 'wisteria', 'coral', 'beacon', 'spiral',
   'phantom', 'miasma', 'laurel', 'emberfall', 'static', 'tidalwave', 'sandstorm', 'auroraring', 'singularity', 'rebirth',
+  'spotlight',
+  'dorsal',
 ];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
@@ -685,6 +720,7 @@ const RACKET_SKIN_IDS: RacketSkinId[] = [
   'aurora', 'nebula', 'onyx', 'ivory', 'amber', 'jade', 'ruby', 'sapphire', 'toxic', 'ember',
   'quantum', 'obsidian', 'sunsteel', 'moonlace', 'rosebranch', 'starpiercer', 'tsunami', 'magma', 'stormline', 'phoenixF',
   'dragonbone', 'iceberg', 'goldthread', 'coralrim', 'chrono', 'holo', 'gravity', 'sonic', 'willow', 'blossom',
+  'wood',
 ];
 
 export const WING_COLORS: Record<WingId, number> = {
@@ -760,6 +796,7 @@ export const WING_COLORS: Record<WingId, number> = {
   fireflyWing: 0xfff2a0,
   obsidian: 0x3a3a4a,
   chrono: 0xb46cff,
+  turbo: 0x9fb6d8,
 };
 
 /** which silhouette a wing draws with; lets styles look genuinely different */
@@ -777,7 +814,8 @@ export type WingKind =
   | 'spike'
   | 'sail'
   | 'ghost'
-  | 'circuit';
+  | 'circuit'
+  | 'turbo';
 
 /** per-wing silhouette so different wings actually look different */
 export const WING_SHAPE: Record<
@@ -856,9 +894,10 @@ export const WING_SHAPE: Record<
   fireflyWing: { kind: 'butterfly', feathers: 2, len: 44, spread: 0.95, w: 12 },
   obsidian: { kind: 'spike', feathers: 7, len: 56, spread: 0.5, w: 8 },
   chrono: { kind: 'circuit', feathers: 4, len: 56, spread: 0.55, w: 8 },
+  turbo: { kind: 'turbo', feathers: 2, len: 46, spread: 0.5, w: 14 },
 };
 
-export type CapeKind = 'cloth' | 'flame' | 'feather' | 'tatter' | 'royal' | 'split' | 'scales' | 'streak';
+export type CapeKind = 'cloth' | 'flame' | 'feather' | 'tatter' | 'royal' | 'split' | 'scales' | 'streak' | 'towel';
 
 export const CAPE_COLORS: Record<CapeId, number> = {
   none: 0x000000,
@@ -903,6 +942,8 @@ export const CAPE_COLORS: Record<CapeId, number> = {
   crimsonlord: 0xb02a55,
   voidwalker: 0x4a2a8a,
   goldenflame: 0xffd45c,
+  towel: 0xf3ede0,
+  scalecape: 0x3a7d44,
 };
 
 /** cape silhouette: length, base width and the kind of motion it uses */
@@ -949,6 +990,8 @@ export const CAPE_SHAPE: Record<CapeId, { kind: CapeKind; len: number; w: number
   crimsonlord: { kind: 'royal', len: 64, w: 34 },
   voidwalker: { kind: 'split', len: 62, w: 30 },
   goldenflame: { kind: 'flame', len: 62, w: 30 },
+  towel: { kind: 'towel', len: 40, w: 24 },
+  scalecape: { kind: 'scales', len: 60, w: 30 },
 };
 
 export type HatKind =
@@ -1041,7 +1084,8 @@ export type HatKind =
   | 'candle'
   | 'starCrown'
   | 'moonCrown'
-  | 'nailongHood';
+  | 'nailongHood'
+  | 'coachcap';
 
 export const HAT_COLORS: Record<HatId, number> = {
   none: 0x000000,
@@ -1136,6 +1180,7 @@ export const HAT_COLORS: Record<HatId, number> = {
   starCrown: 0xffd45c,
   moonCrown: 0xcfe3ff,
   nailongHood: 0xffd93d,
+  coachcap: 0x2f5d3a,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -1231,6 +1276,7 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   starCrown: 'starCrown',
   moonCrown: 'moonCrown',
   nailongHood: 'nailongHood',
+  coachcap: 'coachcap',
 };
 
 export type PetKind =
@@ -1280,6 +1326,7 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   void: 0x9b5cff,
   gold: 0xffd45c,
   pixel: 0x39ffd0,
+  neon: 0xb8ff3a,
 };
 
 /** 挥拍拖尾各风格的主色 */
@@ -1297,6 +1344,8 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   thorn: 0x7ed957,
   prism: 0xff8ad4,
   voidcut: 0x9b5cff,
+  tempo: 0xffb03a,
+  atomic: 0x9fe8ff,
 };
 
 /** 坐骑各款的主色 */
@@ -1406,6 +1455,8 @@ export const AURA_COLORS: Record<AuraId, number> = {
   auroraring: 0x7dffc4,
   singularity: 0x7a3cc0,
   rebirth: 0xff5a2a,
+  spotlight: 0xfff0c0,
+  dorsal: 0x8fe0ff,
 };
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
@@ -1471,6 +1522,7 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   sonic: 0x7fffd4,
   willow: 0x8fbf5a,
   blossom: 0xffb7d5,
+  wood: 0x9a6a3a,
 };
 
 export const EMOJI_PRESETS = [

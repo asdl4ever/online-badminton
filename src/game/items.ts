@@ -34,8 +34,9 @@ export interface Item {
   rarity: Rarity;
   /** display rating, 1–5 */
   stars: number;
-  /** `code` = 兑换码获得；`honor` = 荣誉点兑换；`event` = 活动（转盘等）限定 */
-  source: 'free' | 'gacha' | 'egg' | 'streak' | 'code' | 'honor' | 'event' | TierId;
+  /** `code` = 兑换码获得；`honor` = 荣誉点兑换；`event` = 活动（转盘等）限定；
+   *  `combo` = 发球机连击里程碑专属（不在任何宝箱池里） */
+  source: 'free' | 'gacha' | 'egg' | 'streak' | 'code' | 'honor' | 'event' | 'combo' | TierId;
 }
 
 export const SLOT_ORDER: ItemSlot[] = [
@@ -100,6 +101,24 @@ export const ITEMS: Item[] = [
   it('skin', 'champion', '冠军铠甲', 'legendary', 5, 'honor'),
   it('skin', 'phoenix', '不灭凤凰', 'legendary', 5, 'honor'),
   it('skin', 'dragonlord', '龙王', 'legendary', 5, 'honor'),
+  // 发球机活动专属：绿呢鸭舌帽 + 口哨的教练
+  it('skin', 'coach', '发球机教练', 'legendary', 5, 'combo'),
+
+  // --- 发球机连击里程碑专属套装「复古训练房」：每档一件，不进宝箱池 ---
+  it('hat', 'coachcap', '教练帽', 'epic', 4, 'combo'),
+  it('wings', 'turbo', '涡轮双翼', 'epic', 4, 'combo'),
+  it('cape', 'towel', '冠军毛巾', 'rare', 3, 'combo'),
+  it('aura', 'spotlight', '训练聚光灯', 'epic', 4, 'combo'),
+  it('racketSkin', 'wood', '复古木拍', 'legendary', 5, 'combo'),
+  it('trail', 'neon', '荧光训练球', 'rare', 3, 'combo'),
+  it('swingTrail', 'tempo', '节拍器弧线', 'epic', 4, 'combo'),
+  it('effect', 'pow', '砰！贴纸', 'epic', 4, 'combo'),
+  it('ring', 'courtline', '场地标线', 'rare', 3, 'combo'),
+  // 「哥斯拉来袭」活动限定：首杀奖励，不可购买
+  it('aura', 'dorsal', '背鳍光焰', 'legendary', 5, 'event'),
+  it('cape', 'scalecape', '鳞甲披风', 'legendary', 5, 'event'),
+  it('swingTrail', 'atomic', '原子吐息', 'legendary', 5, 'event'),
+  it('effect', 'gzfire', '原子烈焰', 'legendary', 5, 'event'),
   // 小黄龙联名（转盘限定）
   it('skin', 'nailong', '小黄龙', 'legendary', 5, 'event'),
   // --- ring（地环：积分达到组别门槛后在荣誉面板领取） ---
@@ -700,6 +719,25 @@ export const HONOR_ITEMS: { item: Item; price: number }[] = HONOR_SHOP.map((e) =
 export function honorPriceOf(id: string): number {
   return HONOR_SHOP.find((e) => e.id === id)?.price ?? 0;
 }
+
+// ---- 发球机连击里程碑奖励 -----------------------------------------------------
+
+/**
+ * 「复古训练房」套装：连击里程碑 → 奖励物品的**固定**对照表。
+ * 每档给一件为这个活动定制的同主题装扮（不进宝箱池），
+ * 详情页能事先写明「这档解锁什么」；100 连击是哥斯拉 + 发球机教练（见 progress.claimMilestone）。
+ */
+export const MILESTONE_REWARD: Record<number, string> = {
+  10: 'hat:coachcap',
+  20: 'wings:turbo',
+  30: 'cape:towel',
+  40: 'aura:spotlight',
+  50: 'racketSkin:wood',
+  60: 'trail:neon',
+  70: 'swingTrail:tempo',
+  80: 'effect:pow',
+  90: 'ring:courtline',
+};
 
 /** ten draws cost 10% less than ten singles */
 export const TEN_PULL_COST = Math.round(CHEST_COST * 10 * 0.9);

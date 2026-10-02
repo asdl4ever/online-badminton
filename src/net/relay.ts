@@ -1,4 +1,50 @@
+import { Capacitor } from '@capacitor/core';
 import type { NetLink, NetMessage, NetRole, NetStatus } from './link';
+
+/** 两条通道都不可用时的提示 */
+export const NET_UNAVAILABLE = '当前环境不支持联机（需要 WebRTC 或配置中继服务器）';
+
+/** App 里没配中继、只剩直连时的提醒 */
+export const NET_P2P_ONLY =
+  '当前版本未配置联机服务器，只能尝试直连（需要双方网络能连上信令服务器）';
+
+/**
+ * **中继通道**可不可用。
+ *
+ * - 网页版：中继挂在同源 `/relay`（由 server/index.mjs 提供）。
+ * - 装成 App：页面在 `https://localhost`，推不出真服务器，用下面内置的生产地址。
+ * 两边都可以被打包时的 `VITE_RELAY_URL` 覆盖。
+ */
+export function relayAvailable(): boolean {
+  return true;
+}
+
+/**
+ * **直连通道**可不可用。
+ *
+ * 直连是 WebRTC，信令走 PeerJS 的公共服务器、打洞靠 STUN（见 ice.ts），
+ * **不依赖我们自己的 relay**，所以在 App 里同样能尝试。
+ */
+export function p2pAvailable(): boolean {
+  return typeof RTCPeerConnection !== 'undefined';
+}
+
+/**
+ * 这个构建**能不能联机**：两条通道任意一条可用就行。
+ *
+ * 注意 App 里即使没配中继也仍然返回 true——直连还能试，只是成功率取决于网络。
+ */
+export function netAvailable(): boolean {
+  return p2pAvailable() || relayAvailable();
+}
+
+/**
+ * App（Capacitor）里默认用的中继地址。
+ *
+ * 装成 App 后页面跑在 `https://localhost`，同源推不出真实服务器，所以这里写死部署好的
+ * 生产地址（Railway）。要换服务器就用打包时的 `VITE_RELAY_URL` 覆盖。
+ */
+const NATIVE_RELAY_URL = 'wss://online-badminton-production.up.railway.app/relay';
 
 /**
  * Relay endpoint. Defaults to `/relay` on the same origin as the page, which
@@ -8,6 +54,8 @@ import type { NetLink, NetMessage, NetRole, NetStatus } from './link';
 function relayUrl(): string {
   const override = import.meta.env.VITE_RELAY_URL;
   if (override) return String(override);
+  // App：用内置的生产地址（否则会去连 localhost 白等 12 秒）
+  if (Capacitor.isNativePlatform()) return NATIVE_RELAY_URL;
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${window.location.host}/relay`;
 }

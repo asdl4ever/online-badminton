@@ -16,6 +16,7 @@ import {
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
 import type { NetLink } from '../../net/link';
@@ -150,7 +151,8 @@ export class FarmScene extends Phaser.Scene {
       >;
     }
     this.input.addPointer(3);
-    this.touchControls = isTouchDevice() ? new TouchControls(this) : null;
+    // 触屏必开；桌面端开了「摇杆常显」也开
+    this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
 
     this.cameras.main.fadeIn(250, 0, 0, 0);
   }
@@ -164,10 +166,6 @@ export class FarmScene extends Phaser.Scene {
     this.stepPops(dt);
     this.draw();
     this.touchControls?.draw();
-  }
-
-  toggleEditMode(): void {
-    this.touchControls?.setEditing(!this.touchControls.editing);
   }
 
   /** 升级后页面同步进来：一次挥拍摘几朵 */

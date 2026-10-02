@@ -14,6 +14,8 @@ import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 import { ARENA_TIERS } from '../game/arena';
 import { sfx } from '../game/audio';
+import { toastWarn } from '../composables/useToast';
+import { NET_UNAVAILABLE, netAvailable } from '../net/relay';
 
 const router = useRouter();
 const lobby = useLobbyStore();
@@ -54,11 +56,19 @@ function openChestFromBag() {
   void router.push('/shop');
 }
 
-/** fun mode only exists online, so entering it also opens the lobby */
-function goParty() {
+/**
+ * 联机入口（联机对战 / 乐趣模式）。装成 App 又没有配中继服务器时，
+ * 直接给一句能看懂的话，别把玩家带进一个注定连不上的页面。
+ */
+function goOnline(query?: Record<string, string>) {
+  if (!netAvailable()) {
+    sfx.click();
+    toastWarn(NET_UNAVAILABLE);
+    return;
+  }
   sfx.unlock();
   sfx.click();
-  void router.push({ path: '/online', query: { party: '1' } });
+  void router.push({ path: '/online', query });
 }
 
 function open(
@@ -113,8 +123,8 @@ function open(
           <div class="hero__actions">
             <Button variant="primary" size="lg" @click="go('/')">进入大世界</Button>
             <Button size="lg" @click="go('/single')">单机练习</Button>
-            <Button size="lg" @click="go('/online')">联机对战</Button>
-            <Button size="lg" @click="goParty">乐趣模式</Button>
+            <Button size="lg" @click="goOnline()">联机对战</Button>
+            <Button size="lg" @click="goOnline({ party: '1' })">乐趣模式</Button>
             <Button size="lg" @click="go('/climb')">攀爬挑战</Button>
             <Button size="lg" @click="go('/fish')">钓鱼塘</Button>
             <Button size="lg" @click="go('/mine')">采矿场</Button>

@@ -37,7 +37,6 @@ const emit = defineEmits<{
   disconnect: [string];
   sim: [SimEvent];
   metrics: [NetMetrics];
-  editmode: [boolean];
   themechange: [ThemeId];
   party: [PartyState];
 }>();
@@ -47,10 +46,6 @@ let game: Phaser.Game | null = null;
 
 function scene(): GameScene | null {
   return (game?.scene.getScene('GameScene') as GameScene | undefined) ?? null;
-}
-
-function toggleEditMode(): void {
-  scene()?.toggleEditMode();
 }
 
 function sendEmote(id: string): void {
@@ -65,7 +60,7 @@ function nextPartyRound(): void {
   scene()?.nextPartyRound();
 }
 
-defineExpose({ toggleEditMode, sendEmote, voteParty, nextPartyRound });
+defineExpose({ sendEmote, voteParty, nextPartyRound });
 
 onMounted(async () => {
   // Phaser renders text with the canvas 2D API, which does not re-flow when a
@@ -83,7 +78,6 @@ onMounted(async () => {
     onDisconnect: (m) => emit('disconnect', m),
     onEvent: (e) => emit('sim', e),
     onMetrics: (m) => emit('metrics', m),
-    onEditMode: (on) => emit('editmode', on),
     cosmetic: props.cosmetic,
     attrs: props.attrs,
     localName: props.localName,

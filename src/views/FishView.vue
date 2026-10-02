@@ -25,7 +25,6 @@ import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
-import { isTouchDevice } from '../game/device';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
@@ -50,8 +49,6 @@ const joinCode = ref('');
 const roomCode = ref('');
 const waiting = ref(false);
 const phase = ref('');
-const editing = ref(false);
-const touch = isTouchDevice();
 /** 点岸边那条船弹出来的小卡片（原来是一个「出海选项页」） */
 const boatOpen = ref(false);
 const codexOpen = ref(false);
@@ -268,11 +265,6 @@ function sell() {
   checkAch();
 }
 
-function toggleEdit() {
-  scene()?.toggleEditMode();
-  editing.value = !editing.value;
-}
-
 function host() {
   sfx.click();
   waiting.value = true;
@@ -340,9 +332,6 @@ onBeforeUnmount(() => {
   <div class="page page--playing">
     <PageShell title="海湾 · 潜水" back @back="back">
       <template #icons>
-        <button v-if="touch" class="icon-btn jelly" type="button" title="摇杆布局" @click="toggleEdit">
-          摇杆布局
-        </button>
       </template>
 
       <template #dock>
@@ -385,9 +374,6 @@ onBeforeUnmount(() => {
             </div>
           </template>
           <span v-if="phase" class="dock-note">{{ phase }}</span>
-          <Button v-if="touch" size="sm" block @click="toggleEdit">
-            {{ editing ? '完成布局' : '摇杆布局' }}
-          </Button>
           <p class="dock-note">
             左摇杆游动（上推上浮）· 右摇杆把拍头指到鱼身上勾住，之后朝鱼的方向收杆。
             <b>出海要走到栈桥边点那条船</b>（买船 / 换海岛都在船上的卡片里）；升级装备去岸上的装备店。
