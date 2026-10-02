@@ -81,6 +81,8 @@ export class TouchControls {
   private scale = 1;
   /** 移动摇杆的实际圆心：固定模式 = 布局位置；自由模式 = 本次按下的点 */
   private moveAnchor: StickConfig;
+  /** 击球（瞄准）摇杆的实际圆心：同样支持自由模式（右半屏按下即出现） */
+  private racketAnchor: StickConfig;
 
   private scene: Phaser.Scene;
   private gfx: Phaser.GameObjects.Graphics;
@@ -107,6 +109,7 @@ export class TouchControls {
       racket: { ...DEFAULT_LAYOUT.racket, r: Math.round(DEFAULT_LAYOUT.racket.r * this.scale) },
     };
     this.moveAnchor = { ...this.layout.move };
+    this.racketAnchor = { ...this.layout.racket };
     // 固定在屏幕上：潜水这类相机会滚动的场景里，摇杆必须跟着视口而不是世界
     this.gfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
     this.hint = scene.add
@@ -156,8 +159,8 @@ export class TouchControls {
   // ---- helpers ----------------------------------------------------------
 
   private stick(which: Which): StickConfig {
-    // 移动摇杆在自由模式下用「本次按下的点」当圆心
-    return which === 'move' ? this.moveAnchor : this.layout.racket;
+    // 自由模式下两颗摇杆都用「本次按下的点」当圆心
+    return which === 'move' ? this.moveAnchor : this.racketAnchor;
   }
 
   private knobRadius(s: StickConfig): number {
@@ -202,7 +205,16 @@ export class TouchControls {
       this.updateMove(pointer);
       return;
     }
-    if (this.racketPointer < 0 && this.inStick('racket', pointer.x, pointer.y)) {
+    if (this.racketPointer < 0 && (this.free ? pointer.x >= 640 : this.inStick('racket', pointer.x, pointer.y))) {
+      if (this.free) {
+        // 击球摇杆出现在手指下：圆心移到按住的位置（限制在右半屏内）
+        const pad = this.racketAnchor.r + 12;
+        this.racketAnchor = {
+          ...this.racketAnchor,
+          x: Phaser.Math.Clamp(pointer.x, 640 + pad, 1280 - pad),
+          y: Phaser.Math.Clamp(pointer.y, pad, 720 - pad),
+        };
+      }
       this.racketPointer = pointer.id;
       this.joyActive = true;
       this.updateRacket(pointer);
@@ -353,6 +365,9 @@ export class TouchControls {
       this.hint.setVisible(false);
     }
 
-    this.drawStick(g, 'racket', this.racketPointer >= 0, P.knobLive);
+    // 击球摇杆：自由模式只在按下期间出现，固定模式常驻
+    if (!this.free || this.racketPointer >= 0) {
+      this.drawStick(g, 'racket', this.racketPointer >= 0, P.knobLive);
+    }
   }
 }

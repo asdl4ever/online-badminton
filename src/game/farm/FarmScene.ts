@@ -467,6 +467,7 @@ export class FarmScene extends Phaser.Scene {
     const g = this.g;
     g.clear();
     this.charG.clear();
+    this.charOverG.clear();
 
     // 天空 + 草地
     g.fillStyle(0xcfe9f7, 1);

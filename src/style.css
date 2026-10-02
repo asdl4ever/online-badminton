@@ -1279,7 +1279,7 @@ h3 {
   background: #f2c14e;
   box-shadow: 0 10px 18px -12px rgba(150, 112, 30, 0.9),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* 不加过渡：把手必须每帧跟手，加了动画反而像延迟 */
 }
 
 /* 卡片依次浮现 */

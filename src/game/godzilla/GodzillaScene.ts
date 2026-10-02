@@ -155,6 +155,8 @@ export class GodzillaScene extends Phaser.Scene {
     if (this.ended) {
       this.stepEnd(dt);
       this.g.clear();
+      this.charG.clear();
+      this.charOverG.clear();
       this.drawBackdrop();
       this.drawGz();
       this.drawHud();
@@ -175,6 +177,7 @@ export class GodzillaScene extends Phaser.Scene {
     this.stepEndcheck(dt);
 
     this.charG.clear();
+    this.charOverG.clear();
     this.rigMe.draw(
       this.charG,
       this.time.now,

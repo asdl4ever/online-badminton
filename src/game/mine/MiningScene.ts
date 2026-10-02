@@ -591,6 +591,7 @@ export class MiningScene extends Phaser.Scene {
     const g = this.g;
     g.clear();
     this.charG.clear();
+    this.charOverG.clear();
 
     // sky + ground
     g.fillStyle(0xc9c2ae, 1);

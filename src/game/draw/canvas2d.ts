@@ -206,12 +206,22 @@ export function asGraphics(ctx: CanvasRenderingContext2D): Phaser.GameObjects.Gr
   }) as unknown as Phaser.GameObjects.Graphics;
 }
 
-/** 记录表情文字要去哪儿画（drawCharacter 通过这个接口驱动「头」） */
+/**
+ * 表情文字的 Canvas 版 FaceSink：drawCharacter 在「身体之后、帽子之前」调用
+ * `setVisible(true)`，我们就在那一刻把 emoji 直接画上去——绘制顺序与 Phaser
+ * 场景的「身体(2) → 头(3) → 帽子/宠物(4)」完全一致，不再有头压住帽子的差异。
+ */
 class CanvasFace implements FaceSink {
   text = '';
   x = 0;
   y = 0;
   visible = false;
+
+  private readonly ctx: CanvasRenderingContext2D;
+
+  constructor(ctx: CanvasRenderingContext2D) {
+    this.ctx = ctx;
+  }
 
   setText(value: string): void {
     this.text = value;
@@ -224,6 +234,14 @@ class CanvasFace implements FaceSink {
 
   setVisible(value: boolean): void {
     this.visible = value;
+    if (value && this.text) {
+      const ctx = this.ctx;
+      ctx.font = `34px ${FONT_EMOJI}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(this.text, this.x, this.y);
+    }
   }
 }
 
@@ -266,7 +284,7 @@ export function paintAvatar(
   ctx.setTransform(s, 0, 0, s, 0, 0);
 
   const facing = opts.facing ?? 1;
-  const face = new CanvasFace();
+  const face = new CanvasFace(ctx);
   drawRigGraphics(
     asGraphics(ctx),
     now,
@@ -278,13 +296,4 @@ export function paintAvatar(
     0,
     face,
   );
-
-  // 表情头和游戏里一样：34px 的 emoji，居中对齐在头上
-  if (face.visible && face.text) {
-    ctx.font = `34px ${FONT_EMOJI}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(face.text, face.x, face.y);
-  }
 }

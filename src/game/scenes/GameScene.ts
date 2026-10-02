@@ -191,6 +191,8 @@ export class GameScene extends Phaser.Scene {
   private remoteAttrs: PlayerAttrs = { ...NEUTRAL_ATTRS };
   private currentTheme: ThemeId = 'day';
   private bg!: Phaser.GameObjects.Graphics;
+  /** 帽子/宠物层：在 emoji 头（depth 3）之上，与各场景统一 */
+  private overG!: Phaser.GameObjects.Graphics;
   /** emoji faces drawn above each player's body */
   private faces: Phaser.GameObjects.Text[] = [];
   /** side name plates */
@@ -362,16 +364,17 @@ export class GameScene extends Phaser.Scene {
         .setDepth(30);
     }
 
-    // 角色/球/机器都画在这一层（depth 2）；emoji 脸（depth 1）在它之下、背景（0）之上，
-    // 于是头饰/光环/翅膀会盖在 emoji 上，而不是反被 emoji 盖住
+    // 角色/球/机器都画在这一层（depth 2）；emoji 脸（depth 3）在它之上，
+    // 帽子/宠物（overG，depth 4）再压在脸上面——与潜水/矿洞/农场/哥斯拉同一套图层
     this.dynamic = this.add.graphics().setDepth(2);
+    this.overG = this.add.graphics().setDepth(4);
     this.createFxEmitters();
 
     this.faces = [0, 1].map(() =>
       this.add
         .text(0, 0, '', { fontFamily: FONT_EMOJI, fontSize: '34px' })
         .setOrigin(0.5)
-        .setDepth(1)
+        .setDepth(3)
         .setVisible(false),
     );
 
@@ -1665,6 +1668,7 @@ export class GameScene extends Phaser.Scene {
   private drawDynamic(): void {
     const g = this.dynamic;
     g.clear();
+    this.overG.clear();
     for (const f of this.faces) f.setVisible(false);
 
     this.drawNamePlates(g);
@@ -1896,7 +1900,7 @@ export class GameScene extends Phaser.Scene {
       facing: p.facing,
       color: i === 0 ? P.player0 : P.player1,
       belly: this.belly[i],
-    }, { face: this.faces[i] });
+    }, { face: this.faces[i], overG: this.overG });
 
     this.drawRacket(g, p, pos.x, pos.y, cos, this.world.attrs[i]);
   }

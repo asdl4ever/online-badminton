@@ -1089,6 +1089,7 @@ export class DiveScene extends Phaser.Scene {
     const g = this.g;
     g.clear();
     this.charG.clear();
+    this.charOverG.clear();
     const cam = this.cameras.main;
     const left = cam.scrollX;
     const top = cam.scrollY;
