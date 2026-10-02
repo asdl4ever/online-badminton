@@ -12,8 +12,6 @@ import {
 } from '../game/ranks';
 import {
   CHEST_COST,
-  COIN_DROP_CHANCE,
-  COIN_DROP_RANGE,
   COIN_RULES,
   GACHA_POOL,
   ITEMS,
@@ -29,9 +27,7 @@ import {
 import { BOAT_COST, islandById, MAX_LEVEL, upgradeCost } from '../game/dive/fish';
 import { ACHIEVEMENTS, type AchMetric, type Achievement } from '../game/achievements';
 
-export type PullResult =
-  | { kind: 'item'; item: Item; duplicate: boolean; refund: number }
-  | { kind: 'coins'; amount: number };
+export type PullResult = { kind: 'item'; item: Item; duplicate: boolean; refund: number };
 
 export interface HatchResult {
   pet: Item;
@@ -391,14 +387,6 @@ export const useProgressStore = defineStore('progress', () => {
 
   /** one weighted draw, without touching the wallet (the caller pays) */
   function rollOne(floor?: 'epic'): PullResult {
-    // bonus coin payout instead of an item (never on a guaranteed draw)
-    if (!floor && Math.random() < COIN_DROP_CHANCE) {
-      const [lo, hi] = COIN_DROP_RANGE;
-      const amount = lo + Math.floor(Math.random() * (hi - lo + 1));
-      coins.value += amount;
-      return { kind: 'coins', amount };
-    }
-
     pity.value += 1;
 
     const available = [...new Set(GACHA_POOL.map((i) => i.rarity))];
@@ -452,7 +440,7 @@ export const useProgressStore = defineStore('progress', () => {
     for (let i = 0; i < 10; i++) out.push(rollOne());
     // ten-pulls guarantee at least one epic+ (a slight courtesy over singles)
     const hasHigh = out.some(
-      (r) => r.kind === 'item' && (r.item.rarity === 'epic' || r.item.rarity === 'legendary'),
+      (r) => r.item.rarity === 'epic' || r.item.rarity === 'legendary',
     );
     if (!hasHigh) out[9] = rollOne('epic');
     return out;

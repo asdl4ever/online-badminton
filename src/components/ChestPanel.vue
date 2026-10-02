@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import Stars from './ui/Stars.vue';
+import ItemIcon from './ItemIcon.vue';
 import Button from './ui/Button.vue';
 import { celebrate, RARITY_LEVEL } from '../composables/celebrate';
 import { toastWarn } from '../composables/useToast';
 import { useProgressStore, type PullResult } from '../stores/progress';
 import {
   CHEST_COST,
-  COIN_DROP_CHANCE,
   PITY_LIMIT,
   RARITY_META,
   SLOT_LABELS,
@@ -27,12 +27,12 @@ const canTen = computed(() => progress.coins >= TEN_PULL_COST && phase.value !==
 const canFreeTen = computed(() => progress.tenTickets > 0 && phase.value !== 'opening');
 
 const rarityColor = computed(() => {
-  if (mode.value === 'ten' || !result.value || result.value.kind !== 'item') return 'var(--line)';
+  if (mode.value === 'ten' || !result.value) return 'var(--line)';
   return RARITY_META[result.value.item.rarity].color;
 });
 
 function cellColor(r: PullResult): string {
-  return r.kind === 'item' ? RARITY_META[r.item.rarity].color : '#e8a33d';
+  return RARITY_META[r.item.rarity].color;
 }
 
 /** everything this pull produced, single or ten */
@@ -46,7 +46,6 @@ function bestRarity(): { level: number; color: string } {
   let level = 0;
   let color = '#e8a33d';
   for (const r of pulled()) {
-    if (r.kind !== 'item') continue;
     const lv = RARITY_LEVEL[r.item.rarity] ?? 0;
     if (lv > level) {
       level = lv;
@@ -118,17 +117,12 @@ function openTen(useTicket: boolean): void {
       </div>
 
       <div v-if="phase === 'revealed' && mode === 'single' && result" class="cp__card" :style="{ '--rarity': rarityColor }">
-        <template v-if="result.kind === 'item'">
-          <div class="cp__card-rarity">{{ RARITY_META[result.item.rarity].label }}</div>
-          <div class="cp__card-label">{{ result.item.label }}</div>
-          <Stars class="cp__card-stars" :value="result.item.stars" :animate="true" />
-          <div class="muted cp__card-slot">{{ SLOT_LABELS[result.item.slot] }}</div>
-          <div v-if="result.duplicate" class="muted cp__card-dup">重复 · 返还 🪙{{ result.refund }}</div>
-        </template>
-        <template v-else>
-          <div class="cp__card-label">金币袋</div>
-          <div class="cp__card-gold num">🪙 +{{ result.amount }}</div>
-        </template>
+        <div class="cp__card-rarity">{{ RARITY_META[result.item.rarity].label }}</div>
+        <ItemIcon class="cp__card-icon" :item="result.item" />
+        <div class="cp__card-label">{{ result.item.label }}</div>
+        <Stars class="cp__card-stars" :value="result.item.stars" :animate="true" />
+        <div class="muted cp__card-slot">{{ SLOT_LABELS[result.item.slot] }}</div>
+        <div v-if="result.duplicate" class="muted cp__card-dup">重复 · 返还 🪙{{ result.refund }}</div>
       </div>
 
       <div v-if="phase === 'revealed' && mode === 'ten'" class="cp__grid">
@@ -138,15 +132,10 @@ function openTen(useTicket: boolean): void {
           class="cp__cell"
           :style="{ '--rarity': cellColor(r), animationDelay: `${i * 0.06}s` }"
         >
-          <template v-if="r.kind === 'item'">
-            <span class="cp__cell-label">{{ r.item.label }}</span>
-            <Stars class="cp__cell-stars" :value="r.item.stars" />
-            <span class="cp__cell-slot">{{ SLOT_LABELS[r.item.slot] }}</span>
-          </template>
-          <template v-else>
-            <span class="cp__cell-gold">🪙</span>
-            <span class="cp__cell-label">+{{ r.amount }}</span>
-          </template>
+          <ItemIcon class="cp__cell-icon" :item="r.item" />
+          <span class="cp__cell-label">{{ r.item.label }}</span>
+          <Stars class="cp__cell-stars" :value="r.item.stars" />
+          <span class="cp__cell-slot">{{ SLOT_LABELS[r.item.slot] }}</span>
         </div>
       </div>
     </div>
@@ -162,7 +151,7 @@ function openTen(useTicket: boolean): void {
     </div>
 
     <p class="muted cp__note">
-      宝箱有 {{ Math.round(COIN_DROP_CHANCE * 100) }}% 概率开出金币袋。十连抽九折，且保底至少一件史诗+。重复物品按稀有度返还金币。
+      宝箱必出装扮，十连抽九折且保底至少一件史诗+。重复物品按稀有度返还金币。
     </p>
   </div>
 </template>
@@ -318,6 +307,11 @@ function openTen(useTicket: boolean): void {
   color: var(--rarity);
 }
 
+.cp__card-icon {
+  width: 76px;
+  height: 76px;
+}
+
 .cp__card-label {
   font-size: 26px;
   font-weight: 700;
@@ -330,12 +324,6 @@ function openTen(useTicket: boolean): void {
 
 .cp__card-slot {
   font-size: 12px;
-}
-
-.cp__card-gold {
-  font-size: 26px;
-  font-weight: 700;
-  color: #b8860b;
 }
 
 /* --- ten-pull grid --- */
@@ -360,6 +348,12 @@ function openTen(useTicket: boolean): void {
   animation: cell-in 0.36s cubic-bezier(0.2, 1.3, 0.4, 1) both;
 }
 
+.cp__cell-icon {
+  width: 70%;
+  height: 42%;
+  flex: none;
+}
+
 .cp__cell-label {
   font-size: 11px;
   font-weight: 600;
@@ -375,10 +369,6 @@ function openTen(useTicket: boolean): void {
 .cp__cell-slot {
   font-size: 9px;
   color: var(--text-dim);
-}
-
-.cp__cell-gold {
-  font-size: 18px;
 }
 
 .cp__actions {

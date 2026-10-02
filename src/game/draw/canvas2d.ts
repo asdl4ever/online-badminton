@@ -192,7 +192,7 @@ class Graphics2D {
 }
 
 /** 未实现的 Graphics 方法一律变成空操作，避免以后加绘制指令时直接抛错 */
-function asGraphics(ctx: CanvasRenderingContext2D): Phaser.GameObjects.Graphics {
+export function asGraphics(ctx: CanvasRenderingContext2D): Phaser.GameObjects.Graphics {
   const impl = new Graphics2D(ctx);
   return new Proxy(impl, {
     get(target, prop) {

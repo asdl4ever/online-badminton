@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import CharacterPreview from './CharacterPreview.vue';
+import ItemIcon from './ItemIcon.vue';
 import Stars from './ui/Stars.vue';
 import Button from './ui/Button.vue';
 import { toastGood, toastWarn } from '../composables/useToast';
@@ -194,6 +195,7 @@ function equippedLabel(slot: ItemSlot): string {
           @click="onCell(item)"
         >
           <template v-if="item">
+            <ItemIcon class="bp__cell-icon" :item="item" />
             <span class="bp__cell-label">{{ item.label }}</span>
             <Stars class="bp__cell-stars" :value="displayStars(item)" />
             <span v-if="isEquipped(item)" class="bp__cell-check">✓</span>
@@ -337,6 +339,13 @@ function equippedLabel(slot: ItemSlot): string {
 .bp__cell.is-equipped {
   background: color-mix(in srgb, var(--rarity) 22%, var(--surface-2));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--rarity) 45%, transparent);
+}
+
+.bp__cell-icon {
+  width: 58%;
+  height: 46%;
+  margin-bottom: 2px;
+  flex: none;
 }
 
 .bp__cell-label {

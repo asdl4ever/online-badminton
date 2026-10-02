@@ -134,11 +134,13 @@ export class TouchControls {
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.layout = loadLayout();
-    this.gfx = scene.add.graphics().setDepth(20);
+    // 固定在屏幕上：潜水这类相机会滚动的场景里，摇杆必须跟着视口而不是世界
+    this.gfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
     this.hint = scene.add
       .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '15px', color: P.touchHintText })
       .setOrigin(0.5)
       .setDepth(21)
+      .setScrollFactor(0)
       .setVisible(false);
     this.editHint = scene.add
       .text(640, 74, '拖动圆盘改位置 · 拖右上角把手改大小', {
@@ -150,6 +152,7 @@ export class TouchControls {
       })
       .setOrigin(0.5)
       .setDepth(22)
+      .setScrollFactor(0)
       .setVisible(false);
     const btnStyle = {
       fontFamily: FONT_UI,
@@ -157,8 +160,18 @@ export class TouchControls {
       color: P.touchBtnText,
       fontStyle: 'bold',
     } as const;
-    this.resetLabel = scene.add.text(0, 0, '重置', btnStyle).setOrigin(0.5).setDepth(22).setVisible(false);
-    this.doneLabel = scene.add.text(0, 0, '完成', btnStyle).setOrigin(0.5).setDepth(22).setVisible(false);
+    this.resetLabel = scene.add
+      .text(0, 0, '重置', btnStyle)
+      .setOrigin(0.5)
+      .setDepth(22)
+      .setScrollFactor(0)
+      .setVisible(false);
+    this.doneLabel = scene.add
+      .text(0, 0, '完成', btnStyle)
+      .setOrigin(0.5)
+      .setDepth(22)
+      .setScrollFactor(0)
+      .setVisible(false);
 
     scene.input.on('pointerdown', this.onDown, this);
     scene.input.on('pointermove', this.onMove, this);

@@ -438,7 +438,7 @@ export const PETS = ITEMS.filter((i) => i.slot === 'pet' && i.ref !== 'none');
 
 /** 理发店（大地图上的外观自定义）：进门一次的花费 */
 export const BARBER_COST = 100;
-export const CHEST_COST = 120;
+export const CHEST_COST = 400;
 export const PITY_LIMIT = 10;
 
 /** ten draws cost 10% less than ten singles */
@@ -488,10 +488,6 @@ export const PET_EGGS: PetEgg[] = [
     blurb: '保底 3★，高品质宠物',
   },
 ];
-
-/** small chance a chest pays out coins instead of an item */
-export const COIN_DROP_CHANCE = 0.15;
-export const COIN_DROP_RANGE: [number, number] = [40, 120];
 
 /** coins earned per finished match (weighted toward online) */
 export const COIN_RULES = {
