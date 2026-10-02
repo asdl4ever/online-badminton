@@ -31,7 +31,16 @@ import {
   type ItemSlot,
   type Rarity,
 } from '../game/items';
-import { BOAT_COST, islandById, MAX_LEVEL, upgradeCost } from '../game/dive/fish';
+import {
+  BOAT_COST,
+  FISH_TASKS,
+  fishTaskMatch,
+  islandById,
+  MAX_LEVEL,
+  SPECIES,
+  upgradeCost,
+  type FishTaskTemplate,
+} from '../game/dive/fish';
 import { styleFromStats, tierFromStats } from '../game/ai';
 import {
   applyMatchResult,
@@ -265,13 +274,20 @@ export const useProgressStore = defineStore('progress', () => {
   const boat = useLocalStorage('bmt-dive-boat', false);
   /** 当前在哪个海岛潜水 */
   const island = useLocalStorage('bmt-dive-island', 'shore');
-  /** 鱼图鉴：鱼种 id → 钓到的条数 + 最大体重 */
-  const fishLog = useLocalStorage<Record<string, { count: number; best: number }>>('bmt-fish-log', {});
-  /** 成就专用的小计数器：卖鱼总额 / 下潜次数 / 出海次数 / 最深下潜（米） */
-  const achStats = useLocalStorage<{ sold: number; dives: number; trips: number; deepest: number }>(
-    'bmt-ach-stats',
-    { sold: 0, dives: 0, trips: 0, deepest: 0 },
+  /** 鱼图鉴：鱼种 id → 钓到的条数 + 最大体重（+ 闪光条数，老存档缺省 0） */
+  const fishLog = useLocalStorage<Record<string, { count: number; best: number; shiny?: number }>>(
+    'bmt-fish-log',
+    {},
   );
+  /** 成就专用的小计数器：卖鱼总额 / 下潜次数 / 出海次数 / 最深下潜（米）+ 鱼王 / 闪光 */
+  const achStats = useLocalStorage<{
+    sold: number;
+    dives: number;
+    trips: number;
+    deepest: number;
+    kings: number;
+    shiny: number;
+  }>('bmt-ach-stats', { sold: 0, dives: 0, trips: 0, deepest: 0, kings: 0, shiny: 0 });
   /** 已达成的成就 id（达成即发奖，见 syncAchievements） */
   const achDone = useLocalStorage<string[]>('bmt-ach-done', []);
   /** 已用过的兑换码（每个只能用一次） */
@@ -803,13 +819,94 @@ export const useProgressStore = defineStore('progress', () => {
 
   // ---- 潜水 -----------------------------------------------------------------
 
-  /** 记一笔图鉴（钓到一条鱼） */
-  function logFish(id: string, kg: number): void {
-    const cur = fishLog.value[id] ?? { count: 0, best: 0 };
+  /** 记一笔图鉴（钓到一条鱼；闪光鱼单独计数，图鉴上挂 ✨） */
+  function logFish(id: string, kg: number, shiny = false): void {
+    const cur = fishLog.value[id] ?? { count: 0, best: 0, shiny: 0 };
     fishLog.value = {
       ...fishLog.value,
-      [id]: { count: cur.count + 1, best: Math.max(cur.best, kg) },
+      [id]: {
+        count: cur.count + 1,
+        best: Math.max(cur.best, kg),
+        shiny: (cur.shiny ?? 0) + (shiny ? 1 : 0),
+      },
     };
+  }
+
+  /** 抓到鱼王 / 闪光鱼的成就计数 */
+  function noteFishKing(): void {
+    achStats.value = { ...achStats.value, kings: achStats.value.kings + 1 };
+  }
+  function noteFishShiny(): void {
+    achStats.value = { ...achStats.value, shiny: achStats.value.shiny + 1 };
+  }
+
+  // ---- 每日钓鱼任务 / 闪光鱼饵 -------------------------------------------------
+
+  /** 任务属于哪一天 */
+  const fishTaskDay = useLocalStorage('bmt-fish-task-day', '');
+  /** 今天的任务 id（FISH_TASKS 里的一条，跨天随机换） */
+  const fishTaskId = useLocalStorage('bmt-fish-task-id', '');
+  /** 任务进度 */
+  const fishTaskProg = useLocalStorage('bmt-fish-task-prog', 0);
+  /** 今天这条任务领过奖没有 */
+  const fishTaskClaimed = useLocalStorage('bmt-fish-task-claimed', false);
+
+  /** 今天的钓鱼任务（进页面时对齐日期，跨天自动换一条） */
+  const fishTask = computed<FishTaskTemplate>(() => {
+    if (fishTaskDay.value !== todayKey() || !fishTaskId.value) {
+      return FISH_TASKS[0];
+    }
+    return FISH_TASKS.find((t) => t.id === fishTaskId.value) ?? FISH_TASKS[0];
+  });
+
+  /** 闪光鱼饵余量：>0 时下一条生成的鱼必为闪光（开宝箱获得） */
+  const shinyBait = useLocalStorage('bmt-shiny-bait', 0);
+
+  /** 保证今天的任务已就绪：跨天随机抽一条并清零进度 */
+  function ensureFishTask(): FishTaskTemplate {
+    const today = todayKey();
+    if (fishTaskDay.value !== today || !fishTaskId.value) {
+      fishTaskDay.value = today;
+      fishTaskId.value = FISH_TASKS[Math.floor(Math.random() * FISH_TASKS.length)].id;
+      fishTaskProg.value = 0;
+      fishTaskClaimed.value = false;
+    }
+    return FISH_TASKS.find((t) => t.id === fishTaskId.value) ?? FISH_TASKS[0];
+  }
+
+  /** 抓到鱼时推进任务进度（DiveScene.onCatch → FishView 调用） */
+  function noteFishCatch(taskId: string, spId: string, kg: number, shiny: boolean): void {
+    const task = ensureFishTask();
+    if (task.id !== taskId) return;
+    const sp = SPECIES.find((s) => s.id === spId);
+    if (sp && fishTaskMatch(task.id, sp, kg, shiny)) {
+      fishTaskProg.value = Math.min(task.goal, fishTaskProg.value + 1);
+    }
+  }
+
+  /** 领取今日钓鱼任务奖励 */
+  function claimFishTask(): { ok: boolean; message: string } {
+    const task = ensureFishTask();
+    if (fishTaskClaimed.value) return { ok: false, message: '今天这份已经领过了' };
+    if (fishTaskProg.value < task.goal) {
+      return { ok: false, message: `任务还没完成（${fishTaskProg.value}/${task.goal}）` };
+    }
+    fishTaskClaimed.value = true;
+    coins.value += task.coins;
+    honor.value += task.honor;
+    return { ok: true, message: `任务完成！🪙 +${task.coins} · 🏅 +${task.honor}` };
+  }
+
+  /** 开宝箱获得闪光鱼饵 */
+  function grantShinyBait(): number {
+    shinyBait.value += 1;
+    return shinyBait.value;
+  }
+  /** 消耗一个闪光鱼饵（生成下一条鱼时用），没有返回 false */
+  function consumeShinyBait(): boolean {
+    if (shinyBait.value <= 0) return false;
+    shinyBait.value -= 1;
+    return true;
   }
 
   /** 买船（一次性） */
@@ -988,6 +1085,10 @@ export const useProgressStore = defineStore('progress', () => {
         return bagLv.value;
       case 'gearLv':
         return rodLevel.value;
+      case 'fishKings':
+        return achStats.value.kings;
+      case 'fishShiny':
+        return achStats.value.shiny;
     }
   }
 
@@ -1150,6 +1251,17 @@ export const useProgressStore = defineStore('progress', () => {
     island,
     fishLog,
     logFish,
+    noteFishKing,
+    noteFishShiny,
+    fishTask,
+    fishTaskProg,
+    fishTaskClaimed,
+    ensureFishTask,
+    noteFishCatch,
+    claimFishTask,
+    shinyBait,
+    grantShinyBait,
+    consumeShinyBait,
     buyBoat,
     upgradeDive,
     upgradeFarm,

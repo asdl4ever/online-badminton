@@ -103,7 +103,7 @@ export const SPECIES: Species[] = [
     kg: [0.8, 3],
     perKg: 60,
     base: 30,
-    band: [700, 1500],
+    band: [700, 2100],
     weight: 9,
     speed: 55,
     flee: 0.35,
@@ -134,7 +134,7 @@ export const SPECIES: Species[] = [
     kg: [8, 26],
     perKg: 52,
     base: 120,
-    band: [900, 1600],
+    band: [900, 2500],
     weight: 7,
     speed: 170,
     flee: 0.75,
@@ -149,7 +149,7 @@ export const SPECIES: Species[] = [
     kg: [5, 16],
     perKg: 88,
     base: 180,
-    band: [1100, 1800],
+    band: [1100, 2900],
     weight: 5,
     speed: 60,
     flee: 0.3,
@@ -164,7 +164,7 @@ export const SPECIES: Species[] = [
     kg: [20, 60],
     perKg: 74,
     base: 260,
-    band: [1300, 2000],
+    band: [1300, 3600],
     weight: 3,
     speed: 48,
     flee: 0.2,
@@ -180,7 +180,7 @@ export const SPECIES: Species[] = [
     kg: [30, 95],
     perKg: 150,
     base: 600,
-    band: [1500, 2200],
+    band: [1500, 3800],
     weight: 1.4,
     speed: 90,
     flee: 0.5,
@@ -198,6 +198,30 @@ export function speciesById(id: string): Species | undefined {
 export function fishValue(s: Species, kg: number): number {
   return Math.round(s.base + s.perKg * kg);
 }
+
+// ---- 体型 / 闪光 / 鱼王 ------------------------------------------------------
+
+/**
+ * 体重 → 体型倍率：同种鱼按 kg 在本种 [min,max] 区间的位置，
+ * 平滑映射到 **0.6×~1.8×**。大鱼一眼就能看出来，抓鱼判定半径也跟着它走。
+ */
+export function sizeScale(sp: Species, kg: number): number {
+  const [lo, hi] = sp.kg;
+  const t = hi > lo ? Math.min(1, Math.max(0, (kg - lo) / (hi - lo))) : 0.5;
+  return 0.6 + t * 1.2;
+}
+
+/** 闪光鱼：spawn 时的小概率金色变体（2%），价值翻 5 倍，图鉴特别标记 */
+export const SHINY_CHANCE = 0.02;
+export const SHINY_VALUE_MULT = 5;
+
+/** 鱼王：小概率刷出的超大个体（2%，kg 拉满 + 游得快），价值 ×3 + 专属成就 */
+export const KING_CHANCE = 0.02;
+export const KING_VALUE_MULT = 3;
+/** 鱼王体重按物种上限再乘一档（可能超过渔具 maxKg，拉不拉得住看装备） */
+export const KING_KG_MULT = 1.5;
+/** 鱼王游速倍率 */
+export const KING_SPEED_MULT = 1.4;
 
 // ---- 海岛 -----------------------------------------------------------------
 
@@ -237,7 +261,7 @@ export const ISLANDS: Island[] = [
     cost: 0,
     gear: 1,
     palette: { shallow: 0x3fa9d8, deep: 0x0b2e4a, accent: 0x9fe8ff },
-    floor: 1200,
+    floor: 1900,
     fish: ['sardine', 'clown', 'bass', 'octopus'],
     hazards: { jelly: 3, shark: 0, current: 0 },
   },
@@ -249,7 +273,7 @@ export const ISLANDS: Island[] = [
     gear: 2,
     boat: true,
     palette: { shallow: 0x35c4c0, deep: 0x083b46, accent: 0xffe6a3 },
-    floor: 1600,
+    floor: 2600,
     fish: ['clown', 'bass', 'octopus', 'lobster', 'amberjack'],
     hazards: { jelly: 7, shark: 0, current: 1 },
   },
@@ -261,7 +285,7 @@ export const ISLANDS: Island[] = [
     gear: 3,
     boat: true,
     palette: { shallow: 0x1f6f9e, deep: 0x061b33, accent: 0x8fd8ff },
-    floor: 2000,
+    floor: 3300,
     fish: ['amberjack', 'tuna', 'angler', 'grouper'],
     hazards: { jelly: 4, shark: 1, current: 2 },
   },
@@ -273,7 +297,7 @@ export const ISLANDS: Island[] = [
     gear: 4,
     boat: true,
     palette: { shallow: 0x2d7f8f, deep: 0x04101f, accent: 0x7fe0c0 },
-    floor: 2400,
+    floor: 4000,
     fish: ['tuna', 'grouper', 'oarfish', 'lobster'],
     hazards: { jelly: 6, shark: 2, current: 3 },
   },
@@ -294,9 +318,9 @@ export function upgradeCost(level: number): number {
   return UPGRADE_COSTS[Math.min(level, UPGRADE_COSTS.length - 1)];
 }
 
-/** 氧气上限（秒）：越高级待得越久、敢下得更深 */
+/** 氧气上限（秒）：海变深了，氧气曲线也放宽一档 */
 export function oxygenMax(level: number): number {
-  return 26 + (level - 1) * 7;
+  return 32 + (level - 1) * 10;
 }
 
 /** 背包容量：条数 / 总重量（kg） */
@@ -316,3 +340,46 @@ export function gearStats(level: number): { hook: number; maxKg: number; reel: n
 
 /** 买船的价格 */
 export const BOAT_COST = 2500;
+
+// ---- 每日钓鱼任务 -----------------------------------------------------------
+
+export interface FishTaskTemplate {
+  id: string;
+  /** 文案（{n} 占位） */
+  text: string;
+  /** 目标次数 */
+  goal: number;
+  /** 奖励 */
+  coins: number;
+  honor: number;
+}
+
+/** 模板池：每天随机一条 */
+export const FISH_TASKS: FishTaskTemplate[] = [
+  { id: 'kg20_3', text: '抓 3 条 20kg 以上的鱼', goal: 3, coins: 300, honor: 15 },
+  { id: 'kg10_5', text: '抓 5 条 10kg 以上的鱼', goal: 5, coins: 260, honor: 12 },
+  { id: 'count8', text: '抓 8 条任意鱼', goal: 8, coins: 200, honor: 10 },
+  { id: 'shiny1', text: '抓 1 条闪光鱼', goal: 1, coins: 350, honor: 18 },
+  { id: 'sardine5', text: '抓 5 条沙丁鱼', goal: 5, coins: 180, honor: 8 },
+  { id: 'clown3', text: '抓 3 条小丑鱼', goal: 3, coins: 220, honor: 10 },
+];
+
+/** 每个任务的判定器：这条鱼算不算进度 */
+export function fishTaskMatch(taskId: string, sp: Species, kg: number, shiny: boolean): boolean {
+  switch (taskId) {
+    case 'kg20_3':
+      return kg >= 20;
+    case 'kg10_5':
+      return kg >= 10;
+    case 'count8':
+      return true;
+    case 'shiny1':
+      return shiny;
+    case 'sardine5':
+      return sp.id === 'sardine';
+    case 'clown3':
+      return sp.id === 'clown';
+    default:
+      return false;
+  }
+}

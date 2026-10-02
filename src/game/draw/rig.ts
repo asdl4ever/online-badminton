@@ -44,12 +44,12 @@ export interface PlayerRig {
 
 export function createPlayerRig(scene: Phaser.Scene): PlayerRig {
   // identical to the match scene's face: centred origin, emoji font.
-  // depth 1 = 在角色层（body/头饰/光环…画在上面的那个 Graphics）之下、背景之上，
-  // 这样 emoji 不会被自己的装备盖住，也不会被背景吞掉。
+  // depth 3 = 在角色身体层（场景里 charG 通常是 depth 2）**之上**：
+  // 头永远露在身体上面，不会被身体/装备盖住。
   const face = scene.add
     .text(0, 0, '', { fontFamily: FONT_EMOJI, fontSize: '34px' })
     .setOrigin(0.5)
-    .setDepth(1)
+    .setDepth(3)
     .setVisible(false);
 
   return {

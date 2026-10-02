@@ -54,7 +54,11 @@ export type AchMetric =
   /** 氧气罐 / 背包 / 渔具等级 */
   | { kind: 'oxygenLv' }
   | { kind: 'bagLv' }
-  | { kind: 'gearLv' };
+  | { kind: 'gearLv' }
+  /** 抓到鱼王的次数 */
+  | { kind: 'fishKings' }
+  /** 抓到闪光鱼的次数 */
+  | { kind: 'fishShiny' };
 
 export interface Achievement {
   id: string;
@@ -216,6 +220,46 @@ export const ACHIEVEMENTS: Achievement[] = [
     metric: { kind: 'caught', species: 'oarfish' },
     coins: 2500,
     itemId: 'aura:voidRift',
+  },
+  {
+    id: 'sea-king-1',
+    section: 'sea',
+    name: '👑 鱼王猎人',
+    desc: '抓住一条鱼王',
+    goal: 1,
+    metric: { kind: 'fishKings' },
+    coins: 1200,
+    itemId: 'hat:captain',
+  },
+  {
+    id: 'sea-king-5',
+    section: 'sea',
+    name: '👑 王中王',
+    desc: '抓住 5 条鱼王',
+    goal: 5,
+    metric: { kind: 'fishKings' },
+    coins: 3000,
+    itemId: 'aura:gold',
+  },
+  {
+    id: 'sea-shiny-1',
+    section: 'sea',
+    name: '✨ 金光一闪',
+    desc: '抓住一条闪光鱼',
+    goal: 1,
+    metric: { kind: 'fishShiny' },
+    coins: 500,
+    itemId: 'effect:star',
+  },
+  {
+    id: 'sea-shiny-5',
+    section: 'sea',
+    name: '✨ 星光收藏家',
+    desc: '抓住 5 条闪光鱼',
+    goal: 5,
+    metric: { kind: 'fishShiny' },
+    coins: 1500,
+    itemId: 'trail:gold',
   },
 ];
 

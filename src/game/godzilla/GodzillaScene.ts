@@ -78,7 +78,7 @@ export class GodzillaScene extends Phaser.Scene {
   private hp = 1;
   private hearts = GZ_HEARTS;
   private invuln = 0;
-  private intro = 2;
+  private intro = 3;
   private ended = false;
   private endTimer = -1;
   private gzAlpha = 1;
@@ -90,6 +90,7 @@ export class GodzillaScene extends Phaser.Scene {
   private laserPhase: 'idle' | 'warn' | 'beam' = 'idle';
   private laserT = 0;
   private laserX = 0;
+  private readyText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('GodzillaScene');
@@ -118,6 +119,18 @@ export class GodzillaScene extends Phaser.Scene {
     this.g = this.add.graphics().setDepth(1);
     this.charG = this.add.graphics().setDepth(2);
     this.rigMe = createPlayerRig(this);
+    // 开场倒计时：手机上加载慢也能看清再开打
+    this.readyText = this.add
+      .text(VIEW_W / 2, VIEW_H / 2 - 60, '', {
+        fontFamily: 'Arial',
+        fontSize: '64px',
+        color: '#ffd45c',
+        fontStyle: 'bold',
+        stroke: '#1a0c08',
+        strokeThickness: 8,
+      })
+      .setOrigin(0.5)
+      .setDepth(30);
 
     const kb = this.input.keyboard;
     if (kb) {
@@ -148,6 +161,12 @@ export class GodzillaScene extends Phaser.Scene {
     this.stepPlayer(dt);
     this.stepRacket(dt);
     this.stepIntro(dt);
+    if (this.intro > 0) {
+      this.readyText
+        .setVisible(true)
+        .setText(String(Math.max(1, Math.ceil(this.intro))))
+        .setScale(1 + (this.intro % 1) * 0.25);
+    }
     this.stepFireballs(dt);
     this.stepLaser(dt);
     this.stepEndcheck(dt);
@@ -241,6 +260,11 @@ export class GodzillaScene extends Phaser.Scene {
   private stepIntro(dt: number): void {
     if (this.intro > 0) {
       this.intro -= dt;
+      if (this.intro <= 0) {
+        // 倒计时归零的那一瞬间：「开战!」闪一下然后隐藏
+        this.readyText.setText('开战!').setScale(1.2);
+        this.time.delayedCall(600, () => this.readyText.setVisible(false));
+      }
       return;
     }
     // 火球
@@ -281,7 +305,8 @@ export class GodzillaScene extends Phaser.Scene {
   }
 
   private hurtPlayer(): void {
-    if (this.invuln > 0 || this.ended) return;
+    // 开场倒计时期间绝对无敌：手机上加载慢，不能人还没看清就被打死
+    if (this.invuln > 0 || this.ended || this.intro > 0) return;
     this.hearts -= 1;
     this.invuln = 1.2;
     sfx.hit('smash');
@@ -298,19 +323,23 @@ export class GodzillaScene extends Phaser.Scene {
       b.x += b.vx * dt;
       b.y += b.vy * dt;
 
-      // 拍头够快、朝着火球挥 → 反弹回哥斯拉
+      // 拍头够快、且挥拍方向「朝着火球所在的位置」→ 反弹回哥斯拉。
+      // （之前的判定要求拍速与球飞行方向相反——火球从右往左飞、玩家往左迎击
+      //   方向相同被误判，所以"明明打中了却不反弹"。）
       const dHead = Phaser.Math.Distance.Between(
         this.racketHead.x,
         this.racketHead.y,
         b.x,
         b.y,
       );
-      if (
-        !b.reflected &&
-        dHead < 34 &&
-        rSpeed > 460 &&
-        this.racketSt.rvx * b.vx + this.racketSt.rvy * b.vy < 0
-      ) {
+      let swungAtBall = false;
+      if (!b.reflected && dHead < 46 && rSpeed > 380) {
+        const dirx = (b.x - this.racketHead.x) / dHead;
+        const diry = (b.y - this.racketHead.y) / dHead;
+        swungAtBall =
+          this.racketSt.rvx * dirx + this.racketSt.rvy * diry > 0.2 * rSpeed;
+      }
+      if (!b.reflected && dHead < 46 && rSpeed > 380 && swungAtBall) {
         const dx = GZ_CHEST_X - b.x;
         const dy = GZ_CHEST_Y - b.y;
         const len = Math.hypot(dx, dy) || 1;

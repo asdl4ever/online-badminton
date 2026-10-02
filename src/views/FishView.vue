@@ -20,6 +20,7 @@ import {
   upgradeCost,
 } from '../game/dive/fish';
 import { VIEW_H, VIEW_W } from '../game/constants';
+import { ITEMS } from '../game/items';
 import { applyTheme } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
@@ -87,9 +88,50 @@ const oxygenTop = computed(() => oxygenMax(progress.oxygenLv));
 const codex = computed(() =>
   SPECIES.map((s) => {
     const log = progress.fishLog[s.id];
-    return { s, count: log?.count ?? 0, best: log?.best ?? 0 };
+    return { s, count: log?.count ?? 0, best: log?.best ?? 0, shiny: log?.shiny ?? 0 };
   }),
 );
+
+// ---- 每日钓鱼任务 -------------------------------------------------------------
+progress.ensureFishTask();
+const task = computed(() => progress.fishTask);
+const taskPct = computed(() =>
+  task.value.goal ? Math.min(1, progress.fishTaskProg / task.value.goal) : 1,
+);
+const taskDone = computed(() => progress.fishTaskProg >= task.value.goal);
+
+function claimTask(): void {
+  const r = progress.claimFishTask();
+  if (r.ok) {
+    sfx.win();
+    toastGood(r.message);
+  } else {
+    toastWarn(r.message);
+  }
+}
+
+/** 开海底宝箱：金币 / 未拥有的装扮 / 闪光鱼饵，三选一 */
+function openChest(): string {
+  const roll = Math.random();
+  if (roll < 0.45) {
+    const coins = 120 + Math.floor(Math.random() * 260);
+    progress.coins += coins;
+    return `金币 +¥${coins}`;
+  }
+  if (roll < 0.75) {
+    const n = progress.grantShinyBait();
+    return `闪光鱼饵（现有 ${n} 个，下一条刷出的鱼必闪光）`;
+  }
+  const pool = ITEMS.filter((i) => i.source === 'gacha' && !progress.owned.includes(i.id));
+  if (!pool.length) {
+    const coins = 300 + Math.floor(Math.random() * 200);
+    progress.coins += coins;
+    return `金币 +¥${coins}（装扮都快集齐了）`;
+  }
+  const item = pool[Math.floor(Math.random() * pool.length)];
+  progress.owned = [...progress.owned, item.id];
+  return `获得装扮「${item.label}」`;
+}
 
 function scene(): DiveScene | undefined {
   return game?.scene.getScene('DiveScene') as DiveScene | undefined;
@@ -123,8 +165,11 @@ function boot(session: NetLink | null) {
     gearLv: progress.rodLevel,
     boat: progress.boat,
     onBag: (s) => (bag.value = s),
-    onCatch: (id, kg) => {
-      progress.logFish(id, kg);
+    onCatch: (id, kg, _value, flags) => {
+      progress.logFish(id, kg, flags.shiny);
+      if (flags.king) progress.noteFishKing();
+      if (flags.shiny) progress.noteFishShiny();
+      progress.noteFishCatch(progress.fishTask.id, id, kg, flags.shiny);
       sessionCaught.value += 1;
       sfx.point();
       checkAch();
@@ -148,6 +193,10 @@ function boot(session: NetLink | null) {
     onShop: () => openShop(),
     // 点了岸边的船（或站在旁边按 E）：买船 / 出海都在这一张卡片里
     onBoat: () => openBoat(),
+    // 海底宝箱：页面侧发奖励（金币 / 未拥有的装扮 / 闪光鱼饵）
+    onChest: () => openChest(),
+    // 闪光鱼饵：消耗一个，下一条刷出来的鱼必为闪光
+    consumeShinyBait: () => progress.consumeShinyBait(),
   };
   game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -360,6 +409,33 @@ onBeforeUnmount(() => {
             }}
           </span>
 
+          <!-- 每日钓鱼任务：跨天自动换一条 -->
+          <div class="fish-task" :class="{ 'is-done': taskDone }">
+            <div class="fish-task__head">
+              <b>📋 每日钓鱼任务</b>
+              <span class="muted num">{{ progress.fishTaskProg }}/{{ task.goal }}</span>
+            </div>
+            <p class="muted fish-task__text">{{ task.text }}</p>
+            <div class="fish-task__bar">
+              <i :style="{ width: `${taskPct * 100}%` }" />
+            </div>
+            <Button
+              size="sm"
+              block
+              :variant="taskDone && !progress.fishTaskClaimed ? 'primary' : 'quiet'"
+              :disabled="!taskDone || progress.fishTaskClaimed"
+              @click="claimTask"
+            >
+              {{
+                progress.fishTaskClaimed
+                  ? '今日已领取'
+                  : taskDone
+                    ? `领取 🪙${task.coins} · 🏅${task.honor}`
+                    : '未完成'
+              }}
+            </Button>
+          </div>
+
           <template v-if="!roomCode">
             <input
               v-model="joinCode"
@@ -450,7 +526,9 @@ onBeforeUnmount(() => {
           <ul v-if="codexOpen" class="isl__codex boat-card__codexlist">
             <li v-for="c in codex" :key="c.s.id" class="isl__codex-item" :class="{ 'is-new': !c.count }">
               <span class="isl__codex-emoji">{{ c.count ? c.s.emoji : '❔' }}</span>
-              <span class="isl__codex-name">{{ c.s.name }}</span>
+              <span class="isl__codex-name">
+                {{ c.s.name }} <span v-if="c.shiny" title="抓到过闪光鱼">✨{{ c.shiny }}</span>
+              </span>
               <span class="muted num">
                 {{ c.count ? `${c.count} 条 · 最大 ${c.best.toFixed(1)}kg` : '未发现' }}
               </span>
@@ -520,6 +598,51 @@ onBeforeUnmount(() => {
 .dive-num {
   font-size: var(--ui-font-xs);
   color: var(--text-dim);
+}
+
+/* 每日钓鱼任务卡 */
+.fish-task {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.fish-task.is-done {
+  border-color: #e8a33d;
+  background: color-mix(in srgb, #e8a33d 12%, var(--surface-2));
+}
+
+.fish-task__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.fish-task__text {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.fish-task__bar {
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.2);
+  overflow: hidden;
+}
+
+.fish-task__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #54d6ff, #e8a33d);
+  transition: width 0.3s ease;
 }
 
 .dive-up {

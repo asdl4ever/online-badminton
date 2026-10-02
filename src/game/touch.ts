@@ -18,7 +18,10 @@ export interface TouchLayout {
 const KNOB_RATIO = 0.42;
 /** extra grab radius so the sticks are not fiddly to catch */
 const GRAB_PAD = 44;
-const DEADZONE = 0.26;
+/** 摇杆死区：调小一点，手指轻推也响应（灵敏度更高） */
+const DEADZONE = 0.15;
+/** 右摇杆（瞄准/挥拍）的灵敏度加成：同样的拇指位移输出更大的向量 */
+const RACKET_GAIN = 1.3;
 /**
  * Jumping lives in a wedge at the top of the move stick: push the knob at
  * least `JUMP_DEPTH` of the way out, and stay within `JUMP_HALF_ANGLE` of
@@ -269,11 +272,14 @@ export class TouchControls {
   private updateRacket(pointer: Phaser.Input.Pointer): void {
     const s = this.stick('racket');
     const v = this.vector(s, pointer.x, pointer.y);
-    this.joyX = v.x;
-    this.joyY = v.y;
+    // 灵敏度加成：轻推也有明显反应，推满仍是 1
+    const k = Math.min(1, v.k * RACKET_GAIN);
+    const scale = v.k > 0.0001 ? k / v.k : 0;
+    this.joyX = v.x * scale;
+    this.joyY = v.y * scale;
     const max = this.maxTravel(s);
-    this.knob.racket.x = v.x * max;
-    this.knob.racket.y = v.y * max;
+    this.knob.racket.x = v.x * scale * max;
+    this.knob.racket.y = v.y * scale * max;
   }
 
   // ---- rendering --------------------------------------------------------

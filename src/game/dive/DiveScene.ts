@@ -7,14 +7,22 @@ import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
 import { P } from '../theme';
+import { sfx } from '../audio';
 import type { NetLink } from '../../net/link';
 import {
   BOAT_COST,
+  KING_CHANCE,
+  KING_KG_MULT,
+  KING_SPEED_MULT,
+  KING_VALUE_MULT,
+  SHINY_CHANCE,
+  SHINY_VALUE_MULT,
   bagLimits,
   fishValue,
   gearStats,
   islandById,
   oxygenMax,
+  sizeScale,
   speciesById,
   type Island,
   type Species,
@@ -93,8 +101,8 @@ const JELLY_STUN = 0.9;
 const SHARK_R = 44;
 const SHARK_RANGE = 280;
 const SHARK_SPEED = 270;
-/** 场上鱼的目标数量 */
-const FISH_TARGET = 18;
+/** 场上鱼的目标数量（之前 18 条太挤，降到 10） */
+const FISH_TARGET = 10;
 const FISH_RESPAWN = 1.4;
 
 /** 每条鱼的配色（画面上区分鱼种） */
@@ -137,6 +145,17 @@ interface Fish {
   pullY: number;
   /** > 0 表示"拉不动"的挣扎倒计时 */
   escaped: number;
+  /** 闪光变体：金色发光，价值 ×5 */
+  shiny: boolean;
+  /** 鱼王：超大个体，价值 ×3 + 专属成就 */
+  king: boolean;
+}
+
+/** 海底宝箱：靠近按 E 拾取（仅本机生成，不进联机同步） */
+interface Chest {
+  x: number;
+  y: number;
+  phase: number;
 }
 
 interface Jelly {
@@ -193,10 +212,14 @@ export interface DiveSceneData {
   /** 有没有船（岸上画一条船、决定能不能出海） */
   boat?: boolean;
   onBag?: (state: DiveBagState) => void;
-  onCatch?: (speciesId: string, kg: number, value: number) => void;
+  onCatch?: (speciesId: string, kg: number, value: number, flags: { shiny: boolean; king: boolean }) => void;
   /** 氧气耗尽被冲上水面，丢了多少条 */
   onWipeout?: (lost: number) => void;
   onHurt?: (what: 'jelly' | 'shark') => void;
+  /** 开宝箱：页面侧发奖励并返回弹字文案 */
+  onChest?: () => string;
+  /** 消耗一个「闪光鱼饵」：有就返回 true，这条鱼必为闪光 */
+  consumeShinyBait?: () => boolean;
   /**
    * 上岸状态：装备店只开在岸上，所以页面要知道人是不是已经上岸、有没有走到门口。
    */
@@ -267,6 +290,11 @@ export class DiveScene extends Phaser.Scene {
   private jellies: Jelly[] = [];
   private sharks: Shark[] = [];
   private currents: Current[] = [];
+  /** 海底宝箱（同屏最多一个），null = 还没刷出来 */
+  private chest: Chest | null = null;
+  /** 距离下一次刷宝箱的秒数 */
+  private chestTimer = 15;
+  private nearChest = false;
 
   constructor() {
     super('DiveScene');
@@ -364,9 +392,18 @@ export class DiveScene extends Phaser.Scene {
     // 触屏必开；桌面端开了「摇杆常显」也开
     this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
 
-    // 岸边那条船：点一下就能交互（买船 / 出海）
+    // 岸边那条船：点一下就能交互（买船 / 出海）；海里的宝箱也一样
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (this.boatHit(p.worldX, p.worldY)) this.cfg.onBoat?.();
+      if (this.boatHit(p.worldX, p.worldY)) {
+        this.cfg.onBoat?.();
+        return;
+      }
+      if (
+        this.chest &&
+        Phaser.Math.Distance.Between(p.worldX, p.worldY, this.chest.x, this.chest.y) < 80
+      ) {
+        this.pickChest();
+      }
     });
 
     const link = this.cfg.session;
@@ -447,6 +484,7 @@ export class DiveScene extends Phaser.Scene {
     this.stepOxygen(dt);
     this.stepFish(dt);
     this.stepHook(dt);
+    this.stepChest(dt);
     this.stepHazards(dt);
     this.stepBubbles(dt);
     this.stepPops(dt);
@@ -582,6 +620,7 @@ export class DiveScene extends Phaser.Scene {
     if (this.shoreKey && Phaser.Input.Keyboard.JustDown(this.shoreKey)) {
       if (nearHut) this.cfg.onShop?.();
       else if (nearBoat) this.cfg.onBoat?.();
+      else if (this.chest && this.nearChest) this.pickChest();
     }
   }
 
@@ -671,7 +710,11 @@ export class DiveScene extends Phaser.Scene {
     }
     const sp = speciesById(picked);
     if (!sp) return;
-    const group = Math.max(1, Math.min(sp.school, 3));
+    // 鱼王：小概率刷出，单独一条、kg 拉满再放大
+    const king = Math.random() < KING_CHANCE;
+    // 闪光：鱼王不作闪光（王位不可叠加），闪光鱼饵直接点亮
+    const shiny = !king && (this.cfg.consumeShinyBait?.() === true || Math.random() < SHINY_CHANCE);
+    const group = king ? 1 : Math.max(1, Math.min(sp.school, 3));
     const baseX = Phaser.Math.FloatBetween(SEA_LEFT + 80, SEA_W - SEA_EDGE - 40);
     const bandTop = Math.max(SURFACE_BAND + 10, sp.band[0]);
     const bandBottom = Math.min(this.island.floor - 30, sp.band[1]);
@@ -679,7 +722,7 @@ export class DiveScene extends Phaser.Scene {
     for (let i = 0; i < group; i++) {
       this.fish.push({
         sp,
-        kg: Phaser.Math.FloatBetween(sp.kg[0], sp.kg[1]),
+        kg: king ? sp.kg[1] * KING_KG_MULT : Phaser.Math.FloatBetween(sp.kg[0], sp.kg[1]),
         x: Phaser.Math.Clamp(baseX + (i - group / 2) * 26, SEA_LEFT, SEA_W - SEA_EDGE),
         y: Phaser.Math.Clamp(baseY + (i - group / 2) * 14, 20, this.island.floor - 20),
         vx: 0,
@@ -690,6 +733,8 @@ export class DiveScene extends Phaser.Scene {
         pullX: 0,
         pullY: 0,
         escaped: 0,
+        shiny,
+        king,
       });
     }
   }
@@ -709,18 +754,19 @@ export class DiveScene extends Phaser.Scene {
         f.vx = (dx / d) * pullSpeed;
         f.vy = (dy / d) * pullSpeed;
       } else {
-        // 自由游动：正弦摆动 + 被玩家吓跑
+        // 自由游动：正弦摆动 + 被玩家吓跑；鱼王整体加速，更难追
+        const kingK = f.king ? KING_SPEED_MULT : 1;
         const dx = f.x - this.me.x;
         const dy = f.y - this.me.y;
         const d = Math.hypot(dx, dy);
         const alert = 70 + sp.flee * 130;
         if (d < alert && sp.flee > 0.2) {
-          const k = (1 - d / alert) * sp.speed * (0.7 + sp.flee);
+          const k = (1 - d / alert) * sp.speed * (0.7 + sp.flee) * kingK;
           f.vx = (dx / (d || 1)) * k;
           f.vy = (dy / (d || 1)) * k * 0.6;
         } else {
-          f.vx = Math.cos(now * 1.1 + f.phase) * sp.speed * 0.32;
-          f.vy = Math.sin(now * 0.7 + f.phase) * sp.speed * 0.16;
+          f.vx = Math.cos(now * 1.1 + f.phase) * sp.speed * 0.32 * kingK;
+          f.vy = Math.sin(now * 0.7 + f.phase) * sp.speed * 0.16 * kingK;
         }
       }
 
@@ -750,6 +796,33 @@ export class DiveScene extends Phaser.Scene {
       this.respawnTimer = FISH_RESPAWN;
       this.spawnRandomFish();
     }
+  }
+
+  // ---- 海底宝箱 ---------------------------------------------------------------
+  private stepChest(dt: number): void {
+    this.nearChest = false;
+    if (this.chest) {
+      this.nearChest =
+        Phaser.Math.Distance.Between(this.me.x, this.me.y, this.chest.x, this.chest.y) < 70;
+      return;
+    }
+    this.chestTimer -= dt;
+    if (this.chestTimer > 0) return;
+    // 刷在海床附近的中下层，往深处潜才有机会碰到
+    this.chest = {
+      x: Phaser.Math.FloatBetween(SEA_LEFT + 120, SEA_W - SEA_EDGE - 80),
+      y: Phaser.Math.FloatBetween(this.island.floor * 0.55, this.island.floor - 60),
+      phase: Math.random() * Math.PI * 2,
+    };
+  }
+
+  private pickChest(): void {
+    if (!this.chest) return;
+    this.chest = null;
+    this.chestTimer = Phaser.Math.FloatBetween(20, 40);
+    sfx.win();
+    const message = this.cfg.onChest?.() ?? '宝箱里空空如也…';
+    this.pop(`🎁 ${message}`, 0xffe27a);
   }
 
   // ---- 勾鱼 / 收杆 ----------------------------------------------------------
@@ -790,7 +863,8 @@ export class DiveScene extends Phaser.Scene {
     for (const f of this.fish) {
       if (f.state !== 'swim') continue;
       const d = Math.hypot(f.x - hx, f.y - hy);
-      if (d > gear.hook + 8) continue;
+      // 大鱼体型大，判定半径也跟着体型走
+      if (d > gear.hook + 6 + 7 * sizeScale(f.sp, f.kg)) continue;
 
       // 渔具不够：拽一下就跑
       if (f.sp.gear > this.cfg.gearLv || f.kg > gear.maxKg) {
@@ -816,7 +890,9 @@ export class DiveScene extends Phaser.Scene {
   }
 
   private landFish(f: Fish): void {
-    const value = fishValue(f.sp, f.kg);
+    // 闪光 ×5、鱼王 ×3，可以叠加
+    const mult = (f.shiny ? SHINY_VALUE_MULT : 1) * (f.king ? KING_VALUE_MULT : 1);
+    const value = Math.round(fishValue(f.sp, f.kg) * mult);
     const limits = bagLimits(this.cfg.bagLv);
     const kg = this.bagKg();
     if (this.bag.length >= limits.count || kg + f.kg > limits.kg) {
@@ -825,18 +901,25 @@ export class DiveScene extends Phaser.Scene {
       this.hooked = null;
       return;
     }
-    this.bag.push({ id: f.sp.id, name: f.sp.name, emoji: f.sp.emoji, kg: f.kg, value });
+    const badge = f.king ? '👑' : f.shiny ? '✨' : '';
+    this.bag.push({
+      id: f.sp.id,
+      name: `${badge}${f.sp.name}`,
+      emoji: f.sp.emoji,
+      kg: f.kg,
+      value,
+    });
     this.caughtValue += value;
     this.hooked = null;
     // 进了背包就从水里拿掉（stepFish 会把 gone 的过滤掉）
     f.state = 'gone';
-    this.pop(`${f.sp.emoji} ${f.sp.name} ${f.kg.toFixed(1)}kg  +¥${value}`, 0xffe27a);
+    this.pop(`${badge} ${f.sp.emoji} ${f.sp.name} ${f.kg.toFixed(1)}kg  +¥${value}`, 0xffe27a);
     this.cfg.session?.send({
       t: 'fishCatch',
       fish: `${f.sp.name} ${f.kg.toFixed(1)}kg`,
       value,
     });
-    this.cfg.onCatch?.(f.sp.id, f.kg, value);
+    this.cfg.onCatch?.(f.sp.id, f.kg, value, { shiny: f.shiny, king: f.king });
     this.pushBag();
   }
 
@@ -1096,11 +1179,23 @@ export class DiveScene extends Phaser.Scene {
     // 鱼
     for (const f of this.fish) {
       if (f.x < left - 80 || f.x > left + w + 80) continue;
-      const col = FISH_COLOR[f.sp.id] ?? 0x9fb8c8;
-      const scale = Phaser.Math.Clamp(0.5 + f.kg / 26, 0.5, 2.1);
+      const col = f.shiny ? 0xffd45c : (FISH_COLOR[f.sp.id] ?? 0x9fb8c8);
+      // 体型：体重 → 0.6×~1.8×，鱼王再放大到上限
+      const scale = f.king ? 1.8 : sizeScale(f.sp, f.kg);
       const bw = 20 * scale;
       const bh = 10 * scale;
       const dir = f.vx >= 0 ? 1 : -1;
+
+      // 闪光鱼：金色光晕（呼吸闪烁）；鱼王：淡金光圈
+      const glowP = 0.5 + 0.5 * Math.sin(this.time.now / 180 + f.phase);
+      if (f.shiny) {
+        g.fillStyle(0xffd45c, 0.14 + 0.12 * glowP);
+        g.fillCircle(f.x, f.y, bw * 1.7);
+      } else if (f.king) {
+        g.fillStyle(0xffe27a, 0.08 + 0.05 * glowP);
+        g.fillCircle(f.x, f.y, bw * 1.9);
+      }
+
       g.fillStyle(col, 1);
       g.fillEllipse(f.x, f.y, bw * 2, bh * 2);
       g.fillTriangle(
@@ -1111,10 +1206,21 @@ export class DiveScene extends Phaser.Scene {
         f.x - dir * (bw + 10 * scale),
         f.y + 8 * scale,
       );
+      if (f.shiny || f.king) {
+        g.lineStyle(2, 0xffe27a, 0.85);
+        g.strokeEllipse(f.x, f.y, bw * 2, bh * 2);
+      }
       g.fillStyle(0xffffff, 1);
       g.fillCircle(f.x + dir * bw * 0.5, f.y - bh * 0.25, 2 * scale);
       g.fillStyle(0x04101f, 1);
       g.fillCircle(f.x + dir * bw * 0.55, f.y - bh * 0.25, 1 * scale);
+      // 鱼王皇冠标记
+      if (f.king) {
+        g.fillStyle(0xffd45c, 1);
+        g.fillTriangle(f.x - 7, f.y - bh - 3, f.x - 2, f.y - bh - 12, f.x + 2, f.y - bh - 4);
+        g.fillTriangle(f.x + 1, f.y - bh - 4, f.x + 6, f.y - bh - 13, f.x + 10, f.y - bh - 3);
+        g.fillRect(f.x - 7, f.y - bh - 4, 18, 3);
+      }
 
       if (f.state === 'hooked') {
         // 收杆进度：鱼身上的圆环
@@ -1160,6 +1266,23 @@ export class DiveScene extends Phaser.Scene {
     // 气泡
     g.fillStyle(0xffffff, 0.35);
     for (const b of this.bubbles) g.fillCircle(b.x, b.y, b.r);
+
+    // 海底宝箱：木箱 + 金光呼吸
+    if (this.chest) {
+      const c = this.chest;
+      const bob = Math.sin(this.time.now / 500 + c.phase) * 3;
+      const glow = 0.5 + 0.5 * Math.sin(this.time.now / 260);
+      g.fillStyle(0xffd45c, 0.1 + 0.1 * glow);
+      g.fillCircle(c.x, c.y + bob, 34);
+      g.fillStyle(0x8a5a2b, 1);
+      g.fillRoundedRect(c.x - 18, c.y - 13 + bob, 36, 26, 4);
+      g.fillStyle(0x6a421c, 1);
+      g.fillRect(c.x - 18, c.y - 2 + bob, 36, 4);
+      g.fillStyle(0xffd45c, 1);
+      g.fillCircle(c.x, c.y + bob, 4);
+      g.lineStyle(2, 0xffe27a, 0.9);
+      g.strokeRoundedRect(c.x - 18, c.y - 13 + bob, 36, 26, 4);
+    }
 
     // 岸：沙滩 + 装备店 + 码头 + 船（画在水与鱼之上，所以在岸上的东西挡得住水面）
     this.drawShore(g, left, top, w, h);
@@ -1367,6 +1490,25 @@ export class DiveScene extends Phaser.Scene {
     const rig = isMe ? this.rigMe : this.rigOther;
     const ang = isMe ? this.racketAng : this.remoteAng;
     const reach = isMe ? this.racketReach : this.remoteReach;
+    const facing = d.facing;
+    const sh = d.y - PLAYER_H * 0.55;
+
+    // 装备贴图只在钓鱼场景里画（drawDiver 只被 DiveScene 调用），退出池塘不跟随。
+    // 好友的装备等级未知，只给自己画全套。
+    if (isMe) {
+      // 氧气罐：背在背后（画在身体之前，会被身体遮住一半），随等级变大换色
+      const oLv = this.cfg.oxygenLv;
+      const tankH = 24 + oLv * 4;
+      const tankX = d.x - facing * 17;
+      const tankColor = [0x9fb6c8, 0x54d6ff, 0x54e0a0, 0xffd45c, 0xff8ad4][Math.min(oLv - 1, 4)];
+      g.fillStyle(0x2a3442, 1);
+      g.fillRect(tankX - 4, sh - tankH / 2 - 4, 8, 4);
+      g.fillStyle(tankColor, 0.95);
+      g.fillRoundedRect(tankX - 7, sh - tankH / 2, 14, tankH, 7);
+      g.fillStyle(0xffffff, 0.35);
+      g.fillRect(tankX - 4, sh - tankH / 2 + 3, 3, tankH - 8);
+    }
+
     // 潜水时手臂放松一点：拍头就在身前，不是举在头顶
     rig.draw(
       g,
@@ -1378,6 +1520,33 @@ export class DiveScene extends Phaser.Scene {
       0,
       gearStats(this.cfg.gearLv).hook,
     );
+
+    if (isMe) {
+      const gLv = this.cfg.gearLv;
+      // 鱼竿：从手沿挥杆方向伸出去的竿身，等级越高越粗越金
+      const rodLen = 30 + gLv * 6;
+      const hx = d.x + facing * 4 + Math.cos(ang) * rodLen;
+      const hy = sh + 8 + Math.sin(ang) * rodLen;
+      const rodColor = gLv >= 5 ? 0xffd45c : gLv >= 4 ? 0xff8ad4 : gLv >= 3 ? 0x54e0a0 : 0x8a6a3a;
+      g.lineStyle(1.5 + gLv * 0.5, rodColor, 1);
+      g.lineBetween(d.x + facing * 4, sh + 8, hx, hy);
+      // 竿身装饰环：等级越高环越多
+      g.fillStyle(0xffffff, 0.8);
+      for (let i = 1; i <= gLv; i++) {
+        const u = i / (gLv + 1);
+        g.fillCircle(d.x + facing * 4 + (hx - d.x - facing * 4) * u, sh + 8 + (hy - sh - 8) * u, 1.6);
+      }
+
+      // 背包：挂在腰侧，随等级变大
+      const bLv = this.cfg.bagLv;
+      const bw = 16 + bLv * 3;
+      const bh = 13 + bLv * 2;
+      g.fillStyle(0x8a6a3a, 1);
+      g.fillRoundedRect(d.x + facing * 10 - bw / 2, d.y - PLAYER_H * 0.42, bw, bh, 4);
+      g.fillStyle(0x5f4a28, 1);
+      g.fillRect(d.x + facing * 10 - bw / 2, d.y - PLAYER_H * 0.42 + bh * 0.4, bw, 2);
+    }
+
     if (isMe && this.stun > 0) {
       g.lineStyle(3, 0xffd45c, 0.8);
       g.strokeCircle(d.x, d.y - PLAYER_H * 0.5, 34);
@@ -1398,6 +1567,32 @@ export class DiveScene extends Phaser.Scene {
     g.fillStyle(frac < 0.25 ? 0xff6b6b : 0x54d6ff, 1);
     g.fillRoundedRect(x, y, w * frac, 8, 4);
 
+    // 右侧潜水深度进度条：当前深度 / 本岛海床
+    const barX = VIEW_W - 36;
+    const barTop = 96;
+    const barBot = VIEW_H - 150;
+    const track = barBot - barTop;
+    const df = Phaser.Math.Clamp(this.me.y / this.island.floor, 0, 1);
+    g.fillStyle(0x04101f, 0.5);
+    g.fillRoundedRect(barX - 7, barTop - 7, 22, track + 14, 11);
+    g.fillStyle(0x123a4a, 1);
+    g.fillRoundedRect(barX - 3, barTop, 14, track, 7);
+    if (df > 0.005) {
+      const fillH = track * df;
+      g.fillStyle(df > 0.85 ? 0xff8ad4 : 0x54d6ff, 0.95);
+      g.fillRoundedRect(barX - 3, barBot - fillH, 14, fillH, 7);
+    }
+    // 当前深度刻度线
+    const markY = barBot - track * df;
+    g.lineStyle(2, 0xffd45c, 0.95);
+    g.lineBetween(barX - 9, markY, barX + 15, markY);
+    // 海床线（到底了）
+    g.lineStyle(2, 0xffe27a, 0.5);
+    g.lineBetween(barX - 6, barBot, barX + 14, barBot);
+    // 水面刻度
+    g.lineStyle(2, 0x9fe8ff, 0.4);
+    g.lineBetween(barX - 6, barTop, barX + 14, barTop);
+
     const limits = bagLimits(this.cfg.bagLv);
     const depth = Math.round(this.me.y / 10);
     this.hudText.setText(
@@ -1405,7 +1600,9 @@ export class DiveScene extends Phaser.Scene {
         `(${this.bagKg().toFixed(1)}/${limits.kg}kg) · 深度 ${depth}m · 渔获 ¥${this.caughtValue}`,
     );
     this.hintText.setText(
-      this.nearHut
+      this.nearChest
+        ? '海底宝箱：按 E / 点一下打开！'
+        : this.nearHut
         ? '装备店门口：按 E 打开装备店（升级氧气罐 / 背包 / 渔具）'
         : this.nearBoat
           ? `岸边的船：点它或按 E ${this.cfg.boat ? '出海去别的海岛' : `买下它（¥${BOAT_COST}）`}`
