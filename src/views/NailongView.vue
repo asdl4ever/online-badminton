@@ -25,7 +25,8 @@ import { useProgressStore } from '../stores/progress';
  * 小黄龙联名（大地图右侧的活动入口）：左边是小黄龙本人和挑战入口，右边是抽奖转盘。
  *
  * 对战走**趣味模式**（optionId = nailongFun，见 config.ts）：先到 5 分、球是个大奶团
- * 慢慢飘、小黄龙一身果冻会把球软软弹回来。打赢 +1 张转盘券（每天 3 张）。
+ * 慢慢飘、小黄龙一身果冻会把球软软弹回来。每天 3 张门票（开一场扣一张，输赢都扣），
+ * 赢球才 +1 张转盘券。
  */
 const router = useRouter();
 const customize = useCustomizeStore();
@@ -49,6 +50,12 @@ const canvasKey = computed(() => `nailong-${round.value}`);
 
 function start(): void {
   sfx.click();
+  // 开一场先扣一张今日门票（输赢都扣），没票了就打不了
+  const r = progress.startNailongMatch();
+  if (!r.ok) {
+    toastWarn(r.message);
+    return;
+  }
   result.value = null;
   resultText.value = '';
   round.value += 1;
@@ -67,17 +74,13 @@ function onEvent(e: SimEvent): void {
     result.value = win ? 'win' : 'lose';
     if (win) {
       sfx.win();
-      // 只算赢：打赢才给券，输了一分不给
+      // 门票在 start() 时已扣，赢球这里只负责发券
       const r = progress.earnNailongTicket();
-      // 券加了 / 为什么没加，都直接写在横幅上（toast 一闪而过容易漏看）
-      resultText.value = r.ok
-        ? `🎉 赢下小黄龙！${r.message}`
-        : `🎉 赢了，但${r.message}（今日已赢满，券不再增加）`;
-      if (r.ok) toastGood(r.message);
-      else toastWarn(r.message);
+      resultText.value = `🎉 赢下小黄龙！${r.message}`;
+      toastGood(r.message);
     } else {
       sfx.lose();
-      resultText.value = '😵 输给小黄龙了 —— 只有赢球才给券哦';
+      resultText.value = `😵 输给小黄龙了 —— 这场门票已消耗，只有赢球才给券哦`;
       toastWarn('输给小黄龙啦，再来一场？');
     }
   }
@@ -105,7 +108,7 @@ function back(): void {
       <template #icons>
         <span class="icon-btn ui-num nl-tickets">
           🎟 {{ progress.nailongTickets }}
-          <em class="nl-today">今日 {{ progress.nailongLeftToday }}/{{ NAILONG_DAILY_MAX }}</em>
+          <em class="nl-today">今日门票 {{ progress.nailongLeftToday }}/{{ NAILONG_DAILY_MAX }}</em>
         </span>
       </template>
 
@@ -125,6 +128,7 @@ function back(): void {
           :theme="customize.theme"
           :auto-cycle-theme="customize.autoCycle"
           :party="false"
+          no-rematch
           @sim="onEvent"
           @themechange="customize.theme = $event"
         />
@@ -140,7 +144,15 @@ function back(): void {
           <span class="num">
             {{ result ? resultText : '⚔️ 趣味模式 · 小黄龙滚滚（先到 5 分）' }}
           </span>
-          <Button size="sm" @click="start">再来一场</Button>
+          <!-- 只有打完才有「再来一场」（开一场要扣一张门票，别让对局中途误触重开） -->
+          <Button
+            v-if="result"
+            size="sm"
+            :disabled="progress.nailongLeftToday <= 0"
+            @click="start"
+          >
+            再来一场（门票 {{ progress.nailongLeftToday }}）
+          </Button>
           <Button size="sm" variant="quiet" @click="leave">回到转盘</Button>
         </div>
       </template>

@@ -35,6 +35,8 @@ const props = defineProps<{
   opponent?: MatchOpponent;
   /** 观战：两侧都由 AI 控制，玩家不参与 */
   spectate?: { left: MatchOpponent; right: MatchOpponent };
+  /** 关掉画面内的「再来一局」（重开要扣门票的玩法用，交给页面自己的按钮） */
+  noRematch?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -98,6 +100,7 @@ onMounted(async () => {
     optionId: props.optionId,
     opponent: props.opponent,
     spectate: props.spectate,
+    noRematch: props.noRematch,
   };
 
   game = new Phaser.Game({

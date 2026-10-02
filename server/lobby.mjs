@@ -84,8 +84,16 @@ export function attachLobby(server, path = '/lobby') {
     return true;
   };
 
-  /** 一个人的「在玩什么」——好友列表靠它显示，跟随也靠它 */
-  const stateOf = (u) => ({ t: 'state', id: u.id, name: u.name, scene: u.scene, room: u.room });
+  /** 一个人的「在玩什么」——好友列表靠它显示，跟随 / 一键加入也靠它 */
+  const stateOf = (u) => ({
+    t: 'state',
+    id: u.id,
+    name: u.name,
+    scene: u.scene,
+    room: u.room,
+    // 「允许好友加入」：关掉后好友列表的「加入」按钮会置灰
+    join: u.join,
+  });
 
   const notifyWatchers = (id, online) => {
     const watchers = watchersOf.get(id);
@@ -103,7 +111,15 @@ export function attachLobby(server, path = '/lobby') {
   const register = (ws, id, name) => {
     let u = users.get(id);
     if (!u) {
-      u = { id, name, scene: 'off', room: '', sockets: new Set(), watching: new Set() };
+      u = {
+        id,
+        name,
+        scene: 'off',
+        room: '',
+        join: true,
+        sockets: new Set(),
+        watching: new Set(),
+      };
       users.set(id, u);
       u.sockets.add(ws);
       ws.lobbyUser = u;
@@ -210,9 +226,11 @@ export function attachLobby(server, path = '/lobby') {
       if (t === 'state') {
         const scene = normaliseScene(msg.scene);
         const room = normaliseRoom(msg.room);
-        if (scene === u.scene && room === u.room) return;
+        const join = msg.join !== false;
+        if (scene === u.scene && room === u.room && join === u.join) return;
         u.scene = scene;
         u.room = room;
+        u.join = join;
         broadcastState(u);
         return;
       }

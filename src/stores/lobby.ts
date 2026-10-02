@@ -73,6 +73,8 @@ export const useLobbyStore = defineStore('lobby', () => {
   const role = ref<'none' | 'host' | 'guest'>('none');
   /** 正在跟随的房主 id（访客才有；他换界面我就跟过去） */
   const following = ref('');
+  /** 「允许好友加入」：关掉之后，好友列表里我的「加入」是灰的（默认开） */
+  const allowJoin = useLocalStorage('bmt-allow-join', true);
   /** 我现在报给大厅的界面 */
   let myScene: SceneId = 'off';
 
@@ -208,7 +210,15 @@ export const useLobbyStore = defineStore('lobby', () => {
       },
     });
     client.connect(playerId.value, playerName.value);
+    // 关过「允许好友加入」的话，连上就把这个状态报给大厅
+    client.setAllowJoin(allowJoin.value);
     syncWatch();
+  }
+
+  /** 改「允许好友加入」：立刻同步给大厅，好友那边马上能看到 */
+  function setAllowJoin(v: boolean): void {
+    allowJoin.value = v;
+    client?.setAllowJoin(v);
   }
 
   function rename(name: string): void {
@@ -301,6 +311,8 @@ export const useLobbyStore = defineStore('lobby', () => {
     room,
     role,
     following,
+    allowJoin,
+    setAllowJoin,
     onlineFriends,
     setScene,
     setRoom,

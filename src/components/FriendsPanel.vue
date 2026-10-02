@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useClipboard } from '@vueuse/core';
 import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import { VTextField } from 'vuetify/components';
@@ -8,6 +9,7 @@ import Button from './ui/Button.vue';
 import StatusChip from './ui/StatusChip.vue';
 import CharacterPreview from './CharacterPreview.vue';
 import { DEFAULT_COSMETIC } from '../game/cosmetics';
+import { joinInfo, sceneMeta } from '../game/scenes';
 import { toastBad, toastGood } from '../composables/useToast';
 import { useLobbyStore } from '../stores/lobby';
 import type { InviteKind } from '../net/lobby';
@@ -37,7 +39,29 @@ const props = withDefaults(
 );
 
 const store = useLobbyStore();
+const router = useRouter();
 const { copy, copied, isSupported: clipboardSupported } = useClipboard();
+
+/**
+ * 好友列表的一行：名字 + 现在的状态（在哪个模式 / 离线）+ 能不能直接加入。
+ * 状态与能否加入全部来自大厅同步（`store.states`），本地不猜。
+ */
+const rows = computed(() =>
+  store.friends.map((f) => {
+    const online = store.isOnline(f.id);
+    const st = store.states[f.id];
+    const scene = st?.scene ?? 'off';
+    const meta = sceneMeta(scene);
+    return {
+      friend: f,
+      online,
+      icon: online ? meta.icon : '💤',
+      status: online ? meta.label : '离线',
+      join: joinInfo(scene, st?.room ?? '', online, st?.allowJoin ?? true),
+      route: meta.route,
+    };
+  }),
+);
 
 const addCode = ref('');
 /** 「新增好友」添加区默认收起，点右上角按钮展开 */
@@ -100,68 +124,45 @@ async function invite(id: string) {
   store.invite(id, code, props.kind);
   toastGood('邀请已发送');
 }
+
+/**
+ * 一键加入：记下他的房号（`pendingJoin`），再跳到他所在的页面——
+ * 目标页面自己 `consumeInvite` 入房，所以不用输房号、也不用等对方同意。
+ */
+function join(id: string, route: string): void {
+  const r = store.requestJoin(id);
+  if (!r) {
+    toastBad('现在无法加入');
+    return;
+  }
+  toastGood('正在加入…');
+  if (route) void router.push(route);
+}
 </script>
 
 <template>
   <component :is="bare ? 'div' : Panel">
-    <!-- ---------------- in-room: invite only ---------------- -->
-    <template v-if="variant === 'invite'">
+    <div class="fp__col">
       <div class="fp__head">
-        <h3>邀请好友</h3>
-        <StatusChip :tone="store.status === 'online' ? 'ok' : 'warn'">
-          {{ statusLabel() }}
-        </StatusChip>
-      </div>
-
-      <ul v-auto-animate="{ duration: 220 }" class="fp__list">
-        <li v-for="f in store.friends" :key="f.id" class="fp__friend">
-          <span class="fp__avatar">
-            <CharacterPreview :cosmetic="f.cosmetic ?? DEFAULT_COSMETIC" />
-            <span
-              class="fp__dot fp__dot--badge"
-              :class="{ 'fp__dot--on': store.isOnline(f.id) }"
-              aria-hidden="true"
-            />
-          </span>
-          <span class="fp__body">
-            <span class="fp__name">{{ f.name }}</span>
-            <span class="num fp__friend-id">{{ f.id }}</span>
-          </span>
-          <Button
-            size="sm"
-            variant="primary"
-            :disabled="(!canInvite && !ensureRoom) || !store.isOnline(f.id) || inviting"
-            :title="inviting ? '正在建房…' : ''"
-            @click="invite(f.id)"
-          >
-            {{ inviting ? '建房中…' : '邀请' }}
-          </Button>
-        </li>
-        <li v-if="!store.friends.length" class="muted">
-          还没有好友，去主页的「好友」里添加吧
-        </li>
-      </ul>
-
-      <p class="muted fp__hint">好友列表只存在本机，双方都在线时才能邀请。</p>
-    </template>
-
-    <!-- ---------------- home page: list + collapsible add box ---------------- -->
-    <div v-else class="fp__col">
-      <div class="fp__head">
-        <h3 v-if="!bare">好友</h3>
+        <h3 v-if="!bare">{{ variant === 'invite' ? '邀请好友' : '好友' }}</h3>
         <span v-else />
         <div class="fp__head-actions">
           <StatusChip :tone="store.status === 'online' ? 'ok' : 'warn'">
             {{ statusLabel() }}
           </StatusChip>
-          <Button size="sm" variant="primary" @click="addOpen = !addOpen">
+          <Button
+            v-if="variant === 'manage'"
+            size="sm"
+            variant="primary"
+            @click="addOpen = !addOpen"
+          >
             {{ addOpen ? '收起' : '＋ 新增好友' }}
           </Button>
         </div>
       </div>
 
       <!-- 添加区默认收起：我的好友码 + 输码发送请求（对方接受后互为好友） -->
-      <div v-if="addOpen" class="fp__add">
+      <div v-if="variant === 'manage' && addOpen" class="fp__add">
         <div class="fp__id">
           <div class="fp__id-text">
             <span class="muted">我的好友码</span>
@@ -199,38 +200,56 @@ async function invite(id: string) {
         </div>
       </div>
 
+      <!-- 好友列表：状态（在哪个模式 / 离线）+ 一键「加入」（不能加入时置灰并写出原因）+「邀请」 -->
       <ul v-auto-animate="{ duration: 220 }" class="fp__list">
-        <li v-for="f in store.friends" :key="f.id" class="fp__friend">
+        <li v-for="r in rows" :key="r.friend.id" class="fp__friend">
           <span class="fp__avatar">
-            <CharacterPreview :cosmetic="f.cosmetic ?? DEFAULT_COSMETIC" />
-            <span
-              class="fp__dot fp__dot--badge"
-              :class="{ 'fp__dot--on': store.isOnline(f.id) }"
-              aria-hidden="true"
-            />
+            <CharacterPreview :cosmetic="r.friend.cosmetic ?? DEFAULT_COSMETIC" />
+            <span class="fp__dot fp__dot--badge" :class="{ 'fp__dot--on': r.online }" aria-hidden="true" />
           </span>
           <span class="fp__body">
-            <span class="fp__name">{{ f.name }}</span>
-            <span class="num fp__friend-id">{{ f.id }}</span>
+            <span class="fp__name" :title="r.friend.name">{{ r.friend.name }}</span>
+            <span class="fp__state">
+              <span class="num fp__friend-id">{{ r.friend.id }}</span>
+              <span class="fp__scene">{{ r.icon }} {{ r.status }}</span>
+              <span v-if="r.online && !r.join.can" class="fp__why">· {{ r.join.reason }}</span>
+            </span>
           </span>
+          <Button
+            size="sm"
+            variant="primary"
+            :disabled="!r.join.can"
+            :title="r.join.can ? `加入 ${r.friend.name} 的房间` : r.join.reason"
+            @click="join(r.friend.id, r.route)"
+          >
+            加入
+          </Button>
           <Button
             v-if="canInvite || ensureRoom"
             size="sm"
-            variant="primary"
-            :disabled="!store.isOnline(f.id) || inviting"
-            :title="inviting ? '正在建房…' : ''"
-            @click="invite(f.id)"
+            :disabled="!r.online || inviting"
+            :title="r.online ? '发邀请给他（还没建房就自动建）' : '离线'"
+            @click="invite(r.friend.id)"
           >
             {{ inviting ? '建房中…' : '邀请' }}
           </Button>
-          <Button size="sm" variant="quiet" @click="store.removeFriend(f.id)">删</Button>
+          <Button
+            v-if="variant === 'manage'"
+            size="sm"
+            variant="quiet"
+            @click="store.removeFriend(r.friend.id)"
+          >
+            删
+          </Button>
         </li>
-        <li v-if="!store.friends.length" class="muted">
-          还没有好友，点右上角「＋ 新增好友」，把你的好友码发给对方吧
+        <li v-if="!rows.length" class="muted">
+          {{ variant === 'manage'
+            ? '还没有好友，点右上角「＋ 新增好友」，把你的好友码发给对方吧'
+            : '还没有好友，去主页的「好友」里添加吧' }}
         </li>
       </ul>
 
-      <template v-if="store.requests.length">
+      <template v-if="variant === 'manage' && store.requests.length">
         <p class="fp__subtitle">好友请求</p>
         <ul v-auto-animate="{ duration: 220 }" class="fp__list">
           <li v-for="r in store.requests" :key="r.from" class="fp__friend">
@@ -247,7 +266,11 @@ async function invite(id: string) {
         </ul>
       </template>
 
-      <p class="muted fp__hint">好友列表只存在本机。双方都在线时才能添加或邀请。</p>
+      <p class="muted fp__hint">
+        好友之间用好友码互加即可，<b>不用先建房</b>：对方在线时点「加入」直接进他所在的模式
+        （大世界 / 对局 / 海湾 / 矿洞），点「邀请」则请他过来你这边（还没建房会自动建）。
+        状态由服务端同步，灰掉的按钮上写着为什么不能加入。
+      </p>
     </div>
   </component>
 </template>
@@ -408,6 +431,24 @@ async function invite(id: string) {
   color: var(--text-dim);
   font-size: 12px;
   letter-spacing: 2px;
+}
+
+/* 第二行：好友码 + 他在哪个模式 + 不能加入时的原因 */
+.fp__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.fp__scene {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.fp__why {
+  font-size: 12px;
+  color: var(--warn, #c98a2b);
 }
 
 .fp__subtitle {

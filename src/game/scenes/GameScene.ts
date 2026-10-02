@@ -142,6 +142,12 @@ export interface MatchConfig {
   opponent?: MatchOpponent;
   /** 观战：两侧都由 AI 控制，玩家不参与（名人堂「观战」用） */
   spectate?: { left: MatchOpponent; right: MatchOpponent };
+  /**
+   * 不提供画面内的「再来一局」（R 键 / 点画面）。
+   * 给「重开要扣门票」的玩法用（小黄龙）：重开交给页面自己的按钮，
+   * 否则画面内重开会绕过门票与奖励结算。
+   */
+  noRematch?: boolean;
 }
 
 const FIXED_DT = 1 / 60;
@@ -808,6 +814,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private requestRematch(): void {
+    // 画面内重开被关掉时（小黄龙），重开只能走页面按钮，那里才会扣门票
+    if (this.cfg.noRematch) return;
     if (this.world.phase !== 'gameover') return;
     if (this.cfg.role === 'guest') {
       this.cfg.session?.send({ t: 'rematch' });
@@ -1558,10 +1566,10 @@ export class GameScene extends Phaser.Scene {
         const won = w.winner === local;
         this.message.setText(won ? '你赢了！' : '你输了');
         this.message.setColor(won ? P.msgWin : P.msgLose);
-        this.subMessage.setText(this.touchControls ? '' : '也可以按 R 键');
+        this.subMessage.setText(this.touchControls || this.cfg.noRematch ? '' : '也可以按 R 键');
       }
       this.subMessage.setY(this.replayY + this.replayH / 2 + 34);
-      this.setReplayVisible(true);
+      this.setReplayVisible(!this.cfg.noRematch);
     } else if (w.phase === 'serve') {
       this.setReplayVisible(false);
       this.subMessage.setY(VIEW_H / 2 - 46);

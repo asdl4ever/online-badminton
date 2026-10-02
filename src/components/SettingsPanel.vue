@@ -4,6 +4,7 @@ import { VSlider, VSwitch, VTextField } from 'vuetify/components';
 import Button from './ui/Button.vue';
 import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
+import { useLobbyStore } from '../stores/lobby';
 import { toastBad, toastGood } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
 import { useJoystickPrefs } from '../composables/useJoystick';
@@ -18,6 +19,7 @@ import type { CharacterSkin } from '../game/cosmetics';
  */
 const progress = useProgressStore();
 const customize = useCustomizeStore();
+const lobby = useLobbyStore();
 const {
   always: joyAlways,
   setAlways: setJoyAlways,
@@ -116,6 +118,22 @@ function submit(): void {
       <p class="muted set__hint">
         「桌面端也显示虚拟摇杆」：触屏设备始终显示；打开后电脑上也在大地图 / 商店 /
         宠物店 / 比赛 / 矿洞 / 农场 / 潜水常显摇杆（比赛场景下一局生效）。
+      </p>
+    </section>
+
+    <section class="set__block">
+      <h4 class="set__title">联机</h4>
+      <VSwitch
+        :model-value="lobby.allowJoin"
+        color="primary"
+        hide-details
+        label="允许好友直接加入我"
+        @update:model-value="lobby.setAllowJoin(!!$event)"
+      />
+      <p class="muted set__hint">
+        默认开着：好友在「好友」列表里点「加入」就能直接来到你所在的模式（大世界 / 对局 /
+        海湾 / 矿洞），不需要你点头。关掉后他们那边的「加入」会置灰并写明原因，
+        仍然可以用「邀请」把房号发给你。
       </p>
     </section>
 

@@ -6,7 +6,7 @@ import { useMobileShell } from './composables/useMobileShell';
 import { useLobbyStore, type FriendRequest, type Invite } from './stores/lobby';
 import { usePresenceStore } from './stores/presence';
 import { useProgressStore } from './stores/progress';
-import { SCENE_KIND, sceneFromPath, sceneMeta } from './game/scenes';
+import { SCENE_KIND, joinInfo, sceneFromPath, sceneMeta } from './game/scenes';
 import { toastWarn } from './composables/useToast';
 import type { InviteKind } from './net/lobby';
 import Button from './components/ui/Button.vue';
@@ -24,7 +24,7 @@ const progress = useProgressStore();
 /** 邀请是哪个场景发出来的，接受后就去哪个页面（页面自己再取房间号入房） */
 const INVITE_LANDING: Record<InviteKind, { path: string; label: string }> = {
   match: { path: '/online', label: '对局' },
-  map: { path: '/', label: '大地图' },
+  map: { path: '/', label: '大世界' },
   fish: { path: '/fish', label: '钓鱼塘' },
   mine: { path: '/mine', label: '矿洞' },
 };
@@ -55,14 +55,13 @@ watchEffect(() => {
   presence.populate(
     lobby.onlineFriends.map((f) => {
       const meta = sceneMeta(f.scene);
-      const kind = SCENE_KIND[f.scene];
       const sameRoom = !!lobby.room && f.room === lobby.room && f.scene === myScene;
       return {
         id: f.id,
         name: f.name,
         mode: meta.label,
         icon: meta.icon,
-        joinable: !!kind && f.room.length >= 4,
+        joinable: joinInfo(f.scene, f.room, true, lobby.states[f.id]?.allowJoin ?? true).can,
         room: f.room,
         scene: f.scene,
         // 已经在同一间房、同一个界面：他就在你旁边，不需要「申请加入」

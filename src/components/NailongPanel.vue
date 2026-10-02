@@ -11,7 +11,7 @@ import { useProgressStore } from '../stores/progress';
 /**
  * 小黄龙联动面板（挂在商店的活动告示板里）：
  * 左边是小黄龙本人和挑战入口，右边是抽奖转盘。
- * 打赢小黄龙 → +1 张券（每天上限），券拿去转盘抽限定周边与资源。
+ * 每天 3 张挑战门票（开一场扣一张，输赢都扣），打赢 → +1 张券，券拿去转盘抽限定周边与资源。
  */
 const emit = defineEmits<{ challenge: [] }>();
 const progress = useProgressStore();
@@ -64,8 +64,8 @@ function spin(): void {
       <div class="nl__intro">
         <div class="nl__title">🐲 小黄龙联名</div>
         <p class="muted nl__desc">
-          打赢小黄龙就能拿「转盘抽奖券」（每天最多 {{ NAILONG_DAILY_MAX }} 张），
-          券可以转下面的盘，抽联名周边和金币 / 荣誉点。
+          每天有 {{ NAILONG_DAILY_MAX }} 张「挑战门票」，开一场就扣一张（输赢都扣）；
+          <b>赢下这一场</b>才给 1 张「转盘抽奖券」，券可以转下面的盘，抽联名周边和金币 / 荣誉点。
         </p>
         <p class="muted nl__desc nl__desc--fun">
           ⚔️ 打的是<b>趣味模式</b>：先到 5 分，球是个大奶团慢慢飘，
@@ -74,10 +74,17 @@ function spin(): void {
         <div class="nl__stats">
           <span class="nl__chip">🎟 抽奖券 <b class="num">{{ progress.nailongTickets }}</b></span>
           <span class="nl__chip">
-            今日还能赢 <b class="num">{{ progress.nailongLeftToday }}</b>/{{ NAILONG_DAILY_MAX }}
+            今日门票 <b class="num">{{ progress.nailongLeftToday }}</b>/{{ NAILONG_DAILY_MAX }}
           </span>
         </div>
-        <Button variant="primary" block @click="emit('challenge')">⚔️ 挑战小黄龙</Button>
+        <Button
+          variant="primary"
+          block
+          :disabled="progress.nailongLeftToday <= 0"
+          @click="emit('challenge')"
+        >
+          {{ progress.nailongLeftToday > 0 ? '⚔️ 挑战小黄龙' : '今日门票已用完，明天再来' }}
+        </Button>
       </div>
     </div>
 

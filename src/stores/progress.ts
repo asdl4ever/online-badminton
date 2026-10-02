@@ -172,16 +172,16 @@ export const useProgressStore = defineStore('progress', () => {
   // ---- 小黄龙联动：抽奖券与转盘 ----
   /** 手上的转盘抽奖券 */
   const nailongTickets = useLocalStorage('bmt-nailong-tickets', 0);
-  /** 今天已经赢了几场小黄龙 */
-  const nailongWins = useLocalStorage('bmt-nailong-wins', 0);
+  /** 今天已经用掉几张挑战门票（开一场扣一张，输赢都扣） */
+  const nailongAttempts = useLocalStorage('bmt-nailong-attempts', 0);
   /** 上面那个计数属于哪一天（YYYY-MM-DD，跨天自动重新计） */
   const nailongDay = useLocalStorage('bmt-nailong-day', '');
   /** 连续没抽到限定物品的次数（保底计数） */
   const nailongPity = useLocalStorage('bmt-nailong-pity', 0);
 
-  /** 今天还能靠赢小黄龙拿几张券 */
+  /** 今天还剩几张挑战门票 */
   const nailongLeftToday = computed(() => {
-    const used = nailongDay.value === todayKey() ? nailongWins.value : 0;
+    const used = nailongDay.value === todayKey() ? nailongAttempts.value : 0;
     return Math.max(0, NAILONG_DAILY_MAX - used);
   });
   // ---- 哥斯拉来袭：每日次数 / 击杀数 / 首杀 ----
@@ -948,19 +948,24 @@ export const useProgressStore = defineStore('progress', () => {
     return { ok: true, message: `已兑换「${item.label}」` };
   }
 
-  /** 打赢小黄龙：+1 张转盘抽奖券（每天最多 NAILONG_DAILY_MAX 张） */
-  function earnNailongTicket(): { ok: boolean; message: string } {
+  /** 开一场小黄龙挑战：先扣一张今日门票（每天 NAILONG_DAILY_MAX 张，输赢都扣） */
+  function startNailongMatch(): { ok: boolean; message: string } {
     const today = todayKey();
     if (nailongDay.value !== today) {
       nailongDay.value = today;
-      nailongWins.value = 0;
+      nailongAttempts.value = 0;
     }
-    if (nailongWins.value >= NAILONG_DAILY_MAX) {
-      return { ok: false, message: `今天已经赢满 ${NAILONG_DAILY_MAX} 场了，明天再来找小黄龙玩` };
+    if (nailongAttempts.value >= NAILONG_DAILY_MAX) {
+      return { ok: false, message: `今天的 ${NAILONG_DAILY_MAX} 张门票用完了，明天再来找小黄龙玩` };
     }
-    nailongWins.value += 1;
+    nailongAttempts.value += 1;
+    return { ok: true, message: `已消耗门票 1 张（今日 ${nailongAttempts.value}/${NAILONG_DAILY_MAX}）` };
+  }
+
+  /** 打赢小黄龙：+1 张转盘抽奖券（门票在开打时就已扣掉，这里只管发券） */
+  function earnNailongTicket(): { ok: boolean; message: string } {
     nailongTickets.value += 1;
-    return { ok: true, message: `抽奖券 ×1（今日 ${nailongWins.value}/${NAILONG_DAILY_MAX}）` };
+    return { ok: true, message: `获得抽奖券 ×1（共 ${nailongTickets.value} 张）` };
   }
 
   /**
@@ -1270,6 +1275,7 @@ export const useProgressStore = defineStore('progress', () => {
     buyHonorItem,
     nailongTickets,
     nailongLeftToday,
+    startNailongMatch,
     earnNailongTicket,
     spinNailongWheel,
     gzLeftToday,

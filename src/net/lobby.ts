@@ -66,6 +66,8 @@ export interface PeerState {
   scene: SceneId;
   /** 他开的房间号（有房间才能直接加入） */
   room: string;
+  /** 他是否允许好友直接加入（关掉后别人点「加入」只会被拦下） */
+  allowJoin: boolean;
 }
 
 export interface LobbyHooks {
@@ -104,6 +106,8 @@ function toPeerState(raw: unknown): PeerState | null {
     name: typeof o.name === 'string' ? o.name : id,
     scene: normaliseScene(o.scene),
     room: typeof o.room === 'string' ? o.room : '',
+    // 老服务端不发这个字段：默认允许加入
+    allowJoin: o.join !== false,
   };
 }
 
@@ -115,9 +119,10 @@ export class LobbyClient {
   private retry = 0;
   private timer: number | null = null;
   private watching: string[] = [];
-  /** 上一次上报的界面 / 房间，避免重复发 */
+  /** 上一次上报的界面 / 房间 / 是否允许加入，避免重复发 */
   private scene: SceneId = 'off';
   private room = '';
+  private allowJoin = true;
   private readonly hooks: LobbyHooks;
 
   constructor(hooks: LobbyHooks) {
@@ -184,7 +189,18 @@ export class LobbyClient {
     if (this.scene === scene && this.room === room) return;
     this.scene = scene;
     this.room = room;
-    this.send({ t: 'state', scene, room });
+    this.sendState();
+  }
+
+  /** 「允许好友加入」开关：换个值就重新上报一次，好友那边立刻看到 */
+  setAllowJoin(allowJoin: boolean): void {
+    if (this.allowJoin === allowJoin) return;
+    this.allowJoin = allowJoin;
+    this.sendState();
+  }
+
+  private sendState(): void {
+    this.send({ t: 'state', scene: this.scene, room: this.room, join: this.allowJoin });
   }
 
   private open(): void {
@@ -210,7 +226,7 @@ export class LobbyClient {
       this.sayHello();
       if (this.watching.length) this.send({ t: 'watch', ids: this.watching });
       // 重连后把「我在玩什么」再报一次（服务端是内存态）
-      this.send({ t: 'state', scene: this.scene, room: this.room });
+      this.sendState();
       this.hooks.onOpen?.();
     };
     ws.onmessage = (ev) => this.receive(ev);
