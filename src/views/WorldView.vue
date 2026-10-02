@@ -92,7 +92,7 @@ const nearZone = ref<WorldZone | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
 
-/** 段位/背包/宝箱/宠物蛋/好友/成就都由 PageShell 内置，这里只留一个引用去调它的方法 */
+/** 段位/背包/宝箱(跳商店)/好友/成就都由 PageShell 内置，这里只留一个引用去调它的方法 */
 const shell = ref<{ openFriends: () => void } | null>(null);
 
 /** 在线玩家列表：联机时由 presence store 填充，单机为空 */

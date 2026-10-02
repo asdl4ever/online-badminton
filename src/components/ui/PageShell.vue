@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useLocalStorage } from '@vueuse/core';
 import { dockOpen, toggleDock } from '../../composables/useDock';
 import type { InviteKind } from '../../net/lobby';
@@ -8,7 +9,6 @@ import SettingsPanel from '../SettingsPanel.vue';
 import ProfilePanel from '../ProfilePanel.vue';
 import RankPanel from '../RankPanel.vue';
 import BackpackPanel from '../BackpackPanel.vue';
-import ChestPanel from '../ChestPanel.vue';
 import FriendsPanel from '../FriendsPanel.vue';
 import AchievementsPanel from '../AchievementsPanel.vue';
 
@@ -42,6 +42,9 @@ withDefaults(
 
 const emit = defineEmits<{ back: [] }>();
 
+/** 抽卡归到大地图的商店：宝箱按钮直接带路过去（不再各页弹窗） */
+const shellRouter = useRouter();
+
 /** 右上角图标行的铺开状态记在本机 */
 const iconsOpen = useLocalStorage('bmt-ui-icons-open', true);
 /** 右上角的设置弹窗（兑换码等） */
@@ -52,7 +55,6 @@ const profileOpen = ref(false);
 const showAch = ref(false);
 const showRank = ref(false);
 const showBag = ref(false);
-const showChest = ref(false);
 const showFriends = ref(false);
 
 /**
@@ -143,10 +145,10 @@ defineExpose({
           <button class="icon-btn jelly" type="button" title="背包与收藏" @click="showBag = true">
             背包
           </button>
-          <button class="icon-btn jelly" type="button" title="宝箱" @click="showChest = true">
+          <button class="icon-btn jelly" type="button" title="商店（活动 / 宝箱）" @click="shellRouter.push('/shop')">
             宝箱
           </button>
-          <!-- 宠物蛋不在这一行了：它搬到了大地图上的「孵化屋」（/egg） -->
+          <!-- 宠物从大地图的「宠物店」（/petshop）买，这里不放入口 -->
           <button class="icon-btn jelly" type="button" title="好友" @click="showFriends = true">
             好友
           </button>
@@ -188,9 +190,6 @@ defineExpose({
     </AppModal>
     <AppModal v-model="showBag" title="背包" max-width="760px">
       <BackpackPanel />
-    </AppModal>
-    <AppModal v-model="showChest" title="宝箱" max-width="540px">
-      <ChestPanel />
     </AppModal>
     <AppModal v-model="showFriends" title="好友" max-width="720px">
       <FriendsPanel

@@ -44,6 +44,12 @@ const BELLY_R = 28;
 const BELLY_CY = 42;
 const BELLY_REST = 0.92;
 
+/** 老皮的钢铁屁股：hip 高度左右各一个钢板圆，钢铁弹性（几乎不掉速） */
+const BUTT_R = 17;
+const BUTT_OFF = 17;
+const BUTT_CY = 26;
+const BUTT_REST = 1.0;
+
 export function makePlayer(index: 0 | 1): PlayerState {
   const facing: 1 | -1 = index === 0 ? 1 : -1;
   return {
@@ -581,6 +587,32 @@ function stepShuttleSlice(world: World, dt: number): void {
     shuttle.x = bx + nx * (contact + 1);
     shuttle.y = by + ny * (contact + 1);
     world.events.push({ type: 'belly', player: i, power: clamp(-vn / 1400, 0, 1) });
+  }
+
+  // 老皮的钢铁屁股：球砸在钢板圆上直接弹开（比肚皮更弹）
+  for (let i = 0; i < 2; i++) {
+    if (world.skins[i] !== 'laopi') continue;
+    const p = world.players[i];
+    for (const off of [-BUTT_OFF, BUTT_OFF]) {
+      const bx = p.x + off;
+      const by = p.y - BUTT_CY;
+      const dx = shuttle.x - bx;
+      const dy = shuttle.y - by;
+      const d = Math.hypot(dx, dy);
+      const contact = BUTT_R + cfg.shuttleR;
+      if (d >= contact) continue;
+      const nx = d > 1e-3 ? dx / d : -p.facing;
+      const ny = d > 1e-3 ? dy / d : -1;
+      const vn = shuttle.vx * nx + shuttle.vy * ny;
+      // 正在离开 / 只是擦过：不算撞击
+      if (vn > -30) continue;
+      shuttle.vx -= (1 + BUTT_REST) * vn * nx;
+      shuttle.vy -= (1 + BUTT_REST) * vn * ny;
+      // 推到钢板表面外，免得下一小步又判定一次
+      shuttle.x = bx + nx * (contact + 1);
+      shuttle.y = by + ny * (contact + 1);
+      world.events.push({ type: 'belly', player: i, power: clamp(-vn / 1400, 0, 1) });
+    }
   }
 
   if (shuttle.y >= GROUND_Y - cfg.shuttleR) {

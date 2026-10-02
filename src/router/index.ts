@@ -42,11 +42,23 @@ export const router = createRouter({
       name: 'barber',
       component: () => import('../views/BarberView.vue'),
     },
-    // 大地图上的孵化屋：宠物蛋独立成一栋房子
+    // 大地图上的晋级赛馆：8 人淘汰赛
     {
-      path: '/egg',
-      name: 'egg',
-      component: () => import('../views/EggView.vue'),
+      path: '/arena',
+      name: 'arena',
+      component: () => import('../views/ArenaView.vue'),
+    },
+    // 大地图上的商店：活动 + 宝箱
+    {
+      path: '/shop',
+      name: 'shop',
+      component: () => import('../views/ShopView.vue'),
+    },
+    // 大地图上的宠物店：每小时刷新 3 只在售宠物
+    {
+      path: '/petshop',
+      name: 'petshop',
+      component: () => import('../views/PetShopView.vue'),
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 

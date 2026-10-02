@@ -24,7 +24,7 @@ export function normaliseInviteKind(raw: unknown): InviteKind {
 }
 
 /** 一个人正在哪个界面（大厅/对局/潜水/矿洞/攀岩/孵化屋/大地图/主界面） */
-export type SceneId = 'off' | 'home' | 'map' | 'match' | 'fish' | 'mine' | 'climb' | 'egg';
+export type SceneId = 'off' | 'home' | 'map' | 'match' | 'fish' | 'mine' | 'climb' | 'petshop';
 
 export const SCENE_IDS: readonly SceneId[] = [
   'off',
@@ -34,7 +34,7 @@ export const SCENE_IDS: readonly SceneId[] = [
   'fish',
   'mine',
   'climb',
-  'egg',
+  'petshop',
 ];
 
 export function normaliseScene(raw: unknown): SceneId {

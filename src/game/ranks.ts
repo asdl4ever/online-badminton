@@ -6,7 +6,15 @@
  * localStorage, so this is a "for fun" ladder, not a competitive one.
  */
 
-export type TierId = 'bronze' | 'silver' | 'gold' | 'master' | 'king' | 'god';
+export type TierId =
+  | 'bronze'
+  | 'silver'
+  | 'gold'
+  | 'platinum'
+  | 'diamond'
+  | 'master'
+  | 'king'
+  | 'god';
 
 export interface Tier {
   id: TierId;
@@ -33,25 +41,41 @@ export const TIERS: Tier[] = [
   {
     id: 'gold',
     label: '黄金',
-    points: 240,
+    points: 160,
     color: 0xd8a534,
     glyph: 'III',
     reward: '球拍皮肤「鎏金」',
   },
   {
+    id: 'platinum',
+    label: '白金',
+    points: 280,
+    color: 0x7fd4c4,
+    glyph: 'IV',
+    reward: '头饰「水母冠」',
+  },
+  {
+    id: 'diamond',
+    label: '钻石',
+    points: 440,
+    color: 0x6fe3ff,
+    glyph: 'V',
+    reward: '球拍皮肤「蓝宝石」',
+  },
+  {
     id: 'master',
     label: '大师',
-    points: 560,
+    points: 640,
     color: 0x7c5cff,
-    glyph: 'IV',
+    glyph: 'VI',
     reward: '球拍皮肤「烈焰」',
   },
   {
     id: 'king',
     label: '王者',
-    points: 1100,
+    points: 960,
     color: 0xffb020,
-    glyph: 'V',
+    glyph: 'VII',
     reward: '光环「王者」+ 披风「王袍」',
   },
   {
@@ -59,7 +83,7 @@ export const TIERS: Tier[] = [
     label: '超神',
     points: 2000,
     color: 0xff5a5a,
-    glyph: 'VI',
+    glyph: 'VIII',
     reward: '翅膀「圣光」+ 头饰「天使光环」',
   },
 ];

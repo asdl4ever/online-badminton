@@ -204,7 +204,7 @@ function equippedLabel(slot: ItemSlot): string {
       </div>
 
       <p class="muted bp__note">
-        点格子即可装备。宝箱开出的物品会直接进入背包，重复物品按稀有度返还金币；宠物需在「宠物蛋」中孵化。
+        点格子即可装备。宝箱开出的物品会直接进入背包，重复物品按稀有度返还金币；宠物在大地图的「宠物店」购买。
       </p>
     </div>
   </div>

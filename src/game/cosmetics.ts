@@ -154,7 +154,27 @@ export type WingId =
   | 'sail'
   | 'sailStar'
   | 'featherStorm'
-  | 'toxicWing';
+  | 'toxicWing'
+  | 'prism'
+  | 'stormcall'
+  | 'auroraBore'
+  | 'mothKing'
+  | 'abyss'
+  | 'sunfire'
+  | 'moonveil'
+  | 'gearsoul'
+  | 'glacier'
+  | 'rosewing'
+  | 'cirrus'
+  | 'plasmaWing'
+  | 'ghostWing'
+  | 'solaris'
+  | 'nightjar'
+  | 'coralFin'
+  | 'bambooLeaf'
+  | 'fireflyWing'
+  | 'obsidian'
+  | 'chrono';
 
 export type CapeId =
   | 'none'
@@ -178,7 +198,27 @@ export type CapeId =
   | 'starCape'
   | 'voidCape'
   | 'goldRoyal'
-  | 'dragonfire';
+  | 'dragonfire'
+  | 'auroraCape'
+  | 'stormlord'
+  | 'sakuraCape'
+  | 'ironclad'
+  | 'pharaoh'
+  | 'emberwind'
+  | 'abyssCape'
+  | 'jadeRobe'
+  | 'plaguecoat'
+  | 'captainCape'
+  | 'stardust'
+  | 'warlord'
+  | 'frostlord'
+  | 'venomCape'
+  | 'cometCape'
+  | 'thunderCape'
+  | 'mooncloak'
+  | 'crimsonlord'
+  | 'voidwalker'
+  | 'goldenflame';
 
 export type HatId =
   | 'none'
@@ -200,7 +240,27 @@ export type HatId =
   | 'beanie'
   | 'antler'
   | 'jester'
-  | 'sombrero';
+  | 'sombrero'
+  | 'samurai'
+  | 'foxMask'
+  | 'frostCrown'
+  | 'flameCrown'
+  | 'witch'
+  | 'beret'
+  | 'vr'
+  | 'sunCrown'
+  | 'plague'
+  | 'graduation'
+  | 'propeller'
+  | 'jelly'
+  | 'oni'
+  | 'snorkel'
+  | 'thornCrown'
+  | 'raincloud'
+  | 'featherCrest'
+  | 'captain'
+  | 'catEars'
+  | 'dragonHelm';
 
 export type PetId =
   | 'none'
@@ -298,7 +358,27 @@ export type AuraId =
   | 'prismatic'
   | 'spring'
   | 'autumn'
-  | 'voidRift';
+  | 'voidRift'
+  | 'blackhole'
+  | 'supernova'
+  | 'quantum'
+  | 'laserscan'
+  | 'holo'
+  | 'crystalline'
+  | 'wisteria'
+  | 'coral'
+  | 'beacon'
+  | 'spiral'
+  | 'phantom'
+  | 'miasma'
+  | 'laurel'
+  | 'emberfall'
+  | 'static'
+  | 'tidalwave'
+  | 'sandstorm'
+  | 'auroraring'
+  | 'singularity'
+  | 'rebirth';
 
 export type RacketSkinId =
   | 'default'
@@ -342,11 +422,31 @@ export type RacketSkinId =
   | 'ruby'
   | 'sapphire'
   | 'toxic'
-  | 'ember';
+  | 'ember'
+  | 'quantum'
+  | 'obsidian'
+  | 'sunsteel'
+  | 'moonlace'
+  | 'rosebranch'
+  | 'starpiercer'
+  | 'tsunami'
+  | 'magma'
+  | 'stormline'
+  | 'phoenixF'
+  | 'dragonbone'
+  | 'iceberg'
+  | 'goldthread'
+  | 'coralrim'
+  | 'chrono'
+  | 'holo'
+  | 'gravity'
+  | 'sonic'
+  | 'willow'
+  | 'blossom';
 
-/** 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮，羽毛球弹上去会被弹开） */
-export type CharacterSkin = 'none' | 'godzilla' | 'ubear';
-const SKIN_IDS: CharacterSkin[] = ['none', 'godzilla', 'ubear'];
+/** 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮）/ 老皮（两个钢铁屁股，球弹上去会被弹开） */
+export type CharacterSkin = 'none' | 'godzilla' | 'ubear' | 'laopi';
+const SKIN_IDS: CharacterSkin[] = ['none', 'godzilla', 'ubear', 'laopi'];
 
 export interface Cosmetic {
   /** whole-body character form (the streak-100 Godzilla, else 'none') */
@@ -382,14 +482,21 @@ const WING_IDS: WingId[] = [
   'phoenix', 'fairy', 'cyber', 'leaf', 'shadow', 'rainbow', 'galaxy', 'bone', 'paper', 'blade', 'tide', 'ember',
   'manta', 'reef', 'crest', 'wave', 'aurora', 'silk', 'comet', 'glow', 'spike', 'thorn', 'shard', 'quartz',
   'dragonfly', 'moth', 'seaWave', 'ribbonDance', 'crystalShard', 'holyWing', 'devilWing', 'mechWing', 'leafyWing', 'emberWing', 'sail', 'sailStar', 'featherStorm', 'toxicWing',
+  'prism', 'stormcall', 'auroraBore', 'mothKing', 'abyss', 'sunfire', 'moonveil', 'gearsoul', 'glacier', 'rosewing', 'cirrus', 'plasmaWing', 'ghostWing', 'solaris', 'nightjar',
+  'coralFin', 'bambooLeaf', 'fireflyWing', 'obsidian', 'chrono',
 ];
 const CAPE_IDS: CapeId[] = [
   'none', 'hero', 'shadow', 'storm', 'ember', 'frost', 'leaf', 'royal', 'void', 'dragon', 'angel', 'phoenix',
   'knight', 'mage', 'ninja', 'winter', 'autumn', 'ocean', 'starCape', 'voidCape', 'goldRoyal', 'dragonfire',
+  'auroraCape', 'stormlord', 'sakuraCape', 'ironclad', 'pharaoh', 'emberwind', 'abyssCape', 'jadeRobe', 'plaguecoat',
+  'captainCape', 'stardust', 'warlord', 'frostlord', 'venomCape', 'cometCape', 'thunderCape', 'mooncloak',
+  'crimsonlord', 'voidwalker', 'goldenflame',
 ];
 const HAT_IDS: HatId[] = [
   'none', 'crown', 'cap', 'horn', 'halo', 'wizard', 'santa', 'ninja', 'flower', 'headphone', 'topHat', 'viking',
   'pirate', 'chef', 'astro', 'mushroom', 'beanie', 'antler', 'jester', 'sombrero',
+  'samurai', 'foxMask', 'frostCrown', 'flameCrown', 'witch', 'beret', 'vr', 'sunCrown', 'plague', 'graduation',
+  'propeller', 'jelly', 'oni', 'snorkel', 'thornCrown', 'raincloud', 'featherCrest', 'captain', 'catEars', 'dragonHelm',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
@@ -402,12 +509,16 @@ const AURA_IDS: AuraId[] = [
   'flame', 'electric', 'snow', 'bubble', 'orbit', 'gear', 'holy', 'venom', 'sakura', 'void', 'pixel', 'storm',
   'aurora', 'lava', 'ghost', 'neon', 'prism', 'thorn', 'chain', 'plume', 'coin', 'note', 'heart', 'skull', 'sparkle', 'moon', 'sun', 'clock', 'ring', 'wind', 'sand', 'rune', 'hex', 'radar', 'tide', 'matrix',
   'firefly', 'vortex', 'nebula', 'eclipse', 'dawn', 'dusk', 'mist', 'thundercloud', 'golddust', 'frostbite', 'ember', 'sparkstorm', 'leafwind', 'petalrain', 'snowstorm', 'runering', 'starfield', 'haloRing', 'hexflame', 'bubblefield', 'prismatic', 'spring', 'autumn', 'voidRift',
+  'blackhole', 'supernova', 'quantum', 'laserscan', 'holo', 'crystalline', 'wisteria', 'coral', 'beacon', 'spiral',
+  'phantom', 'miasma', 'laurel', 'emberfall', 'static', 'tidalwave', 'sandstorm', 'auroraring', 'singularity', 'rebirth',
 ];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
   'circuit', 'spike', 'holy', 'shadow', 'crystal', 'glitch', 'bamboo', 'carbon',
   'plasma', 'galaxy', 'lava', 'frost', 'rune', 'thorn', 'web', 'vine', 'mirror', 'matrix', 'bone', 'zebra', 'camo', 'star', 'scale', 'smoke',
   'aurora', 'nebula', 'onyx', 'ivory', 'amber', 'jade', 'ruby', 'sapphire', 'toxic', 'ember',
+  'quantum', 'obsidian', 'sunsteel', 'moonlace', 'rosebranch', 'starpiercer', 'tsunami', 'magma', 'stormline', 'phoenixF',
+  'dragonbone', 'iceberg', 'goldthread', 'coralrim', 'chrono', 'holo', 'gravity', 'sonic', 'willow', 'blossom',
 ];
 
 export const WING_COLORS: Record<WingId, number> = {
@@ -463,6 +574,26 @@ export const WING_COLORS: Record<WingId, number> = {
   sailStar: 0xffe9a8,
   featherStorm: 0xe8f0ff,
   toxicWing: 0x9cff3a,
+  prism: 0xffe8ff,
+  stormcall: 0xffe15c,
+  auroraBore: 0x9ad4ff,
+  mothKing: 0xd8b070,
+  abyss: 0x2a4a8a,
+  sunfire: 0xffc247,
+  moonveil: 0xe8f0ff,
+  gearsoul: 0xb0903a,
+  glacier: 0xbfe8ff,
+  rosewing: 0xff6f91,
+  cirrus: 0xdcf4ff,
+  plasmaWing: 0xff3bd4,
+  ghostWing: 0xdfe8ff,
+  solaris: 0xffd45c,
+  nightjar: 0x4a5a8a,
+  coralFin: 0xff8fa0,
+  bambooLeaf: 0x9fd95a,
+  fireflyWing: 0xfff2a0,
+  obsidian: 0x3a3a4a,
+  chrono: 0xb46cff,
 };
 
 /** which silhouette a wing draws with; lets styles look genuinely different */
@@ -478,7 +609,9 @@ export type WingKind =
   | 'fin'
   | 'ribbon'
   | 'spike'
-  | 'sail';
+  | 'sail'
+  | 'ghost'
+  | 'circuit';
 
 /** per-wing silhouette so different wings actually look different */
 export const WING_SHAPE: Record<
@@ -537,9 +670,29 @@ export const WING_SHAPE: Record<
   sailStar: { kind: 'sail', feathers: 1, len: 66, spread: 0.5, w: 20 },
   featherStorm: { kind: 'feather', feathers: 6, len: 68, spread: 0.9, w: 7 },
   toxicWing: { kind: 'membrane', feathers: 4, len: 58, spread: 0.56, w: 12 },
+  prism: { kind: 'feather', feathers: 5, len: 66, spread: 0.85, w: 8 },
+  stormcall: { kind: 'membrane', feathers: 5, len: 60, spread: 0.5, w: 10 },
+  auroraBore: { kind: 'ribbon', feathers: 4, len: 62, spread: 0.6, w: 8 },
+  mothKing: { kind: 'butterfly', feathers: 3, len: 54, spread: 1.0, w: 16 },
+  abyss: { kind: 'membrane', feathers: 5, len: 64, spread: 0.44, w: 11 },
+  sunfire: { kind: 'flame', feathers: 5, len: 62, spread: 0.64, w: 9 },
+  moonveil: { kind: 'ribbon', feathers: 3, len: 60, spread: 0.5, w: 7 },
+  gearsoul: { kind: 'mech', feathers: 4, len: 52, spread: 0.46, w: 11 },
+  glacier: { kind: 'crystal', feathers: 5, len: 56, spread: 0.58, w: 7 },
+  rosewing: { kind: 'butterfly', feathers: 2, len: 48, spread: 0.9, w: 13 },
+  cirrus: { kind: 'feather', feathers: 4, len: 60, spread: 0.8, w: 7 },
+  plasmaWing: { kind: 'circuit', feathers: 3, len: 58, spread: 0.6, w: 9 },
+  ghostWing: { kind: 'ghost', feathers: 3, len: 58, spread: 0.6, w: 10 },
+  solaris: { kind: 'feather', feathers: 6, len: 66, spread: 0.9, w: 8 },
+  nightjar: { kind: 'blade', feathers: 4, len: 58, spread: 0.7, w: 6 },
+  coralFin: { kind: 'fin', feathers: 4, len: 56, spread: 0.6, w: 13 },
+  bambooLeaf: { kind: 'leaf', feathers: 4, len: 56, spread: 0.68, w: 11 },
+  fireflyWing: { kind: 'butterfly', feathers: 2, len: 44, spread: 0.95, w: 12 },
+  obsidian: { kind: 'spike', feathers: 7, len: 56, spread: 0.5, w: 8 },
+  chrono: { kind: 'circuit', feathers: 4, len: 56, spread: 0.55, w: 8 },
 };
 
-export type CapeKind = 'cloth' | 'flame' | 'feather' | 'tatter' | 'royal' | 'split';
+export type CapeKind = 'cloth' | 'flame' | 'feather' | 'tatter' | 'royal' | 'split' | 'scales' | 'streak';
 
 export const CAPE_COLORS: Record<CapeId, number> = {
   none: 0x000000,
@@ -564,6 +717,26 @@ export const CAPE_COLORS: Record<CapeId, number> = {
   voidCape: 0x4a2a8a,
   goldRoyal: 0xffcf5c,
   dragonfire: 0xff4a2a,
+  auroraCape: 0x7dffc4,
+  stormlord: 0x6f8bff,
+  sakuraCape: 0xffb7d5,
+  ironclad: 0x7f8fa8,
+  pharaoh: 0xffd45c,
+  emberwind: 0xff9a3c,
+  abyssCape: 0x2a4a8a,
+  jadeRobe: 0x35d6a4,
+  plaguecoat: 0xd8cba0,
+  captainCape: 0x2a3a5a,
+  stardust: 0xfff2c4,
+  warlord: 0xd4542c,
+  frostlord: 0xbfe8ff,
+  venomCape: 0x9cff3a,
+  cometCape: 0xffe9a8,
+  thunderCape: 0x8fe0ff,
+  mooncloak: 0xe8f0ff,
+  crimsonlord: 0xb02a55,
+  voidwalker: 0x4a2a8a,
+  goldenflame: 0xffd45c,
 };
 
 /** cape silhouette: length, base width and the kind of motion it uses */
@@ -590,6 +763,26 @@ export const CAPE_SHAPE: Record<CapeId, { kind: CapeKind; len: number; w: number
   voidCape: { kind: 'split', len: 64, w: 32 },
   goldRoyal: { kind: 'royal', len: 66, w: 34 },
   dragonfire: { kind: 'flame', len: 62, w: 30 },
+  auroraCape: { kind: 'cloth', len: 58, w: 26 },
+  stormlord: { kind: 'tatter', len: 60, w: 30 },
+  sakuraCape: { kind: 'feather', len: 54, w: 30 },
+  ironclad: { kind: 'scales', len: 58, w: 32 },
+  pharaoh: { kind: 'royal', len: 64, w: 34 },
+  emberwind: { kind: 'flame', len: 58, w: 26 },
+  abyssCape: { kind: 'split', len: 62, w: 30 },
+  jadeRobe: { kind: 'royal', len: 62, w: 32 },
+  plaguecoat: { kind: 'tatter', len: 56, w: 28 },
+  captainCape: { kind: 'cloth', len: 54, w: 28 },
+  stardust: { kind: 'feather', len: 56, w: 30 },
+  warlord: { kind: 'cloth', len: 60, w: 30 },
+  frostlord: { kind: 'feather', len: 58, w: 32 },
+  venomCape: { kind: 'tatter', len: 58, w: 28 },
+  cometCape: { kind: 'streak', len: 64, w: 26 },
+  thunderCape: { kind: 'streak', len: 60, w: 26 },
+  mooncloak: { kind: 'cloth', len: 56, w: 28 },
+  crimsonlord: { kind: 'royal', len: 64, w: 34 },
+  voidwalker: { kind: 'split', len: 62, w: 30 },
+  goldenflame: { kind: 'flame', len: 62, w: 30 },
 };
 
 export type HatKind =
@@ -611,7 +804,27 @@ export type HatKind =
   | 'beanie'
   | 'antler'
   | 'jester'
-  | 'sombrero';
+  | 'sombrero'
+  | 'samurai'
+  | 'foxMask'
+  | 'frostCrown'
+  | 'flameCrown'
+  | 'witch'
+  | 'beret'
+  | 'vr'
+  | 'sunCrown'
+  | 'plague'
+  | 'graduation'
+  | 'propeller'
+  | 'jelly'
+  | 'oni'
+  | 'snorkel'
+  | 'thornCrown'
+  | 'raincloud'
+  | 'featherCrest'
+  | 'captain'
+  | 'catEars'
+  | 'dragonHelm';
 
 export const HAT_COLORS: Record<HatId, number> = {
   none: 0x000000,
@@ -634,6 +847,26 @@ export const HAT_COLORS: Record<HatId, number> = {
   antler: 0xb98a4a,
   jester: 0x9b59d0,
   sombrero: 0xd8b070,
+  samurai: 0x7a2a3a,
+  foxMask: 0xe8703a,
+  frostCrown: 0x9fe8ff,
+  flameCrown: 0xff7a2a,
+  witch: 0x3a2a5a,
+  beret: 0xd42a3a,
+  vr: 0x2a2a3a,
+  sunCrown: 0xffd45c,
+  plague: 0xd8cba0,
+  graduation: 0x1b1b22,
+  propeller: 0x5aa0e8,
+  jelly: 0xff9adf,
+  oni: 0xd42a3a,
+  snorkel: 0x3aa0a0,
+  thornCrown: 0x5a7a3a,
+  raincloud: 0x9aa7b8,
+  featherCrest: 0xff5a2a,
+  captain: 0x2a3a5a,
+  catEars: 0xe8a33d,
+  dragonHelm: 0x53e0a0,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -657,6 +890,26 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   antler: 'antler',
   jester: 'jester',
   sombrero: 'sombrero',
+  samurai: 'samurai',
+  foxMask: 'foxMask',
+  frostCrown: 'frostCrown',
+  flameCrown: 'flameCrown',
+  witch: 'witch',
+  beret: 'beret',
+  vr: 'vr',
+  sunCrown: 'sunCrown',
+  plague: 'plague',
+  graduation: 'graduation',
+  propeller: 'propeller',
+  jelly: 'jelly',
+  oni: 'oni',
+  snorkel: 'snorkel',
+  thornCrown: 'thornCrown',
+  raincloud: 'raincloud',
+  featherCrest: 'featherCrest',
+  captain: 'captain',
+  catEars: 'catEars',
+  dragonHelm: 'dragonHelm',
 };
 
 export type PetKind = 'orb' | 'bird' | 'cat' | 'dragon' | 'fairy' | 'skull' | 'fox' | 'robot' | 'star' | 'flame' | 'ghost';
@@ -775,6 +1028,26 @@ export const AURA_COLORS: Record<AuraId, number> = {
   spring: 0x8fe08a,
   autumn: 0xe8a33d,
   voidRift: 0x5a2a8a,
+  blackhole: 0x9b5cff,
+  supernova: 0xffc247,
+  quantum: 0x39ffd0,
+  laserscan: 0xff3b5c,
+  holo: 0x7fd4ff,
+  crystalline: 0xa8e8ff,
+  wisteria: 0xc9a0ff,
+  coral: 0xff8fa0,
+  beacon: 0xffd45c,
+  spiral: 0xb46cff,
+  phantom: 0xdfe8ff,
+  miasma: 0x9cff3a,
+  laurel: 0xffcf5c,
+  emberfall: 0xff9a3c,
+  static: 0x8fe0ff,
+  tidalwave: 0x5ad0ff,
+  sandstorm: 0xd8b070,
+  auroraring: 0x7dffc4,
+  singularity: 0x7a3cc0,
+  rebirth: 0xff5a2a,
 };
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
@@ -820,6 +1093,26 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   sapphire: 0x3a6ae8,
   toxic: 0x9cff3a,
   ember: 0xff9a3c,
+  quantum: 0x39ffd0,
+  obsidian: 0x3a3a4a,
+  sunsteel: 0xffc247,
+  moonlace: 0xe8f0ff,
+  rosebranch: 0xff6f91,
+  starpiercer: 0xffd45c,
+  tsunami: 0x2a7ad4,
+  magma: 0xff5a1a,
+  stormline: 0x6f8bff,
+  phoenixF: 0xff5a2a,
+  dragonbone: 0xd8cba0,
+  iceberg: 0x9fe8ff,
+  goldthread: 0xffd45c,
+  coralrim: 0xff8fa0,
+  chrono: 0xb46cff,
+  holo: 0x7fd4ff,
+  gravity: 0x9b5cff,
+  sonic: 0x7fffd4,
+  willow: 0x8fbf5a,
+  blossom: 0xffb7d5,
 };
 
 export const EMOJI_PRESETS = [

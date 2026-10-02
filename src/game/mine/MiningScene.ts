@@ -38,12 +38,36 @@ const ORE_KINDS: OreKind[] = [
   { name: '钻石矿', hp: 16, value: 80, color: 0x7a8f9e, ore: 0x6fe3ff },
 ];
 
-// the block sits in front of the player, same ground as the court
-const ROCK_X = 600;
-const ROCK_R = 56;
+// 矿山：进图生成一座由方块矿石叠成的小山，挖空后 1 分钟重新生成
+const MINE_X = 600;
+const BLOCK_S = 64; // 每块矿石的边长
+const MOUNTAIN_ROWS = 5; // 底行 9 块，往上每行减 2，共 25 块
+const REGEN_S = 60; // 挖空后的重生倒计时（秒）
+/** 矿山状态存档：退出再进来，山还是那座山，恢复倒计时也照走 */
+const MINE_STATE_KEY = 'bmt-mine-state';
+
+/** 每行第一块的下标（底行 9 块、每行减 2）→ [0, 9, 16, 21, 24]，总数 25 */
+const MOUNTAIN_STARTS: number[] = (() => {
+  const starts: number[] = [];
+  let acc = 0;
+  for (let r = 0; r < MOUNTAIN_ROWS; r++) {
+    starts.push(acc);
+    acc += 9 - 2 * r;
+  }
+  return starts;
+})();
+const MOUNTAIN_TOTAL = MOUNTAIN_ROWS * 9 - MOUNTAIN_ROWS * (MOUNTAIN_ROWS - 1);
 const HIT_COOLDOWN = 0.22;
 /** head speed (px/s) needed for a contact to count as a strike */
 const SWING_MIN = 550;
+
+/** one ore block of the mountain */
+interface OreBlock {
+  x: number;
+  y: number;
+  kind: OreKind;
+  hp: number;
+}
 
 // debris shares the shuttle's gravity + quadratic drag
 const DEBRIS_GRAVITY = 1350;
@@ -90,8 +114,9 @@ export class MiningScene extends Phaser.Scene {
   private swingVX = 0;
   private swingVY = 0;
 
-  private kindIdx = 0;
-  private hp = ORE_KINDS[0].hp;
+  private blocks: OreBlock[] = [];
+  /** 挖空后的重生倒计时（>0 表示矿山恢复中） */
+  private regen = 0;
   private cooldown = 0;
   private total = 0;
   private debris: Debris[] = [];
@@ -100,6 +125,7 @@ export class MiningScene extends Phaser.Scene {
   /** shared character rigs — drawn exactly like the match scene's players */
   private rigMe!: PlayerRig;
   private rigOther!: PlayerRig;
+  private regenText!: Phaser.GameObjects.Text;
   private pops: { t: Phaser.GameObjects.Text; life: number }[] = [];
 
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
@@ -114,11 +140,21 @@ export class MiningScene extends Phaser.Scene {
 
   create(data: MiningSceneData): void {
     this.cfg = data;
-    this.kindIdx = 0;
-    this.hp = ORE_KINDS[0].hp;
+    this.restoreOrGenerate();
     this.total = 0;
     this.debris = [];
-    this.me = { x: 430, y: GROUND_Y, vx: 0, vy: 0, onGround: true, facing: 1 };
+    this.me = { x: 230, y: GROUND_Y, vx: 0, vy: 0, onGround: true, facing: 1 };
+    this.regenText = this.add
+      .text(MINE_X, GROUND_Y - 150, '', {
+        fontSize: '22px',
+        color: '#8d949e',
+        fontStyle: 'bold',
+        stroke: '#3a3a34',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(12)
+      .setVisible(false);
 
     this.g = this.add.graphics();
     this.rigMe = createPlayerRig(this);
@@ -147,7 +183,7 @@ export class MiningScene extends Phaser.Scene {
           this.remote.y = m.y;
           this.remoteAng = m.a;
           this.remoteReach = m.r;
-          this.remote.facing = m.x > ROCK_X ? -1 : 1;
+          this.remote.facing = m.x > MINE_X ? -1 : 1;
         } else if (m.t === 'mineBreak') {
           this.pop(`对方挖到 ${m.ore} +¥${m.value}`, 0x2a7ad4);
         }
@@ -216,31 +252,36 @@ export class MiningScene extends Phaser.Scene {
   }
 
   /**
-   * 矿石是实体，不能穿过去：从侧面撞上会被顶开，从上方落下则站在矿石顶上
-   * （顶面当成平的，和画出来的方块一致）。
+   * 矿石是实体，不能穿过去：从侧面撞上会被顶开，从上方落下则站在块顶上。
+   * 山是很多方块，逐块做同样的判定。
    */
   private resolveRockCollision(prevY: number): void {
     const me = this.me;
     const halfW = PLAYER_W / 2 + 2;
-    const left = ROCK_X - ROCK_R;
-    const right = ROCK_X + ROCK_R;
-    const top = GROUND_Y - ROCK_R * 2 + 6; // 与 draw() 里的方块顶面对齐
+    const half = BLOCK_S / 2;
 
-    // 水平方向没碰上，或者整个人已经在矿石上方 → 不碰
-    if (me.x + halfW <= left || me.x - halfW >= right) return;
-    if (me.y <= top) return;
+    for (const b of this.blocks) {
+      const left = b.x - half;
+      const right = b.x + half;
+      const top = b.y - half;
 
-    // 这一帧是从矿石上方落下来的 → 踩上去
-    if (prevY <= top + 2 && me.vy >= 0) {
-      me.y = top;
-      me.vy = 0;
-      me.onGround = true;
+      // 水平方向没碰上，或者整个人已经在这一块上方 → 不碰
+      if (me.x + halfW <= left || me.x - halfW >= right) continue;
+      if (me.y <= top) continue;
+
+      // 这一帧是从上方落下来的 → 踩上去
+      if (prevY <= top + 2 && me.vy >= 0) {
+        me.y = top;
+        me.vy = 0;
+        me.onGround = true;
+        return;
+      }
+
+      // 其余情况从侧面顶出去（哪边近就往哪边）
+      me.x = me.x < b.x ? left - halfW : right + halfW;
+      me.vx = 0;
       return;
     }
-
-    // 其余情况从侧面顶出去（哪边近就往哪边）
-    me.x = me.x < ROCK_X ? left - halfW : right + halfW;
-    me.vx = 0;
   }
 
   /**
@@ -287,48 +328,133 @@ export class MiningScene extends Phaser.Scene {
     return this.me.y - PLAYER_H * 0.72 + Math.sin(this.racketAng) * this.reach;
   }
 
-  // ---- the rock ------------------------------------------------------------
-  private stepRock(dt: number): void {
-    this.cooldown -= dt;
-    const kind = ORE_KINDS[this.kindIdx];
+  // ---- the mountain ----------------------------------------------------------
+  /** 加权随机一块矿种：普通多、钻石少 */
+  private pickKind(): OreKind {
+    const r = Math.random();
+    return r < 0.45 ? ORE_KINDS[0] : r < 0.75 ? ORE_KINDS[1] : r < 0.93 ? ORE_KINDS[2] : ORE_KINDS[3];
+  }
 
-    const hx = this.headX();
-    const hy = this.headY();
-    const dx = hx - ROCK_X;
-    const dy = hy - (GROUND_Y - ROCK_R);
-    const touching = Math.hypot(dx, dy) < ROCK_R + RACKET_HEAD_R;
-
-    // only a real swing breaks ore: the head must be moving fast enough and
-    // travelling towards the rock — resting it against the surface does nothing
-    const toRockX = -dx;
-    const toRockY = -dy;
-    const closing = this.swingVX * toRockX + this.swingVY * toRockY;
-    const swinging =
-      Math.hypot(this.swingVX, this.swingVY) >= SWING_MIN && closing > 0;
-
-    if (touching && swinging && this.cooldown <= 0) {
-      this.cooldown = HIT_COOLDOWN;
-      this.hp -= 1;
-      sfx.hit('drive');
-      this.cameras.main.shake(90, 0.005);
-      this.spawnDebris(hx, hy, kind.color, 4);
-      if (this.hp <= 0) this.breakRock(kind);
+  /**
+   * 把山的状态写到 localStorage（退出 / 刷新后再进，山和倒计时都还在）。
+   * 方块位置由行列决定，所以只需要存矿种下标和剩余耐久。
+   */
+  private persistMine(): void {
+    try {
+      const state = {
+        blocks: this.blocks.map((b) => ({ k: ORE_KINDS.indexOf(b.kind), hp: b.hp })),
+        regenUntil: this.blocks.length === 0 ? Date.now() + this.regen * 1000 : 0,
+      };
+      localStorage.setItem(MINE_STATE_KEY, JSON.stringify(state));
+    } catch {
+      /* private mode：存不进去就退化为每次重新生成 */
     }
   }
 
-  private breakRock(kind: OreKind): void {
+  /** 进图时先看存档：还在恢复就接着倒计时，没挖完就接着挖 */
+  private restoreOrGenerate(): void {
+    try {
+      const raw = localStorage.getItem(MINE_STATE_KEY);
+      if (raw) {
+        const state = JSON.parse(raw) as {
+          blocks: { k: number; hp: number }[];
+          regenUntil: number;
+        };
+        if (state.regenUntil > Date.now()) {
+          this.blocks = [];
+          this.regen = (state.regenUntil - Date.now()) / 1000;
+          return;
+        }
+        if (state.blocks.length > 0) {
+          this.blocks = state.blocks
+            .filter((b) => b.k >= 0 && b.k < ORE_KINDS.length && b.hp > 0)
+            .map((b, i) => this.makeBlock(i, ORE_KINDS[b.k], b.hp));
+          return;
+        }
+      }
+    } catch {
+      /* 存档坏了就重新生成 */
+    }
+    this.generateMountain();
+  }
+
+  /** 按山的第 i 块（先底行后上行、每行从左到右）算出世界坐标 */
+  private makeBlock(i: number, kind: OreKind, hp: number): OreBlock {
+    let row = MOUNTAIN_ROWS - 1;
+    while (i < MOUNTAIN_STARTS[row]) row--;
+    const width = 9 - row * 2;
+    const inRow = i - MOUNTAIN_STARTS[row];
+    return {
+      x: MINE_X + (inRow - (width - 1) / 2) * BLOCK_S,
+      y: GROUND_Y - 6 - BLOCK_S / 2 - row * BLOCK_S,
+      kind,
+      hp,
+    };
+  }
+
+  /** 生成矿石山：底行 9 块，往上每行减 2（共 25 块），矿种逐块加权随机 */
+  private generateMountain(): void {
+    this.blocks = [];
+    for (let i = 0; i < MOUNTAIN_TOTAL; i++) {
+      const kind = this.pickKind();
+      this.blocks.push(this.makeBlock(i, kind, kind.hp));
+    }
+    this.regen = 0;
+    this.persistMine();
+  }
+
+  private stepRock(dt: number): void {
+    // 挖空恢复中：倒计时归零重新生成一座山
+    if (this.blocks.length === 0) {
+      this.regen -= dt;
+      if (this.regen <= 0) this.generateMountain();
+      return;
+    }
+
+    this.cooldown -= dt;
+    const hx = this.headX();
+    const hy = this.headY();
+
+    // 找拍头碰到的那一块（取最近的一块）
+    let hit: OreBlock | null = null;
+    let best = Infinity;
+    for (const b of this.blocks) {
+      const d = Math.hypot(hx - b.x, hy - b.y);
+      if (d < BLOCK_S / 2 + RACKET_HEAD_R + 4 && d < best) {
+        best = d;
+        hit = b;
+      }
+    }
+    if (!hit) return;
+
+    // only a real swing breaks ore: the head must be moving fast enough and
+    // travelling towards the rock — resting it against the surface does nothing
+    const closing = this.swingVX * (hit.x - hx) + this.swingVY * (hit.y - hy);
+    const swinging = Math.hypot(this.swingVX, this.swingVY) >= SWING_MIN && closing > 0;
+    if (swinging && this.cooldown <= 0) {
+      this.cooldown = HIT_COOLDOWN;
+      hit.hp -= 1;
+      sfx.hit('drive');
+      this.cameras.main.shake(90, 0.005);
+      this.spawnDebris(hx, hy, hit.kind.color, 4);
+      if (hit.hp <= 0) this.breakBlock(hit);
+    }
+  }
+
+  private breakBlock(b: OreBlock): void {
     sfx.point();
     this.cameras.main.shake(220, 0.012);
-    this.spawnDebris(ROCK_X, GROUND_Y - ROCK_R, kind.color, 14);
-    this.spawnDebris(ROCK_X, GROUND_Y - ROCK_R, kind.ore, 8);
-    this.total += kind.value;
-    this.coinPop(kind.value);
-    this.cfg.session?.send({ t: 'mineBreak', ore: kind.name, value: kind.value });
+    this.spawnDebris(b.x, b.y, b.kind.color, 14);
+    this.spawnDebris(b.x, b.y, b.kind.ore, 8);
+    this.total += b.kind.value;
+    this.coinPop(b.x, b.y - BLOCK_S, b.kind.value);
+    this.cfg.session?.send({ t: 'mineBreak', ore: b.kind.name, value: b.kind.value });
     this.cfg.onEarn?.(this.total);
 
-    // next block in the cycle
-    this.kindIdx = (this.kindIdx + 1) % ORE_KINDS.length;
-    this.hp = ORE_KINDS[this.kindIdx].hp;
+    this.blocks = this.blocks.filter((w) => w !== b);
+    // 整座山挖空 → 1 分钟后重新生成；存档跟着更新（部分挖完退出也保留进度）
+    if (this.blocks.length === 0) this.regen = REGEN_S;
+    this.persistMine();
   }
 
   private spawnDebris(x: number, y: number, color: number, n: number): void {
@@ -392,9 +518,7 @@ export class MiningScene extends Phaser.Scene {
    * 破坏矿石时的收获反馈：金币图标 + 跳动的数字。
    * 先弹出来（回弹缩放），再向上跳一下，最后飘起淡出。
    */
-  private coinPop(value: number): void {
-    const x = ROCK_X;
-    const y = GROUND_Y - ROCK_R * 2 - 12;
+  private coinPop(x: number, y: number, value: number): void {
     const icon = this.add
       .text(x - 12, y, '🪙', { fontSize: '36px' })
       .setOrigin(0.5)
@@ -471,32 +595,41 @@ export class MiningScene extends Phaser.Scene {
     g.fillStyle(0x5d4b34, 1);
     g.fillRect(0, GROUND_Y, VIEW_W, 6);
 
-    // the ore block, with cracks proportional to damage taken
-    const kind = ORE_KINDS[this.kindIdx];
-    const frac = this.hp / kind.hp;
-    const cy = GROUND_Y - ROCK_R;
-    g.fillStyle(kind.color, 1);
-    g.fillRoundedRect(ROCK_X - ROCK_R, cy - ROCK_R + 6, ROCK_R * 2, ROCK_R * 2 - 6, 16);
-    g.lineStyle(3, 0x3a3a34, 0.5);
-    g.strokeRoundedRect(ROCK_X - ROCK_R, cy - ROCK_R + 6, ROCK_R * 2, ROCK_R * 2 - 6, 16);
-    // ore veins
-    g.fillStyle(kind.ore, 0.95);
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 + 0.6;
-      g.fillCircle(
-        ROCK_X + Math.cos(a) * ROCK_R * 0.55,
-        cy + Math.sin(a) * ROCK_R * 0.5,
-        4 + (i % 2) * 2,
-      );
+    // 矿石山：逐块画方块 + 矿脉 + 裂纹（裂纹随耐久加深）
+    for (const b of this.blocks) {
+      const half = BLOCK_S / 2;
+      const frac = b.hp / b.kind.hp;
+      g.fillStyle(b.kind.color, 1);
+      g.fillRoundedRect(b.x - half, b.y - half + 4, BLOCK_S, BLOCK_S - 4, 10);
+      g.lineStyle(2.5, 0x3a3a34, 0.5);
+      g.strokeRoundedRect(b.x - half, b.y - half + 4, BLOCK_S, BLOCK_S - 4, 10);
+      // ore veins
+      g.fillStyle(b.kind.ore, 0.95);
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 + 0.6;
+        g.fillCircle(b.x + Math.cos(a) * half * 0.45, b.y + Math.sin(a) * half * 0.4, 3.5);
+      }
+      // cracks: up to 3, appearing as durability drops
+      g.lineStyle(1.8, 0x2c2c26, 0.8);
+      const cracks = Math.round((1 - frac) * 3);
+      for (let i = 0; i < cracks; i++) {
+        const a = i * 2.1 + 0.5;
+        g.lineBetween(
+          b.x + Math.cos(a) * half * 0.7,
+          b.y + Math.sin(a) * half * 0.6,
+          b.x,
+          b.y,
+        );
+      }
     }
-    // cracks: up to 4, appearing as durability drops
-    g.lineStyle(2, 0x2c2c26, 0.8);
-    const cracks = Math.round((1 - frac) * 4);
-    for (let i = 0; i < cracks; i++) {
-      const a = i * 1.7 + 0.4;
-      const sx = ROCK_X + Math.cos(a) * ROCK_R * 0.8;
-      const sy = cy + Math.sin(a) * ROCK_R * 0.7;
-      g.lineBetween(sx, sy, ROCK_X, cy + (i - 1.5) * 6);
+
+    // 挖空恢复中：倒计时提示
+    if (this.blocks.length === 0) {
+      this.regenText
+        .setText(`矿山恢复中 ${Math.ceil(this.regen)}s`)
+        .setVisible(true);
+    } else {
+      this.regenText.setVisible(false);
     }
 
     // debris

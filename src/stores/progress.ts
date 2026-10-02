@@ -5,6 +5,7 @@ import {
   POINT_RULES,
   TIERS,
   nextTier,
+  tierById,
   tierForPoints,
   tierProgress,
   type PlayMode,
@@ -26,6 +27,14 @@ import {
 } from '../game/items';
 import { BOAT_COST, islandById, MAX_LEVEL, upgradeCost } from '../game/dive/fish';
 import { ACHIEVEMENTS, type AchMetric, type Achievement } from '../game/achievements';
+import {
+  PLACE_LABEL,
+  SEASON_REWARDS,
+  arenaByTier,
+  goldForPlace,
+  pointsForPlace,
+  type ArenaPlace,
+} from '../game/arena';
 
 export type PullResult = { kind: 'item'; item: Item; duplicate: boolean; refund: number };
 
@@ -180,6 +189,109 @@ export const useProgressStore = defineStore('progress', () => {
     let text = `+${gain} 积分 · 金币 +${coin}`;
     if (after.id !== before) text += ` · 晋级 ${after.label}！可领取奖励`;
     pushNotice(text);
+    trackSeasonPeak();
+  }
+
+  // ---- 晋级赛（8 人淘汰赛） + 赛季 -------------------------------------------
+
+  /** 当前进行中的一届晋级赛（null = 没报名） */
+  const arenaRun = useLocalStorage<null | {
+    tier: TierId;
+    /** 0 = 8强赛，1 = 4强赛，2 = 决赛或季军赛 */
+    round: number;
+    /** 赢了 4 强赛 → 下一场是决赛；输了 → 下一场是季军赛 */
+    semisWon: boolean;
+    wins: number;
+  }>('bmt-arena-run', null);
+
+  /** 赛季（YYYY-MM）：积分每月 1 号清零，按赛季最高段位发金币 */
+  const seasonId = useLocalStorage('bmt-season', '');
+  const seasonPeak = useLocalStorage<TierId>('bmt-season-peak', 'bronze');
+
+  function currentSeasonId(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function trackSeasonPeak(): void {
+    const cur = tierForPoints(points.value).id;
+    if (TIERS.findIndex((t) => t.id === cur) > TIERS.findIndex((t) => t.id === seasonPeak.value)) {
+      seasonPeak.value = cur;
+    }
+  }
+
+  /** 应用启动时跑一次：跨月就结算上赛季（积分清零 + 按最高段位发金币） */
+  function checkSeason(): void {
+    const cur = currentSeasonId();
+    if (seasonId.value === cur) return;
+    if (seasonId.value) {
+      const reward = SEASON_REWARDS[TIERS.findIndex((t) => t.id === seasonPeak.value)] ?? 100;
+      coins.value += reward;
+      pushNotice(`赛季 ${seasonId.value} 结算：最高段位 ${tierById(seasonPeak.value).label}，奖励 🪙${reward}！积分已清零，新赛季加油！`);
+      points.value = 0;
+      seasonPeak.value = 'bronze';
+    }
+    seasonId.value = cur;
+  }
+  checkSeason();
+
+  /** 报名一届晋级赛：按当前段位收报名费 */
+  function enterArena(): { ok: boolean; message: string } {
+    if (arenaRun.value) return { ok: false, message: '这届还在进行中，打完再来' };
+    const a = arenaByTier(tierForPoints(points.value).id);
+    if (coins.value < a.fee) return { ok: false, message: `报名费不够，还差 🪙${a.fee - coins.value}` };
+    coins.value -= a.fee;
+    arenaRun.value = { tier: a.tier, round: 0, semisWon: false, wins: 0 };
+    return { ok: true, message: `报名成功！-${a.fee} 金币，祝好运` };
+  }
+
+  function settleArena(place: ArenaPlace): void {
+    const run = arenaRun.value;
+    if (!run) return;
+    const a = arenaByTier(run.tier);
+    const gold = goldForPlace(a, place, run.wins);
+    const gain = pointsForPlace(a, place);
+    coins.value += gold;
+    const before = tierForPoints(points.value).id;
+    points.value += gain;
+    trackSeasonPeak();
+    const after = tierForPoints(points.value);
+    let text = `晋级赛 ${PLACE_LABEL[place]}：金币 +${gold}` + (gain ? ` · 积分 +${gain}` : ' · 无积分');
+    if (after.id !== before) text += ` · 晋级 ${after.label}！可领取奖励`;
+    pushNotice(text);
+    arenaRun.value = null;
+  }
+
+  /** 晋级赛赢一场：推进轮次或结算名次 */
+  function arenaWin(): void {
+    const run = arenaRun.value;
+    if (!run) return;
+    if (run.round === 2) {
+      settleArena(run.semisWon ? 'champion' : 'third');
+      return;
+    }
+    arenaRun.value = {
+      ...run,
+      round: run.round + 1,
+      semisWon: run.semisWon || run.round === 1,
+      wins: run.wins + 1,
+    };
+  }
+
+  /** 晋级赛输一场：首轮出局或进入下一轮/结算 */
+  function arenaLose(): void {
+    const run = arenaRun.value;
+    if (!run) return;
+    if (run.round === 0) {
+      settleArena('qf');
+      return;
+    }
+    if (run.round === 1) {
+      // 4 强赛输了 → 掉进季军赛
+      arenaRun.value = { ...run, round: 2, semisWon: false, wins: run.wins };
+      return;
+    }
+    settleArena(run.semisWon ? 'runner' : 'fourth');
   }
 
   function claim(id: TierId): void {
@@ -208,6 +320,7 @@ export const useProgressStore = defineStore('progress', () => {
    */
   const REDEEM_CODES: Record<string, string> = {
     ux7891: 'skin:ubear',
+    '91laopi': 'skin:laopi',
   };
 
   /**
@@ -492,5 +605,11 @@ export const useProgressStore = defineStore('progress', () => {
     claim,
     pull,
     pullTen,
+    arenaRun,
+    enterArena,
+    arenaWin,
+    arenaLose,
+    seasonId,
+    seasonPeak,
   };
 });

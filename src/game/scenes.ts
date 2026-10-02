@@ -24,7 +24,7 @@ export const SCENE_META: Record<SceneId, SceneMeta> = {
   fish: { label: '在海湾潜水', icon: '🤿', route: '/fish', kind: 'fish' },
   mine: { label: '在矿洞', icon: '⛏️', route: '/mine', kind: 'mine' },
   climb: { label: '在攀岩', icon: '🧗', route: '/climb' },
-  egg: { label: '在孵化屋', icon: '🥚', route: '/egg' },
+  petshop: { label: '在宠物店', icon: '🐾', route: '/petshop' },
 };
 
 /** 能从「好友在玩什么」直接进房间的界面（地图/对局/潜水/矿洞） */
@@ -45,7 +45,7 @@ export function sceneFromPath(path: string): SceneId {
   if (path.startsWith('/fish')) return 'fish';
   if (path.startsWith('/mine')) return 'mine';
   if (path.startsWith('/climb')) return 'climb';
-  if (path.startsWith('/egg')) return 'egg';
+  if (path.startsWith('/petshop') || path.startsWith('/shop')) return 'petshop';
   if (path.startsWith('/home')) return 'home';
   if (path === '/' || path.startsWith('/world')) return 'map';
   return 'off';

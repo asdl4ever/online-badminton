@@ -9,7 +9,6 @@ import RankPanel from '../components/RankPanel.vue';
 import SettingsPanel from '../components/SettingsPanel.vue';
 import ProfilePanel from '../components/ProfilePanel.vue';
 import BackpackPanel from '../components/BackpackPanel.vue';
-import ChestPanel from '../components/ChestPanel.vue';
 import AchievementsPanel from '../components/AchievementsPanel.vue';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
@@ -22,7 +21,6 @@ const progress = useProgressStore();
 const showFriends = ref(false);
 const showRank = ref(false);
 const showBag = ref(false);
-const showChest = ref(false);
 const showSettings = ref(false);
 const showProfile = ref(false);
 const showAch = ref(false);
@@ -52,7 +50,7 @@ function toggleTools() {
 
 function openChestFromBag() {
   showBag.value = false;
-  showChest.value = true;
+  void router.push('/shop');
 }
 
 /** fun mode only exists online, so entering it also opens the lobby */
@@ -63,14 +61,13 @@ function goParty() {
 }
 
 function open(
-  which: 'friends' | 'rank' | 'bag' | 'chest' | 'settings' | 'profile' | 'ach',
+  which: 'friends' | 'rank' | 'bag' | 'settings' | 'profile' | 'ach',
 ) {
   sfx.unlock();
   sfx.click();
   if (which === 'ach') showAch.value = true;
   else if (which === 'friends') showFriends.value = true;
   else if (which === 'bag') showBag.value = true;
-  else if (which === 'chest') showChest.value = true;
   else if (which === 'settings') showSettings.value = true;
   else if (which === 'profile') showProfile.value = true;
   else showRank.value = true;
@@ -127,7 +124,7 @@ function open(
                 :class="{ 'is-open': toolsOpen }"
                 type="button"
                 :aria-expanded="toolsOpen"
-                :title="toolsOpen ? '收起' : '段位 / 外观 / 背包 / 宝箱 / 宠物蛋 / 好友'"
+                :title="toolsOpen ? '收起' : '段位 / 外观 / 背包 / 商店 / 宠物店 / 好友'"
                 @click="toggleTools"
               >
                 <svg
@@ -220,7 +217,7 @@ function open(
                   <span>背包</span>
                 </button>
 
-                <button class="tool" type="button" title="宝箱" @click="open('chest')">
+                <button class="tool" type="button" title="商店（活动 / 宝箱）" @click="go('/shop')">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <rect
                       x="3"
@@ -250,8 +247,8 @@ function open(
                   <span v-if="progress.tenTickets > 0" class="tool__badge">礼</span>
                 </button>
 
-                <!-- 宠物蛋搬去大地图上的「孵化屋」了，这里只做一个指路入口 -->
-                <button class="tool" type="button" title="孵化屋（宠物蛋）" @click="go('/egg')">
+                <!-- 宠物从大地图上的「宠物店」买，这里只做一个指路入口 -->
+                <button class="tool" type="button" title="宠物店（每小时上新）" @click="go('/petshop')">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
                       d="M12 3c3.3 0 6 4.4 6 8.6A6 6 0 0 1 6 11.6C6 7.4 8.7 3 12 3z"
@@ -269,7 +266,7 @@ function open(
                       stroke-linejoin="round"
                     />
                   </svg>
-                  <span>孵化屋</span>
+                  <span>宠物店</span>
                 </button>
 
                 <button class="tool" type="button" title="好友" @click="open('friends')">
@@ -352,10 +349,6 @@ function open(
 
     <AppModal v-model="showBag" title="背包" max-width="760px">
       <BackpackPanel @open-chest="openChestFromBag" />
-    </AppModal>
-
-    <AppModal v-model="showChest" title="宝箱" max-width="540px">
-      <ChestPanel />
     </AppModal>
 
     <AppModal v-model="showFriends" title="好友" max-width="720px">
