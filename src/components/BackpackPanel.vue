@@ -24,6 +24,8 @@ import type {
   HitStyle,
   PetId,
   RacketSkinId,
+  RingId,
+  SwingTrailId,
   TrailId,
   WingId,
 } from '../game/cosmetics';
@@ -73,12 +75,16 @@ function currentRef(slot: ItemSlot): string {
       return store.cape;
     case 'aura':
       return store.aura;
+    case 'ring':
+      return store.ring;
     case 'pet':
       return store.pet;
     case 'racketSkin':
       return store.racketSkin;
     case 'trail':
       return store.trailStyle;
+    case 'swingTrail':
+      return store.swingTrail;
     case 'effect':
       return store.effect;
   }
@@ -110,6 +116,9 @@ function equip(item: Item): void {
     case 'aura':
       store.aura = item.ref as AuraId;
       break;
+    case 'ring':
+      store.ring = item.ref as RingId;
+      break;
     case 'pet':
       store.pet = item.ref as PetId;
       break;
@@ -118,6 +127,9 @@ function equip(item: Item): void {
       break;
     case 'trail':
       store.trailStyle = item.ref as TrailId;
+      break;
+    case 'swingTrail':
+      store.swingTrail = item.ref as SwingTrailId;
       break;
     case 'effect':
       store.effect = item.ref as HitStyle;

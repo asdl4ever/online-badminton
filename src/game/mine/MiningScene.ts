@@ -122,6 +122,8 @@ export class MiningScene extends Phaser.Scene {
   private debris: Debris[] = [];
 
   private g!: Phaser.GameObjects.Graphics;
+  /** 角色单独一层（depth 2）：emoji 脸在它之下，装备不会被脸盖住 */
+  private charG!: Phaser.GameObjects.Graphics;
   /** shared character rigs — drawn exactly like the match scene's players */
   private rigMe!: PlayerRig;
   private rigOther!: PlayerRig;
@@ -157,6 +159,7 @@ export class MiningScene extends Phaser.Scene {
       .setVisible(false);
 
     this.g = this.add.graphics();
+    this.charG = this.add.graphics().setDepth(2);
     this.rigMe = createPlayerRig(this);
     this.rigOther = createPlayerRig(this);
     // 左上角不再写矿石耐久 / 金币：耐久看裂纹，收获看破坏时的金币跳动
@@ -586,6 +589,7 @@ export class MiningScene extends Phaser.Scene {
   private draw(): void {
     const g = this.g;
     g.clear();
+    this.charG.clear();
 
     // sky + ground
     g.fillStyle(0xc9c2ae, 1);
@@ -638,9 +642,9 @@ export class MiningScene extends Phaser.Scene {
       g.fillCircle(d.x, d.y, d.r);
     }
 
-    this.drawAngler(g, this.me, this.cfg.cosmetic, this.racketAng, this.reach, true);
+    this.drawAngler(this.charG, this.me, this.cfg.cosmetic, this.racketAng, this.reach, true);
     if (this.remote)
-      this.drawAngler(g, this.remote, this.cfg.cosmetic, this.remoteAng, this.remoteReach, false);
+      this.drawAngler(this.charG, this.remote, this.cfg.cosmetic, this.remoteAng, this.remoteReach, false);
   }
 
   private drawAngler(

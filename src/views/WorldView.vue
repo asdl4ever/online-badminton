@@ -16,7 +16,6 @@ import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { useMapSession } from '../composables/useMapSession';
 import { usePresenceStore } from '../stores/presence';
-import { BARBER_COST } from '../game/items';
 import { useProgressStore } from '../stores/progress';
 import { useLobbyStore } from '../stores/lobby';
 import { useCustomizeStore } from '../stores/customize';
@@ -176,11 +175,7 @@ function enterZone(z: WorldZone): void {
     toastWarn(`${z.name} 还没开放`);
     return;
   }
-  // 理发店要收金币，钱不够就别白跑一趟了（真正扣费在 BarberView 里）
-  if (z.id === 'barber' && progress.coins < BARBER_COST) {
-    toastWarn(`理发要 ¥${BARBER_COST}，先去钓鱼塘或矿洞赚点金币吧`);
-    return;
-  }
+  // 理发店现在可以先免费试穿，确认修改才收费（扣费在 BarberView 里），所以不拦
   sfx.click();
   presence.setWatching(null);
   toastGood(`走进「${z.name}」`);

@@ -1,10 +1,11 @@
 import type { PlayerInput, WorldSnapshot } from '../game/types';
 import type { Cosmetic } from '../game/cosmetics';
+import type { PlayerAttrs } from '../game/attrs';
 
 export type NetRole = 'host' | 'guest';
 
 export type NetMessage =
-  | { t: 'hello'; name?: string; rank?: string; cosmetic?: Cosmetic }
+  | { t: 'hello'; name?: string; rank?: string; cosmetic?: Cosmetic; attrs?: PlayerAttrs }
   | { t: 'input'; i: PlayerInput }
   | { t: 'snap'; s: WorldSnapshot }
   | { t: 'rematch' }

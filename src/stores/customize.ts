@@ -10,7 +10,9 @@ import {
   type HatId,
   type HitStyle,
   type PetId,
-  type RacketSkinId,
+  type   RacketSkinId,
+  type RingId,
+  type SwingTrailId,
   type TrailId,
   type WingId,
 } from '../game/cosmetics';
@@ -33,9 +35,11 @@ export const useCustomizeStore = defineStore('customize', () => {
   const cape = useLocalStorage<CapeId>('bmt-cape', 'none');
   const aura = useLocalStorage<AuraId>('bmt-aura', 'none');
   const hat = useLocalStorage<HatId>('bmt-hat', 'none');
+  const ring = useLocalStorage<RingId>('bmt-ring', 'none');
   const pet = useLocalStorage<PetId>('bmt-pet', 'none');
   const racketSkin = useLocalStorage<RacketSkinId>('bmt-racket-skin', 'default');
   const trailStyle = useLocalStorage<TrailId>('bmt-trail-style', 'classic');
+  const swingTrail = useLocalStorage<SwingTrailId>('bmt-swing-trail', 'none');
   const theme = useLocalStorage<ThemeId>('bmt-theme', 'day');
   /** rotate the court theme automatically once a match is over */
   const autoCycle = useLocalStorage('bmt-theme-auto', true);
@@ -50,10 +54,12 @@ export const useCustomizeStore = defineStore('customize', () => {
     cape: cape.value,
     aura: aura.value,
     hat: hat.value,
+    ring: ring.value,
     pet: pet.value,
     petStar: pet.value === 'none' ? 1 : progress.petStar(pet.value) || 1,
     racketSkin: racketSkin.value,
     trailStyle: trailStyle.value,
+    swingTrail: swingTrail.value,
   }));
 
   return {
@@ -66,9 +72,11 @@ export const useCustomizeStore = defineStore('customize', () => {
     cape,
     aura,
     hat,
+    ring,
     pet,
     racketSkin,
     trailStyle,
+    swingTrail,
     theme,
     autoCycle,
     cosmetic,

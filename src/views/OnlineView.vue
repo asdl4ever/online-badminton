@@ -273,9 +273,9 @@ onBeforeUnmount(() => {
         <GameCanvas
           ref="canvas"
           :role="store.role"
-          :difficulty="store.difficulty"
           :session="store.session"
           :cosmetic="customize.cosmetic"
+          :attrs="progress.attrs"
           :local-name="lobby.playerName"
           :local-rank="progress.tier.id"
           :theme="customize.theme"

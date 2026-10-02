@@ -7,6 +7,7 @@ import {
   HAT_KIND,
   PET_COLORS,
   PET_KIND,
+  RING_COLORS,
   WING_COLORS,
   WING_SHAPE,
   type AuraId,
@@ -14,6 +15,7 @@ import {
   type Cosmetic,
   type HatId,
   type PetId,
+  type RingId,
 } from '../cosmetics';
 import { PLAYER_H } from '../constants';
 import { P } from '../theme';
@@ -2258,6 +2260,116 @@ function drawLaopi(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterP
   g.fillCircle(x, topY + 4 + bob, 4);
 }
 
+/** 地环：角色脚下的装饰环（积分荣誉奖励），每个组别一种样式 */
+export function drawRing(
+  g: Phaser.GameObjects.Graphics,
+  now: number,
+  x: number,
+  feetY: number,
+  id: RingId,
+): void {
+  const color = RING_COLORS[id];
+  if (id === 'none') return;
+  const y = feetY - 3;
+  switch (id) {
+    case 'sprout': {
+      // 新芽：绿环 + 两片嫩叶
+      g.lineStyle(3, color, 0.85);
+      g.strokeEllipse(x, y, 44, 14);
+      g.fillStyle(color, 0.9);
+      g.fillEllipse(x - 10, y - 8, 9, 5);
+      g.fillEllipse(x + 10, y - 8, 9, 5);
+      break;
+    }
+    case 'bamboo': {
+      // 青竹：竹节虚线环
+      g.lineStyle(3, color, 0.8);
+      for (let k = 0; k < 6; k++) {
+        const a0 = (k / 6) * Math.PI * 2;
+        g.beginPath();
+        g.arc(x, y, 23, a0, a0 + 0.7, false, 0);
+        g.strokePath();
+      }
+      break;
+    }
+    case 'dawn': {
+      // 曙光：双层日环
+      g.lineStyle(3.5, color, 0.9);
+      g.strokeEllipse(x, y, 46, 15);
+      g.lineStyle(1.6, 0xfff2c4, 0.7);
+      g.strokeEllipse(x, y, 34, 10);
+      break;
+    }
+    case 'gale': {
+      // 疾风：三道旋转风弧（椭圆弧用路径点逼近）
+      for (let k = 0; k < 3; k++) {
+        const a0 = (k / 3) * Math.PI * 2 + now / 700;
+        g.lineStyle(3, color, 0.85);
+        g.beginPath();
+        for (let s = 0; s <= 10; s++) {
+          const a = a0 + (s / 10) * 1.4;
+          const px = x + Math.cos(a) * 24;
+          const py = y + Math.sin(a) * 8;
+          if (s === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+      break;
+    }
+    case 'rock': {
+      // 磐石：六枚冰晶绕环
+      g.lineStyle(2.5, color, 0.6);
+      g.strokeEllipse(x, y, 46, 15);
+      g.fillStyle(color, 0.95);
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2;
+        const px = x + Math.cos(a) * 23;
+        const py = y + Math.sin(a) * 7.5;
+        g.fillTriangle(px, py - 4, px + 3, py, px - 3, py);
+      }
+      break;
+    }
+    case 'blaze': {
+      // 烈焰：紫环 + 跳动的火苗点
+      g.lineStyle(3.5, color, 0.9);
+      g.strokeEllipse(x, y, 46, 15);
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2 + now / 500;
+        const h = 3 + Math.abs(Math.sin(now / 160 + k)) * 4;
+        g.fillStyle(0xc9a0ff, 0.9);
+        g.fillEllipse(x + Math.cos(a) * 23, y + Math.sin(a) * 7.5 - h, 3, h);
+      }
+      break;
+    }
+    case 'sky': {
+      // 苍穹：金辉双环 + 流转光点
+      g.lineStyle(4, color, 0.95);
+      g.strokeEllipse(x, y, 48, 16);
+      g.lineStyle(1.6, 0xffffff, 0.6);
+      g.strokeEllipse(x, y, 36, 11);
+      for (let k = 0; k < 3; k++) {
+        const a = now / 400 + (k / 3) * Math.PI * 2;
+        g.fillStyle(0xfff2c4, 0.9);
+        g.fillCircle(x + Math.cos(a) * 24, y + Math.sin(a) * 8, 1.8);
+      }
+      break;
+    }
+    case 'legend': {
+      // 传奇：赤金三重环
+      g.lineStyle(3.5, color, 0.95);
+      g.strokeEllipse(x, y, 50, 17);
+      g.lineStyle(2.5, 0xffd45c, 0.8);
+      g.strokeEllipse(x, y, 38, 12);
+      g.lineStyle(1.2, 0xffffff, 0.5);
+      g.strokeEllipse(x, y, 28, 8);
+      g.fillStyle(0xffd45c, 0.5 + 0.5 * Math.sin(now / 300));
+      g.fillCircle(x, y, 2.5);
+      break;
+    }
+  }
+}
+
 export function drawCharacter(
   g: Phaser.GameObjects.Graphics,
   now: number,
@@ -2268,6 +2380,7 @@ export function drawCharacter(
   const topY = pose.feetY - PLAYER_H;
 
   if (opts.shadow !== false) {
+    if (cos.ring !== 'none') drawRing(g, now, pose.x, pose.feetY, cos.ring);
     g.fillStyle(P.shadow, 0.16);
     g.fillEllipse(pose.x, pose.feetY + 2, 46, 10);
   }

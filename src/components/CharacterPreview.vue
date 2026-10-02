@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useCustomizeStore } from '../stores/customize';
 import { avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
 import { THEMES } from '../game/theme';
-import { toHex } from '../game/cosmetics';
+import { toHex, type Cosmetic } from '../game/cosmetics';
 
 /**
  * 角色预览：**和游戏里、大地图上同一份绘制**（`game/draw/canvas2d.ts` →
@@ -13,8 +13,13 @@ import { toHex } from '../game/cosmetics';
  *
  * 每帧重绘是刻意的：光环 / 披风 / 翅膀 / 宠物都靠时间驱动摆动，换装扮也会立刻反映。
  */
+/** 传了 cosmetic 就预览那个人（比如名人堂 / 晋级赛里的 AI 对手），否则预览自己 */
+const props = defineProps<{ cosmetic?: Cosmetic }>();
+
 const store = useCustomizeStore();
 const canvas = ref<HTMLCanvasElement | null>(null);
+
+const cos = computed(() => props.cosmetic ?? store.cosmetic);
 
 /** 角色盒子的宽高比（用来让 CSS 等比缩放，不拉伸） */
 const box = avatarBoxSize(1);
@@ -31,7 +36,7 @@ let raf = 0;
 function loop(now: number): void {
   const c = canvas.value;
   // scale 交给 CSS：画的是 1:1 的角色，显示尺寸按面板高度等比缩放
-  if (c) paintAvatar(c, store.cosmetic, now, { scale: 1 });
+  if (c) paintAvatar(c, cos.value, now, { scale: 1 });
   raf = requestAnimationFrame(loop);
 }
 

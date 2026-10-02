@@ -14,7 +14,7 @@ import {
   VIEW_W,
 } from '../constants';
 import {
-  contactRadius,
+  contactRadiusFor,
   DEFAULT_OPTION_ID,
   emptyPartyState,
   MACHINE_X,
@@ -45,7 +45,8 @@ import {
   stepPlayerLocal,
   stepWorld,
 } from '../simulation';
-import { AIController, type Difficulty } from '../ai';
+import { AIController, NEUTRAL_STATS } from '../ai';
+import { attrsFromStats, type PlayerStats } from '../players';
 import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
@@ -67,7 +68,9 @@ import {
   type Cosmetic,
   type TrailId,
 } from '../cosmetics';
+import { NEUTRAL_ATTRS, sanitizeAttrs, type PlayerAttrs } from '../attrs';
 import { drawCharacter } from '../draw/character';
+import { drawSwingTrail } from '../draw/rig';
 import { drawRacketHead, racketFrameColor } from '../draw/racket';
 import { isTierId, tierById, type TierId } from '../ranks';
 import { EMOTE_BY_ID, EMOTE_COOLDOWN_MS, EMOTE_LIFE_S } from '../emotes';
@@ -93,9 +96,19 @@ export interface HudState {
   };
 }
 
+/**
+ * 一位 AI 对手：名字、外观、四维（单机 / 晋级赛 / 观战都用它）。
+ * 行为（难度/风格/精度）与物理加成全部由 `stats` 派生，不再单独传难度或倍率。
+ */
+export interface MatchOpponent {
+  name: string;
+  cosmetic?: Cosmetic;
+  /** 四维；不传 = 中性水平 */
+  stats?: PlayerStats;
+}
+
 export interface MatchConfig {
   role: MatchRole;
-  difficulty: Difficulty;
   session: NetLink | null;
   onHud: (state: HudState) => void;
   onDisconnect: (message: string) => void;
@@ -106,6 +119,8 @@ export interface MatchConfig {
   onEditMode?: (editing: boolean) => void;
   /** the local player's look (purely visual) */
   cosmetic?: Cosmetic;
+  /** 本地玩家的属性点倍率（速度 / 力量 / 容错，会改物理） */
+  attrs?: PlayerAttrs;
   /** the local player's display name */
   localName?: string;
   /** the local player's rank tier (visual only) */
@@ -121,9 +136,18 @@ export interface MatchConfig {
   onParty?: (state: PartyState) => void;
   /** world option to build the initial world from (defaults to a classic match) */
   optionId?: string;
+  /** 本局对手（单机 / 晋级赛）：名字、风格、外观，替代原来写死的「电脑」 */
+  opponent?: MatchOpponent;
+  /** 观战：两侧都由 AI 控制，玩家不参与（名人堂「观战」用） */
+  spectate?: { left: MatchOpponent; right: MatchOpponent };
 }
 
 const FIXED_DT = 1 / 60;
+/**
+ * 观战模式里 AI 的决策频率。两名 AI 都在跑，逐帧解算弹道太浪费——30Hz 的
+ * 决策在观感上看不出差别，却能把 AI 那边的开销砍掉一半。
+ */
+const SPECTATE_AI_HZ = 30;
 /** how much history the shuttle trail covers, in ms (frame-rate independent) */
 const TRAIL_MS = 190;
 
@@ -139,6 +163,12 @@ export class GameScene extends Phaser.Scene {
   private baseOptionId = DEFAULT_OPTION_ID;
   private controls!: ControlKeys;
   private ai!: AIController;
+  /** 观战时左侧那位 AI（单机为 null） */
+  private aiLeft: AIController | null = null;
+  /** 观战 AI 的节流：攒够 1/SPECTATE_AI_HZ 秒才重新决策一次，中间帧复用上次的输入 */
+  private specAiAccum = 0;
+  private specLeftInput: PlayerInput = { ...EMPTY_INPUT };
+  private specRightInput: PlayerInput = { ...EMPTY_INPUT };
   private racket!: RacketTracker;
   private touchControls: TouchControls | null = null;
   private editShown = false;
@@ -159,6 +189,9 @@ export class GameScene extends Phaser.Scene {
   /** cosmetics: ours (local) and the peer's, received via the hello message */
   private localCosmetic: Cosmetic = { ...DEFAULT_COSMETIC };
   private remoteCosmetic: Cosmetic = { ...DEFAULT_COSMETIC };
+  /** 属性点倍率：本地与联机对方（hello 收到），最终写进 world.attrs */
+  private localAttrs: PlayerAttrs = { ...NEUTRAL_ATTRS };
+  private remoteAttrs: PlayerAttrs = { ...NEUTRAL_ATTRS };
   private currentTheme: ThemeId = 'day';
   private bg!: Phaser.GameObjects.Graphics;
   /** emoji faces drawn above each player's body */
@@ -253,6 +286,9 @@ export class GameScene extends Phaser.Scene {
     this.netAccum = 0;
     this.hasSnapshot = false;
     this.remoteInput = { ...EMPTY_INPUT };
+    this.specAiAccum = 0;
+    this.specLeftInput = { ...EMPTY_INPUT };
+    this.specRightInput = { ...EMPTY_INPUT };
     this.lastHud = '';
     this.netNotice = '';
     this.infoNotice = false;
@@ -273,8 +309,25 @@ export class GameScene extends Phaser.Scene {
       : { ...DEFAULT_COSMETIC };
     this.remoteCosmetic =
       this.cfg.role === 'single' ? { ...AI_COSMETIC } : { ...DEFAULT_COSMETIC };
+    this.localAttrs = this.cfg.attrs ? sanitizeAttrs(this.cfg.attrs) : { ...NEUTRAL_ATTRS };
+    this.remoteAttrs = { ...NEUTRAL_ATTRS };
     this.localName = this.cfg.localName?.trim() || '你';
     this.remoteName = this.cfg.role === 'single' ? '电脑' : '对手';
+    if (this.cfg.spectate) {
+      // 观战：左侧 / 右侧各由一位 AI 出镜，名字、外观与属性都从名录来
+      const { left, right } = this.cfg.spectate;
+      this.localCosmetic = sanitizeCosmetic(left.cosmetic);
+      this.remoteCosmetic = sanitizeCosmetic(right.cosmetic);
+      this.localName = left.name;
+      this.remoteName = right.name;
+      this.localAttrs = sanitizeAttrs(attrsFromStats(left.stats ?? NEUTRAL_STATS));
+      this.remoteAttrs = sanitizeAttrs(attrsFromStats(right.stats ?? NEUTRAL_STATS));
+    } else if (this.cfg.opponent) {
+      this.remoteName = this.cfg.opponent.name;
+      if (this.cfg.opponent.cosmetic) this.remoteCosmetic = sanitizeCosmetic(this.cfg.opponent.cosmetic);
+      // 人机的加成同样由它自己的四维派生
+      this.remoteAttrs = sanitizeAttrs(attrsFromStats(this.cfg.opponent.stats ?? NEUTRAL_STATS));
+    }
     this.localRank = isTierId(this.cfg.localRank) ? this.cfg.localRank : 'bronze';
     this.remoteRank = 'bronze';
     this.gameoverSeen = false;
@@ -286,7 +339,12 @@ export class GameScene extends Phaser.Scene {
     applyTheme(this.currentTheme);
 
     this.controls = createControls(this);
-    this.ai = new AIController(this.cfg.difficulty, 1);
+    const spec = this.cfg.spectate;
+    this.ai = new AIController(
+      spec ? spec.right.stats ?? NEUTRAL_STATS : this.cfg.opponent?.stats ?? NEUTRAL_STATS,
+      1,
+    );
+    this.aiLeft = spec ? new AIController(spec.left.stats ?? NEUTRAL_STATS, 0) : null;
     this.racket = new RacketTracker();
     this.input.keyboard?.addCapture('UP,DOWN,LEFT,RIGHT,W,A,S,D');
     this.input.mouse?.disableContextMenu();
@@ -307,14 +365,16 @@ export class GameScene extends Phaser.Scene {
         .setDepth(30);
     }
 
-    this.dynamic = this.add.graphics();
+    // 角色/球/机器都画在这一层（depth 2）；emoji 脸（depth 1）在它之下、背景（0）之上，
+    // 于是头饰/光环/翅膀会盖在 emoji 上，而不是反被 emoji 盖住
+    this.dynamic = this.add.graphics().setDepth(2);
     this.createFxEmitters();
 
     this.faces = [0, 1].map(() =>
       this.add
         .text(0, 0, '', { fontFamily: FONT_EMOJI, fontSize: '34px' })
         .setOrigin(0.5)
-        .setDepth(6)
+        .setDepth(1)
         .setVisible(false),
     );
 
@@ -388,6 +448,7 @@ export class GameScene extends Phaser.Scene {
           name: this.localName,
           rank: this.localRank,
           cosmetic: this.localCosmetic,
+          attrs: this.localAttrs,
         });
       announce();
       for (const ms of [300, 900]) this.time.delayedCall(ms, announce);
@@ -395,7 +456,7 @@ export class GameScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown-R', () => this.requestRematch());
 
-    if (isTouchDevice()) {
+    if (isTouchDevice() && !this.cfg.spectate) {
       this.input.addPointer(3);
       this.touchControls = new TouchControls(this);
       this.events.once('shutdown', () => {
@@ -410,9 +471,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 把双方的角色形象写进世界：U熊的肚皮反弹会改球的轨迹，属于规则的一部分，
-   * 所以不能只存在渲染层——两边都按「自己 + hello 收到的对方」写同一份数据，
-   * 房主的权威模拟和访客的预测才不会分叉。
+   * 把双方的角色形象与属性点写进世界：U熊的肚皮反弹、属性点带来的移动速度 /
+   * 击球力度 / 判定半径都会改球的轨迹，属于规则的一部分，所以不能只存在渲染层
+   * ——两边都按「自己 + hello 收到的对方」写同一份数据，房主的权威模拟和访客
+   * 的预测才不会分叉。
    */
   private syncSkins(): void {
     const local = this.localCosmetic.characterSkin;
@@ -421,6 +483,13 @@ export class GameScene extends Phaser.Scene {
       this.localIndex() === 0 ? [local, remote] : [remote, local];
     this.world.skins = skins;
     this.target.skins = skins;
+
+    const attrs: [PlayerAttrs, PlayerAttrs] =
+      this.localIndex() === 0
+        ? [this.localAttrs, this.remoteAttrs]
+        : [this.remoteAttrs, this.localAttrs];
+    this.world.attrs = attrs;
+    this.target.attrs = attrs;
   }
 
   /** U熊肚皮的果冻：受击后按阻尼弹簧回弹，荡几下再停 */
@@ -586,6 +655,7 @@ export class GameScene extends Phaser.Scene {
       if (m.s.ev) for (const e of m.s.ev) this.world.events.push(e);
     } else if (m.t === 'hello') {
       this.remoteCosmetic = sanitizeCosmetic(m.cosmetic);
+      this.remoteAttrs = sanitizeAttrs(m.attrs);
       this.syncSkins();
       const name = typeof m.name === 'string' ? m.name.trim() : '';
       if (name) this.remoteName = name.slice(0, 16);
@@ -713,6 +783,11 @@ export class GameScene extends Phaser.Scene {
     if (this.party.active && this.party.stage !== 'done') return;
     this.world = createWorld(this.baseOptionId);
     this.target = createWorld(this.baseOptionId);
+    // 新建的世界要把装扮与属性点重新写回去，否则重开一局后加成会丢失
+    this.syncSkins();
+    this.specAiAccum = 0;
+    this.specLeftInput = { ...EMPTY_INPUT };
+    this.specRightInput = { ...EMPTY_INPUT };
     this.hasSnapshot = false;
     this.gameoverSeen = false;
     this.racket.reset();
@@ -1075,9 +1150,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateSimulated(dt: number, role: MatchRole): void {
-    const human = this.buildLocalInput(dt);
-
     if (role === 'host') {
+      const human = this.buildLocalInput(dt);
       this.netAccum += dt;
       const input: [PlayerInput, PlayerInput] = [human, this.remoteInput];
       this.stepFixed(dt, input, this.lagCompSamples());
@@ -1089,10 +1163,24 @@ export class GameScene extends Phaser.Scene {
         });
         this.netEvents.length = 0;
       }
+    } else if (this.cfg.spectate) {
+      // 观战：两侧都由 AI 驱动，玩家不输入。
+      // AI 故意降频到 30Hz（攒够时间才重新决策），中间帧沿用上一次的输入——
+      // 观感上几乎看不出，但两名 AI 的弹道解算开销直接砍半。
+      this.specAiAccum += dt;
+      if (this.specAiAccum >= 1 / SPECTATE_AI_HZ) {
+        const step = this.specAiAccum;
+        this.specAiAccum = 0;
+        this.specLeftInput = this.aiLeft?.update(this.world, 0, step) ?? { ...EMPTY_INPUT };
+        this.specRightInput = this.ai.update(this.world, 1, step);
+      }
+      this.stepFixed(dt, [this.specLeftInput, this.specRightInput]);
     } else if (this.world.mode === 'machine') {
       // no opponent to run — the feeder owns slot 1
+      const human = this.buildLocalInput(dt);
       this.stepFixed(dt, [human, { ...EMPTY_INPUT }]);
     } else {
+      const human = this.buildLocalInput(dt);
       const aiInput = this.ai.update(this.world, 1, dt);
       this.stepFixed(dt, [human, aiInput]);
     }
@@ -1182,6 +1270,7 @@ export class GameScene extends Phaser.Scene {
       input,
       dt,
       this.world.config,
+      this.world.attrs[1],
       this.world.phase === 'serve' && this.world.mode === 'match'
         ? this.world.config.serveNetMargin
         : 0,
@@ -1461,10 +1550,17 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (w.phase === 'gameover') {
-      const won = w.winner === local;
-      this.message.setText(won ? '你赢了！' : '你输了');
-      this.message.setColor(won ? P.msgWin : P.msgLose);
-      this.subMessage.setText(this.touchControls ? '' : '也可以按 R 键');
+      if (this.cfg.spectate) {
+        const winnerName = w.winner === 0 ? this.localName : this.remoteName;
+        this.message.setText(`${winnerName} 获胜`);
+        this.message.setColor(P.msgWin);
+        this.subMessage.setText('');
+      } else {
+        const won = w.winner === local;
+        this.message.setText(won ? '你赢了！' : '你输了');
+        this.message.setColor(won ? P.msgWin : P.msgLose);
+        this.subMessage.setText(this.touchControls ? '' : '也可以按 R 键');
+      }
       this.subMessage.setY(this.replayY + this.replayH / 2 + 34);
       this.setReplayVisible(true);
     } else if (w.phase === 'serve') {
@@ -1472,7 +1568,13 @@ export class GameScene extends Phaser.Scene {
       this.subMessage.setY(VIEW_H / 2 - 46);
       this.message.setText('');
       const how = this.touchControls ? '向前拨右摇杆' : '向前挥鼠标';
-      this.subMessage.setText(w.server === local ? `你的发球 — ${how}（向后收拍不算）` : '等待对方发球…');
+      this.subMessage.setText(
+        this.cfg.spectate
+          ? `${w.server === 0 ? this.localName : this.remoteName} 发球…`
+          : w.server === local
+            ? `你的发球 — ${how}（向后收拍不算）`
+            : '等待对方发球…',
+      );
     } else {
       this.setReplayVisible(false);
       this.subMessage.setY(VIEW_H / 2 - 46);
@@ -1809,7 +1911,7 @@ export class GameScene extends Phaser.Scene {
       belly: this.belly[i],
     }, { face: this.faces[i] });
 
-    this.drawRacket(g, p, pos.x, pos.y, cos);
+    this.drawRacket(g, p, pos.x, pos.y, cos, this.world.attrs[i]);
   }
 
 
@@ -1823,6 +1925,7 @@ export class GameScene extends Phaser.Scene {
     x: number,
     y: number,
     cos: Cosmetic,
+    attrs: PlayerAttrs,
   ): void {
     const shoulder = {
       x: x + p.facing * SHOULDER_DX,
@@ -1833,12 +1936,8 @@ export class GameScene extends Phaser.Scene {
 
     const speed = Math.hypot(p.rvx, p.rvy);
     const hot = Math.min(1, speed / 1400);
-    if (hot > 0.08 && this.world.shuttle.live) {
-      const reach = Math.hypot(head.x - shoulder.x, head.y - shoulder.y);
-      g.lineStyle(6 + 10 * hot, cos.trail, 0.18 + 0.3 * hot);
-      g.beginPath();
-      g.arc(shoulder.x, shoulder.y, reach, ang - 0.55, ang, false, 0);
-      g.strokePath();
+    if (this.world.shuttle.live) {
+      drawSwingTrail(g, this.time.now, cos, shoulder.x, shoulder.y, head.x, head.y, ang, hot);
     }
 
     const hx = head.x - Math.cos(ang) * 12;
@@ -1857,7 +1956,7 @@ export class GameScene extends Phaser.Scene {
 
     if (hot > 0.15) {
       g.lineStyle(2, frameColor, 0.12 + 0.28 * hot);
-      g.strokeCircle(head.x, head.y, contactRadius(this.world.config));
+      g.strokeCircle(head.x, head.y, contactRadiusFor(this.world.config, attrs));
     }
   }
 

@@ -12,7 +12,7 @@ import {
 } from './constants';
 import {
   configFor,
-  contactRadius,
+  contactRadiusFor,
   DEFAULT_CONFIG,
   DEFAULT_OPTION_ID,
   JUGGLE_TURN_TIME,
@@ -22,6 +22,7 @@ import {
   type WorldConfig,
   type WorldMode,
 } from './config';
+import { NEUTRAL_ATTRS, type PlayerAttrs } from './attrs';
 import { clamp, classifyShot, minReleaseFor, simulateTrajectory } from './physics';
 import type {
   JuggleState,
@@ -104,8 +105,9 @@ export function createWorld(optionId: string = DEFAULT_OPTION_ID): World {
     config: cfg,
     configId: optionId,
     mode,
-    // 装扮由场景写进来（`GameScene` 每帧按本地/对方的 cosmetic 同步）
+    // 装扮 / 属性由场景写进来（`GameScene` 按本地/对方的 cosmetic 与 attrs 同步）
     skins: ['none', 'none'],
+    attrs: [{ ...NEUTRAL_ATTRS }, { ...NEUTRAL_ATTRS }],
     juggle: freshJuggle(),
     machine,
   };
@@ -154,12 +156,15 @@ function stepPlayer(
   input: PlayerInput,
   dt: number,
   cfg: WorldConfig,
+  /** 该玩家的属性点倍率（速度加成让移动更快） */
+  attrs: PlayerAttrs = NEUTRAL_ATTRS,
   /** extra distance from the net the player is not allowed to cross */
   netMargin = 0,
 ): void {
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const targetVx = dir * cfg.playerSpeed;
-  const dv = cfg.playerAccel * dt;
+  const targetVx = dir * cfg.playerSpeed * attrs.speed;
+  // 加速度同倍率放大，加速到顶速的时间不变，只是整体更快
+  const dv = cfg.playerAccel * attrs.speed * dt;
   if (p.vx < targetVx) p.vx = Math.min(targetVx, p.vx + dv);
   else if (p.vx > targetVx) p.vx = Math.max(targetVx, p.vx - dv);
   p.x += p.vx * dt;
@@ -174,7 +179,8 @@ function stepPlayer(
   }
 
   if (input.jump && p.onGround) {
-    p.vy = cfg.playerJumpV;
+    // 「弹跳」点把起跳初速放大
+    p.vy = cfg.playerJumpV * attrs.jump;
     p.onGround = false;
   }
   p.vy += cfg.playerGravity * dt;
@@ -198,9 +204,10 @@ export function stepPlayerLocal(
   input: PlayerInput,
   dt: number,
   cfg: WorldConfig = DEFAULT_CONFIG,
+  attrs: PlayerAttrs = NEUTRAL_ATTRS,
   netMargin = 0,
 ): void {
-  stepPlayer(p, index, input, dt, cfg, netMargin);
+  stepPlayer(p, index, input, dt, cfg, attrs, netMargin);
 }
 
 /**
@@ -291,7 +298,14 @@ function releaseShuttle(world: World, index: 0 | 1): void {
     elevation = Math.max(elevation, minReleaseFor(shuttle.x, shuttle.y, cfg));
   }
 
-  const speed = clamp(raw * cfg.shotSpeedGain, cfg.shotSpeedMin, cfg.shotSpeedMax);
+  // 「力量」把击球力度整体放大（上限同步放宽，否则满级会顶到原来的天花板）；
+  // 「技术」抬高下限——挥拍不到位时球质也不至于崩掉
+  const attrs = world.attrs[index];
+  const speed = clamp(
+    raw * cfg.shotSpeedGain * attrs.power,
+    cfg.shotSpeedMin * attrs.skill,
+    cfg.shotSpeedMax * attrs.power,
+  );
 
   shuttle.vx = p.facing * speed * Math.cos(elevation);
   shuttle.vy = -speed * Math.sin(elevation);
@@ -350,7 +364,7 @@ function tryHit(
   const probe = sample ?? world.shuttle;
   const dx = probe.x - head.x;
   const dy = probe.y - head.y;
-  const reach = contactRadius(world.config);
+  const reach = contactRadiusFor(world.config, world.attrs[index]);
   if (dx * dx + dy * dy > reach * reach) return;
   releaseShuttle(world, index);
 }
@@ -654,10 +668,10 @@ export function stepWorld(
     // nobody may crowd the net while a serve is being set up
     const netMargin =
       world.phase === 'serve' && world.mode === 'match' ? cfg.serveNetMargin : 0;
-    stepPlayer(world.players[0], 0, inputs[0], dt, cfg, netMargin);
+    stepPlayer(world.players[0], 0, inputs[0], dt, cfg, world.attrs[0], netMargin);
     // the feeder has no body on court, so slot 1 is left parked
     if (world.mode !== 'machine') {
-      stepPlayer(world.players[1], 1, inputs[1], dt, cfg, netMargin);
+      stepPlayer(world.players[1], 1, inputs[1], dt, cfg, world.attrs[1], netMargin);
     }
   }
 

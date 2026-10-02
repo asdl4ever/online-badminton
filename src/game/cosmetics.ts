@@ -288,6 +288,37 @@ export type TrailId =
   | 'gold'
   | 'pixel';
 
+/**
+ * 挥拍拖尾：球拍挥动时那条弧线的风格。和「击球拖尾」（球飞行的拖尾）是
+ * 两个独立部位——`none` 时回退成按挥拍速度上色的普通弧线。
+ */
+export type SwingTrailId =
+  | 'none'
+  | 'slash'
+  | 'shock'
+  | 'cyclone'
+  | 'afterimage'
+  | 'bolt'
+  | 'blaze'
+  | 'frostbite'
+  | 'orbit'
+  | 'wave'
+  | 'thorn'
+  | 'prism'
+  | 'voidcut';
+
+/** 地环：显示在角色脚下的装饰环（积分荣誉奖励） */
+export type RingId =
+  | 'none'
+  | 'sprout'
+  | 'bamboo'
+  | 'dawn'
+  | 'gale'
+  | 'rock'
+  | 'blaze'
+  | 'sky'
+  | 'legend';
+
 export type AuraId =
   | 'none'
   | 'emerald'
@@ -459,11 +490,15 @@ export interface Cosmetic {
   cape: CapeId;
   aura: AuraId;
   hat: HatId;
+  /** 脚下的地环装饰 */
+  ring: RingId;
   pet: PetId;
   /** quality of the equipped pet, 1–5 (ignored when pet is 'none') */
   petStar: number;
   racketSkin: RacketSkinId;
   trailStyle: TrailId;
+  /** 挥拍时那条弧线的风格（与球拖尾独立） */
+  swingTrail: SwingTrailId;
 }
 
 /** the 100 generated "plus" hit styles: p1..p100 (see effects/plus.ts) */
@@ -504,6 +539,26 @@ const PET_IDS: PetId[] = [
 const TRAIL_IDS: TrailId[] = [
   'none', 'classic', 'fire', 'ice', 'rainbow', 'electric', 'leaf', 'void', 'gold', 'pixel',
 ];
+const SWING_TRAIL_IDS: SwingTrailId[] = [
+  'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
+  'frostbite', 'orbit', 'wave', 'thorn', 'prism', 'voidcut',
+];
+const RING_IDS: RingId[] = [
+  'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
+];
+
+/** 地环配色（跟着组别走） */
+export const RING_COLORS: Record<RingId, number> = {
+  none: 0x000000,
+  sprout: 0x7ed957,
+  bamboo: 0xa9b4c2,
+  dawn: 0xd8a534,
+  gale: 0x7fd4c4,
+  rock: 0x6fe3ff,
+  blaze: 0x7c5cff,
+  sky: 0xffb020,
+  legend: 0xff5a5a,
+};
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
   'flame', 'electric', 'snow', 'bubble', 'orbit', 'gear', 'holy', 'venom', 'sakura', 'void', 'pixel', 'storm',
@@ -957,6 +1012,23 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   pixel: 0x39ffd0,
 };
 
+/** 挥拍拖尾各风格的主色 */
+export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
+  none: 0x000000,
+  slash: 0xd8ecff,
+  shock: 0x8fe0ff,
+  cyclone: 0x9fe8b0,
+  afterimage: 0xb6a4ff,
+  bolt: 0x7fd4ff,
+  blaze: 0xff7a2a,
+  frostbite: 0x9fe8ff,
+  orbit: 0xffd45c,
+  wave: 0x4dd0e1,
+  thorn: 0x7ed957,
+  prism: 0xff8ad4,
+  voidcut: 0x9b5cff,
+};
+
 export const AURA_COLORS: Record<AuraId, number> = {
   none: 0x000000,
   emerald: 0x35d6a4,
@@ -1134,10 +1206,12 @@ export const DEFAULT_COSMETIC: Cosmetic = {
   cape: 'none',
   aura: 'none',
   hat: 'none',
+  ring: 'none',
   pet: 'none',
   petStar: 1,
   racketSkin: 'default',
   trailStyle: 'classic',
+  swingTrail: 'none',
 };
 
 /** the CPU opponent gets a fixed look so it reads as "not you" */
@@ -1151,10 +1225,12 @@ export const AI_COSMETIC: Cosmetic = {
   cape: 'none',
   aura: 'none',
   hat: 'none',
+  ring: 'none',
   pet: 'none',
   petStar: 1,
   racketSkin: 'default',
   trailStyle: 'classic',
+  swingTrail: 'none',
 };
 
 export function toHex(n: number): string {
@@ -1182,6 +1258,7 @@ export function sanitizeCosmetic(input: Partial<Cosmetic> | undefined): Cosmetic
     effect: pick(HIT_STYLE_IDS, input.effect, d.effect),
     wings: pick(WING_IDS, input.wings, d.wings),
     cape: pick(CAPE_IDS, input.cape, d.cape),
+    ring: pick(RING_IDS, input.ring, d.ring),
     aura: pick(AURA_IDS, input.aura, d.aura),
     hat: pick(HAT_IDS, input.hat, d.hat),
     pet: pick(PET_IDS, input.pet, d.pet),
@@ -1191,5 +1268,6 @@ export function sanitizeCosmetic(input: Partial<Cosmetic> | undefined): Cosmetic
         : d.petStar,
     racketSkin: pick(RACKET_SKIN_IDS, input.racketSkin, d.racketSkin),
     trailStyle: pick(TRAIL_IDS, input.trailStyle, d.trailStyle),
+    swingTrail: pick(SWING_TRAIL_IDS, input.swingTrail, d.swingTrail),
   };
 }

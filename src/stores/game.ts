@@ -1,7 +1,6 @@
 ﻿import { defineStore } from 'pinia';
 import { shallowRef, ref } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
-import type { Difficulty } from '../game/ai';
 import type { MatchRole } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
 import type { NetLink, NetStatus } from '../net/link';
@@ -19,9 +18,7 @@ export type PracticeMode = 'ai' | 'machine';
 
 export const useGameStore = defineStore('game', () => {
   const role = ref<MatchRole>('single');
-  /** persisted so the chosen difficulty survives a reload */
-  const difficulty = useLocalStorage<Difficulty>('bmt-difficulty', 'normal');
-  /** what the offline mode pits you against; the difficulty picks the preset */
+  /** what the offline mode pits you against（难度由抽到的对手四维决定） */
   const practice = useLocalStorage<PracticeMode>('bmt-practice', 'ai');
   const connState = ref<ConnState>('idle');
   const roomCode = ref('');
@@ -46,7 +43,6 @@ export const useGameStore = defineStore('game', () => {
 
   return {
     role,
-    difficulty,
     practice,
     connState,
     roomCode,

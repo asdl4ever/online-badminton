@@ -3,6 +3,7 @@ import {
   AURA_COLORS,
   DEFAULT_COSMETIC,
   RACKET_SKIN_COLORS,
+  SWING_TRAIL_COLORS,
   TRAIL_COLORS,
   toHex,
   type AuraId,
@@ -12,12 +13,13 @@ import {
   type HitStyle,
   type PetId,
   type RacketSkinId,
+  type SwingTrailId,
   type TrailId,
 } from '../cosmetics';
 import { EFFECT_PAINTERS, paintDefault, type HitFlash } from '../effects';
 import type { Item } from '../items';
 import { asGraphics, paintAvatar } from './canvas2d';
-import { drawAura, drawCape, drawHat, drawPet, drawWings } from './character';
+import { drawAura, drawCape, drawHat, drawPet, drawRing, drawWings } from './character';
 import { drawRacketHead } from './racket';
 
 /**
@@ -94,6 +96,12 @@ export function paintItemIcon(item: Item, canvas: HTMLCanvasElement): void {
       ctx.scale(fit(60), fit(60));
       drawPet(g, NOW, -42, 4, 0, item.ref as PetId, item.stars);
       break;
+    case 'ring':
+      // 地环：椭圆环整体居中
+      ctx.translate(c, c);
+      ctx.scale(fit(90), fit(90));
+      drawRing(g, NOW, 0, 0, item.ref as import('../cosmetics').RingId);
+      break;
     case 'racketSkin': {
       ctx.translate(c, c);
       const s = fit(64);
@@ -131,6 +139,28 @@ export function paintItemIcon(item: Item, canvas: HTMLCanvasElement): void {
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+      break;
+    }
+    case 'swingTrail': {
+      // 挥拍拖尾：一条挥拍弧线的示意（三层错开的弧 + 拍头亮点）
+      const color =
+        item.ref === 'none' ? '#9aa7b8' : toHex(SWING_TRAIL_COLORS[item.ref as SwingTrailId] ?? 0xd8ecff);
+      ctx.strokeStyle = color;
+      ctx.lineCap = 'round';
+      for (let k = 0; k < 3; k++) {
+        ctx.globalAlpha = 0.8 - k * 0.24;
+        ctx.lineWidth = 9 - k * 3;
+        ctx.beginPath();
+        ctx.arc(30, 64, 42 - k * 5, -Math.PI * 0.12, Math.PI * 0.44);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      const ex = 30 + Math.cos(Math.PI * 0.44) * 42;
+      const ey = 64 + Math.sin(Math.PI * 0.44) * 42;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 7, 0, TAU);
+      ctx.fill();
       break;
     }
   }

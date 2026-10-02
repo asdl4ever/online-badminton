@@ -41,6 +41,7 @@ import {
   HIT_COOLDOWN,
   WIN_SCORE,
 } from './constants';
+import type { PlayerAttrs } from './attrs';
 
 export interface WorldConfig {
   // --- player ---
@@ -134,6 +135,11 @@ export const DEFAULT_CONFIG: WorldConfig = {
 /** the racket head + shuttle touching distance, derived from the config */
 export function contactRadius(cfg: WorldConfig): number {
   return cfg.racketHeadR + cfg.shuttleR;
+}
+
+/** 按玩家属性缩放后的判定半径（「容错」点把拍头判定半径放大） */
+export function contactRadiusFor(cfg: WorldConfig, attrs: PlayerAttrs): number {
+  return cfg.racketHeadR * attrs.reach + cfg.shuttleR;
 }
 
 // ---- party mode ----------------------------------------------------------

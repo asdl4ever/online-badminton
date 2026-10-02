@@ -60,6 +60,18 @@ export const router = createRouter({
       name: 'petshop',
       component: () => import('../views/PetShopView.vue'),
     },
+    // 大地图上的名人堂：AI 球员排行榜 + 观战
+    {
+      path: '/hall',
+      name: 'hall',
+      component: () => import('../views/HallView.vue'),
+    },
+    // 大地图上的农场：棉花地，拍棉花换金币
+    {
+      path: '/farm',
+      name: 'farm',
+      component: () => import('../views/FarmView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 
   ],

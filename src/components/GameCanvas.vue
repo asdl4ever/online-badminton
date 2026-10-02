@@ -1,22 +1,23 @@
 <script setup lang="ts">
 import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { GameScene, type HudState, type MatchConfig } from '../game/scenes/GameScene';
+import { GameScene, type HudState, type MatchConfig, type MatchOpponent } from '../game/scenes/GameScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import type { Difficulty } from '../game/ai';
 import type { MatchRole, SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
 import type { NetLink } from '../net/link';
 import type { Cosmetic } from '../game/cosmetics';
+import type { PlayerAttrs } from '../game/attrs';
 import type { ThemeId } from '../game/theme';
 import type { TierId } from '../game/ranks';
 import type { PartyState } from '../game/config';
 
 const props = defineProps<{
   role: MatchRole;
-  difficulty: Difficulty;
   session: NetLink | null;
   cosmetic: Cosmetic;
+  /** 本地玩家的属性点倍率（速度 / 力量 / 容错） */
+  attrs?: PlayerAttrs;
   localName: string;
   localRank: TierId;
   theme: ThemeId;
@@ -25,6 +26,10 @@ const props = defineProps<{
   party: boolean;
   /** world option to build the initial world from (e.g. a ball-machine preset) */
   optionId?: string;
+  /** 单机 / 晋级赛的 AI 对手（名字、风格、外观） */
+  opponent?: MatchOpponent;
+  /** 观战：两侧都由 AI 控制，玩家不参与 */
+  spectate?: { left: MatchOpponent; right: MatchOpponent };
 }>();
 
 const emit = defineEmits<{
@@ -73,7 +78,6 @@ onMounted(async () => {
 
   const cfg: MatchConfig = {
     role: props.role,
-    difficulty: props.difficulty,
     session: props.session,
     onHud: (s) => emit('hud', s),
     onDisconnect: (m) => emit('disconnect', m),
@@ -81,6 +85,7 @@ onMounted(async () => {
     onMetrics: (m) => emit('metrics', m),
     onEditMode: (on) => emit('editmode', on),
     cosmetic: props.cosmetic,
+    attrs: props.attrs,
     localName: props.localName,
     localRank: props.localRank,
     theme: props.theme,
@@ -89,6 +94,8 @@ onMounted(async () => {
     party: props.party,
     onParty: (s) => emit('party', s),
     optionId: props.optionId,
+    opponent: props.opponent,
+    spectate: props.spectate,
   };
 
   game = new Phaser.Game({

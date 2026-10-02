@@ -16,9 +16,11 @@ export type ItemSlot =
   | 'wings'
   | 'cape'
   | 'aura'
+  | 'ring'
   | 'pet'
   | 'racketSkin'
   | 'trail'
+  | 'swingTrail'
   | 'effect';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
@@ -41,9 +43,11 @@ export const SLOT_ORDER: ItemSlot[] = [
   'wings',
   'cape',
   'aura',
+  'ring',
   'pet',
   'racketSkin',
   'trail',
+  'swingTrail',
   'effect',
 ];
 
@@ -53,9 +57,11 @@ export const SLOT_LABELS: Record<ItemSlot, string> = {
   wings: '翅膀',
   cape: '披风',
   aura: '光环',
+  ring: '地环',
   pet: '宠物',
   racketSkin: '球拍皮肤',
   trail: '击球拖尾',
+  swingTrail: '挥拍拖尾',
   effect: '命中特效',
 };
 
@@ -87,6 +93,16 @@ export const ITEMS: Item[] = [
   it('skin', 'godzilla', '哥斯拉', 'legendary', 5, 'streak'),
   it('skin', 'ubear', 'U熊', 'legendary', 5, 'code'),
   it('skin', 'laopi', '老皮', 'legendary', 5, 'code'),
+  // --- ring（地环：积分达到组别门槛后在荣誉面板领取） ---
+  it('ring', 'none', '无', 'common', 1, 'free'),
+  it('ring', 'sprout', '新芽地环', 'rare', 3, 'bronze'),
+  it('ring', 'bamboo', '青竹地环', 'rare', 3, 'silver'),
+  it('ring', 'dawn', '曙光地环', 'epic', 4, 'gold'),
+  it('ring', 'gale', '疾风地环', 'epic', 4, 'platinum'),
+  it('ring', 'rock', '磐石地环', 'epic', 4, 'diamond'),
+  it('ring', 'blaze', '烈焰地环', 'epic', 4, 'master'),
+  it('ring', 'sky', '苍穹地环', 'legendary', 5, 'king'),
+  it('ring', 'legend', '传奇地环', 'legendary', 5, 'god'),
   // --- hat ---
   it('hat', 'none', '无', 'common', 1, 'free'),
   it('hat', 'cap', '鸭舌帽', 'rare', 3, 'silver'),
@@ -429,6 +445,21 @@ export const ITEMS: Item[] = [
   it('trail', 'rainbow', '彩虹', 'legendary', 5, 'gacha'),
   it('trail', 'void', '虚空', 'legendary', 5, 'gacha'),
 
+  // --- swing trail（挥拍拖尾：球拍挥动时那条弧线的风格） ---
+  it('swingTrail', 'none', '无', 'common', 1, 'free'),
+  it('swingTrail', 'slash', '斩击', 'rare', 3, 'gacha'),
+  it('swingTrail', 'cyclone', '旋风', 'rare', 3, 'gacha'),
+  it('swingTrail', 'afterimage', '残影', 'rare', 3, 'gacha'),
+  it('swingTrail', 'frostbite', '冰痕', 'rare', 3, 'gacha'),
+  it('swingTrail', 'wave', '波浪', 'rare', 3, 'gacha'),
+  it('swingTrail', 'thorn', '荆棘', 'rare', 3, 'gacha'),
+  it('swingTrail', 'shock', '冲击波', 'epic', 4, 'gacha'),
+  it('swingTrail', 'bolt', '雷电', 'epic', 4, 'gacha'),
+  it('swingTrail', 'blaze', '烈焰', 'epic', 4, 'gacha'),
+  it('swingTrail', 'orbit', '星轨', 'legendary', 5, 'gacha'),
+  it('swingTrail', 'prism', '棱光', 'legendary', 5, 'gacha'),
+  it('swingTrail', 'voidcut', '虚空斩', 'legendary', 5, 'gacha'),
+
   // --- hit effect ---
   it('effect', 'ring', '冲击环', 'common', 1, 'free'),
   it('effect', 'spark', '火花', 'common', 2, 'free'),
@@ -541,6 +572,18 @@ export const PETS = ITEMS.filter((i) => i.slot === 'pet' && i.ref !== 'none');
 export const BARBER_COST = 100;
 export const CHEST_COST = 400;
 export const PITY_LIMIT = 10;
+
+// ---- 农场（棉花地）----------------------------------------------------------
+/** 一朵棉花的卖价区间 */
+export const COTTON_VALUE = { min: 6, max: 18 };
+/**
+ * 采摘等级：等级 = 一次挥拍能同时摘下的棉花数（初始 1）。
+ * 下标 i 是「从 i 级升到 i+1 级」的价格。
+ */
+export const FARM_MAX_LEVEL = 5;
+export const FARM_UPGRADE_COST = [0, 180, 520, 1400, 3600];
+/** 拖拉机：买断后可以在页面上「一键收全地」 */
+export const TRACTOR_COST = 3000;
 
 /** ten draws cost 10% less than ten singles */
 export const TEN_PULL_COST = Math.round(CHEST_COST * 10 * 0.9);

@@ -141,7 +141,8 @@ export class ClimbScene extends Phaser.Scene {
     this.face = this.add
       .text(0, 0, '', { fontFamily: FONT_EMOJI, fontSize: '30px' })
       .setOrigin(0.5)
-      .setDepth(12)
+      // depth 1：在角色所在的前景层（10）之下、背景（0）之上，装备不会被 emoji 盖住
+      .setDepth(1)
       .setVisible(false);
 
     this.info = this.add

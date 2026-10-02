@@ -139,8 +139,8 @@ defineExpose({
           <button class="icon-btn jelly" type="button" title="成就" @click="showAch = true">
             成就
           </button>
-          <button class="icon-btn jelly" type="button" title="段位与奖励" @click="showRank = true">
-            段位
+          <button class="icon-btn jelly" type="button" title="积分与荣誉奖励" @click="showRank = true">
+            积分
           </button>
           <button class="icon-btn jelly" type="button" title="背包与收藏" @click="showBag = true">
             背包

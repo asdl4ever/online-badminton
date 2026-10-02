@@ -1,34 +1,38 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
+import ArenaBracket from '../components/ArenaBracket.vue';
+import PlayerProfile from '../components/PlayerProfile.vue';
 import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
-import type { HudState } from '../game/scenes/GameScene';
+import AppModal from '../components/ui/AppModal.vue';
+import type { HudState, MatchOpponent } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
-import type { Difficulty } from '../game/ai';
+import { STYLE_META, tierFromStats } from '../game/ai';
+import {
+  ARENA_ROUNDS,
+  ARENA_TIERS,
+  PLACE_LABEL,
+  arenaByTier,
+  goldForPlace,
+  type ArenaEntrant,
+  type ArenaPlace,
+} from '../game/arena';
+import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
-import { sfx } from '../game/audio';
 import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
 import { useGameStore } from '../stores/game';
-import {
-  ARENA_BOTS,
-  ARENA_ROUNDS,
-  arenaByTier,
-  arenaDifficulty,
-  goldForPlace,
-} from '../game/arena';
-import { TIERS, tierForPoints } from '../game/ranks';
 
 /**
- * 晋级赛馆：8 人单败淘汰赛（你 + 7 个 AI）。
- * 报名费按当前段位收，名次结算金币与积分；赛季每月清零积分。
- * 对局复用羽毛球场景（role="single"，AI 难度随段位与轮次爬升）。
+ * 晋级赛馆：滑动卡片选杯 → 树状赛程 → 逐场开打。
+ * 一届 16 人单败（16强/8强/4强/决赛），每场一局定胜负；打完一届该杯赛冷却 5 分钟。
+ * 报名后没开打就返回 = 直接走人，本届保留，下次进来继续。
  */
 const router = useRouter();
 const progress = useProgressStore();
@@ -36,52 +40,141 @@ const customize = useCustomizeStore();
 const lobby = useLobbyStore();
 const game = useGameStore();
 
-/** null = 在馆里看板 / 报名；'match' = 正在打一场 */
-const phase = ref<'lobby' | 'match'>('lobby');
+const phase = ref<'lobby' | 'bracket' | 'match'>('lobby');
 const hud = ref<HudState | null>(null);
+const quitOpen = ref(false);
+const resultOpen = ref(false);
+const lastPlace = ref<ArenaPlace | null>(null);
 
 const run = computed(() => progress.arenaRun);
-const myTier = computed(() => tierForPoints(progress.points));
-const arena = computed(() => arenaByTier(myTier.value.id));
-const tierIdx = computed(() => TIERS.findIndex((t) => t.id === myTier.value.id));
+const cup = computed(() => (run.value ? arenaByTier(run.value.tier) : null));
+const me = computed(() => run.value?.entrants.find((e) => e.isMe) ?? null);
+const roundName = computed(() => (run.value ? ARENA_ROUNDS[run.value.round] : ''));
 
-/** 下一场的对手：按届内进度取一个稳定的名字 */
-const opponent = computed(() => {
-  const runV = run.value;
-  if (!runV) return '';
-  return ARENA_BOTS[(runV.wins * 3 + runV.round) % ARENA_BOTS.length];
+/** 玩家本轮那一场 */
+const myMatch = computed(() => {
+  const r = run.value;
+  const m0 = me.value;
+  if (!r || !m0) return null;
+  return (r.rounds[r.round] ?? []).find((x) => x.a === m0.id || x.b === m0.id) ?? null;
 });
 
-const diff = computed<Difficulty>(() => {
-  const runV = run.value;
-  if (!runV) return 'normal';
-  return (['easy', 'normal', 'hard'] as const)[arenaDifficulty(tierIdx.value, runV.round)];
+/** 本轮对手 */
+const myOpponent = computed(() => {
+  const r = run.value;
+  const m0 = me.value;
+  const mm = myMatch.value;
+  if (!r || !m0 || !mm) return null;
+  const foeId = mm.a === m0.id ? mm.b : mm.a;
+  return r.entrants.find((e) => e.id === foeId) ?? null;
 });
 
-const roundName = computed(() => {
-  const runV = run.value;
-  if (!runV) return '';
-  if (runV.round === 2) return runV.semisWon ? '决赛' : '季军赛';
-  return ARENA_ROUNDS[runV.round];
+const opponentTierLabel = computed(() => {
+  const foe = myOpponent.value;
+  if (!foe) return '';
+  return { easy: '简单', normal: '普通', hard: '困难' }[tierFromStats(foe.stats)];
 });
 
-/** 对局每换一场就重建场景 */
-const canvasKey = computed(() => `arena-${run.value?.round ?? 0}-${run.value?.wins ?? 0}`);
+const opponentConfig = computed<MatchOpponent | undefined>(() => {
+  const foe = myOpponent.value;
+  if (!foe) return undefined;
+  // 行为与加成全部由对手四维派生
+  return { name: foe.name, cosmetic: foe.cosmetic, stats: foe.stats };
+});
 
-function enter(): void {
+/** 点树状图里的名字 → 弹出球员主页（复用名人堂那一份） */
+const selectedEntrant = ref<ArenaEntrant | null>(null);
+const profileOpen = computed({
+  get: () => !!selectedEntrant.value,
+  set: (v: boolean) => {
+    if (!v) selectedEntrant.value = null;
+  },
+});
+
+function openEntrant(id: string): void {
+  const e = run.value?.entrants.find((x) => x.id === id);
+  if (!e) return;
   sfx.click();
-  const r = progress.enterArena();
+  selectedEntrant.value = e;
+}
+
+function closeEntrant(): void {
+  selectedEntrant.value = null;
+}
+
+const canvasKey = computed(() =>
+  run.value ? `arena-${run.value.round}-${run.value.wins}` : 'none',
+);
+
+/* --- 冷却倒计时（每秒刷新） ------------------------------------------------ */
+const nowTick = ref(Date.now());
+let timer: number | undefined;
+onMounted(() => {
+  timer = window.setInterval(() => (nowTick.value = Date.now()), 1000);
+  if (run.value) phase.value = 'bracket';
+});
+onBeforeUnmount(() => {
+  if (timer) window.clearInterval(timer);
+});
+
+function cooldownLeft(tier: string): number {
+  return Math.max(0, (progress.arenaCooldown[tier] ?? 0) - nowTick.value);
+}
+function fmtCd(ms: number): string {
+  const s = Math.ceil(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/* --- 操作 ------------------------------------------------------------------ */
+function signup(tier: (typeof ARENA_TIERS)[number]['tier']): void {
+  sfx.click();
+  const r = progress.enterArena(tier, lobby.playerName);
   if (!r.ok) {
     toastWarn(r.message);
     return;
   }
   toastGood(r.message);
+  phase.value = 'bracket';
 }
 
 function startMatch(): void {
+  if (!myOpponent.value) {
+    toastWarn('本轮对手还没确定');
+    return;
+  }
   sfx.click();
   game.role = 'single';
   phase.value = 'match';
+}
+
+function back(): void {
+  sfx.click();
+  // 只有真正在打的时候才要确认放弃；看赛程 / 选杯时直接走人（本届保留）
+  if (phase.value === 'match') {
+    quitOpen.value = true;
+    return;
+  }
+  void router.push('/');
+}
+
+function confirmQuit(): void {
+  quitOpen.value = false;
+  const r = progress.arenaQuit();
+  if (r.ok) toastGood(r.message);
+  else toastWarn(r.message);
+  phase.value = 'lobby';
+  resultOpen.value = false;
+  void router.push('/');
+}
+
+function closeResult(): void {
+  sfx.click();
+  resultOpen.value = false;
+  phase.value = 'lobby';
+}
+
+function onHud(state: HudState): void {
+  hud.value = state;
 }
 
 function onEvent(e: SimEvent): void {
@@ -92,32 +185,18 @@ function onEvent(e: SimEvent): void {
   else if (e.type === 'point') sfx.point();
   else if (e.type === 'gameover') {
     const win = e.scorer === 0;
-    if (win) {
-      progress.arenaWin();
-      sfx.win();
-      if (!progress.arenaRun) {
-        // 冠军：全场 3 连胜
-        celebrate(3, ['#ffd45c', '#3d8bfd', '#f2e7c9']);
-      }
+    const res = progress.arenaFinishMatch(win);
+    if (win) sfx.win();
+    else sfx.lose();
+    if (res.finished) {
+      lastPlace.value = res.place ?? null;
+      if (win) celebrate(3, ['#ffd45c', '#3d8bfd', '#f2e7c9']);
+      resultOpen.value = true;
+      phase.value = 'lobby';
     } else {
-      progress.arenaLose();
-      sfx.lose();
+      phase.value = 'bracket';
     }
-    phase.value = 'lobby';
   }
-}
-
-function onHud(state: HudState): void {
-  hud.value = state;
-}
-
-function back(): void {
-  if (phase.value === 'match') {
-    toastWarn('比赛进行中，先打完这场！');
-    return;
-  }
-  sfx.click();
-  void router.push('/');
 }
 </script>
 
@@ -127,28 +206,27 @@ function back(): void {
       <template #dock>
         <SideDock>
           <span class="dock-coins">🪙 {{ progress.coins }}</span>
-          <div v-if="run" class="dock-run">
-            {{ run.tier === myTier.id ? '本届赛事' : '跨段位赛事' }} · {{ roundName }}
-          </div>
+          <div class="dock-pts num">积分 {{ progress.points }}</div>
+          <div v-if="run && cup" class="dock-run">{{ run.cupName }} · {{ roundName }}</div>
           <p class="dock-note">
-            8 人单败淘汰，AI 难度随段位与轮次爬升。名次结算金币与积分，赛季每月清零。
+            16 人单败，每场一局定胜负。打完一届该杯赛冷却 5 分钟，赛季每月清零。
           </p>
         </SideDock>
       </template>
 
       <template #stage>
-        <!-- 正在打一场：羽毛球场景铺满 -->
+        <!-- 正在打：羽毛球场景铺满 -->
         <GameCanvas
           v-if="phase === 'match' && run"
           :key="canvasKey"
-          ref="canvas"
           role="single"
-          :difficulty="diff"
           :option-id="undefined"
+          :opponent="opponentConfig"
           :session="null"
           :cosmetic="customize.cosmetic"
+          :attrs="progress.attrs"
           :local-name="lobby.playerName"
-          :local-rank="myTier.id"
+          :local-rank="run.tier"
           :theme="customize.theme"
           :auto-cycle-theme="customize.autoCycle"
           :party="false"
@@ -157,109 +235,136 @@ function back(): void {
           @themechange="customize.theme = $event"
         />
 
-        <!-- 馆内：看板 + 报名 / 赛程 -->
-        <div v-else class="arena-stage">
+        <!-- 树状赛程 -->
+        <div v-else-if="phase === 'bracket' && run && cup" class="arena-stage">
           <Panel class="arena-card">
-            <!-- 报名看板 -->
             <div class="arena-head">
               <div>
-                <div class="arena-head__title">🏆 {{ arena.label }}组 · 晋级赛</div>
+                <div class="arena-head__title">🏆 {{ run.cupName }}</div>
                 <div class="muted arena-head__sub">
-                  报名费 🪙{{ arena.fee }} · 冠军 🪙{{ arena.championGold }}（3 连胜 +10%）
+                  {{ cup.label }} · 16 人单败 · 当前 {{ roundName }}（第 {{ run.round + 1 }} / 4 轮）
                 </div>
               </div>
-              <span class="arena-season">赛季 {{ progress.seasonId }} · 最高 {{ tierForPoints(progress.points).label }}</span>
+              <span class="arena-season">赛季 {{ progress.seasonId }}</span>
             </div>
 
-            <!-- 赛程进行中 -->
-            <template v-if="run">
-              <div class="bracket">
-                <div
-                  v-for="(r, i) in ARENA_ROUNDS"
-                  :key="r"
-                  class="bracket-round"
-                  :class="{ 'is-done': run.round > i, 'is-now': run.round === i }"
-                >
-                  <span class="bracket-round__name">
-                    {{ i === 2 ? (run.semisWon ? '决赛' : '季军赛') : r }}
-                  </span>
-                  <span class="bracket-round__state">
-                    {{ run.round > i ? (i === 1 && !run.semisWon ? '惜败' : '胜') : run.round === i ? '进行中' : '—' }}
-                  </span>
-                </div>
-              </div>
+            <ArenaBracket
+              :rounds="run.rounds"
+              :entrants="run.entrants"
+              :current-round="run.round"
+              @select="openEntrant"
+            />
 
-              <div class="next-match">
-                <div class="next-match__title">下一场 · {{ roundName }}</div>
-                <div class="next-match__vs">
-                  <span>你（{{ myTier.label }}）</span>
-                  <b class="next-match__x">VS</b>
-                  <span>{{ opponent }}</span>
-                </div>
-                <div class="muted next-match__sub">对手难度：{{ diff === 'easy' ? '简单' : diff === 'hard' ? '困难' : '普通' }}</div>
-                <Button variant="primary" block @click="startMatch">进入比赛</Button>
+            <div class="next-match">
+              <div class="next-match__title">下一场 · {{ roundName }}</div>
+              <div class="next-match__vs">
+                <span>{{ me?.name ?? '你' }}</span>
+                <b class="next-match__x">VS</b>
+                <span>{{ myOpponent?.name ?? '待定' }}</span>
               </div>
-            </template>
+              <div class="muted next-match__sub">
+                对手风格：{{ myOpponent ? STYLE_META[myOpponent.style].label : '—' }}
+                <template v-if="myOpponent">
+                  · 难度 {{ opponentTierLabel }} · 积分 {{ myOpponent.rating }}
+                </template>
+              </div>
+              <Button variant="primary" block @click="startMatch">开始比赛</Button>
+              <p class="muted next-match__hint">返回不会放弃本届，下次进来继续。</p>
+            </div>
 
-            <!-- 报名 -->
-            <template v-else>
-              <div class="rewards">
-                <div class="rewards__row is-top">
-                  <span>🏆 冠军</span><span class="num">🪙 {{ goldForPlace(arena, 'champion', 3) }}</span>
-                  <span class="num muted">+{{ arena.points }} 积分</span>
-                </div>
-                <div class="rewards__row">
-                  <span>🥈 亚军</span><span class="num">🪙 {{ goldForPlace(arena, 'runner', 2) }}</span>
-                  <span class="num muted">+{{ Math.round(arena.points * 0.6) }} 积分</span>
-                </div>
-                <div class="rewards__row">
-                  <span>🥉 季军</span><span class="num">🪙 {{ goldForPlace(arena, 'third', 2) }}</span>
-                  <span class="num muted">+{{ Math.round(arena.points * 0.4) }} 积分</span>
-                </div>
-                <div class="rewards__row">
-                  <span>4 强</span><span class="num">🪙 {{ goldForPlace(arena, 'fourth', 1) }}</span>
-                  <span class="num muted">+{{ Math.round(arena.points * 0.1) }} 积分</span>
-                </div>
-                <div class="rewards__row">
-                  <span>8 强</span><span class="num">🪙 退半价</span>
-                  <span class="muted">无积分</span>
-                </div>
-              </div>
-              <Button variant="primary" block @click="enter">
-                报名参赛 · 🪙 {{ arena.fee }}
-              </Button>
-              <p class="muted arena-note">
-                8 人单败淘汰：8强→4强→决赛，赢了继续输了止步（首轮出局退一半报名费）。
-                冠军 +{{ arena.points }} 积分向更高段位冲刺。当前段位：{{ myTier.label }}组。
-              </p>
-            </template>
+            <div class="arena-actions">
+              <Button variant="quiet" block @click="quitOpen = true">放弃本届（退 20% 报名费）</Button>
+            </div>
           </Panel>
+        </div>
+
+        <!-- 选杯：左右滑动的卡片 -->
+        <div v-else class="arena-stage">
+          <div class="lobby-wrap">
+            <div class="lobby-head">
+              <div class="lobby-head__title">🏆 报名杯赛</div>
+              <div class="muted lobby-head__sub">
+                积分 {{ progress.points }} · 左右滑动选杯赛，按积分逐档解锁，打完冷却 5 分钟
+              </div>
+            </div>
+
+            <div class="cup-scroller">
+              <div
+                v-for="c in ARENA_TIERS"
+                :key="c.tier"
+                class="cup-card"
+                :class="{ 'is-locked': progress.points < c.req }"
+              >
+                <div class="cup-card__cup">{{ c.cup }}</div>
+                <div class="muted cup-card__group">{{ c.label }}</div>
+
+                <div class="cup-card__meta">
+                  <div>门槛 <b class="num">{{ c.req }}</b> 分</div>
+                  <div>报名 <b class="num">🪙{{ c.fee }}</b></div>
+                  <div>冠军 <b class="num">🪙{{ goldForPlace(c, 'champion', 4) }}</b></div>
+                  <div>冠军积分 <b class="num">+{{ c.points }}</b></div>
+                </div>
+
+                <div class="cup-card__foot">
+                  <span v-if="cooldownLeft(c.tier) > 0" class="cup-card__cd num">
+                    冷却中 {{ fmtCd(cooldownLeft(c.tier)) }}
+                  </span>
+                  <span v-else-if="progress.points < c.req" class="cup-card__cd">
+                    🔒 还差 {{ c.req - progress.points }} 分
+                  </span>
+                  <Button
+                    v-else
+                    variant="primary"
+                    block
+                    @click="signup(c.tier)"
+                  >
+                    报名 · 🪙{{ c.fee }}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </template>
     </PageShell>
+
+    <!-- 放弃确认 -->
+    <AppModal v-model="quitOpen" title="放弃这届杯赛？" max-width="400px">
+      <p class="muted quit-note">放弃后本届直接结束，只退还报名费的 20%，成绩不计入名次。</p>
+      <div class="quit-actions">
+        <Button variant="quiet" block @click="quitOpen = false">继续比赛</Button>
+        <Button variant="primary" block @click="confirmQuit">确认放弃</Button>
+      </div>
+    </AppModal>
+
+    <!-- 本届结算 -->
+    <AppModal v-model="resultOpen" title="本届结束" max-width="400px">
+      <p class="result-line">
+        <template v-if="lastPlace === 'champion'">🏆 夺冠！</template>
+        <template v-else>被淘汰 · {{ lastPlace ? PLACE_LABEL[lastPlace] : '' }}</template>
+      </p>
+      <p class="muted quit-note">奖励已结算，详情看画面上方的提示。该杯赛冷却 5 分钟。</p>
+      <Button variant="primary" block @click="closeResult">回到选杯</Button>
+    </AppModal>
+
+    <!-- 球员主页（点树状图里的名字打开） -->
+    <AppModal v-model="profileOpen" title="球员主页" max-width="620px">
+      <PlayerProfile
+        v-if="selectedEntrant"
+        :name="selectedEntrant.name"
+        :style="selectedEntrant.style"
+        :rating="selectedEntrant.rating"
+        :stats="selectedEntrant.stats"
+        :cosmetic="selectedEntrant.cosmetic"
+        :is-me="selectedEntrant.isMe"
+      >
+        <Button variant="quiet" block @click="closeEntrant">关闭</Button>
+      </PlayerProfile>
+    </AppModal>
   </div>
 </template>
 
 <style scoped>
-.dock-coins {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.dock-run {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.dock-note {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--text-dim);
-}
-
 .arena-stage {
   position: absolute;
   inset: 0;
@@ -271,7 +376,8 @@ function back(): void {
 }
 
 .arena-card {
-  width: min(560px, 100%);
+  width: min(680px, 100%);
+  margin: auto 0;
 }
 
 .arena-head {
@@ -296,56 +402,20 @@ function back(): void {
 }
 
 .arena-season {
+  flex: none;
   font-size: 11px;
   color: var(--text-dim);
   text-align: right;
-}
-
-/* --- 赛程 --- */
-.bracket {
-  display: flex;
-  gap: var(--s2);
-  margin-bottom: var(--s3);
-}
-
-.bracket-round {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  font-size: 12px;
-}
-
-.bracket-round.is-now {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.bracket-round.is-done {
-  background: color-mix(in srgb, #3a7d44 14%, var(--surface-2));
-}
-
-.bracket-round__name {
-  font-weight: 700;
-  color: var(--text);
-}
-
-.bracket-round__state {
-  color: var(--text-dim);
 }
 
 .next-match {
   display: flex;
   flex-direction: column;
   gap: var(--s2);
+  margin-top: var(--s3);
   padding: var(--s3);
   border-radius: var(--r-md);
   border: 1px dashed var(--line);
-  margin-bottom: var(--s3);
 }
 
 .next-match__title {
@@ -371,34 +441,140 @@ function back(): void {
   font-size: 12px;
 }
 
-/* --- 奖励表 --- */
-.rewards {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: var(--s3);
+.next-match__hint {
+  margin: 0;
+  font-size: 11px;
 }
 
-.rewards__row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+.arena-actions {
+  margin-top: var(--s3);
+}
+
+/* --- 选杯卡片 --- */
+.lobby-wrap {
+  width: min(760px, 100%);
+  margin: auto 0;
+}
+
+.lobby-head {
+  margin-bottom: var(--s3);
+  text-align: center;
+}
+
+.lobby-head__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lobby-head__sub {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.cup-scroller {
+  display: flex;
   gap: var(--s3);
-  padding: 8px 12px;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: var(--s1) var(--s1) var(--s3);
+}
+
+.cup-card {
+  flex: none;
+  width: 224px;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  border-radius: var(--r-lg);
   border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--e2);
+}
+
+.cup-card.is-locked {
+  opacity: 0.62;
+}
+
+.cup-card__cup {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cup-card__group {
+  font-size: 11px;
+}
+
+.cup-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.cup-card__meta b {
+  color: var(--text);
+}
+
+.cup-card__foot {
+  margin-top: auto;
+  padding-top: var(--s2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cup-card__cd {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* --- 弹窗 --- */
+.quit-note {
+  margin: 0 0 var(--s3);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.quit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.result-line {
+  margin: 0 0 var(--s2);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.dock-coins {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.dock-pts {
   font-size: 13px;
   color: var(--text);
 }
 
-.rewards__row.is-top {
-  border-color: color-mix(in srgb, #e8a33d 55%, var(--line));
-  background: color-mix(in srgb, #e8a33d 10%, var(--surface-2));
+.dock-run {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
 }
 
-.arena-note {
-  margin: var(--s3) 0 0;
-  font-size: 12px;
-  line-height: 1.6;
+.dock-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
 }
 </style>

@@ -9,9 +9,10 @@ import SideDock from '../components/ui/SideDock.vue';
 import { toastGood } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
 import type { Choice } from '../components/ui/types';
-import type { HudState } from '../game/scenes/GameScene';
+import type { HudState, MatchOpponent } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
-import type { Difficulty } from '../game/ai';
+import { STYLE_META, tierFromStats } from '../game/ai';
+import { ensureStats, pickOpponent, type AiPlayer } from '../game/players';
 import { sfx } from '../game/audio';
 import { isTouchDevice } from '../game/device';
 import { useGameStore, type PracticeMode } from '../stores/game';
@@ -30,12 +31,6 @@ const editing = ref(false);
 /** the layout editor only makes sense where the on-screen sticks exist */
 const touch = isTouchDevice();
 
-const difficulties: Choice[] = [
-  { value: 'easy', label: '简单' },
-  { value: 'normal', label: '普通' },
-  { value: 'hard', label: '困难' },
-];
-
 const practices: Choice[] = [
   { value: 'ai', label: '对战 AI' },
   { value: 'machine', label: '发球机' },
@@ -45,10 +40,47 @@ const isMachine = computed(() => store.practice === 'machine');
 /** the machine ramps its own difficulty with the streak, so one base preset;
     the AI modes build their standard world (no option patch at all) */
 const optionId = computed(() => (isMachine.value ? 'machineEasy' : undefined));
-/** the scene builds its world once, so the mode switch has to remount it */
-const canvasKey = computed(() =>
-  isMachine.value ? store.practice : `${store.practice}-${store.difficulty}`,
+/** 本局对手：按玩家当前段位，从名录里抽一位水平相近的（切模式 / 点「换对手」换人） */
+const currentOpponent = ref<AiPlayer | null>(null);
+function rollOpponent(): void {
+  currentOpponent.value =
+    pickOpponent(progress.aiPlayers, {
+      points: progress.points,
+      excludeId: currentOpponent.value?.id,
+    }) ?? null;
+}
+if (!isMachine.value) rollOpponent();
+
+/** 场景只建一次世界：换模式 / 换对手都要重建 */
+const canvasKey = computed(() => `${store.practice}-${currentOpponent.value?.id ?? ''}`);
+
+const opponentStats = computed(() =>
+  currentOpponent.value ? ensureStats(currentOpponent.value) : null,
 );
+
+const opponentConfig = computed<MatchOpponent | undefined>(() => {
+  const p = currentOpponent.value;
+  const stats = opponentStats.value;
+  if (!p || !stats || isMachine.value) return undefined;
+  // 行为与加成全部由四维派生，这里只把四维交出去
+  return { name: p.name, cosmetic: p.cosmetic, stats };
+});
+
+const opponentStyleLabel = computed(() =>
+  currentOpponent.value ? STYLE_META[currentOpponent.value.style].label : '',
+);
+
+const opponentTierLabel = computed(() => {
+  const s = opponentStats.value;
+  if (!s) return '';
+  return { easy: '简单', normal: '普通', hard: '困难' }[tierFromStats(s)];
+});
+
+/** 换一位对手（难度随对手的四维而变） */
+function nextOpponent(): void {
+  sfx.click();
+  rollOpponent();
+}
 
 /** combo milestones 10..100: one reward each, first time only */
 watch(
@@ -69,14 +101,10 @@ watch(
   },
 );
 
-function setDifficulty(value: string) {
-  sfx.click();
-  store.difficulty = value as Difficulty;
-}
-
 function setPractice(value: string) {
   sfx.click();
   store.practice = value as PracticeMode;
+  if (!isMachine.value) rollOpponent();
 }
 
 function onHud(state: HudState) {
@@ -92,16 +120,12 @@ function onEvent(e: SimEvent) {
   else if (e.type === 'gameover') {
     const win = e.scorer === 0;
     progress.recordResult(win, 'single');
+    if (!isMachine.value && currentOpponent.value) {
+      progress.recordVsAi(currentOpponent.value.id, win);
+    }
     if (win) sfx.win();
     else sfx.lose();
   }
-}
-
-/** 顶栏那个 🎯 图标：在三个难度之间循环，省一次开坞 */
-function cycleDifficulty() {
-  const order: Difficulty[] = ['easy', 'normal', 'hard'];
-  const i = order.indexOf(store.difficulty);
-  setDifficulty(order[(i + 1) % order.length]);
 }
 
 function back() {
@@ -122,10 +146,10 @@ onBeforeUnmount(() => {
           v-if="!isMachine"
           class="icon-btn jelly"
           type="button"
-          :title="`难度：${store.difficulty}（点一下换）`"
-          @click="cycleDifficulty"
+          title="换一位对手"
+          @click="nextOpponent"
         >
-          难度 {{ store.difficulty === 'easy' ? '简单' : store.difficulty === 'hard' ? '困难' : '普通' }}
+          换对手
         </button>
         <button
           v-if="touch"
@@ -146,16 +170,13 @@ onBeforeUnmount(() => {
             label="模式"
             @update:model-value="setPractice"
           />
-          <SegmentedChoice
-            v-if="!isMachine"
-            :model-value="store.difficulty"
-            :options="difficulties"
-            label="难度"
-            @update:model-value="setDifficulty"
-          />
           <Button v-if="touch" size="sm" block @click="canvas?.toggleEditMode()">
             {{ editing ? '完成' : '摇杆布局' }}
           </Button>
+          <div v-if="currentOpponent" class="dock-opponent">
+            对手：{{ currentOpponent.name }} · {{ opponentStyleLabel }} · {{ opponentTierLabel }}
+          </div>
+          <Button v-if="!isMachine" size="sm" block @click="nextOpponent">换一位对手</Button>
           <div v-if="hud?.machine" class="dock-num">
             连击 <b class="ui-num">{{ hud.machine.streak }}</b>
             · 最高 <b class="ui-num">{{ hud.machine.best }}</b>
@@ -168,10 +189,11 @@ onBeforeUnmount(() => {
           :key="canvasKey"
           ref="canvas"
           role="single"
-          :difficulty="store.difficulty"
           :option-id="optionId"
+          :opponent="opponentConfig"
           :session="null"
           :cosmetic="customize.cosmetic"
+          :attrs="progress.attrs"
           :local-name="lobby.playerName"
           :local-rank="progress.tier.id"
           :theme="customize.theme"
@@ -190,6 +212,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .dock-num {
+  font-size: var(--ui-font-xs);
+  color: var(--text-dim);
+}
+
+.dock-opponent {
   font-size: var(--ui-font-xs);
   color: var(--text-dim);
 }

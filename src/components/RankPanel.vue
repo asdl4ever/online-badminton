@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useProgressStore } from '../stores/progress';
-import { POINT_RULES, TIERS, type TierId } from '../game/ranks';
+import { POINT_RULES, TIERS, titleForPoints, type TierId } from '../game/ranks';
 import { toHex } from '../game/cosmetics';
 import { celebrate } from '../composables/celebrate';
 import { toastGood } from '../composables/useToast';
@@ -27,6 +27,7 @@ function claim(id: TierId): void {
         <div class="rp__tier">
           {{ progress.tier.label }}
           <span class="muted num">{{ progress.points }} 分</span>
+          <span class="rp__title">「{{ titleForPoints(progress.points) }}」</span>
         </div>
         <div class="rp__bar">
           <span
@@ -38,7 +39,7 @@ function claim(id: TierId): void {
           {{
             progress.next
               ? `距离 ${progress.next.label} 还差 ${progress.next.points - progress.points} 分`
-              : '已达最高段位'
+              : '已达最高组别'
           }}
         </div>
       </div>
@@ -77,7 +78,7 @@ function claim(id: TierId): void {
       联机胜 +{{ POINT_RULES.online.win }} / 负 +{{ POINT_RULES.online.lose }}，单机胜 +{{
         POINT_RULES.single.win
       }}
-      / 负 +{{ POINT_RULES.single.lose }}。积分只存在本机，换设备不互通。
+      / 负 +{{ POINT_RULES.single.lose }}。积分只存在本机；杯赛按积分逐档解锁，赛季每月清零。
     </p>
   </div>
 </template>
@@ -114,6 +115,12 @@ function claim(id: TierId): void {
   display: flex;
   gap: var(--s3);
   align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.rp__title {
+  font-size: 14px;
+  color: var(--accent);
 }
 
 .rp__bar {

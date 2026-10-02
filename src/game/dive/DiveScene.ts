@@ -222,6 +222,8 @@ export class DiveScene extends Phaser.Scene {
   private rigMe!: PlayerRig;
   private rigOther!: PlayerRig;
   private g!: Phaser.GameObjects.Graphics;
+  /** 角色单独一层（depth 2）：emoji 脸在它之下，装备不会被脸盖住 */
+  private charG!: Phaser.GameObjects.Graphics;
   private hudG!: Phaser.GameObjects.Graphics;
   private hudText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
@@ -300,6 +302,7 @@ export class DiveScene extends Phaser.Scene {
     this.reportedDepth = 0;
 
     this.g = this.add.graphics();
+    this.charG = this.add.graphics().setDepth(2);
     this.hudG = this.add.graphics().setScrollFactor(0).setDepth(40);
     this.rigMe = createPlayerRig(this);
     this.rigOther = createPlayerRig(this);
@@ -1001,6 +1004,7 @@ export class DiveScene extends Phaser.Scene {
   private draw(): void {
     const g = this.g;
     g.clear();
+    this.charG.clear();
     const cam = this.cameras.main;
     const left = cam.scrollX;
     const top = cam.scrollY;
@@ -1162,9 +1166,9 @@ export class DiveScene extends Phaser.Scene {
     // 岸：沙滩 + 装备店 + 码头 + 船（画在水与鱼之上，所以在岸上的东西挡得住水面）
     this.drawShore(g, left, top, w, h);
 
-    // 自己 + 好友
-    this.drawDiver(g, this.me, this.cfg.cosmetic, true);
-    if (this.remote) this.drawDiver(g, this.remote, this.cfg.cosmetic, false);
+    // 自己 + 好友（画在单独的角色层，见 charG）
+    this.drawDiver(this.charG, this.me, this.cfg.cosmetic, true);
+    if (this.remote) this.drawDiver(this.charG, this.remote, this.cfg.cosmetic, false);
   }
 
   /** 天空 + 太阳 + 云（只有镜头抬到水面以上才画） */

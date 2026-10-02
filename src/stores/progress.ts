@@ -14,6 +14,8 @@ import {
 import {
   CHEST_COST,
   COIN_RULES,
+  FARM_MAX_LEVEL,
+  FARM_UPGRADE_COST,
   GACHA_POOL,
   ITEMS,
   PET_EGGS,
@@ -22,19 +24,52 @@ import {
   PITY_LIMIT,
   RARITY_META,
   TEN_PULL_COST,
+  TRACTOR_COST,
   type Item,
   type Rarity,
 } from '../game/items';
 import { BOAT_COST, islandById, MAX_LEVEL, upgradeCost } from '../game/dive/fish';
+import { styleFromStats, tierFromStats } from '../game/ai';
+import {
+  applyMatchResult,
+  attrsFromStats,
+  ensureStats,
+  generatePlayers,
+  LEGEND_ID,
+  playerStats,
+  syncDerived,
+  withLegend,
+  type AiPlayer,
+} from '../game/players';
+import {
+  effectiveAlloc,
+  emptyAlloc,
+  spentPoints,
+  totalAttrPoints,
+  type AttrAlloc,
+  type AttrKey,
+} from '../game/attrs';
 import { ACHIEVEMENTS, type AchMetric, type Achievement } from '../game/achievements';
 import {
+  ARENA_COOLDOWN_MS,
+  ARENA_ROUNDS,
   PLACE_LABEL,
   SEASON_REWARDS,
   arenaByTier,
+  buildBracket,
+  fillNextRound,
   goldForPlace,
+  myMatchIndex,
+  pickCupName,
   pointsForPlace,
+  simulateArenaMatch,
+  type ArenaBracket,
+  type ArenaEntrant,
   type ArenaPlace,
 } from '../game/arena';
+
+/** 晋级赛对阵树里代表「玩家自己」的参赛者 id */
+const ME_ID = '__me__';
 
 export type PullResult = { kind: 'item'; item: Item; duplicate: boolean; refund: number };
 
@@ -95,6 +130,10 @@ export const useProgressStore = defineStore('progress', () => {
   const milestones = useLocalStorage<number[]>('bmt-milestones', []);
   /** 渔具等级（1-5，老存档的"鱼竿等级"沿用这个键）：钩子更大、能拉更大的鱼 */
   const rodLevel = useLocalStorage('bmt-rod-level', 1);
+  /** 农场采摘等级：= 一次挥拍能同时摘下的棉花数（初始 1） */
+  const farmLevel = useLocalStorage('bmt-farm-level', 1);
+  /** 农场是否已买断拖拉机（可在页面上一键收全地） */
+  const tractor = useLocalStorage('bmt-farm-tractor', false);
   /** 潜水：氧气罐等级（能待多久） */
   const oxygenLv = useLocalStorage('bmt-dive-oxygen', 1);
   /** 潜水：背包等级（一趟能带多少） */
@@ -131,6 +170,40 @@ export const useProgressStore = defineStore('progress', () => {
   const claimable = computed(() =>
     TIERS.filter((t) => points.value >= t.points && !claimed.value.includes(t.id)),
   );
+
+  // ---- 属性点（速度 / 力量 / 容错） -------------------------------------------
+  /**
+   * 分配意图；实际生效会被当前段位额度裁剪——掉段自动缩水、升段自动恢复，
+   * 所以玩家不用手动重分配。
+   */
+  const attrAlloc = useLocalStorage<AttrAlloc>('bmt-attr-alloc', emptyAlloc());
+  /** 当前段位给的总点数（随积分实时增减） */
+  const attrPoints = computed(() => totalAttrPoints(points.value));
+  /** 原始分配合计 */
+  const attrSpent = computed(() => spentPoints(attrAlloc.value));
+  /** 实际生效的分配（超出额度时按 速度→力量→容错 裁剪） */
+  const attrEffective = computed(() => effectiveAlloc(attrAlloc.value, attrPoints.value));
+  /**
+   * 写进对局的属性倍率。**由四维派生**——四维是唯一的加成来源，
+   * 玩家（属性点 → 四维）和 AI（名录里的四维）走的是同一条换算。
+   */
+  const attrs = computed(() => attrsFromStats(playerStats(points.value, attrEffective.value)));
+
+  function addAttr(key: AttrKey): boolean {
+    if (attrSpent.value >= attrPoints.value) return false;
+    attrAlloc.value = { ...attrAlloc.value, [key]: (attrAlloc.value[key] ?? 0) + 1 };
+    return true;
+  }
+
+  function removeAttr(key: AttrKey): boolean {
+    if ((attrAlloc.value[key] ?? 0) <= 0) return false;
+    attrAlloc.value = { ...attrAlloc.value, [key]: attrAlloc.value[key] - 1 };
+    return true;
+  }
+
+  function resetAttrs(): void {
+    attrAlloc.value = emptyAlloc();
+  }
 
   function isClaimed(id: TierId): boolean {
     return claimed.value.includes(id);
@@ -197,12 +270,59 @@ export const useProgressStore = defineStore('progress', () => {
   /** 当前进行中的一届晋级赛（null = 没报名） */
   const arenaRun = useLocalStorage<null | {
     tier: TierId;
-    /** 0 = 8强赛，1 = 4强赛，2 = 决赛或季军赛 */
+    /** 本届赛事名（从该段位的名池里抽的，每届不同） */
+    cupName: string;
+    /** 当前轮次：0 = 16强，1 = 8强，2 = 4强，3 = 决赛 */
     round: number;
-    /** 赢了 4 强赛 → 下一场是决赛；输了 → 下一场是季军赛 */
-    semisWon: boolean;
+    /** 已经赢下的场次 */
     wins: number;
+    /** 16 位参赛者（含自己） */
+    entrants: ArenaEntrant[];
+    /** 完整对阵树：rounds[轮次][场次] */
+    rounds: ArenaBracket;
   }>('bmt-arena-run', null);
+
+  /** 每个杯赛的冷却到期时间戳（打完一届后 5 分钟不能重报） */
+  const arenaCooldown = useLocalStorage<Record<string, number>>('bmt-arena-cooldown', {});
+
+  // 老存档迁移：旧赛制（8 人、没有完整对阵树 / 四维）的那一届直接作废，避免读半截数据
+  if (
+    arenaRun.value &&
+    (!arenaRun.value.entrants ||
+      !arenaRun.value.rounds ||
+      arenaRun.value.entrants.some((e) => !e.stats || !Number.isFinite(e.stats.jump)))
+  ) {
+    arenaRun.value = null;
+  }
+
+  /** AI 球员名录：首次进入游戏时随机生成一份，之后持久化（战绩会被写回） */
+  const aiPlayers = useLocalStorage<AiPlayer[]>('bmt-ai-players', []);
+  if (!aiPlayers.value.length) {
+    aiPlayers.value = generatePlayers(20);
+  } else {
+    // 老存档：补四维 / 把 style 与 difficulty 校准到与四维一致（没变化就不写回）
+    const needs = aiPlayers.value.some(
+      (p) =>
+        !p.stats ||
+        !Number.isFinite(p.stats.jump) ||
+        p.style !== styleFromStats(p.stats) ||
+        p.difficulty !== tierFromStats(p.stats),
+    );
+    if (needs) aiPlayers.value = aiPlayers.value.map(syncDerived);
+  }
+  /**
+   * 把传奇球员皮泽恩补进名录（老存档 / 名录被改坏时都要补上），并恒定排在最前。
+   * 返回是否真的补了人。除了初始化时调用，名人堂页面挂载时也会再校验一次——
+   * 这样即使游戏在更新之前就已经开着（store 早就初始化完了），打开排行榜也能自动补上。
+   */
+  function ensureLegend(): boolean {
+    if (aiPlayers.value.some((p) => p.id === LEGEND_ID)) return false;
+    aiPlayers.value = withLegend(aiPlayers.value);
+    return true;
+  }
+  ensureLegend();
+  /** 玩家自己在单机 / 晋级赛里的胜负记录（排行榜里和自己对比用） */
+  const playerRecord = useLocalStorage('bmt-player-record', { wins: 0, losses: 0 });
 
   /** 赛季（YYYY-MM）：积分每月 1 号清零，按赛季最高段位发金币 */
   const seasonId = useLocalStorage('bmt-season', '');
@@ -235,14 +355,89 @@ export const useProgressStore = defineStore('progress', () => {
   }
   checkSeason();
 
-  /** 报名一届晋级赛：按当前段位收报名费 */
-  function enterArena(): { ok: boolean; message: string } {
-    if (arenaRun.value) return { ok: false, message: '这届还在进行中，打完再来' };
-    const a = arenaByTier(tierForPoints(points.value).id);
+  /** 奖杯柜：每个杯赛记录 冠军/亚军/季军 次数 */
+  const trophies = useLocalStorage<Record<string, { champion: number; runner: number; third: number }>>(
+    'bmt-trophies',
+    {},
+  );
+
+  /** 报名一届杯赛：积分门槛、报名费、冷却三关都过才能报 */
+  function enterArena(cupId: TierId, meName = '你'): { ok: boolean; message: string } {
+    if (arenaRun.value) {
+      if (arenaRun.value.tier === cupId) return { ok: true, message: '继续这一届' };
+      return { ok: false, message: '还有一届没打完，先去打完它' };
+    }
+    const a = arenaByTier(cupId);
+    if (points.value < a.req) {
+      return { ok: false, message: `还差 ${a.req - points.value} 积分解锁「${a.cup}」` };
+    }
+    const cd = arenaCooldown.value[cupId] ?? 0;
+    if (cd > Date.now()) {
+      return { ok: false, message: `${a.cup}刚打完，${Math.ceil((cd - Date.now()) / 1000)} 秒后可再报名` };
+    }
     if (coins.value < a.fee) return { ok: false, message: `报名费不够，还差 🪙${a.fee - coins.value}` };
     coins.value -= a.fee;
-    arenaRun.value = { tier: a.tier, round: 0, semisWon: false, wins: 0 };
-    return { ok: true, message: `报名成功！-${a.fee} 金币，祝好运` };
+
+    const entrants = buildEntrants(cupId, meName);
+    const cupName = pickCupName(a.tier);
+    arenaRun.value = {
+      tier: a.tier,
+      cupName,
+      round: 0,
+      wins: 0,
+      entrants,
+      rounds: buildBracket(entrants),
+    };
+    return { ok: true, message: `「${cupName}」报名成功！-${a.fee} 金币，祝好运` };
+  }
+
+  /** 生成 16 位参赛者：自己 + 从名录里抽 15 位（杯赛越高，抽到的一档越强） */
+  function buildEntrants(tier: TierId, meName: string): ArenaEntrant[] {
+    const tierIdx = TIERS.findIndex((t) => t.id === tier);
+    const sorted = [...aiPlayers.value].sort((a, b) => b.rating - a.rating);
+    const want = 2 ** ARENA_ROUNDS.length - 1; // 16 人 → 15 位 AI
+    const span = Math.max(0, sorted.length - want);
+    // 低杯赛抽弱的一档、高杯赛抽强的一档
+    const start = Math.round((1 - tierIdx / Math.max(1, TIERS.length - 1)) * span);
+    const chosen = sorted.length <= want ? [...sorted] : sorted.slice(start, start + want);
+    // 传奇球员皮泽恩只打高级赛事：最后两档杯赛必定拉他进 16 人名单
+    // （低杯赛按 rating 抽不到他，他 rating 2400 落在榜尾档位之外）
+    if (tierIdx >= TIERS.length - 2 && !chosen.some((p) => p.id === LEGEND_ID) && chosen.length) {
+      const legend = sorted.find((p) => p.id === LEGEND_ID);
+      if (legend) chosen.splice(chosen.length - 1, 1, legend);
+    }
+    while (chosen.length < want && sorted.length) {
+      chosen.push(sorted[chosen.length % sorted.length]);
+    }
+
+    const me: ArenaEntrant = {
+      id: ME_ID,
+      name: meName || '你',
+      isMe: true,
+      rating: 1000 + points.value,
+      style: 'balanced',
+      difficulty: 'normal',
+      stats: playerStats(points.value, attrEffective.value),
+    };
+    const list: ArenaEntrant[] = [
+      me,
+      ...chosen.map((p) => ({
+        id: p.id,
+        name: p.name,
+        isMe: false,
+        rating: p.rating,
+        style: p.style,
+        difficulty: p.difficulty,
+        cosmetic: p.cosmetic,
+        stats: ensureStats(p),
+      })),
+    ];
+    // 洗牌，让自己落在随机位置
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
   }
 
   function settleArena(place: ArenaPlace): void {
@@ -255,43 +450,106 @@ export const useProgressStore = defineStore('progress', () => {
     const before = tierForPoints(points.value).id;
     points.value += gain;
     trackSeasonPeak();
+    // 奖杯柜：冠亚季（4 强）各记一次
+    if (place === 'champion' || place === 'runner' || place === 'third') {
+      const cur = trophies.value[run.tier] ?? { champion: 0, runner: 0, third: 0 };
+      trophies.value = {
+        ...trophies.value,
+        [run.tier]: {
+          champion: cur.champion + (place === 'champion' ? 1 : 0),
+          runner: cur.runner + (place === 'runner' ? 1 : 0),
+          third: cur.third + (place === 'third' ? 1 : 0),
+        },
+      };
+    }
     const after = tierForPoints(points.value);
-    let text = `晋级赛 ${PLACE_LABEL[place]}：金币 +${gold}` + (gain ? ` · 积分 +${gain}` : ' · 无积分');
-    if (after.id !== before) text += ` · 晋级 ${after.label}！可领取奖励`;
+    let text = `「${run.cupName}」${PLACE_LABEL[place]}：金币 +${gold}` + (gain ? ` · 积分 +${gain}` : ' · 无积分');
+    if (after.id !== before) text += ` · 升入 ${after.label}！可领取荣誉奖励`;
     pushNotice(text);
+    // 本届结束：该杯赛进入冷却
+    arenaCooldown.value = {
+      ...arenaCooldown.value,
+      [run.tier]: Date.now() + ARENA_COOLDOWN_MS,
+    };
     arenaRun.value = null;
   }
 
-  /** 晋级赛赢一场：推进轮次或结算名次 */
-  function arenaWin(): void {
+  /**
+   * 打完自己这一场：记录胜负、把同轮其它场次用 Elo 模拟补齐；
+   * 赢了就推进到下一轮（或夺冠），输了就按轮次结算名次。
+   */
+  function arenaFinishMatch(playerWon: boolean): {
+    win: boolean;
+    finished: boolean;
+    place?: ArenaPlace;
+  } {
     const run = arenaRun.value;
-    if (!run) return;
-    if (run.round === 2) {
-      settleArena(run.semisWon ? 'champion' : 'third');
-      return;
+    if (!run) return { win: false, finished: true };
+    const r = run.round;
+    const idx = myMatchIndex(run.rounds, r, ME_ID);
+    const match = idx >= 0 ? run.rounds[r][idx] : undefined;
+    if (!match) return { win: false, finished: true };
+
+    const foeId = match.a === ME_ID ? match.b : match.a;
+    match.winner = playerWon ? ME_ID : foeId;
+    if (foeId) recordVsAi(foeId, playerWon);
+
+    // 同轮其它场次：AI 之间按 Elo 模拟，树状图才每轮都完整
+    for (const m of run.rounds[r]) {
+      if (m.winner) continue;
+      const A = run.entrants.find((e) => e.id === m.a);
+      const B = run.entrants.find((e) => e.id === m.b);
+      m.winner = A && B ? simulateArenaMatch(A, B) : m.a || m.b || null;
     }
-    arenaRun.value = {
-      ...run,
-      round: run.round + 1,
-      semisWon: run.semisWon || run.round === 1,
-      wins: run.wins + 1,
-    };
+
+    if (!playerWon) {
+      const place: ArenaPlace =
+        r >= ARENA_ROUNDS.length - 1 ? 'runner' : r === 2 ? 'third' : r === 1 ? 'fourth' : 'qf';
+      settleArena(place);
+      return { win: false, finished: true, place };
+    }
+
+    if (r >= ARENA_ROUNDS.length - 1) {
+      run.wins += 1;
+      settleArena('champion');
+      return { win: true, finished: true, place: 'champion' };
+    }
+
+    fillNextRound(run.rounds, r);
+    run.round = r + 1;
+    run.wins += 1;
+    arenaRun.value = { ...run };
+    return { win: true, finished: false };
   }
 
-  /** 晋级赛输一场：首轮出局或进入下一轮/结算 */
-  function arenaLose(): void {
+  /** 放弃当前这届晋级赛：退 20% 报名费，本届结束并进入冷却 */
+  function arenaQuit(): { ok: boolean; message: string } {
     const run = arenaRun.value;
-    if (!run) return;
-    if (run.round === 0) {
-      settleArena('qf');
-      return;
-    }
-    if (run.round === 1) {
-      // 4 强赛输了 → 掉进季军赛
-      arenaRun.value = { ...run, round: 2, semisWon: false, wins: run.wins };
-      return;
-    }
-    settleArena(run.semisWon ? 'runner' : 'fourth');
+    if (!run) return { ok: false, message: '没有进行中的晋级赛' };
+    const a = arenaByTier(run.tier);
+    const refund = Math.round(a.fee * 0.2);
+    coins.value += refund;
+    arenaCooldown.value = {
+      ...arenaCooldown.value,
+      [run.tier]: Date.now() + ARENA_COOLDOWN_MS,
+    };
+    arenaRun.value = null;
+    const text = `退出「${run.cupName}」，退回 20% 报名费 🪙${refund}`;
+    pushNotice(text);
+    return { ok: true, message: text };
+  }
+
+  /** 玩家和某位 AI 打完一场：写回该球员的战绩并更新玩家自己的记录 */
+  function recordVsAi(playerId: string, playerWon: boolean): void {
+    const idx = aiPlayers.value.findIndex((p) => p.id === playerId);
+    if (idx < 0) return;
+    const next = [...aiPlayers.value];
+    next[idx] = applyMatchResult(next[idx], playerWon);
+    aiPlayers.value = next;
+    playerRecord.value = {
+      wins: playerRecord.value.wins + (playerWon ? 1 : 0),
+      losses: playerRecord.value.losses + (playerWon ? 0 : 1),
+    };
   }
 
   function claim(id: TierId): void {
@@ -367,6 +625,24 @@ export const useProgressStore = defineStore('progress', () => {
     if (which === 'oxygen') oxygenLv.value += 1;
     else if (which === 'bag') bagLv.value += 1;
     else rodLevel.value += 1;
+    return true;
+  }
+
+  /** 花金币升农场采摘等级：等级就是「一次挥拍能摘几朵棉花」 */
+  function upgradeFarm(): boolean {
+    if (farmLevel.value >= FARM_MAX_LEVEL) return false;
+    const cost = FARM_UPGRADE_COST[farmLevel.value] ?? 0;
+    if (coins.value < cost) return false;
+    coins.value -= cost;
+    farmLevel.value += 1;
+    return true;
+  }
+
+  /** 买断拖拉机（一次性），之后可以在农场页面「一键收全地」 */
+  function buyTractor(): boolean {
+    if (tractor.value || coins.value < TRACTOR_COST) return false;
+    coins.value -= TRACTOR_COST;
+    tractor.value = true;
     return true;
   }
 
@@ -574,9 +850,19 @@ export const useProgressStore = defineStore('progress', () => {
     progress,
     claimable,
     isClaimed,
+    attrAlloc,
+    attrPoints,
+    attrSpent,
+    attrEffective,
+    attrs,
+    addAttr,
+    removeAttr,
+    resetAttrs,
     isOwned,
     milestones,
     rodLevel,
+    farmLevel,
+    tractor,
     oxygenLv,
     bagLv,
     boat,
@@ -585,6 +871,8 @@ export const useProgressStore = defineStore('progress', () => {
     logFish,
     buyBoat,
     upgradeDive,
+    upgradeFarm,
+    buyTractor,
     sailTo,
     achStats,
     achDone,
@@ -606,9 +894,15 @@ export const useProgressStore = defineStore('progress', () => {
     pull,
     pullTen,
     arenaRun,
+    arenaCooldown,
+    trophies,
     enterArena,
-    arenaWin,
-    arenaLose,
+    arenaFinishMatch,
+    arenaQuit,
+    aiPlayers,
+    ensureLegend,
+    playerRecord,
+    recordVsAi,
     seasonId,
     seasonPeak,
   };

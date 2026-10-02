@@ -12,6 +12,7 @@ import BackpackPanel from '../components/BackpackPanel.vue';
 import AchievementsPanel from '../components/AchievementsPanel.vue';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
+import { ARENA_TIERS } from '../game/arena';
 import { sfx } from '../game/audio';
 
 const router = useRouter();
@@ -183,7 +184,7 @@ function open(
                   <span class="tool__badge">{{ progress.achDoneCount }}</span>
                 </button>
 
-                <button class="tool" type="button" title="段位" @click="open('rank')">
+                <button class="tool" type="button" title="积分与荣誉" @click="open('rank')">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
                       d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"
@@ -317,6 +318,35 @@ function open(
         </div>
       </Panel>
 
+      <!-- 奖杯柜：8 个杯赛的前三名陈列 -->
+      <Panel>
+        <h3 style="margin: 0 0 var(--s3)">🏆 奖杯柜</h3>
+        <div class="trophies">
+          <div
+            v-for="c in ARENA_TIERS"
+            :key="c.tier"
+            class="trophy"
+            :class="{ 'is-empty': !progress.trophies[c.tier] }"
+          >
+            <div class="trophy__cup">
+              <template v-if="progress.trophies[c.tier]">
+                <span v-if="progress.trophies[c.tier].champion" class="trophy__big">🏆</span>
+                <span v-else-if="progress.trophies[c.tier].runner" class="trophy__big">🥈</span>
+                <span v-else class="trophy__big">🥉</span>
+              </template>
+              <span v-else class="trophy__big is-dim">🏆</span>
+            </div>
+            <div class="trophy__name">{{ c.cup }}</div>
+            <div v-if="progress.trophies[c.tier]" class="trophy__count num">
+              <span v-if="progress.trophies[c.tier].champion">冠×{{ progress.trophies[c.tier].champion }}</span>
+              <span v-if="progress.trophies[c.tier].runner">亚×{{ progress.trophies[c.tier].runner }}</span>
+              <span v-if="progress.trophies[c.tier].third">季×{{ progress.trophies[c.tier].third }}</span>
+            </div>
+            <div v-else class="muted trophy__none">暂无奖杯</div>
+          </div>
+        </div>
+      </Panel>
+
       <Panel>
         <h3 style="margin-bottom: var(--s3)">操作说明</h3>
         <div class="legend">
@@ -366,6 +396,61 @@ function open(
 </template>
 
 <style scoped>
+/* --- 奖杯柜 --- */
+.trophies {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.trophy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: var(--s3) var(--s2);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.trophy.is-empty {
+  opacity: 0.55;
+}
+
+.trophy__big {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.trophy__big.is-dim {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.trophy__name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.trophy__count {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.trophy__none {
+  font-size: 11px;
+}
+
+@media (max-width: 560px) {
+  .trophies {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .tool {
   position: relative;
   display: inline-flex;

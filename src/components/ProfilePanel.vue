@@ -7,7 +7,9 @@ import { useProgressStore } from '../stores/progress';
 import { useLobbyStore } from '../stores/lobby';
 import { useCustomizeStore } from '../stores/customize';
 import { ITEMS, PETS } from '../game/items';
+import { titleForPoints } from '../game/ranks';
 import { toHex } from '../game/cosmetics';
+import { ATTR_KEYS, ATTR_META, ATTR_PER_POINT, type AttrKey } from '../game/attrs';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 
@@ -57,6 +59,30 @@ const stats = computed(() => [
   { label: '鱼竿等级', value: `Lv.${progress.rodLevel}` },
   { label: '兑换码', value: `${progress.redeemed.length} 个` },
 ]);
+
+/* --- 属性点 ---------------------------------------------------------------- */
+const attrUsed = computed(() =>
+  ATTR_KEYS.reduce((s, k) => s + (progress.attrEffective[k] ?? 0), 0),
+);
+const attrPct = (n: number): string => `+${Math.round(n * ATTR_PER_POINT * 100)}%`;
+
+function addAttr(key: AttrKey): void {
+  if (!progress.addAttr(key)) {
+    toastWarn('没有可用的属性点了，升到新组别再来');
+    return;
+  }
+  sfx.click();
+}
+
+function removeAttr(key: AttrKey): void {
+  if (progress.removeAttr(key)) sfx.click();
+}
+
+function doResetAttrs(): void {
+  progress.resetAttrs();
+  sfx.click();
+  toastGood('属性点已重置');
+}
 </script>
 
 <template>
@@ -87,6 +113,7 @@ const stats = computed(() => [
         </div>
         <div class="pf__points num">
           {{ progress.points }} 分
+          <span class="pf__title">「{{ titleForPoints(progress.points) }}」</span>
           <span class="muted">· 当前形象「{{ skinLabel }}」</span>
         </div>
 
@@ -100,7 +127,7 @@ const stats = computed(() => [
           {{
             progress.next
               ? `距离 ${progress.next.label} 还差 ${progress.next.points - progress.points} 分`
-              : '已达最高段位'
+              : '已达最高组别'
           }}
         </div>
       </div>
@@ -113,8 +140,49 @@ const stats = computed(() => [
       </li>
     </ul>
 
+    <div class="pf__attrs">
+      <div class="pf__attrs-head">
+        <span class="pf__attrs-title">属性点</span>
+        <span class="muted pf__attrs-sum">已分配 {{ attrUsed }} / {{ progress.attrPoints }} 点</span>
+        <Button v-if="progress.attrSpent > 0" size="sm" variant="quiet" @click="doResetAttrs">
+          重置
+        </Button>
+      </div>
+
+      <div v-for="k in ATTR_KEYS" :key="k" class="pf__attr">
+        <span class="pf__attr-name" :style="{ color: ATTR_META[k].color }">
+          {{ ATTR_META[k].label }}
+        </span>
+        <span class="muted pf__attr-desc">{{ ATTR_META[k].desc }}</span>
+        <span class="num pf__attr-val">{{ attrPct(progress.attrEffective[k]) }}</span>
+        <div class="pf__attr-btns">
+          <button
+            class="pf__attr-btn"
+            type="button"
+            :disabled="progress.attrEffective[k] <= 0"
+            @click="removeAttr(k)"
+          >
+            −
+          </button>
+          <span class="num pf__attr-pts">{{ progress.attrAlloc[k] }}</span>
+          <button
+            class="pf__attr-btn"
+            type="button"
+            :disabled="progress.attrSpent >= progress.attrPoints"
+            @click="addAttr(k)"
+          >
+            ＋
+          </button>
+        </div>
+      </div>
+
+      <p class="muted pf__attrs-note">
+        初始 1 点，之后每晋升一个新组别再得 1 点；积分掉回低组别会暂时失去多余的点，升回去自动恢复。
+      </p>
+    </div>
+
     <p class="muted pf__hint">
-      段位分从对局结算里来（单机 / 联机各算一档），奖励在「段位」里领；外观在「背包」里换。
+      积分从对局与杯赛结算里来（单机 / 联机各算一档），荣誉奖励在「积分」里领；外观在「背包」里换。
     </p>
   </div>
 </template>
@@ -184,6 +252,11 @@ const stats = computed(() => [
   color: var(--text);
 }
 
+.pf__title {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .pf__bar {
   position: relative;
   height: 8px;
@@ -234,6 +307,97 @@ const stats = computed(() => [
 .pf__hint {
   margin: 0;
   font-size: 12px;
+}
+
+.pf__attrs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.pf__attrs-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.pf__attrs-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pf__attrs-sum {
+  flex: 1 1 auto;
+  font-size: 12px;
+}
+
+.pf__attr {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 13px;
+}
+
+.pf__attr-name {
+  flex: none;
+  width: 44px;
+  font-weight: 700;
+}
+
+.pf__attr-desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.pf__attr-val {
+  flex: none;
+  width: 52px;
+  text-align: right;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.pf__attr-btns {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pf__attr-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pf__attr-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pf__attr-pts {
+  width: 20px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pf__attrs-note {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 @media (max-width: 560px) {
