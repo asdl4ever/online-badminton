@@ -1,5 +1,6 @@
 import {
   ARENA_ROUNDS,
+  ARENA_TIERS,
   fillNextRound,
   simulateArenaMatch,
   type ArenaBracket,
@@ -24,8 +25,8 @@ import { ensureStats, type AiPlayer } from './players';
  *   没看过的到点用 `simulateArenaMatch` 按五维算结果，看过的那场以**真实对局结果**为准。
  */
 
-/** 同时进行的杯数 = 段位数（青铜 → 超神） */
-export const CUP_COUNT = 4;
+/** 同时进行的杯数 = 赛事档数（50赛 → 1000赛） */
+export const CUP_COUNT = ARENA_TIERS.length;
 /** 一轮占多久（同一轮的比赛同时开打、同时进行） */
 export const CUP_ROUND_MS = 150_000;
 /** 一场比赛「正在进行」的窗口（真打一局大约这么久；剩下的是轮次间隙） */
@@ -40,24 +41,40 @@ export const CUP_STAGGER_MS = Math.round(CUP_MS / CUP_COUNT);
 export const WORLD_ROUNDS = ARENA_ROUNDS.length;
 
 /**
- * 段位杯：**杯 = 段位**。按名人堂排名把球员切成几档，每人只属于一个段位，
- * 所以**绝不会出现同一位选手同时打两个杯**；打上去（rating 升）就升杯，掉下来就降杯。
+ * 世界赛七档：与晋级赛馆**同一套档位**（50 / 100 / 200 / 400 / 600 / 800 / 1000 赛）。
+ * 按名人堂排名把球员切成七档，每人只属于一档 → **绝不会同时打两个杯**；
+ * rating 涨了升档、掉了降档。每届的杯名从该档**名字池**里确定性地换（同名同届永远同名）。
  */
 export interface CupTier {
+  /** 组别 id（与晋级赛共用） */
   id: string;
-  name: string;
+  /** 级别名：50赛 / 100赛… */
+  tag: string;
+  fee: number;
   glyph: string;
   color: string;
 }
 
-export const CUP_TIERS: CupTier[] = [
-  { id: 'god', name: '超神杯', glyph: '👑', color: '#ff5a5a' },
-  { id: 'gold', name: '黄金杯', glyph: '🥇', color: '#d8a534' },
-  { id: 'silver', name: '白银杯', glyph: '🥈', color: '#a9b4c2' },
-  { id: 'bronze', name: '青铜杯', glyph: '🥉', color: '#b0724a' },
-];
+const hexColor = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
 
-export const cupTier = (cup: number): CupTier => CUP_TIERS[((cup % CUP_TIERS.length) + CUP_TIERS.length) % CUP_TIERS.length];
+export const CUP_TIERS: CupTier[] = ARENA_TIERS.map((t) => ({
+  id: t.tier,
+  tag: t.label,
+  fee: t.fee,
+  glyph: t.glyph,
+  color: hexColor(t.color ?? 0xb0724a),
+}));
+
+export const cupTier = (cup: number): CupTier =>
+  CUP_TIERS[((cup % CUP_TIERS.length) + CUP_TIERS.length) % CUP_TIERS.length];
+
+/** 某档、某届的杯名：从名字池里确定性轮换（种子 = 杯+届） */
+export function worldCupName(cup: number, season: number): string {
+  const a = ARENA_TIERS[((cup % ARENA_TIERS.length) + ARENA_TIERS.length) % ARENA_TIERS.length];
+  const pool = a.names;
+  const pick = pool[hashStr(`cupname-c${cup}-s${season}`) % pool.length] ?? a.cup;
+  return pick;
+}
 
 /** 杯型（一轮几场）→ 轮次名：从 `ARENA_ROUNDS` 尾部截取（8 强杯 = 8 强/4 强/决赛） */
 export function roundNames(rounds: number): readonly string[] {
@@ -187,8 +204,10 @@ export type WorldMatchPhase = 'upcoming' | 'live' | 'ended';
 /** 一个杯当前的状态 */
 export interface CupState {
   id: number;
-  /** 段位（名字 / 图标 / 颜色） */
+  /** 档位（级别标签 / 图标 / 颜色，与晋级赛同源） */
   tier: CupTier;
+  /** 这一届的杯名（从该档名字池轮换，如「小白公开赛(50赛)」） */
+  name: string;
   /** 杯型对应的轮次名（8 强杯 = ['8 强赛','4 强赛','决赛']） */
   roundNames: readonly string[];
   season: number;
@@ -314,6 +333,7 @@ export function worldState(
     cups.push({
       id: c,
       tier: cupTier(c),
+      name: worldCupName(c, season),
       roundNames: roundNames(rounds.length),
       season,
       startAt,

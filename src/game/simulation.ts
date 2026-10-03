@@ -9,6 +9,15 @@ import {
   PLAYER_MARGIN,
   SHOULDER_DX,
   SHOULDER_DY,
+  STAMINA_HIT_DRAIN,
+  STAMINA_JUMP_DRAIN,
+  STAMINA_MAX,
+  STAMINA_POINT_RECOVER,
+  STAMINA_POWER_FLOOR,
+  STAMINA_REGEN_MOVING,
+  STAMINA_REGEN_STILL,
+  STAMINA_RUN_DRAIN,
+  STAMINA_SPEED_FLOOR,
 } from './constants';
 import {
   configFor,
@@ -74,6 +83,7 @@ export function makePlayer(index: 0 | 1): PlayerState {
     ry: -70,
     rvx: 0,
     rvy: 0,
+    stamina: STAMINA_MAX,
   };
 }
 
@@ -169,11 +179,16 @@ function stepPlayer(
   attrs: PlayerAttrs = NEUTRAL_ATTRS,
   /** extra distance from the net the player is not allowed to cross */
   netMargin = 0,
+  /** 体力系统只在正式对局生效（发球机 / 颠球挑战不消耗） */
+  useStamina = true,
 ): void {
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const targetVx = dir * cfg.playerSpeed * attrs.speed;
+  // 体力越低跑得越慢（最低六五折）：长回合追不到本来追得到的球
+  const stam = useStamina ? clamp(p.stamina / STAMINA_MAX, 0, 1) : 1;
+  const speedFactor = STAMINA_SPEED_FLOOR + (1 - STAMINA_SPEED_FLOOR) * stam;
+  const targetVx = dir * cfg.playerSpeed * attrs.speed * speedFactor;
   // 加速度同倍率放大，加速到顶速的时间不变，只是整体更快
-  const dv = cfg.playerAccel * attrs.speed * dt;
+  const dv = cfg.playerAccel * attrs.speed * speedFactor * dt;
   if (p.vx < targetVx) p.vx = Math.min(targetVx, p.vx + dv);
   else if (p.vx > targetVx) p.vx = Math.max(targetVx, p.vx - dv);
   p.x += p.vx * dt;
@@ -191,6 +206,19 @@ function stepPlayer(
     // 「弹跳」点把起跳初速放大
     p.vy = cfg.playerJumpV * attrs.jump;
     p.onGround = false;
+    if (useStamina) p.stamina = Math.max(0, p.stamina - STAMINA_JUMP_DRAIN);
+  }
+
+  // 体力结算：跑动消耗（按实际速度占比），不跑/慢走时缓缓恢复
+  if (useStamina) {
+    const runRatio = Math.min(1, Math.abs(p.vx) / Math.max(1, cfg.playerSpeed * attrs.speed));
+    if (runRatio > 0.08) {
+      p.stamina -= runRatio * STAMINA_RUN_DRAIN * dt;
+      p.stamina += STAMINA_REGEN_STILL * STAMINA_REGEN_MOVING * dt;
+    } else {
+      p.stamina += STAMINA_REGEN_STILL * dt;
+    }
+    p.stamina = clamp(p.stamina, 0, STAMINA_MAX);
   }
   p.vy += cfg.playerGravity * dt;
   p.y += p.vy * dt;
@@ -308,13 +336,17 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   }
 
   // 「力量」把击球力度整体放大（上限同步放宽，否则满级会顶到原来的天花板）；
-  // 「技术」抬高下限——挥拍不到位时球质也不至于崩掉
+  // 「技术」抬高下限——挥拍不到位时球质也不至于崩掉；
+  // 体力低了打不出全力（杀球变「推球」），并扣掉这次击球的体力
   const attrs = world.attrs[index];
+  const stam = clamp(p.stamina / STAMINA_MAX, 0, 1);
+  const powerFactor = STAMINA_POWER_FLOOR + (1 - STAMINA_POWER_FLOOR) * stam;
   const speed = clamp(
-    raw * cfg.shotSpeedGain * attrs.power,
+    raw * cfg.shotSpeedGain * attrs.power * powerFactor,
     cfg.shotSpeedMin * attrs.skill,
-    cfg.shotSpeedMax * attrs.power,
+    cfg.shotSpeedMax * attrs.power * powerFactor,
   );
+  if (world.mode === 'match') p.stamina = Math.max(0, p.stamina - STAMINA_HIT_DRAIN);
 
   shuttle.vx = p.facing * speed * Math.cos(elevation);
   shuttle.vy = -speed * Math.sin(elevation);
@@ -399,6 +431,8 @@ function startServe(world: World): void {
   world.lastHitter = -1;
   resetPlayer(world, 0);
   resetPlayer(world, 1);
+  // 每分之间小回一口气：体力像「本局的预算」，长回合多了全场一起累
+  for (const p of world.players) p.stamina = Math.min(STAMINA_MAX, p.stamina + STAMINA_POINT_RECOVER);
   world.shuttle.live = false;
   world.shuttle.vx = 0;
   world.shuttle.vy = 0;
@@ -707,10 +741,28 @@ export function stepWorld(
     // nobody may crowd the net while a serve is being set up
     const netMargin =
       world.phase === 'serve' && world.mode === 'match' ? cfg.serveNetMargin : 0;
-    stepPlayer(world.players[0], 0, inputs[0], dt, cfg, world.attrs[0], netMargin);
+    stepPlayer(
+      world.players[0],
+      0,
+      inputs[0],
+      dt,
+      cfg,
+      world.attrs[0],
+      netMargin,
+      world.mode === 'match',
+    );
     // the feeder has no body on court, so slot 1 is left parked
     if (world.mode !== 'machine') {
-      stepPlayer(world.players[1], 1, inputs[1], dt, cfg, world.attrs[1], netMargin);
+      stepPlayer(
+        world.players[1],
+        1,
+        inputs[1],
+        dt,
+        cfg,
+        world.attrs[1],
+        netMargin,
+        world.mode === 'match',
+      );
     }
   }
 
@@ -802,6 +854,7 @@ export function serializeWorld(w: World, events?: SimEvent[]): WorldSnapshot {
     p.ry,
     p.rvx,
     p.rvy,
+    p.stamina,
   ];
   return {
     s: [w.shuttle.x, w.shuttle.y, w.shuttle.vx, w.shuttle.vy, w.shuttle.live],
@@ -855,6 +908,8 @@ export function applySnapshot(world: World, snap: WorldSnapshot): void {
     p.ry = src[8];
     p.rvx = src[9];
     p.rvy = src[10];
+    // 旧版主机的快照没有这个字段：当作满体力
+    p.stamina = src.length > 11 && Number.isFinite(src[11]) ? src[11] : STAMINA_MAX;
   }
   world.score[0] = snap.sc[0];
   world.score[1] = snap.sc[1];
@@ -895,6 +950,7 @@ export function lerpWorld(dst: World, src: World, t: number): void {
     a.ry = b.ry;
     a.rvx = b.rvx;
     a.rvy = b.rvy;
+    a.stamina = b.stamina;
   }
   dst.score[0] = src.score[0];
   dst.score[1] = src.score[1];

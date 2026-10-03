@@ -1,4 +1,4 @@
-import { NET_TOP, NET_X, PLAYER_H } from './constants';
+import { NET_TOP, NET_X, PLAYER_H, STAMINA_BLUNDER, STAMINA_MAX } from './constants';
 import { clamp, minReleaseFor, simulateTrajectory } from './physics';
 import { homeX, shoulderPoint } from './simulation';
 import type { PlayerInput, World } from './types';
@@ -395,8 +395,10 @@ export class AIController {
         const nearNet = Math.abs(p.x - NET_X) < 340 * (0.7 + 0.45 * beh.aggression);
         const aboveNet = shuttle.y < NET_TOP - 30;
 
-        // 这一板的执行波动**先掷好**：仰角抖动 / 力度抖动 / 偶尔手一抖（技术差的人抖得厉害）
-        const blunder = Math.random() < beh.blunder;
+        // 这一板的执行波动**先掷好**：仰角抖动 / 力度抖动 / 偶尔手一抖（技术差的人抖得厉害）；
+        // 体力低了手更容易软——失误率随体力下降明显上升（空体力再叠 16%）
+        const stam = clamp(p.stamina / STAMINA_MAX, 0, 1);
+        const blunder = Math.random() < beh.blunder + (1 - stam) * STAMINA_BLUNDER;
         const jitterE =
           (Math.random() * 2 - 1) * beh.aimError + (blunder ? (Math.random() * 2 - 1) * 0.22 : 0);
         const speedJ = 1 + (Math.random() * 2 - 1) * beh.control - (blunder ? 0.38 : 0);

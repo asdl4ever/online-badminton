@@ -163,6 +163,9 @@ button {
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
+  /* 手机端防一条竖着的黑边：缩放/平移的大图层不允许把内容挤出视口 */
+  max-width: 100vw;
+  max-width: 100dvw;
 }
 
 .page--playing .shell-ui {
@@ -1085,6 +1088,14 @@ h3 {
   min-width: 0;
 }
 
+/* 横屏时铺进刘海/挖孔：viewport-fit=cover 有些内核（微信 X5、部分 WebView）不认，
+   再声明一次 CSS 版的 @viewport；仍不认的内核是浏览器级留黑，网页无权绘制那块区域 */
+@viewport {
+  width: device-width;
+  initial-scale: 1;
+  viewport-fit: cover;
+}
+
 /* ==========================================================================
    大地图（WorldView）：俯视平面 + 区域地块 + 摇杆
    ========================================================================== */
@@ -1100,7 +1111,10 @@ h3 {
   position: absolute;
   left: 0;
   top: 0;
-  will-change: transform;
+  /* 注意：不要给这张 2400×1400 的大图加 will-change / translate3d 之类强制合成，
+     Android Chrome 对超大合成层会渲染出竖条状的黑色伪影（手机端左边黑条的元凶）。
+     平移/缩放用普通 transform，浏览器滚动跟手时自然会临时提升。 */
+  transform-origin: 0 0;
 }
 
 .world__path {

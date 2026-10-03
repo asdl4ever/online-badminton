@@ -1,5 +1,5 @@
 import type { AiPlayer, PlayerStats } from './players';
-import { GROUPS } from './ranks';
+import { ARENA_TIERS } from './arena';
 import { WORLD_CUPS } from './world-arena';
 
 /**
@@ -138,15 +138,20 @@ export function winRateText(wins: number | undefined, losses: number | undefined
   return `${Math.round(winRateOf(wins, losses, rating) * 100)}%`;
 }
 
-/** 抽一个杯名：实力越强越可能打世界赛事 / 高段位杯 */
-function pickCup(rng: () => number, power: number): string {
-  if (rng() < 0.12 + 0.4 * power) return WORLD_CUPS[Math.floor(rng() * WORLD_CUPS.length)];
-  const span = GROUPS.length - 1;
-  const tier = Math.max(
-    0,
-    Math.min(span, Math.round(power * span + (rng() - 0.5) * 1.6)),
-  );
-  return GROUPS[tier].cup;
+/**
+ * 抽一届赛事名：实力越强越可能打世界赛事 / 高级别赛事。
+ * 普通赛事按「年份-级别 赛事名(级别)」命名，如「2026-50 新芽杯(50赛)」；
+ * 世界赛事没有级别，就是「2026·世界巡回赛」。
+ */
+function pickCup(rng: () => number, power: number, year: number): string {
+  if (rng() < 0.12 + 0.4 * power) {
+    return `${year}·${WORLD_CUPS[Math.floor(rng() * WORLD_CUPS.length)]}`;
+  }
+  const span = ARENA_TIERS.length - 1;
+  const tier = Math.max(0, Math.min(span, Math.round(power * span + (rng() - 0.5) * 1.6)));
+  const a = ARENA_TIERS[tier];
+  const name = a.names[Math.floor(rng() * a.names.length)] ?? a.cup;
+  return `${year}-${a.fee} ${name}(${a.fee}赛)`;
 }
 
 /** 抽名次：强的人更容易夺冠，弱的多数止步前两轮 */
@@ -189,7 +194,7 @@ export function careerOf(
     const entry: CareerEntry = {
       ts,
       month: monthOf(ts),
-      cup: pickCup(rng, power),
+      cup: pickCup(rng, power, new Date(ts).getFullYear()),
       placing,
       round: ROUND_OF[placing],
       beaten: BEATEN_OF[placing],

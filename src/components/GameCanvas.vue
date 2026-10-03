@@ -49,6 +49,8 @@ const emit = defineEmits<{
 }>();
 
 const container = ref<HTMLDivElement | null>(null);
+/** 留一份最新 HUD 在组件里：给叠在画布上的双方体力条用 */
+const hud = ref<HudState | null>(null);
 let game: Phaser.Game | null = null;
 
 function scene(): GameScene | null {
@@ -81,7 +83,10 @@ onMounted(async () => {
   const cfg: MatchConfig = {
     role: props.role,
     session: props.session,
-    onHud: (s) => emit('hud', s),
+    onHud: (s) => {
+      hud.value = s;
+      emit('hud', s);
+    },
     onDisconnect: (m) => emit('disconnect', m),
     onEvent: (e) => emit('sim', e),
     onMetrics: (m) => emit('metrics', m),
@@ -135,11 +140,28 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="container" class="game-canvas" />
+  <div ref="container" class="game-canvas">
+    <!-- 双方体力条：跑动/击球扣体力，低了跑得慢、击球软、AI 更容易失误 -->
+    <div v-if="hud" class="stam-row">
+      <div class="stam" :class="{ 'is-me': hud.localIndex === 0 }">
+        <i
+          :class="{ 'is-low': hud.stamina[0] < 30 }"
+          :style="{ width: `${hud.stamina[0]}%` }"
+        />
+      </div>
+      <div class="stam stam--right" :class="{ 'is-me': hud.localIndex === 1 }">
+        <i
+          :class="{ 'is-low': hud.stamina[1] < 30 }"
+          :style="{ width: `${hud.stamina[1]}%` }"
+        />
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
 .game-canvas {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: var(--surface);
@@ -152,5 +174,43 @@ onBeforeUnmount(() => {
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+.stam-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  gap: 34px;
+  padding: 0 10px;
+  pointer-events: none;
+}
+
+.stam {
+  flex: 1;
+  height: 7px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(8, 14, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.stam i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #35c26e, #7fe08f);
+  transition: width 0.18s linear;
+}
+
+.stam i.is-low {
+  background: linear-gradient(90deg, #d8483c, #ff7a5c);
+}
+
+.stam.is-me {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 </style>

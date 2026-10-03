@@ -296,8 +296,10 @@ function onEvent(e: SimEvent): void {
                 class="cup-card"
                 :class="{ 'is-locked': progress.points < c.req }"
               >
-                <div class="cup-card__cup">{{ c.cup }}</div>
-                <div class="muted cup-card__group">{{ c.label }}</div>
+                <div class="cup-card__cup">{{ c.glyph }} {{ c.cup }}</div>
+                <div class="muted cup-card__group">
+                  {{ c.label }} · {{ c.names.length }} 个赛事名每届轮换
+                </div>
 
                 <div class="cup-card__meta">
                   <div>门槛 <b class="num">{{ c.req }}</b> 分</div>

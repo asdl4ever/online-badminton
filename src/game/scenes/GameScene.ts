@@ -88,6 +88,8 @@ export interface HudState {
   roomCode: string;
   opponentConnected: boolean;
   server: 0 | 1;
+  /** 双方体力（0~100，取整）；[本地视角左, 右] */
+  stamina: [number, number];
   /** ball-machine session stats (only present while mode === 'machine') */
   machine?: {
     streak: number;
@@ -1504,9 +1506,13 @@ export class GameScene extends Phaser.Scene {
             feeds: m.feeds,
           }
         : undefined;
+    const stamina: [number, number] = [
+      Math.round(w.players[0].stamina),
+      Math.round(w.players[1].stamina),
+    ];
     const key = `${w.score[0]}:${w.score[1]}:${w.phase}:${w.winner}:${w.server}:${roomCode}:${opponentConnected}:${
       machine ? `${m.streak}:${m.best}:${m.misses}` : ''
-    }`;
+    }:${stamina[0]}:${stamina[1]}`;
     if (!force && key === this.lastHud) return;
     this.lastHud = key;
     this.cfg.onHud({
@@ -1518,6 +1524,7 @@ export class GameScene extends Phaser.Scene {
       opponentConnected,
       server: w.server,
       machine,
+      stamina,
     });
   }
 

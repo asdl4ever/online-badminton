@@ -175,6 +175,22 @@ const matchNote = computed<Record<string, string>>(() => {
 /** 正在直播的那些场次的键（树状图上给「👁 观看」按钮） */
 const liveKeys = computed(() => cupLive.value.map((l) => MATCH_KEY(l.round, l.index)));
 
+/** 大屏下方的「场地」签：本轮同时在打的每场一个，点谁切谁 */
+const courtChips = computed(() => {
+  const c = cup.value;
+  if (!c) return [];
+  const nm = (id: string) => c.entrants.find((e) => e.id === id)?.name ?? '—';
+  return cupLive.value.map((l, i) => {
+    const m = c.rounds[l.round]?.[l.index];
+    return {
+      key: MATCH_KEY(l.round, l.index),
+      round: l.round,
+      index: l.index,
+      label: `场地${i + 1} · ${nm(m?.a ?? '')} VS ${nm(m?.b ?? '')}`,
+    };
+  });
+});
+
 /** 大屏正在播的那一场（树状图上标「📺 正在播」） */
 const activeKey = computed(() => {
   const b = broadcast.value;
@@ -501,7 +517,7 @@ const marquee = computed(() => {
   const c = cup.value;
   const b = broadcast.value;
   if (!c) return '';
-  const head = `${c.tier.glyph} ${c.tier.name} · 第 ${c.season % 1000 + 1} 届`;
+  const head = `${c.tier.glyph} ${c.name}(${c.tier.tag}) · 第 ${c.season % 1000 + 1} 届`;
   if (b) return `${head} · ${c.roundNames[b.round] ?? ''} · ${b.a.name} VS ${b.b.name}`;
   if (c.round >= c.rounds.length) return `${head} · 本届已结束`;
   return `${head} · 轮次间隙 · 下一轮 ${cupWait.value ?? ''}`;
@@ -566,7 +582,24 @@ function paintScreen(now: number): void {
   g.fillStyle(0x9fd8ff, 0.1);
   g.fillEllipse(W * 0.25, baseY + 4 * s, W * 0.221, 26 * s);
   g.fillEllipse(W * 0.75, baseY + 4 * s, W * 0.221, 26 * s);
-  void now;
+
+  // 同步倒计时：下一轮（本届没打完）或下一届开打——每帧重画，永远和真实时刻对得上
+  const c = cup.value;
+  if (c) {
+    const finished = c.round >= c.rounds.length;
+    const ms = finished ? Math.max(0, c.nextAt - now) : Math.max(0, c.liveFrom - now);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#eaf6ff';
+    ctx.font = `700 ${Math.round(52 * s)}px 'Chakra Petch', sans-serif`;
+    ctx.fillText(mmss(ms), W / 2, H * 0.44);
+    ctx.fillStyle = 'rgba(214, 232, 250, 0.85)';
+    ctx.font = `600 ${Math.round(19 * s)}px sans-serif`;
+    ctx.fillText(
+      `${c.tier.glyph} ${c.name}(${c.tier.tag}) · ${finished ? '下一届开打' : '下一轮开打'}`,
+      W / 2,
+      H * 0.55,
+    );
+  }
 }
 
 /* --- 坐下 / 站起来 ----------------------------------------------------------- */
@@ -772,7 +805,8 @@ const detailOpen = ref(false);
 const cupChips = computed(() =>
   world.value.cups.map((c) => ({
     id: c.id,
-    name: c.tier.name,
+    name: c.name,
+    tag: c.tier.tag,
     glyph: c.tier.glyph,
     color: c.tier.color,
     entrants: c.entrants.length,
@@ -943,6 +977,24 @@ function back(): void {
               </template>
             </div>
 
+            <!-- 场地切换：本轮同时在打的几场，点谁大屏切到谁 -->
+            <div
+              v-if="courtChips.length"
+              class="courts"
+              :style="{ left: `${SCR.x}px`, top: `${SCR.y + SCR.h + 8}px`, width: `${SCR.w}px` }"
+            >
+              <button
+                v-for="ch in courtChips"
+                :key="ch.key"
+                class="courts__chip num"
+                :class="{ 'is-on': ch.key === activeKey }"
+                type="button"
+                @click="watchMatch(ch.round, ch.index)"
+              >
+                {{ ch.label }}
+              </button>
+            </div>
+
             <!-- 座位靠背（在角色后面） -->
             <div
               v-for="s in seatList"
@@ -1096,7 +1148,7 @@ function back(): void {
         <Panel v-if="cup" class="watch-tree">
           <div class="watch-tree__head">
             <b :style="{ color: cup.tier.color }">
-              {{ cup.tier.glyph }} {{ cup.tier.name }} · 第 {{ cup.season % 1000 + 1 }} 届
+              {{ cup.tier.glyph }} {{ cup.name }}({{ cup.tier.tag }}) · 第 {{ cup.season % 1000 + 1 }} 届
             </b>
             <span class="muted">
               {{ cup.live ? `🔴 ${cupLive.length} 场同时在打 · 点「👁 观看」切台` : `本轮间隙 · 下一轮 ${cupWait ?? ''}` }}
@@ -1141,7 +1193,7 @@ function back(): void {
         <Panel v-if="cup" class="watch-who">
           <div class="watch-who__head">
             <b>👥 谁在打哪个赛事</b>
-            <span class="muted">{{ cup.tier.name }} 这一届 {{ cup.entrants.length }} 位参赛球员的进程</span>
+            <span class="muted">{{ cup.name }}({{ cup.tier.tag }}) 这一届 {{ cup.entrants.length }} 位参赛球员的进程</span>
           </div>
           <div class="who-list">
             <button
@@ -1387,6 +1439,37 @@ function back(): void {
 }
 
 /* ---------- 大屏幕 ---------- */
+/* 大屏下方的场地签：本轮同时在打的几场，点谁切谁 */
+.courts {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.courts__chip {
+  flex: none;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(150, 200, 255, 0.28);
+  background: rgba(10, 18, 32, 0.72);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.courts__chip.is-on {
+  border-color: #ff6a72;
+  color: #ffd7d9;
+  background: rgba(80, 20, 26, 0.7);
+}
+
 .scr {
   position: absolute;
   z-index: 5;

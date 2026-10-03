@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { useLocalStorage } from '@vueuse/core';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
@@ -297,6 +298,49 @@ const showJoy = computed(() => isTouchDevice() || joyAlways.value);
 const held = new Set<string>();
 const MOVED_SPEED = 400; // px/s
 const cam = ref({ x: 0, y: 0 });
+
+/* --- 视距（zoom）：双指捏合或右侧按钮调，镜头始终以自己为中心 --------------- */
+const ZOOM_MIN = 0.55;
+const ZOOM_MAX = 1.4;
+/** 记在本机：下次进来还是这个视距 */
+const zoom = useLocalStorage('bmt-world-zoom', 1);
+const zoomPct = computed(() => Math.round(clampZoom(zoom.value) * 100));
+const clampZoom = (v: number): number => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v));
+function setZoom(v: number): void {
+  zoom.value = clampZoom(v);
+}
+function nudgeZoom(dir: 1 | -1): void {
+  sfx.click();
+  setZoom(zoom.value * (dir > 0 ? 1.15 : 1 / 1.15));
+}
+/** 双指捏合：两根手指都按在地图上时，按间距比例缩放 */
+const pinchPts = new Map<number, { x: number; y: number }>();
+let pinchDist = 0;
+function onWorldPointerDown(e: PointerEvent): void {
+  // 摇杆 / 视距按钮 / 进入按钮上的手指不参与捏合（走路时另一只手点地图不能误触缩放）
+  if ((e.target as HTMLElement | null)?.closest?.('.joy, .joy-zone, .zoomer, .world-enter')) return;
+  pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinchPts.size === 2) pinchDist = pinchSpread();
+}
+function onWorldPointerMove(e: PointerEvent): void {
+  const p = pinchPts.get(e.pointerId);
+  if (!p) return;
+  p.x = e.clientX;
+  p.y = e.clientY;
+  if (pinchPts.size === 2 && pinchDist > 0) {
+    const d = pinchSpread();
+    if (d > 0) setZoom(zoom.value * (d / pinchDist));
+    pinchDist = d;
+  }
+}
+function onWorldPointerUp(e: PointerEvent): void {
+  pinchPts.delete(e.pointerId);
+  pinchDist = 0;
+}
+function pinchSpread(): number {
+  const [a, b] = [...pinchPts.values()];
+  return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+}
 const nearZone = ref<WorldZone | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
@@ -493,17 +537,22 @@ function stepNpcs(dt: number): void {
 
 function updateCamera(): void {
   const box = stage.value?.getBoundingClientRect();
-  const viewW = box?.width ?? 844;
-  const viewH = box?.height ?? 390;
+  const z = clampZoom(zoom.value);
+  // 视口按缩放折算成「世界像素」；镜头在世界坐标系里跟着人走
+  const viewW = (box?.width ?? 844) / z;
+  const viewH = (box?.height ?? 390) / z;
+  const spanX = WORLD_W - viewW;
+  const spanY = WORLD_H - viewH;
   cam.value = {
-    x: Math.max(0, Math.min(WORLD_W - viewW, me.value.x - viewW / 2)),
-    y: Math.max(0, Math.min(WORLD_H - viewH, me.value.y - viewH / 2)),
+    // 缩得太小、世界比视口还小时给负值（居中），否则夹在 [0, 跨度]
+    x: spanX <= 0 ? spanX / 2 : Math.max(0, Math.min(spanX, me.value.x - viewW / 2)),
+    y: spanY <= 0 ? spanY / 2 : Math.max(0, Math.min(spanY, me.value.y - viewH / 2)),
   };
   if (plane.value) {
     // 震屏：镜头整体抖几像素（衰减在 loop 里）
     const sx = shake > 0 ? (Math.random() - 0.5) * 16 * shake : 0;
     const sy = shake > 0 ? (Math.random() - 0.5) * 16 * shake : 0;
-    plane.value.style.transform = `translate(${-cam.value.x + sx}px, ${-cam.value.y + sy}px)`;
+    plane.value.style.transform = `scale(${z}) translate(${-cam.value.x + sx}px, ${-cam.value.y + sy}px)`;
   }
 
   let near: WorldZone | null = null;
@@ -580,6 +629,21 @@ function onZoneClick(z: WorldZone): void {
   if (nearZone.value?.id === z.id) enterZone(z);
   else toastWarn(`「${z.name}」还太远，先走过去`);
 }
+
+/**
+ * 右下角的「进入」按钮（手机主要入口，桌面也能点）：
+ * 靠近区域圈时出现——收购商优先（他站在圈外），否则是最近的区域。
+ */
+const enterHint = computed<{ label: string; go: () => void } | null>(() => {
+  if (eventsOpen.value || comboOpen.value || tradeOpen.value) return null;
+  if (nearTrader.value)
+    return { label: `💰 和${nearTrader.value.name}换钱`, go: () => openTrade(nearTrader.value!) };
+  if (nearZone.value) {
+    const z = nearZone.value;
+    return { label: `🚪 进入 ${z.name}`, go: () => enterZone(z) };
+  }
+  return null;
+});
 
 function onKeyDown(e: KeyboardEvent): void {
   // 弹窗开着时不响应键盘走动 / 按 E 进区域（不然一边看活动一边被传走）
@@ -682,7 +746,14 @@ onBeforeUnmount(() => {
     </template>
 
     <template #stage>
-      <div ref="stage" class="world">
+      <div
+        ref="stage"
+        class="world"
+        @pointerdown="onWorldPointerDown"
+        @pointermove="onWorldPointerMove"
+        @pointerup="onWorldPointerUp"
+        @pointercancel="onWorldPointerUp"
+      >
         <div ref="plane" class="world__plane" :style="{ width: `${WORLD_W}px`, height: `${WORLD_H}px` }">
           <div class="world__path" style="left: 0; top: 620px; width: 2400px; height: 120px" />
           <div class="world__path" style="left: 1080px; top: 0; width: 130px; height: 1400px" />
@@ -876,6 +947,25 @@ onBeforeUnmount(() => {
         <!-- 左：走动；右：控球拍（松手回到斜举姿势） -->
         <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
         <Joystick v-if="showJoy" side="right" @move="(x, y) => (racketJoy = { x, y })" />
+
+        <!-- 视距：双指捏合之外，右缘也给一列按钮（缩小 / 比例 / 放大 / 复位） -->
+        <div class="zoomer num">
+          <button class="zoomer__btn" type="button" title="放大" @click="nudgeZoom(1)">＋</button>
+          <button
+            class="zoomer__pct"
+            type="button"
+            title="恢复默认视距"
+            @click="sfx.click(), (zoom = 1)"
+          >
+            {{ zoomPct }}%
+          </button>
+          <button class="zoomer__btn" type="button" title="缩小" @click="nudgeZoom(-1)">－</button>
+        </div>
+
+        <!-- 靠近区域 / 收购商：右下角出现「进入」按钮（层级压过摇杆热区，点它不会走人） -->
+        <button v-if="enterHint" class="world-enter" type="button" @click="enterHint.go()">
+          {{ enterHint.label }}
+        </button>
       </div>
     </template>
   </PageShell>
@@ -938,6 +1028,91 @@ onBeforeUnmount(() => {
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-dim);
+}
+
+/* --- 视距按钮（右缘中间，避开底部两颗摇杆和顶部一排图标） -------------------- */
+.zoomer {
+  position: absolute;
+  right: max(8px, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 26;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.zoomer__btn,
+.zoomer__pct {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  color: var(--text);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: var(--glass-shadow);
+}
+
+.zoomer__btn {
+  width: 38px;
+  height: 38px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.zoomer__pct {
+  min-width: 38px;
+  padding: 3px 4px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.zoomer__btn:active,
+.zoomer__pct:active {
+  transform: scale(0.92);
+}
+
+/* --- 右下角「进入」按钮：靠近区域圈时出现 ----------------------------------- */
+.world-enter {
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right));
+  /* 抬到底部摇杆（最大 156px）之上，固定/自由摇杆都挡不到它 */
+  bottom: calc(env(safe-area-inset-bottom) + 186px);
+  z-index: 32;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(180deg, #37d67a, #1fa85c);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: 0 10px 26px rgba(20, 120, 60, 0.45);
+  cursor: pointer;
+  animation: enter-pop 0.22s var(--ease);
+}
+
+.world-enter:active {
+  transform: scale(0.94);
+}
+
+@keyframes enter-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+}
+
+@media (pointer: fine) {
+  /* 桌面没有底部摇杆时贴角放，不占中间视野 */
+  .world-enter {
+    bottom: calc(env(safe-area-inset-bottom) + 24px);
+  }
 }
 
 /* 坞里的房号输入：手机端也刚好能戳 */

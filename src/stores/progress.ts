@@ -103,6 +103,7 @@ import {
 import {
   ARENA_COOLDOWN_MS,
   ARENA_ROUNDS,
+  ARENA_TIERS,
   PLACE_LABEL,
   SEASON_REWARDS,
   arenaByTier,
@@ -814,22 +815,23 @@ export const useProgressStore = defineStore('progress', () => {
    * - **其余杯赛**：从名人堂名录里抽（杯赛越高抽到的一档越强），最后两档必定拉上皮泽恩。
    */
   function buildEntrants(tier: TierId, meName: string): ArenaEntrant[] {
-    const tierIdx = TIERS.findIndex((t) => t.id === tier);
+    const tierIdx = ARENA_TIERS.findIndex((t) => t.tier === tier);
+    const idx = tierIdx < 0 ? ARENA_TIERS.length - 1 : tierIdx;
     const want = 2 ** ARENA_ROUNDS.length - 1; // 16 人 → 15 位 AI
 
     let opponents: ArenaEntrant[];
-    if (tierIdx < ROOKIE_TIERS) {
+    if (idx < ROOKIE_TIERS) {
       // 低档杯赛：当场生成一批路人弱手（名字池洗牌后取 15 个，不重复）
       const names = shuffleList([...ROOKIE_NAMES]);
-      opponents = Array.from({ length: want }, (_, i) => makeRookie(tierIdx, names[i % names.length]));
+      opponents = Array.from({ length: want }, (_, i) => makeRookie(idx, names[i % names.length]));
     } else {
       const sorted = [...aiPlayers.value].sort((a, b) => b.rating - a.rating);
       const span = Math.max(0, sorted.length - want);
       // 杯赛越高，抽到的一档越强
-      const start = Math.round((1 - tierIdx / Math.max(1, TIERS.length - 1)) * span);
+      const start = Math.round((1 - idx / Math.max(1, ARENA_TIERS.length - 1)) * span);
       const chosen = sorted.length <= want ? [...sorted] : sorted.slice(start, start + want);
       // 传奇球员皮泽恩只打高级赛事：最后两档杯赛必定拉他进 16 人名单
-      if (tierIdx >= TIERS.length - 2 && !chosen.some((p) => p.id === LEGEND_ID) && chosen.length) {
+      if (idx >= ARENA_TIERS.length - 2 && !chosen.some((p) => p.id === LEGEND_ID) && chosen.length) {
         const legend = sorted.find((p) => p.id === LEGEND_ID);
         if (legend) chosen.splice(chosen.length - 1, 1, legend);
       }

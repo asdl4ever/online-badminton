@@ -50,6 +50,8 @@ export interface PlayerState {
   /** racket head velocity */
   rvx: number;
   rvy: number;
+  /** 体力 0..STAMINA_MAX：跑动/击球消耗，低了跑得慢、击球软、AI 更容易失误 */
+  stamina: number;
 }
 
 export interface ShuttleState {
