@@ -6,8 +6,9 @@
  * - 玩家 3 颗心：被激光扫到或被火球砸中（没拍回去）掉一颗，扣完挑战失败；
  * - 每天免费 3 次挑战（隔天重置），失败也消耗次数；
  * - 三档难度自选（简单 / 普通 / 地狱），血量与弹幕随档位变狠，奖励也随档位放大；
- * - 首次击杀（任意难度）送一套「哥斯拉来袭」限定装扮（见 `GZ_SET_IDS`）；
- *   重复击杀按难度给金币 + 荣誉点。
+ * - **血条清空 = 击杀成功**（`GodzillaScene` 收到 `hp <= 0` 就收尾）；
+ * - 每次击杀摇一次**三选一战利品**（`GZ_REWARD_ODDS`）：金币 / 该档限定皮肤 / 宝箱钥匙，
+ *   荣誉点不参与摇奖、打赢就固定给。
  */
 export const GZ_NAME = '哥斯拉';
 
@@ -33,9 +34,12 @@ export interface GzDiffConfig {
   laserEvery: number;
   /** 激光横扫速度（px/s） */
   laserSpeed: number;
-  /** 击杀奖励：金币 / 荣誉点 */
+  /** 击杀奖励：金币（摇到金币档才发） */
   coins: number;
+  /** 荣誉点（打赢就固定给，不参与摇奖） */
   honor: number;
+  /** 摇到钥匙档时给几把宝箱钥匙（越难给得越多） */
+  keys: number;
 }
 
 export const GZ_DIFFS: Record<GzDifficulty, GzDiffConfig> = {
@@ -50,6 +54,7 @@ export const GZ_DIFFS: Record<GzDifficulty, GzDiffConfig> = {
     laserSpeed: 220,
     coins: 400,
     honor: 20,
+    keys: 1,
   },
   normal: {
     id: 'normal',
@@ -62,6 +67,7 @@ export const GZ_DIFFS: Record<GzDifficulty, GzDiffConfig> = {
     laserSpeed: 330,
     coins: 1000,
     honor: 50,
+    keys: 2,
   },
   hell: {
     id: 'hell',
@@ -74,14 +80,15 @@ export const GZ_DIFFS: Record<GzDifficulty, GzDiffConfig> = {
     laserSpeed: 460,
     coins: 2500,
     honor: 120,
+    keys: 3,
   },
 };
 
 export const GZ_DIFF_ORDER: GzDifficulty[] = ['easy', 'normal', 'hell'];
 
 /**
- * 首杀限定套装「哥斯拉来袭」：**哥斯拉形象** + 背鳍光焰（光环）· 鳞甲披风（披风）·
- * 原子吐息（挥拍拖尾）· 原子烈焰（命中特效）。只有首杀送，不可购买。
+ * 限定套装「哥斯拉来袭」：**哥斯拉形象** + 背鳍光焰（光环）· 鳞甲披风（披风）·
+ * 原子吐息（挥拍拖尾）· 原子烈焰（命中特效）。只能从哥斯拉身上掉，不可购买。
  */
 export const GZ_SET_IDS = [
   'skin:godzilla',
@@ -90,3 +97,24 @@ export const GZ_SET_IDS = [
   'swingTrail:atomic',
   'effect:gzfire',
 ];
+
+/**
+ * 每次**击败**哥斯拉摇一次的战利品概率（加起来 = 1）：
+ * - `coins` **50%**：发该档的 `coins`；
+ * - `skin` **20%**：从该档的限定里挑一件**还没拥有的**（见 `GZ_DROPS`）——
+ *   **这一档全拿齐了就不再重复给**，折算成 `coins` 那份金币；
+ * - `keys` **30%**：发该档的 `keys` 把宝箱钥匙（越难给得越多）。
+ *
+ * 荣誉点不参与摇奖：打赢就固定给 `honor`（它是荣誉商店的唯一货币，不该被概率掐掉）。
+ */
+export const GZ_REWARD_ODDS = { coins: 0.5, skin: 0.2, keys: 0.3 } as const;
+
+/**
+ * 三档难度各自绑定的限定物件（`skin` 档那 20% 从这里出）：
+ * 简单档给两件小件，**地狱档才是哥斯拉皮肤本身**，各档之间不重叠。
+ */
+export const GZ_DROPS: Record<GzDifficulty, { ids: string[] }> = {
+  easy: { ids: ['effect:gzfire', 'swingTrail:atomic'] },
+  normal: { ids: ['aura:dorsal', 'cape:scalecape'] },
+  hell: { ids: ['skin:godzilla'] },
+};

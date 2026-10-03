@@ -8,6 +8,7 @@ import {
   NET_X,
   NET_INPUT_HZ,
   PLAYER_H,
+  PLAYER_SPEED,
   SHOULDER_DX,
   SHOULDER_DY,
   VIEW_H,
@@ -48,7 +49,7 @@ import {
 import { AIController, NEUTRAL_STATS } from '../ai';
 import { attrsFromStats, type PlayerStats } from '../players';
 import { createControls, readControls, type ControlKeys } from '../input';
-import { RacketTracker } from '../racket';
+import { RacketTracker, SwingPath } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
 import { debugOverlayEnabled, joystickAlwaysOn } from '../device';
 import {
@@ -72,6 +73,7 @@ import { NEUTRAL_ATTRS, sanitizeAttrs, type PlayerAttrs } from '../attrs';
 import { drawCharacter } from '../draw/character';
 import { drawSwingTrail } from '../draw/rig';
 import { drawRacketHead, racketFrameColor } from '../draw/racket';
+import { THEME_TRAILS, drawThemeTrail } from '../draw/themeart';
 import { isTierId, tierById, type TierId } from '../ranks';
 import { EMOTE_BY_ID, EMOTE_COOLDOWN_MS, EMOTE_LIFE_S } from '../emotes';
 import { EFFECT_PAINTERS, EFFECT_SPAN, paintDefault, type HitFlash } from '../effects';
@@ -178,6 +180,9 @@ export class GameScene extends Phaser.Scene {
   private specLeftInput: PlayerInput = { ...EMPTY_INPUT };
   private specRightInput: PlayerInput = { ...EMPTY_INPUT };
   private racket!: RacketTracker;
+  /** 每个玩家的挥拍轨迹采样（渲染层自己记，所以 AI / 联机对手也有真轨迹拖尾） */
+  private swingPath: SwingPath[] = [new SwingPath(), new SwingPath()];
+  private trailT = [0, 0];
   private touchControls: TouchControls | null = null;
   private telemetry = new Telemetry();
   private pingAccum = 0;
@@ -853,6 +858,15 @@ export class GameScene extends Phaser.Scene {
         ? Phaser.Display.Color.HSVToRGB((f + now / 4000) % 1, 0.85, 1).color
         : base;
 
+    // 新主题宝箱的击球拖尾：走 themeart 的通用画法
+    const themeTrail = THEME_TRAILS[style];
+    if (themeTrail) {
+      drawThemeTrail(g, themeTrail, this.trail, fade, now, base);
+      g.fillStyle(base, 0.45 * fade);
+      g.fillCircle(head.x, head.y, 5);
+      return;
+    }
+
     for (let i = 1; i < n; i++) {
       const p0 = this.trail[i - 1];
       const p1 = this.trail[i];
@@ -905,6 +919,18 @@ export class GameScene extends Phaser.Scene {
             g.lineStyle(1.5, 0xffffff, a);
             g.lineBetween(p1.x - 3, p1.y, p1.x + 3, p1.y);
             g.lineBetween(p1.x, p1.y - 3, p1.x, p1.y + 3);
+          }
+          break;
+        }
+        case 'stardust': {
+          // 星尘拖尾：拖尾上缀着一路碎星，边上泛冷光
+          g.lineStyle(2 + f * 5, color, a * 1.15);
+          g.lineBetween(p0.x, p0.y, p1.x, p1.y);
+          if (i % 2 === 0) {
+            g.fillStyle(0xffffff, a * 0.85);
+            g.fillCircle(p1.x, p1.y, wdt * 0.28);
+            g.fillStyle(0x8fe0ff, a * 0.6);
+            g.fillCircle(p1.x + (i % 4 ? 2 : -2), p1.y - 2, wdt * 0.18);
           }
           break;
         }
@@ -1917,9 +1943,11 @@ export class GameScene extends Phaser.Scene {
       facing: p.facing,
       color: i === 0 ? P.player0 : P.player1,
       belly: this.belly[i],
+      // 横向移动强度：给 U熊的肚子 / 老皮的屁股做走路时的抖颤
+      move: Math.min(1, Math.abs(p.vx) / PLAYER_SPEED),
     }, { face: this.faces[i], overG: this.overG });
 
-    this.drawRacket(g, p, pos.x, pos.y, cos, this.world.attrs[i]);
+    this.drawRacket(g, p, pos.x, pos.y, cos, this.world.attrs[i], i);
   }
 
 
@@ -1934,6 +1962,7 @@ export class GameScene extends Phaser.Scene {
     y: number,
     cos: Cosmetic,
     attrs: PlayerAttrs,
+    pi: number,
   ): void {
     const shoulder = {
       x: x + p.facing * SHOULDER_DX,
@@ -1942,11 +1971,18 @@ export class GameScene extends Phaser.Scene {
     const head = { x: shoulder.x + p.rx, y: shoulder.y + p.ry };
     const ang = Math.atan2(head.y - shoulder.y, head.x - shoulder.x);
 
+    // 挥拍拖尾：**只要在挥拍就画**（不再等球活了才画——发球间隙挥空拍也看得见）。
+    // 轨迹按帧采样（渲染层的量，AI / 联机对手同样有），拖尾沿真实路径画。
     const speed = Math.hypot(p.rvx, p.rvy);
     const hot = Math.min(1, speed / 1400);
-    if (this.world.shuttle.live) {
-      drawSwingTrail(g, this.time.now, cos, shoulder.x, shoulder.y, head.x, head.y, ang, hot);
-    }
+    const dt = Math.min(0.05, Math.max(0.001, (this.time.now - this.trailT[pi]) / 1000));
+    this.trailT[pi] = this.time.now;
+    this.swingPath[pi].record(p.rx, p.ry, dt);
+    drawSwingTrail(
+      g, this.time.now, cos,
+      shoulder.x, shoulder.y, head.x, head.y, ang, hot,
+      this.swingPath[pi].pts,
+    );
 
     const hx = head.x - Math.cos(ang) * 12;
     const hy = head.y - Math.sin(ang) * 12;

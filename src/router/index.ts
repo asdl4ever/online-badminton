@@ -66,6 +66,12 @@ export const router = createRouter({
       name: 'hall',
       component: () => import('../views/HallView.vue'),
     },
+    // 大地图上的赛事中心（观战台）：世界赛树状图 + 真观战
+    {
+      path: '/watch',
+      name: 'watch',
+      component: () => import('../views/WatchView.vue'),
+    },
     // 大地图上的农场：棉花地，拍棉花换金币
     {
       path: '/farm',
@@ -83,6 +89,12 @@ export const router = createRouter({
       path: '/godzilla',
       name: 'godzilla',
       component: () => import('../views/GodzillaView.vue'),
+    },
+    // 外星人降临（入口在大世界的 🎪 活动弹窗）
+    {
+      path: '/alien',
+      name: 'alien',
+      component: () => import('../views/AlienView.vue'),
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 

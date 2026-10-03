@@ -32,8 +32,12 @@ import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 
 /**
- * 潜水（原来的岸边抛竿换成了这个）：下潜抓鱼 → 回水面卖钱 → 升级氧气/背包/渔具 → 买船去更远的海岛。
- * 玩法本体在 `game/dive/DiveScene.ts`，这里只负责岸上的部分（升级、出海、卖鱼、联机）。
+ * 潜水（原来的岸边抛竿换成了这个）：下潜抓鱼 → **上岸入仓** → 升级氧气/背包/渔具 → 买船去更远的海岛。
+ * 玩法本体在 `game/dive/DiveScene.ts`，这里只负责岸上的部分（升级、出海、鱼仓、联机）。
+ *
+ * 鱼**不是钱**：上岸那一刻把这一趟的渔获转进 `progress.fishBox`（鱼仓），
+ * 之后要回大世界的赚钱区交给**农场主**才换成金币（`progress.sellMaterials('fish')`）。
+ * 氧气耗尽仍然算白潜——`DiveScene.suffocate()` 会先把手里的鱼丢光，所以什么都入不了仓。
  */
 const router = useRouter();
 const customize = useCustomizeStore();
@@ -46,7 +50,8 @@ let link: NetLink | null = null;
 
 const bag = ref<DiveBagState>({ count: 0, kg: 0, value: 0, items: [] });
 const sessionCaught = ref(0);
-const sessionEarned = ref(0);
+/** 鱼仓里这一批的总价值（农场主按条收购，界面用来提示「能换多少」） */
+const boxValue = computed(() => progress.fishBox.reduce((s, f) => s + f.value, 0));
 const joinCode = ref('');
 const roomCode = ref('');
 const waiting = ref(false);
@@ -65,15 +70,18 @@ const sailable = computed(() =>
   ISLANDS.filter((i) => i.id !== progress.island && progress.rodLevel >= i.gear),
 );
 
-/** 出海前还得背包空、船钱够 */
+/**
+ * 出海的条件只有船钱（渔具等级在别处卡）。
+ * 袋子里的鱼不会再因为换海而丢：`bankDiveBag()` 会在重建场景前把它们转进鱼仓。
+ */
 function sailReady(i: (typeof ISLANDS)[number]): boolean {
-  return bag.value.count === 0 && progress.coins >= i.cost;
+  return progress.coins >= i.cost;
 }
 
 /** 按钮上直接写清为什么还不能走 */
 function sailWhy(i: (typeof ISLANDS)[number]): string {
   if (progress.coins < i.cost) return `差 ¥${i.cost - progress.coins}`;
-  return '先卖鱼';
+  return '可以出发';
 }
 
 function openBoat(): void {
@@ -113,35 +121,81 @@ function claimTask(): void {
   }
 }
 
-/** 开海底宝箱：金币 / 未拥有的装扮 / 闪光鱼饵，三选一 */
+/**
+ * 还没「入港」的宝箱收获：开了宝箱先挂在身上，**走回岸上**才真正到手。
+ * 氧气耗尽被冲回岸上 = 这一趟白潜，挂着的这些一起没（见 `onWipeout`）。
+ */
+const pending = ref<{ label: string; gain: () => void }[]>([]);
+
+/** 上岸入港：把挂着的宝箱收获真正发到手 */
+function bankLoot(): void {
+  if (!pending.value.length) return;
+  const list = pending.value;
+  pending.value = [];
+  for (const p of list) p.gain();
+  sfx.win();
+  toastGood(`上岸入港：${list.map((p) => p.label).join(' · ')}`);
+  checkAch();
+}
+
+/** 开海底宝箱：金币 / 未拥有的装扮 / 闪光鱼饵，三选一（**回岸上才算到手**） */
 function openChest(): string {
+  const hold = (label: string, gain: () => void): string => {
+    pending.value = [...pending.value, { label, gain }];
+    return `${label}（回岸上才算到手）`;
+  };
   const roll = Math.random();
   if (roll < 0.45) {
     const coins = 120 + Math.floor(Math.random() * 260);
-    progress.coins += coins;
-    return `金币 +¥${coins}`;
+    return hold(`金币 ¥${coins}`, () => {
+      progress.coins += coins;
+    });
   }
   if (roll < 0.75) {
-    const n = progress.grantShinyBait();
-    return `闪光鱼饵（现有 ${n} 个，下一条刷出的鱼必闪光）`;
+    return hold('闪光鱼饵', () => {
+      progress.grantShinyBait();
+    });
   }
-  const pool = ITEMS.filter((i) => i.source === 'gacha' && !progress.owned.includes(i.id));
+  const pool = ITEMS.filter(
+    (i) => (i.source === 'gacha' || i.source === 'chest') && !progress.owned.includes(i.id),
+  );
   if (!pool.length) {
     const coins = 300 + Math.floor(Math.random() * 200);
-    progress.coins += coins;
-    return `金币 +¥${coins}（装扮都快集齐了）`;
+    return hold(`金币 ¥${coins}（装扮快集齐了）`, () => {
+      progress.coins += coins;
+    });
   }
   const item = pool[Math.floor(Math.random() * pool.length)];
-  progress.owned = [...progress.owned, item.id];
-  return `获得装扮「${item.label}」`;
+  return hold(`装扮「${item.label}」`, () => {
+    progress.owned = [...progress.owned, item.id];
+  });
 }
 
 function scene(): DiveScene | undefined {
   return game?.scene.getScene('DiveScene') as DiveScene | undefined;
 }
 
+/**
+ * 把潜水袋子里这一趟的鱼转进**鱼仓**（`progress.fishBox`）。
+ * 鱼不是钱：入仓之后要拉去赚钱区交给农场主卖。
+ * 调用点：踩上岸 / 换海 / 离开页面（销毁场景前），所以不会因为走人而白抓。
+ */
+function bankDiveBag(): void {
+  const s = scene();
+  if (!s) return;
+  const caught = s.takeBag();
+  if (!caught.length) return;
+  progress.addFish(caught);
+  bag.value = { count: 0, kg: 0, value: 0, items: [] };
+  const value = caught.reduce((n, f) => n + f.value, 0);
+  toastGood(`🐟 ${caught.length} 条鱼入仓（值 ¥${value}）· 交给农场主换钱`);
+  sfx.point();
+  checkAch();
+}
+
 function back() {
   sfx.click();
+  bankDiveBag();
   void router.push('/');
 }
 
@@ -156,6 +210,8 @@ function checkAch(): void {
 /** 重建 Phaser 实例（换海岛 / 联机状态变化时用） */
 function boot(session: NetLink | null) {
   if (!container.value) return;
+  // 销毁旧场景之前先把袋子里的鱼转入鱼仓（换海 / 重开都不会丢）
+  bankDiveBag();
   game?.destroy(true);
   // 每开一局算一次下潜
   progress.noteDive();
@@ -182,16 +238,28 @@ function boot(session: NetLink | null) {
       progress.noteDepth(s.maxDepth);
       checkAch();
     },
+    // 氧气耗尽：这一趟白潜——鱼和挂着的宝箱收获一起没，黑屏后被送回岸上
     onWipeout: (lost) => {
       sfx.lose();
-      toastWarn(lost ? `氧气耗尽，丢了 ${lost} 条鱼` : '氧气耗尽，被冲上水面');
+      const chests = pending.value.length;
+      pending.value = [];
+      const bits: string[] = [];
+      if (lost) bits.push(`丢了 ${lost} 条鱼`);
+      if (chests) bits.push(`丢了 ${chests} 件宝箱收获`);
+      toastWarn(`氧气耗尽，被冲回岸上${bits.length ? `：${bits.join('、')}` : ''}`);
     },
     onHurt: (what) => (what === 'jelly' ? sfx.hit('lift') : sfx.lose()),
     // 上岸状态：装备店只开在沙滩上，所以按钮跟着这个走
     onShore: (s) => {
+      const wasLand = onLand.value;
       onLand.value = s.onLand;
       nearHut.value = s.nearHut;
       nearBoat.value = s.nearBoat;
+      // 踩上岸的这一刻：挂着的宝箱收获到手，这一趟的鱼也转进鱼仓
+      if (s.onLand && !wasLand) {
+        bankLoot();
+        bankDiveBag();
+      }
     },
     onShop: () => openShop(),
     // 点了岸边的船（或站在旁边按 E）：买船 / 出海都在这一张卡片里
@@ -216,7 +284,6 @@ function boot(session: NetLink | null) {
     },
   });
   sessionCaught.value = 0;
-  sessionEarned.value = 0;
 }
 
 /**
@@ -293,31 +360,14 @@ function sail(id: string) {
     toastWarn(`出海去「${target.name}」要 ¥${target.cost}`);
     return;
   }
-  if ((scene()?.bagCount() ?? 0) > 0) {
-    toastWarn('先把背包里的鱼卖掉再出海');
-    return;
-  }
   if (!progress.sailTo(id)) return;
   sfx.win();
   toastGood(`出发去「${target.name}」！`);
   boatOpen.value = false;
   checkAch();
+  // 换海前先把这一趟的鱼转进鱼仓（`boot()` 里销毁场景时也会兜一次）
+  bankDiveBag();
   boot(link);
-}
-
-function sell() {
-  const count = bag.value.count;
-  const coin = scene()?.sellBag() ?? 0;
-  if (coin <= 0) {
-    toastWarn('背包里还没鱼，下去抓几条吧');
-    return;
-  }
-  progress.coins += coin;
-  progress.noteSold(coin);
-  sessionEarned.value += coin;
-  sfx.win();
-  toastGood(`卖出 ${count} 条鱼，共 ¥${coin}`);
-  checkAch();
 }
 
 /**
@@ -387,6 +437,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   link?.destroy();
   link = null;
+  // 离开页面（比如点右上角回大世界）也把袋子里的鱼转入鱼仓，别白抓
+  bankDiveBag();
   game?.destroy(true);
   game = null;
 });
@@ -427,8 +479,9 @@ onBeforeUnmount(() => {
           <span v-if="phase" class="dock-note">{{ phase }}</span>
           <p class="dock-note">
             左摇杆游动（上推上浮）· 右摇杆把拍头指到鱼身上勾住，之后朝鱼的方向收杆。
-            <b>卖鱼去栈桥边的船</b>（买船 / 出海 / 图鉴也在船上的卡片里）；升级装备去岸上的装备店。
-            氧气没了会被冲上水面并丢掉一半渔获。
+            <b>鱼走上岸就进鱼仓</b>（买船 / 出海 / 图鉴在栈桥边那条船的卡片里），
+            要换钱得回大世界左下角赚钱区<b>交给农场主</b>；升级装备去岸上的装备店。
+            氧气没了会被冲回岸上，<b>这一趟的鱼和宝箱收获全丢</b>。
           </p>
         </SideDock>
       </template>
@@ -441,6 +494,13 @@ onBeforeUnmount(() => {
         <div v-if="nearHut" class="dive-prompt">🏠 装备店门口 · 点小屋 / 按 E 打开</div>
         <div v-else-if="nearBoat" class="dive-prompt">
           🛶 {{ progress.boat ? '点这条船出海 · 或按 E' : '点这条船买下它 · 或按 E' }}
+        </div>
+
+        <!-- 挂着还没入港的宝箱收获：走回岸上才到手，氧气耗尽会一起丢 -->
+        <div v-if="pending.length" class="loot-card">
+          <b>🎁 未入港 ×{{ pending.length }}</b>
+          <span class="muted">{{ pending.map((p) => p.label).join(' · ') }}</span>
+          <em>回岸上才算到手 · 氧气耗尽会全丢</em>
         </div>
 
         <!-- 每日钓鱼任务：画面右侧浮动小卡，可折叠（跨天自动换一条） -->
@@ -481,11 +541,20 @@ onBeforeUnmount(() => {
             <button class="boat-card__x" type="button" @click="boatOpen = false">✕</button>
           </div>
 
-          <!-- 卖鱼在船上做：背包有鱼就亮出来 -->
-          <div v-if="bag.count" class="boat-card__sell">
-            <span class="muted">背包 {{ bag.count }} 条 · <b class="num">¥{{ bag.value }}</b></span>
-            <Button size="sm" variant="primary" @click="sell">卖鱼</Button>
-          </div>
+          <!-- 船上不再卖鱼：鱼上岸就进鱼仓，换钱要交给赚钱区的农场主 -->
+          <p v-if="progress.fishBox.length" class="muted boat-card__note">
+            🐟 鱼仓里 {{ progress.fishBox.length }} 条 · 值 <b class="num">¥{{ boxValue }}</b>——
+            回大世界左下角的<b>赚钱区</b>找<b>农场主</b>换钱（船上没有卖鱼按钮了）。
+          </p>
+          <p v-else class="muted boat-card__note">
+            潜水抓到的鱼<b>踩上岸就进鱼仓</b>，之后回大世界赚钱区交给<b>农场主</b>换钱。
+          </p>
+
+          <!-- 宝箱收获要在**踩到沙滩**那一刻才算到手，所以这里只提示、不给卖 -->
+          <p v-if="pending.length" class="muted boat-card__note">
+            🎁 未入港 ×{{ pending.length }}：{{ pending.map((p) => p.label).join(' · ') }}——
+            回岸上（走到沙滩上）才算到手，氧气耗尽了会一起丢。
+          </p>
 
           <template v-if="!progress.boat">
             <p class="muted boat-card__note">
@@ -504,9 +573,7 @@ onBeforeUnmount(() => {
           </template>
 
           <template v-else>
-            <p class="muted boat-card__note">
-              出海前要先把背包里的鱼卖掉（现在 {{ bag.count }} 条）。能去：
-            </p>
+            <p class="muted boat-card__note">能去：</p>
             <ul class="boat-card__list">
               <li v-for="i in sailable" :key="i.id" class="boat-card__item">
                 <div class="boat-card__body">
@@ -593,11 +660,9 @@ onBeforeUnmount(() => {
           </Button>
         </div>
 
-        <div class="shop__foot">
-          <Button size="sm" block @click="sell">卖鱼 ¥{{ bag.value }}（{{ bag.count }} 条）</Button>
-        </div>
         <p class="muted shop__note">
-          装备升级只在岸上的店里做；氧气耗尽会被冲上水面并丢一半渔获，先升氧气罐再往深处走更稳。
+          装备升级只在岸上的店里做（花的是**金币**：金币来自把棉花 / 矿石 / 鱼交给赚钱区的农场主）。
+          氧气耗尽会被冲回岸上，这一趟的鱼与宝箱收获全丢，先升氧气罐再往深处走更稳。
         </p>
       </div>
     </AppModal>
@@ -606,6 +671,33 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 挂着还没入港的宝箱收获：贴画面左上，提醒「回岸上才算到手」 */
+.loot-card {
+  position: absolute;
+  left: var(--s3);
+  top: calc(var(--ui-top-h) + var(--s3));
+  z-index: 32;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 260px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, #e0a12c 55%, transparent);
+  background: color-mix(in srgb, #fff4d6 92%, transparent);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  color: #7a5410;
+}
+
+.loot-card em {
+  font-style: normal;
+  font-size: 11px;
+  color: #a8802f;
+}
+
 /* 每日任务浮动小卡：贴画面右侧，可折叠 */
 .task-card {
   position: absolute;

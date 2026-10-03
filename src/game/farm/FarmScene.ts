@@ -41,10 +41,6 @@ const SPACING_Y = 66;
 const PLANT_HP_MIN = 1;
 const PLANT_HP_MAX = 3;
 
-/** 一朵棉花的价格区间（每株按随机品质取一个固定值） */
-const VALUE_MIN = 6;
-const VALUE_MAX = 18;
-
 interface CottonPlant {
   x: number;
   y: number;
@@ -52,8 +48,6 @@ interface CottonPlant {
   hp: number;
   /** 初始朵数（用来决定画几颗棉桃） */
   maxHp: number;
-  /** 每朵的卖价 */
-  value: number;
 }
 
 interface Puff {
@@ -78,14 +72,18 @@ export interface FarmSceneData {
   cosmetic: Cosmetic;
   /** 一次挥拍能同时摘几朵（= progress.farmLevel） */
   harvest: number;
-  /** reports earnings so the Vue page can show a running total */
-  onEarn?: (total: number) => void;
+  /**
+   * 本场累计摘到几朵**棉花材料**（页面拿去显示）。
+   * 棉花不是金币：要拉去赚钱区交给农场主收购才换钱（见 `game/items.ts` 的 `MATERIALS`）。
+   */
+  onPick?: (total: number) => void;
   /** 仅供联机占位，农场目前是单机玩法 */
   session?: NetLink | null;
 }
 
 /**
- * 农场：一片棉花地，用球拍把棉花「拍」下来换金币。
+ * 农场：一片棉花地，用球拍把棉花「拍」下来（**得到棉花材料，不是金币**；
+ * 拉去赚钱区交给农场主才换钱，见 `game/items.ts` 的 `MATERIALS`）。
  * - 一次有效挥拍摘 `harvest` 朵（升级后一次能摘更多）
  * - 摘完一整片地后 60 秒重新长出来
  * - 买了拖拉机之后，页面上的按钮可以直接「一键收全地」
@@ -144,7 +142,7 @@ export class FarmScene extends Phaser.Scene {
     this.charG = this.add.graphics().setDepth(2);
     this.charOverG = this.add.graphics().setDepth(4);
     this.rigMe = createPlayerRig(this);
-    this.cfg.onEarn?.(this.total);
+    this.cfg.onPick?.(this.total);
 
     const kb = this.input.keyboard;
     if (kb) {
@@ -176,16 +174,16 @@ export class FarmScene extends Phaser.Scene {
     this.cfg.harvest = Math.max(1, Math.round(n));
   }
 
-  /** 拖拉机：一键收全地（返回本次收成，没有棉花时返回 0） */
+  /** 拖拉机：一键收全地（返回本次收了几朵棉花，没有棉花时返回 0） */
   collectAll(): number {
     if (!this.plants.length) return 0;
     let gain = 0;
-    for (const p of this.plants) gain += p.value * p.hp;
+    for (const p of this.plants) gain += p.hp;
     this.total += gain;
     this.plants = [];
     this.regen = REGEN_S;
     this.persistFarm();
-    this.cfg.onEarn?.(this.total);
+    this.cfg.onPick?.(this.total);
     for (let i = 0; i < 30; i++) {
       this.spawnPuff(fieldCenterX() + (Math.random() - 0.5) * 640, GROUND_Y - 60, 2);
     }
@@ -274,7 +272,7 @@ export class FarmScene extends Phaser.Scene {
   private persistFarm(): void {
     try {
       const state = {
-        plants: this.plants.map((p) => ({ hp: p.hp, maxHp: p.maxHp, value: p.value })),
+        plants: this.plants.map((p) => ({ hp: p.hp, maxHp: p.maxHp })),
         regenUntil: this.plants.length === 0 ? Date.now() + this.regen * 1000 : 0,
       };
       localStorage.setItem(FARM_STATE_KEY, JSON.stringify(state));
@@ -287,8 +285,9 @@ export class FarmScene extends Phaser.Scene {
     try {
       const raw = localStorage.getItem(FARM_STATE_KEY);
       if (raw) {
+        // 老存档里还带着 `value`（每朵棉花的旧卖价），现在不用了：一朵 = 1 个棉花材料
         const state = JSON.parse(raw) as {
-          plants: { hp: number; maxHp: number; value: number }[];
+          plants: { hp: number; maxHp: number }[];
           regenUntil: number;
         };
         if (state.regenUntil > Date.now()) {
@@ -300,7 +299,7 @@ export class FarmScene extends Phaser.Scene {
           const total = ROWS * COLS;
           this.plants = state.plants
             .slice(0, total)
-            .map((p, i) => ({ ...this.slotPos(i), hp: p.hp, maxHp: p.maxHp, value: p.value }))
+            .map((p, i) => ({ ...this.slotPos(i), hp: p.hp, maxHp: p.maxHp }))
             .filter((p) => p.hp > 0);
           return;
         }
@@ -327,12 +326,7 @@ export class FarmScene extends Phaser.Scene {
     this.plants = [];
     for (let i = 0; i < ROWS * COLS; i++) {
       const hp = PLANT_HP_MIN + Math.floor(Math.random() * (PLANT_HP_MAX - PLANT_HP_MIN + 1));
-      this.plants.push({
-        ...this.slotPos(i),
-        hp,
-        maxHp: hp,
-        value: Math.round(VALUE_MIN + Math.random() * (VALUE_MAX - VALUE_MIN)),
-      });
+      this.plants.push({ ...this.slotPos(i), hp, maxHp: hp });
     }
     this.regen = 0;
     this.persistFarm();
@@ -372,10 +366,10 @@ export class FarmScene extends Phaser.Scene {
 
   private pickOne(p: CottonPlant): void {
     p.hp -= 1;
-    this.total += p.value;
+    this.total += 1;
     this.spawnPuff(p.x, p.y - 26, 5);
-    this.coinPop(p.x, p.y - 70, p.value);
-    this.cfg.onEarn?.(this.total);
+    this.pickPop(p.x, p.y - 70);
+    this.cfg.onPick?.(this.total);
 
     if (p.hp <= 0) {
       this.plants = this.plants.filter((w) => w !== p);
@@ -420,19 +414,19 @@ export class FarmScene extends Phaser.Scene {
     this.pops = this.pops.filter((p) => p.life > 0);
   }
 
-  /** 摘到棉花时的收获反馈：金币图标 + 跳动的数字 */
-  private coinPop(x: number, y: number, value: number): void {
+  /** 摘到棉花时的收获反馈：棉花图标 + 跳动的数字（+1 个棉花材料，不是金币） */
+  private pickPop(x: number, y: number): void {
     const icon = this.add
-      .text(x - 12, y, '☁️', { fontSize: '30px' })
+      .text(x - 12, y, '🧵', { fontSize: '30px' })
       .setOrigin(0.5)
       .setDepth(14)
       .setScale(0.3);
     const num = this.add
-      .text(x + 18, y, `+${value}`, {
+      .text(x + 18, y, '+1', {
         fontSize: '28px',
-        color: '#ffd45c',
+        color: '#fff3c4',
         fontStyle: 'bold',
-        stroke: '#3a2c18',
+        stroke: '#5a4415',
         strokeThickness: 5,
       })
       .setOrigin(0, 0.5)
@@ -528,6 +522,7 @@ export class FarmScene extends Phaser.Scene {
       Math.hypot(this.swingVX, this.swingVY),
       RACKET_HEAD_R,
       this.charOverG,
+      this.racket.path.pts,
     );
   }
 }

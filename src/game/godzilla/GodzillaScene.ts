@@ -160,6 +160,7 @@ export class GodzillaScene extends Phaser.Scene {
       this.drawBackdrop();
       this.drawGz();
       this.drawHud();
+      this.touchControls?.draw();
       return;
     }
 
@@ -185,9 +186,10 @@ export class GodzillaScene extends Phaser.Scene {
       { x: this.me.x, feetY: this.me.y, facing: this.me.facing, color: P.player0 },
       this.racketSt.rx,
       this.racketSt.ry,
-      0,
+      Math.hypot(this.racketSt.rvx, this.racketSt.rvy),
       0,
       this.charOverG,
+      this.racket.path.pts,
     );
 
     this.g.clear();
@@ -196,6 +198,7 @@ export class GodzillaScene extends Phaser.Scene {
     this.drawFireballs();
     this.drawLaser();
     this.drawHud();
+    this.touchControls?.draw();
   }
 
   // ---- 玩家 --------------------------------------------------------------
@@ -276,6 +279,8 @@ export class GodzillaScene extends Phaser.Scene {
       }
       return;
     }
+    // 血打空之后的收尾演出里，哥斯拉不再出手（不然赢了还会被火球砸掉心）
+    if (this.hp <= 0) return;
     // 火球
     this.fireballTimer -= dt;
     const alive = this.fireballs.filter((b) => !b.dead).length;
@@ -370,6 +375,8 @@ export class GodzillaScene extends Phaser.Scene {
         this.gzFlash = 0.35;
         sfx.point();
         this.cameras.main.shake(140, 0.008);
+        // 血条清空 = 击杀成功：以前这里漏了收尾，血打空了也不结束（`hp` 只减不判）
+        if (this.hp <= 0) this.finish(true);
         continue;
       }
 

@@ -11,9 +11,27 @@ const props = defineProps<{
   entrants: ArenaEntrant[];
   /** 当前轮次（用于高亮「正在进行」的那一场） */
   currentRound: number;
+  /**
+   * 每场的状态，键是 `${轮}:${场}`（世界赛 / 观战台用）。
+   * 不传就完全不显示状态角标——晋级赛页面维持原样。
+   */
+  matchPhase?: Record<string, 'upcoming' | 'live' | 'ended'>;
+  /** 现在可以点进去真看的那一场（键同 `matchPhase`） */
+  liveKey?: string;
 }>();
 
-const emit = defineEmits<{ select: [id: string] }>();
+const emit = defineEmits<{ select: [id: string]; watch: [round: number, index: number] }>();
+
+const keyOf = (r: number, i: number): string => `${r}:${i}`;
+
+function phaseOf(r: number, i: number): 'upcoming' | 'live' | 'ended' {
+  return props.matchPhase?.[keyOf(r, i)] ?? 'upcoming';
+}
+
+function phaseText(r: number, i: number): string {
+  const p = phaseOf(r, i);
+  return p === 'live' ? '🔴 进行中' : p === 'ended' ? '已结束' : '未开始';
+}
 
 const meId = computed(() => props.entrants.find((e) => e.isMe)?.id ?? '__me__');
 
@@ -73,6 +91,19 @@ function isMine(a: string, b: string): boolean {
           >
             {{ nameOf(m.b) }}
           </button>
+          <div v-if="matchPhase" class="match__meta">
+            <span class="match__badge" :class="`is-${phaseOf(ri, mi)}`">
+              {{ phaseText(ri, mi) }}
+            </span>
+            <button
+              v-if="keyOf(ri, mi) === liveKey"
+              class="match__watch"
+              type="button"
+              @click="emit('watch', ri, mi)"
+            >
+              👁 观看
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -175,5 +206,45 @@ function isMine(a: string, b: string): boolean {
   color: var(--text-dim);
   text-decoration: line-through;
   opacity: 0.65;
+}
+
+/* 世界赛 / 观战台：每场的状态 + 「观看」 */
+.match__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 8px 4px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+
+.match__badge {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.match__badge.is-live {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.match__badge.is-ended {
+  opacity: 0.7;
+}
+
+.match__watch {
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.match__watch:hover {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 </style>

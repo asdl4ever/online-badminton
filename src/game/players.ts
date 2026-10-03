@@ -33,6 +33,13 @@ export interface AiPlayer {
   /** 四维能力（生成时定死，不随战绩变化） */
   stats: PlayerStats;
   cosmetic: Cosmetic;
+  /**
+   * **已退役**：人还留在名录里（战绩 / 履历都保留），但不再上排行榜、也不参加赛事。
+   * 可以在名人堂里点「复出」把他请回来。
+   */
+  retired?: boolean;
+  /** 玩家自己在名人堂里新增的球员（可以「除名」） */
+  custom?: boolean;
 }
 
 /** 名录里的名字池（首次生成时随机不重复取） */
@@ -351,5 +358,60 @@ export function applyMatchResult(p: AiPlayer, playerWon: boolean): AiPlayer {
     wins: p.wins + (playerWon ? 0 : 1),
     losses: p.losses + (playerWon ? 1 : 0),
     rating,
+  };
+}
+
+// ---- 名人堂的增删改（新增 / 退役 / 编辑）与「世界赛」的战绩 -------------------
+
+/**
+ * 由五维综合分反推一个**相称的 rating**（编辑球员后用来把榜单分数拉回与能力匹配的量级）。
+ * 与生成时的刻度对齐：综合分 45 ≈ 900、97 ≈ 2400。
+ */
+export function ratingFromStats(s: PlayerStats): number {
+  const v = 900 + ((statPower(s) - 45) / 52) * 1500;
+  return Math.round(Math.max(400, Math.min(2800, v)));
+}
+
+/** 随机造一位新球员（名人堂的「新增球员」用）：名字优先从还没被占用的池子里挑 */
+export function makeRandomPlayer(
+  roster: readonly AiPlayer[],
+  rng: () => number = Math.random,
+): AiPlayer {
+  const used = new Set(roster.map((p) => p.name));
+  const free = NAME_POOL.filter((n) => !used.has(n));
+  const name = free.length ? free[Math.floor(rng() * free.length)] : `新人 ${roster.length + 1}`;
+  const rating = Math.round(900 + rng() * 900);
+  const stats = rollStats(rating, rng);
+  return {
+    id: `custom-${Date.now().toString(36)}-${Math.floor(rng() * 46656).toString(36)}`,
+    name,
+    style: styleFromStats(stats),
+    difficulty: tierFromStats(stats),
+    wins: 0,
+    losses: 0,
+    rating,
+    stats,
+    cosmetic: randomCosmetic(rng),
+    custom: true,
+  };
+}
+
+/** 换一身随机装扮（编辑面板的「随机换装」） */
+export function rerollCosmetic(rng: () => number = Math.random): Cosmetic {
+  return randomCosmetic(rng);
+}
+
+/**
+ * **AI 对 AI** 打完一场（世界赛那种）：胜者记一胜、负者记一负，rating 互有升降。
+ * 这样"看比赛"也是真的在改变名次——每届世界赛打完，榜单都会挪一挪。
+ */
+export function applyAiResult(
+  winner: AiPlayer,
+  loser: AiPlayer,
+  bump = 20,
+): { winner: AiPlayer; loser: AiPlayer } {
+  return {
+    winner: { ...winner, wins: winner.wins + 1, rating: Math.min(2800, winner.rating + bump) },
+    loser: { ...loser, losses: loser.losses + 1, rating: Math.max(400, loser.rating - bump) },
   };
 }

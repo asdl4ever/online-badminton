@@ -36,6 +36,11 @@ import {
  *
  * 抓鱼沿用羽毛球那套球拍追踪（`RacketTracker`）：右摇杆/鼠标把拍头指到鱼身上就勾住，
  * 之后**一直朝着鱼的方向**才能把线收回来——所以"方向"是有意义的输入，而不是碰到就进包。
+ *
+ * 两条风险规则：
+ * - **鱼刷在中层与深海**（`DEPTH_ZONES`：浅层 18%、中层 42%、深海 40%），浅水只有零星几条；
+ * - **氧气耗尽 = 这一趟白潜**：背包全丢、黑屏、人被送回沙滩（见 `suffocate`），
+ *   页面那边挂着的宝箱收获也一起没（`DiveSceneData.onWipeout`）。
  */
 
 // ---- 岸上（沙滩 + 装备店） -------------------------------------------------
@@ -82,8 +87,23 @@ const UP_ACCEL = 640;
 const SURFACE_BAND = 46;
 const OXYGEN_REFILL = 9;
 const OXYGEN_DRAIN = 1;
-/** 每 px 深度额外消耗（越深越费气） */
+/**
+ * 深度带来的额外耗气，**平方曲线**：`drain = 1 + 0.00055·y + 1.4e-7·y²`（y 是水深 px，
+ * 10px = 1m）。也就是每米的代价本身在变大，越深越寸步难行：
+ *
+ * | 深度 | 耗气/秒 | 往返一趟大约要 | 需要的氧气罐 |
+ * |---|---|---|---|
+ * | 100m | 1.69 | 8s | Lv1（36s）随便潜 |
+ * | 200m | 2.66 | 21s | Lv1 勉强、Lv2 稳 |
+ * | 320m | 4.19 | 46s | Lv2 |
+ * | 500m | 7.25 | 107s | Lv4（120s） |
+ * | 640m | 10.25 | 181s | Lv8（232s）才摸得到底 |
+ *
+ * （往返时间按 `SWIM_MAX` 330px/s 直上直下积分估的，实际会上下浮一点。）
+ */
 const OXYGEN_DEEP = 0.00055;
+/** 上面那条平方项：每 px² 的额外消耗 */
+const OXYGEN_DEEP2 = 1.4e-7;
 
 const HOOK_COOLDOWN = 0.4;
 /** 对准鱼时收杆速度（每秒进度） */
@@ -104,6 +124,16 @@ const SHARK_SPEED = 270;
 /** 场上鱼的目标数量（之前 18 条太挤，降到 10） */
 const FISH_TARGET = 10;
 const FISH_RESPAWN = 1.4;
+/**
+ * 刷鱼的深度倾向（按海床深度取比例，`0` = 水面、`1` = 海床）：
+ * **浅层只有零星几条，鱼基本都在中层与深海**——想要好东西就得往下潜。
+ * 具体落在哪一层由权重抽，抽完再在这一层能住的鱼种里挑一条（见 `spawnRandomFish`）。
+ */
+const DEPTH_ZONES: { from: number; to: number; weight: number }[] = [
+  { from: 0, to: 0.22, weight: 0.18 }, // 浅层：少
+  { from: 0.22, to: 0.62, weight: 0.42 }, // 中层：多
+  { from: 0.62, to: 1, weight: 0.4 }, // 深海：多
+];
 
 /** 每条鱼的配色（画面上区分鱼种） */
 const FISH_COLOR: Record<string, number> = {
@@ -213,7 +243,10 @@ export interface DiveSceneData {
   boat?: boolean;
   onBag?: (state: DiveBagState) => void;
   onCatch?: (speciesId: string, kg: number, value: number, flags: { shiny: boolean; king: boolean }) => void;
-  /** 氧气耗尽被冲上水面，丢了多少条 */
+  /**
+   * 氧气耗尽：这一趟的渔获**全丢**、黑屏后被送回沙滩。
+   * 参数是本局丢掉的鱼条数（页面据此提示；挂着的宝箱收获由页面自己清）。
+   */
   onWipeout?: (lost: number) => void;
   onHurt?: (what: 'jelly' | 'shark') => void;
   /** 开宝箱：页面侧发奖励并返回弹字文案 */
@@ -262,6 +295,8 @@ export class DiveScene extends Phaser.Scene {
   private racketRY = -10;
   private racketAng = -0.8;
   private racketReach = 40;
+  /** 拍头速度（px/s）：只用来驱动挥拍拖尾 */
+  private racketSpeed = 0;
 
   private oxygen = 30;
   private stun = 0;
@@ -670,6 +705,7 @@ export class DiveScene extends Phaser.Scene {
     this.racketRY = st.ry;
     this.racketAng = Math.atan2(st.ry, st.rx);
     this.racketReach = Math.hypot(st.rx, st.ry);
+    this.racketSpeed = Math.hypot(st.rvx, st.rvy);
   }
 
   private headX(): number {
@@ -687,7 +723,9 @@ export class DiveScene extends Phaser.Scene {
       this.oxygen = Math.min(oxygenMax(this.cfg.oxygenLv), this.oxygen + OXYGEN_REFILL * dt);
       return;
     }
-    const drain = OXYGEN_DRAIN + this.me.y * OXYGEN_DEEP;
+    // 越深越费气：线性 + 平方（平方项在 200m 以下开始顶事）
+    const drain =
+      OXYGEN_DRAIN + this.me.y * OXYGEN_DEEP + this.me.y * this.me.y * OXYGEN_DEEP2;
     this.oxygen -= drain * dt;
     if (this.oxygen <= 0) {
       this.oxygen = 0;
@@ -695,45 +733,108 @@ export class DiveScene extends Phaser.Scene {
     }
   }
 
-  /** 憋不住：丢一半渔获、被水冲上水面 */
+  /**
+   * 憋不住：**这一趟白潜**——背包里的鱼全丢（还没入港的宝箱收获由页面清），
+   * 黑屏一下，然后人在沙滩上醒来（氧气给满，接着潜）。
+   */
   private suffocate(): void {
     if (this.wipeout > 0) return;
-    const lost = Math.floor(this.bag.length / 2);
-    if (lost > 0) this.bag = this.bag.slice(lost);
-    this.wipeout = 1.6;
+    const lost = this.bag.length;
+    this.bag = [];
     this.hooked = null;
-    this.oxygen = oxygenMax(this.cfg.oxygenLv) * 0.35;
+    this.wipeout = 1.6;
+    this.oxygen = oxygenMax(this.cfg.oxygenLv);
     this.cameras.main.shake(260, 0.01);
-    this.pop('氧气耗尽！被冲上水面', 0xff6b6b);
+    sfx.hit('smash');
+    this.pop('氧气耗尽！渔获全丢了…', 0xff6b6b);
     this.cfg.onWipeout?.(lost);
     this.pushBag();
+
+    // 黑屏 → 送回岸上：不在水下瞬移，免得镜头一跳
+    this.cameras.main.fadeOut(420, 0, 0, 0);
+    this.time.delayedCall(460, () => {
+      const x = 620;
+      this.me.x = x;
+      this.me.y = this.shoreFloor(x);
+      this.me.vx = 0;
+      this.me.vy = 0;
+      this.me.onGround = true;
+      this.me.facing = 1;
+      this.cameras.main.fadeIn(380, 0, 0, 0);
+    });
   }
 
   // ---- 鱼群 ----------------------------------------------------------------
+
+  /** 某条鱼在这片海里能活动的上界（不能贴水面） */
+  private bandTop(floor: number, raw: number): number {
+    return Phaser.Math.Clamp(Math.max(SURFACE_BAND + 10, raw), 20, floor - 20);
+  }
+
+  /** 下界（不能钻进海床） */
+  private bandBottom(floor: number, raw: number): number {
+    return Phaser.Math.Clamp(Math.min(floor - 30, raw), 30, floor - 20);
+  }
+
+  /**
+   * 刷一条（或一小群）鱼。顺序是**先定深度、再定鱼种**：
+   * ① 按 `DEPTH_ZONES` 的权重抽一层（浅层只占一成多，中深海占大头）；
+   * ② 只在这一层住得下的鱼种里按 `weight` 挑一条（这一层一条能住的都没有，
+   *    就退回整个鱼池，贴着它自己的活动带刷）；
+   * ③ 落点在「这段深度」∩「这条鱼的活动带」里。
+   */
   private spawnRandomFish(): void {
-    const pool = this.island.fish;
+    const floor = this.island.floor;
+    const pool = this.island.fish
+      .map((id) => speciesById(id))
+      .filter((s): s is Species => !!s);
     if (!pool.length) return;
-    const total = pool.reduce((s, id) => s + (speciesById(id)?.weight ?? 1), 0);
-    let x = Math.random() * total;
-    let picked = pool[0];
-    for (const id of pool) {
-      x -= speciesById(id)?.weight ?? 1;
-      if (x <= 0) {
-        picked = id;
+
+    // ① 抽深度层
+    const zoneWeight = DEPTH_ZONES.reduce((s, z) => s + z.weight, 0);
+    let zr = Math.random() * zoneWeight;
+    let zone = DEPTH_ZONES[0];
+    for (const z of DEPTH_ZONES) {
+      zr -= z.weight;
+      if (zr <= 0) {
+        zone = z;
         break;
       }
     }
-    const sp = speciesById(picked);
-    if (!sp) return;
+    const zTop = this.bandTop(floor, zone.from * floor);
+    const zBot = this.bandBottom(floor, zone.to * floor);
+
+    // ② 挑这一层里的鱼
+    const here = pool.filter(
+      (sp) => this.bandBottom(floor, sp.band[1]) > zTop && this.bandTop(floor, sp.band[0]) < zBot,
+    );
+    const use = here.length ? here : pool;
+    const sum = use.reduce((s, sp) => s + sp.weight, 0);
+    let wr = Math.random() * sum;
+    let sp = use[0];
+    for (const s of use) {
+      wr -= s.weight;
+      if (wr <= 0) {
+        sp = s;
+        break;
+      }
+    }
+
+    // ③ 落点：这段深度 ∩ 它的活动带（兜底时只取活动带，保证有地方刷）
+    let top = Math.max(zTop, this.bandTop(floor, sp.band[0]));
+    let bot = Math.min(zBot, this.bandBottom(floor, sp.band[1]));
+    if (bot - top < 20) {
+      top = this.bandTop(floor, sp.band[0]);
+      bot = this.bandBottom(floor, sp.band[1]);
+    }
+
     // 鱼王：小概率刷出，单独一条、kg 拉满再放大
     const king = Math.random() < KING_CHANCE;
     // 闪光：鱼王不作闪光（王位不可叠加），闪光鱼饵直接点亮
     const shiny = !king && (this.cfg.consumeShinyBait?.() === true || Math.random() < SHINY_CHANCE);
     const group = king ? 1 : Math.max(1, Math.min(sp.school, 3));
     const baseX = Phaser.Math.FloatBetween(SEA_LEFT + 80, SEA_W - SEA_EDGE - 40);
-    const bandTop = Math.max(SURFACE_BAND + 10, sp.band[0]);
-    const bandBottom = Math.min(this.island.floor - 30, sp.band[1]);
-    const baseY = Phaser.Math.FloatBetween(bandTop, Math.max(bandTop + 1, bandBottom));
+    const baseY = Phaser.Math.FloatBetween(top, Math.max(top + 1, bot));
     for (let i = 0; i < group; i++) {
       this.fish.push({
         sp,
@@ -951,12 +1052,18 @@ export class DiveScene extends Phaser.Scene {
     });
   }
 
-  /** 卖光背包，返回金币数（供 Vue 页面调用） */
-  sellBag(): number {
-    const total = this.bag.reduce((s, f) => s + f.value, 0);
+  /**
+   * 把这一趟的渔获取走（清空袋子并返回那几条鱼）。
+   *
+   * 鱼不是钱：页面拿去 `progress.addFish()` 入仓，之后拉去赚钱区交给农场主卖。
+   * 上岸时、以及离开潜水页（销毁场景）前都会调一次，所以不会无声无息丢掉。
+   * 氧气耗尽那一下袋子里已经是空的（`suffocate` 先丢光），所以那种情况自然是白潜。
+   */
+  takeBag(): Caught[] {
+    const list = [...this.bag];
     this.bag = [];
     this.pushBag();
-    return total;
+    return list;
   }
 
   // ---- 危险元素 -------------------------------------------------------------
@@ -1533,9 +1640,10 @@ export class DiveScene extends Phaser.Scene {
       { x: d.x, feetY: d.y, facing: d.facing, color: isMe ? P.player0 : P.player1 },
       Math.cos(ang) * reach,
       Math.sin(ang) * reach,
-      0,
+      isMe ? this.racketSpeed : 0,
       gearStats(this.cfg.gearLv).hook,
       this.charOverG,
+      isMe ? this.racket.path.pts : undefined,
     );
 
     if (isMe) {

@@ -53,6 +53,8 @@ function saveName(): void {
 
 const stats = computed(() => [
   { label: '金币', value: `¥${progress.coins}` },
+  { label: '宝箱钥匙', value: `🔑 ${progress.chestKeys}` },
+  { label: '星尘碎片', value: `🧩 ${progress.shards}` },
   { label: '外观收集', value: `${ownedTotal.value} / ${ITEMS.length}` },
   { label: '角色形象', value: `${ownedSkins.value} / ${skins.value.length}` },
   { label: '宠物', value: `${hatchedPets.value} / ${PETS.length}` },

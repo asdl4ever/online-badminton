@@ -102,6 +102,12 @@ export type HitStyle =
   | 'prismfan'
   | 'pow'
   | 'gzfire'
+  // 外星人降临限定
+  | 'meteorBurst'
+  // 🧩 碎片兑换专属
+  | 'shardpop'
+  // 宇宙龙域限定
+  | 'drastar'
   | PlusEffectId;
 
 export type WingId =
@@ -178,7 +184,15 @@ export type WingId =
   | 'obsidian'
   | 'chrono'
   // 发球机活动专属
-  | 'turbo';
+  | 'turbo'
+  // 10 个新主题宝箱的专属翅膀（各 2 款）
+  | 'desSandWing' | 'desDuneWing' | 'nimbWindWing' | 'nimbFeatherWing'
+  | 'confSugarWing' | 'confCandyWing' | 'bigtTentWing' | 'bigtConfettiWing'
+  | 'aegisShieldWing' | 'aegisBladeWing' | 'chanFanWing' | 'chanLeafWing'
+  | 'arcanRuneWing' | 'arcanStarWing' | 'relicBoneWing' | 'relicAmberWing'
+  | 'playBlockWing' | 'playKiteWing' | 'yuanLanternWing' | 'yuanFireWing'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanWingFeather' | 'shanWingCloud';
 
 export type CapeId =
   | 'none'
@@ -226,7 +240,32 @@ export type CapeId =
   // 发球机活动专属
   | 'towel'
   // 哥斯拉来袭限定
-  | 'scalecape';
+  | 'scalecape'
+  // 外星人降临限定
+  | 'antigrav'
+  // 🧩 碎片兑换专属
+  | 'shardcape'
+  // 宇宙龙域限定
+  | 'drakewing'
+  // 主题宝箱专属披风（每个主题一件，见 game/chest.ts 的 CHEST_THEMES）
+  | 'seamist'
+  | 'batcape'
+  | 'slagcape'
+  | 'ermine'
+  | 'petalveil'
+  | 'starmap'
+  | 'cinder'
+  | 'icemist'
+  | 'canopy'
+  | 'tapecape'
+  // 10 个新主题宝箱的专属披风（各 2 款）
+  | 'desCloak' | 'desOasis' | 'nimbVeil' | 'nimbSail' | 'confApron'
+  | 'confRibbonCape' | 'bigtCape' | 'bigtCurtain' | 'aegisBanner'
+  | 'aegisRoyal' | 'chanRobe' | 'chanInkCape' | 'arcanCloak'
+  | 'arcanMantle' | 'relicHide' | 'relicDustCape' | 'playCape'
+  | 'playRibbonCape' | 'yuanSilk' | 'yuanLanternCape'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanCapeScale' | 'shanCapeMist';
 
 export type HatId =
   | 'none'
@@ -320,10 +359,79 @@ export type HatId =
   | 'candle'
   | 'starCrown'
   | 'moonCrown'
+  // ---- 第三批 50 款：每款一套独立造型 + 自己的小动态（见 drawHat 的 case，接 `now`）----
+  // 吃喝
+  | 'teapot'
+  | 'ramen'
+  | 'teacup'
+  | 'boba'
+  | 'popcorn'
+  | 'pizza'
+  | 'donut'
+  | 'sushi'
+  | 'taco'
+  | 'cake'
+  | 'lollipop'
+  | 'candyCane'
+  // 花草果蔬
+  | 'sunflower'
+  | 'lotus'
+  | 'leafCrown'
+  | 'clover'
+  | 'sprout'
+  | 'cactusHat'
+  | 'acorn'
+  | 'strawberry'
+  | 'cherry'
+  | 'pineapple'
+  // 小动物
+  | 'bee'
+  | 'butterfly'
+  | 'chick'
+  | 'crab'
+  | 'frogHat'
+  | 'snailHat'
+  | 'fishBowl'
+  | 'birdCage'
+  | 'beehive'
+  | 'hedgehog'
+  // 杂物与机械
+  | 'pinwheel'
+  | 'trafficCone'
+  | 'lantern'
+  | 'umbrella'
+  | 'alarmClock'
+  | 'trafficLight'
+  | 'satellite'
+  | 'planet'
+  | 'bulb'
+  | 'battery'
+  | 'magnet'
+  | 'weldingMask'
+  // 玩具
+  | 'tvHead'
+  | 'snowGlobe'
+  | 'paperBoat'
+  | 'dice'
+  | 'book'
+  | 'pencil'
   // 小黄龙联名
   | 'nailongHood'
   // 发球机活动专属
-  | 'coachcap';
+  | 'coachcap'
+  // 外星人降临限定
+  | 'ufoHelm'
+  // 🧩 碎片兑换专属
+  | 'shardCrown'
+  // 宇宙龙域限定
+  | 'drakecrown'
+  // 10 个新主题宝箱的专属头饰（各 2 款）
+  | 'desTurban' | 'desScarab' | 'nimbHalo' | 'nimbCrown' | 'confCake'
+  | 'confCrown' | 'bigtClown' | 'bigtRing' | 'aegisHelm' | 'aegisCrest'
+  | 'chanHat' | 'chanLantern' | 'arcanCap' | 'arcanCrown' | 'relicBone'
+  | 'relicAmber' | 'playBlock' | 'playTop' | 'yuanLamp' | 'yuanMask'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanHatFeather' | 'shanHatDragon';
 
 export type PetId =
   | 'none'
@@ -351,7 +459,17 @@ export type TrailId =
   | 'leaf'
   | 'void'
   | 'gold'
-  | 'pixel';
+  | 'pixel'
+  // 外星人降临限定
+  | 'stardust'
+  // 10 个新主题宝箱的专属击球拖尾（各 2 款）
+  | 'desTrailA' | 'desTrailB' | 'nimbTrailA' | 'nimbTrailB'
+  | 'confTrailA' | 'confTrailB' | 'bigtTrailA' | 'bigtTrailB'
+  | 'aegisTrailA' | 'aegisTrailB' | 'chanTrailA' | 'chanTrailB'
+  | 'arcanTrailA' | 'arcanTrailB' | 'relicTrailA' | 'relicTrailB'
+  | 'playTrailA' | 'playTrailB' | 'yuanTrailA' | 'yuanTrailB'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanTrail';
 
 /**
  * 挥拍拖尾：球拍挥动时那条弧线的风格。和「击球拖尾」（球飞行的拖尾）是
@@ -373,7 +491,18 @@ export type SwingTrailId =
   | 'voidcut'
   | 'tempo'
   // 哥斯拉来袭限定
-  | 'atomic';
+  | 'atomic'
+  // 外星人降临限定
+  | 'beam'
+  // 🧩 碎片兑换专属
+  | 'shardedge'
+  // 宇宙龙域限定
+  | 'drabreath'
+  // 10 个新主题宝箱的专属挥拍拖尾（各 1 款）
+  | 'desSwing' | 'nimbSwing' | 'confSwing' | 'bigtSwing' | 'aegisSwing'
+  | 'chanSwing' | 'arcanSwing' | 'relicSwing' | 'playSwing' | 'yuanSwing'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanSwing';
 
 /**
  * 坐骑：纯装饰，画在角色脚下、跟着他一起跑和跳。
@@ -391,8 +520,39 @@ export type MountId =
   | 'dragon'
   | 'rocket'
   | 'throne'
+  // 金币商店的 1~3★ 「普通款」坐骑：造型简单，但各有一个小动态
+  | 'scooter'
+  | 'log'
+  | 'box'
+  | 'spring'
+  | 'cart'
+  | 'broom'
+  | 'turtle'
+  | 'bike'
+  | 'hover'
+  | 'shark'
   // 小黄龙联名
-  | 'nailongRoll';
+  | 'nailongRoll'
+  // 外星人降临限定
+  | 'ufo'
+  // 宇宙龙域限定
+  | 'stardrake'
+  // 主题宝箱专属坐骑（每个主题一只，见 game/chest.ts 的 CHEST_THEMES）
+  | 'dolphin'
+  | 'pumpkincart'
+  | 'gearbike'
+  | 'lion'
+  | 'kite'
+  | 'crescent'
+  | 'firewheel'
+  | 'polarbear'
+  | 'dino'
+  | 'laserbike'
+  // 10 个新主题宝箱的专属坐骑（各 1 款）
+  | 'desCamel' | 'nimbCloud' | 'confCake' | 'bigtBall' | 'aegisSteed'
+  | 'chanBoat' | 'arcanOrb' | 'relicBone' | 'playHorse' | 'yuanBoat'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanMountKun';
 
 /** 地环：显示在角色脚下的装饰环（积分荣誉奖励） */
 export type RingId =
@@ -405,7 +565,18 @@ export type RingId =
   | 'blaze'
   | 'sky'
   | 'legend'
-  | 'courtline';
+  | 'courtline'
+  // 外星人降临限定
+  | 'orbit'
+  // 🧩 碎片兑换专属
+  | 'shardring'
+  // 宇宙龙域限定
+  | 'draring'
+  // 10 个新主题宝箱的专属地环（各 1 款）
+  | 'desRing' | 'nimbRing' | 'confRing' | 'bigtRing' | 'aegisRing'
+  | 'chanRing' | 'arcanRing' | 'relicRing' | 'playRing' | 'yuanRing'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanRing';
 
 export type AuraId =
   | 'none'
@@ -500,7 +671,21 @@ export type AuraId =
   | 'rebirth'
   | 'spotlight'
   // 哥斯拉来袭限定
-  | 'dorsal';
+  | 'dorsal'
+  // 外星人降临限定
+  | 'warp'
+  // 🧩 碎片兑换专属
+  | 'shardglow'
+  // 宇宙龙域限定
+  | 'dranebula'
+  // 10 个新主题宝箱的专属光环（各 2 款）
+  | 'desSandAura' | 'desSunAura' | 'nimbWindAura' | 'nimbStarAura'
+  | 'confSugarAura' | 'confHeartAura' | 'bigtConfetti' | 'bigtSpotAura'
+  | 'aegisBanner' | 'aegisSteel' | 'chanInkAura' | 'chanPetalAura'
+  | 'arcanRuneAura' | 'arcanStarAura' | 'relicDustAura' | 'relicAmberAura'
+  | 'playBallAura' | 'playSparkAura' | 'yuanFireAura' | 'yuanLanternAura'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanAuraSpirit' | 'shanAuraStar';
 
 export type RacketSkinId =
   | 'default'
@@ -566,7 +751,17 @@ export type RacketSkinId =
   | 'willow'
   | 'blossom'
   // 发球机活动专属
-  | 'wood';
+  | 'wood'
+  // 外星人降临限定
+  | 'meteorite'
+  // 10 个新主题宝箱的专属球拍皮肤（各 2 款）
+  | 'desRacketA' | 'desRacketB' | 'nimbRacketA' | 'nimbRacketB'
+  | 'confRacketA' | 'confRacketB' | 'bigtRacketA' | 'bigtRacketB'
+  | 'aegisRacketA' | 'aegisRacketB' | 'chanRacketA' | 'chanRacketB'
+  | 'arcanRacketA' | 'arcanRacketB' | 'relicRacketA' | 'relicRacketB'
+  | 'playRacketA' | 'playRacketB' | 'yuanRacketA' | 'yuanRacketB'
+  // 🗺️ 山海宝箱的普通货
+  | 'shanRacketA' | 'shanRacketB';
 
 /**
  * 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮）/ 老皮（两个钢铁屁股，球弹上去会被弹开），
@@ -582,7 +777,39 @@ export type CharacterSkin =
   | 'dragonlord'
   | 'nailong'
   // 发球机活动专属：发球机教练
-  | 'coach';
+  | 'coach'
+  // 外星人降临专属
+  | 'alien'
+  // 金币商店的 1~3★ 形象：便宜、造型简单，但都会动（见 `draw/character.ts`）
+  | 'slime'
+  | 'cactus'
+  | 'mushroom'
+  | 'penguin'
+  | 'frog'
+  | 'snowman'
+  | 'ghost'
+  | 'robot'
+  | 'octopus'
+  | 'panda'
+  // 宇宙龙域限定：星渊龙
+  | 'cosmodra'
+  // 主题宝箱专属形象（每个主题一款，见 game/chest.ts 的 CHEST_THEMES）
+  | 'angler'
+  | 'mummy'
+  | 'windup'
+  | 'guard'
+  | 'sakurabun'
+  | 'starlet'
+  | 'emberling'
+  | 'icesprite'
+  | 'monkey'
+  | 'neoncat'
+  // 10 个新主题宝箱的专属形象（各主题的「招牌角色」，见 game/draw/themeart.ts）
+  | 'desSpirit' | 'nimbSpirit' | 'confSpirit' | 'bigtSpirit' | 'aegisSpirit'
+  | 'chanSpirit' | 'arcanSpirit' | 'relicSpirit' | 'playSpirit' | 'yuanSpirit'
+  // 🗺️ 山海宝箱：10 只《山海经》怪物皮肤（宝箱专属、极低概率）
+  | 'zhuLong' | 'xiangLiu' | 'qiongQi' | 'taoTie' | 'taoWu'
+  | 'hunDun' | 'jiuweiHu' | 'baShe' | 'guDiao' | 'yuYu';
 const SKIN_IDS: CharacterSkin[] = [
   'none',
   'godzilla',
@@ -593,6 +820,27 @@ const SKIN_IDS: CharacterSkin[] = [
   'dragonlord',
   'nailong',
   'coach',
+  'alien',
+  'slime',
+  'cactus',
+  'mushroom',
+  'penguin',
+  'frog',
+  'snowman',
+  'ghost',
+  'robot',
+  'octopus',
+  'panda',
+  'cosmodra',
+  // 主题宝箱专属形象
+  'angler', 'mummy', 'windup', 'guard', 'sakurabun',
+  'starlet', 'emberling', 'icesprite', 'monkey', 'neoncat',
+  // 新主题宝箱专属形象
+  'desSpirit', 'nimbSpirit', 'confSpirit', 'bigtSpirit', 'aegisSpirit',
+  'chanSpirit', 'arcanSpirit', 'relicSpirit', 'playSpirit', 'yuanSpirit',
+  // 山海怪物皮肤
+  'zhuLong', 'xiangLiu', 'qiongQi', 'taoTie', 'taoWu',
+  'hunDun', 'jiuweiHu', 'baShe', 'guDiao', 'yuYu',
 ];
 
 export interface Cosmetic {
@@ -625,8 +873,9 @@ export const PLUS_EFFECT_IDS: PlusEffectId[] = Array.from({ length: 100 }, (_, i
 
 const HIT_STYLE_IDS: HitStyle[] = [
   'ring', 'spark', 'slash', 'burst', 'shock', 'frost', 'petal', 'lightning', 'star', 'prism', 'vortex',
-  'shards', 'ripple', 'confetti', 'cross', 'hex', 'spiral', 'web', 'bubble', 'feather', 'comet', 'shatter', 'smoke', 'sonic', 'gear', 'nova', 'rune', 'gzfire',
-  'bomb', 'flamenova', 'icicle', 'sword', 'claw', 'meteor', 'beam', 'poison', 'note', 'heart', 'coin', 'dice', 'arrow', 'shield', 'chain', 'thorn', 'blossom', 'cube', 'pyramid', 'aim', 'sonar', 'wind', 'sand', 'acid', 'sun', 'moon', 'eye', 'portal', 'dna', 'atom', 'sparkle', 'ink',
+  'shards', 'ripple', 'confetti', 'cross', 'hex', 'spiral', 'web', 'bubble', 'feather', 'comet', 'shatter', 'smoke', 'sonic', 'gear',   'nova', 'rune', 'gzfire',
+  'shardpop', 'drastar',
+  'bomb', 'flamenova', 'icicle', 'sword', 'claw', 'meteor', 'beam', 'poison', 'note', 'heart', 'coin', 'dice', 'arrow', 'shield', 'chain', 'thorn', 'blossom', 'cube', 'pyramid', 'aim', 'sonar', 'wind', 'sand', 'acid', 'sun', 'moon', 'eye', 'portal', 'dna', 'atom', 'sparkle', 'ink', 'meteorBurst',
   'firework', 'ringburst', 'swordcross', 'shuriken', 'boulder', 'quake', 'tornado', 'blizzard', 'volcano', 'tsunami', 'aurora', 'starlight', 'galaxy', 'blackhole', 'meteorrain', 'rainbow', 'laser', 'plasma', 'magnet', 'foam', 'leafstorm', 'sakura', 'mushroom', 'pixelate', 'glitch', 'binary', 'ringdance', 'butterfly', 'phantom', 'holy', 'thorncrown', 'tide', 'starfall', 'prismfan',
   ...PLUS_EFFECT_IDS,
 ];
@@ -639,6 +888,13 @@ const WING_IDS: WingId[] = [
   'coralFin', 'bambooLeaf', 'fireflyWing', 'obsidian', 'chrono',
   // 发球机活动专属
   'turbo',
+  // 新主题宝箱专属翅膀
+  'desSandWing', 'desDuneWing', 'nimbWindWing', 'nimbFeatherWing',
+  'confSugarWing', 'confCandyWing', 'bigtTentWing', 'bigtConfettiWing',
+  'aegisShieldWing', 'aegisBladeWing', 'chanFanWing', 'chanLeafWing',
+  'arcanRuneWing', 'arcanStarWing', 'relicBoneWing', 'relicAmberWing',
+  'playBlockWing', 'playKiteWing', 'yuanLanternWing', 'yuanFireWing',
+  'shanWingFeather', 'shanWingCloud',
 ];
 const CAPE_IDS: CapeId[] = [
   'none', 'hero', 'shadow', 'storm', 'ember', 'frost', 'leaf', 'royal', 'void', 'dragon', 'angel', 'phoenix',
@@ -648,6 +904,22 @@ const CAPE_IDS: CapeId[] = [
   'crimsonlord', 'voidwalker', 'goldenflame',
   // 发球机活动专属
   'towel',
+  // 外星人降临限定
+  'antigrav',
+  // 🧩 碎片兑换专属
+  'shardcape',
+  // 宇宙龙域限定
+  'drakewing',
+  // 主题宝箱专属披风
+  'seamist', 'batcape', 'slagcape', 'ermine', 'petalveil',
+  'starmap', 'cinder', 'icemist', 'canopy', 'tapecape',
+  // 新主题宝箱专属披风
+  'desCloak', 'desOasis', 'nimbVeil', 'nimbSail', 'confApron',
+  'confRibbonCape', 'bigtCape', 'bigtCurtain', 'aegisBanner',
+  'aegisRoyal', 'chanRobe', 'chanInkCape', 'arcanCloak',
+  'arcanMantle', 'relicHide', 'relicDustCape', 'playCape',
+  'playRibbonCape', 'yuanSilk', 'yuanLanternCape',
+  'shanCapeScale', 'shanCapeMist',
 ];
 const HAT_IDS: HatId[] = [
   'none', 'crown', 'cap', 'horn', 'halo', 'wizard', 'santa', 'ninja', 'flower', 'headphone', 'topHat', 'viking',
@@ -663,10 +935,30 @@ const HAT_IDS: HatId[] = [
   'kabukiMask', 'eyepatch', 'monocle', 'sailorHat', 'gasMask', 'skullMask', 'ghostHat', 'pumpkin',
   'iceCream', 'cupcake', 'burger', 'watermelon', 'screw', 'gear', 'minerLamp', 'candle',
   'starCrown', 'moonCrown',
+  // 第三批 50 款
+  'teapot', 'ramen', 'teacup', 'boba', 'popcorn', 'pizza', 'donut', 'sushi', 'taco', 'cake',
+  'lollipop', 'candyCane', 'sunflower', 'lotus', 'leafCrown', 'clover', 'sprout', 'cactusHat',
+  'acorn', 'strawberry', 'cherry', 'pineapple', 'bee', 'butterfly', 'chick', 'crab', 'frogHat',
+  'snailHat', 'fishBowl', 'birdCage', 'beehive', 'hedgehog', 'pinwheel', 'trafficCone', 'lantern',
+  'umbrella', 'alarmClock', 'trafficLight', 'satellite', 'planet', 'bulb', 'battery', 'magnet',
+  'weldingMask', 'tvHead', 'snowGlobe', 'paperBoat', 'dice', 'book', 'pencil',
   // 小黄龙联名
   'nailongHood',
   // 发球机活动专属
   'coachcap',
+  // 外星人降临限定
+  'ufoHelm',
+  // 🧩 碎片兑换专属
+  'shardCrown',
+  // 宇宙龙域限定
+  'drakecrown',
+  // 新主题宝箱专属头饰
+  'desTurban', 'desScarab', 'nimbHalo', 'nimbCrown', 'confCake',
+  'confCrown', 'bigtClown', 'bigtRing', 'aegisHelm', 'aegisCrest',
+  'chanHat', 'chanLantern', 'arcanCap', 'arcanCrown', 'relicBone',
+  'relicAmber',   'playBlock', 'playTop', 'yuanLamp', 'yuanMask',
+// 山海宝箱普通货
+'shanHatFeather', 'shanHatDragon',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
@@ -675,19 +967,62 @@ const PET_IDS: PetId[] = [
 const TRAIL_IDS: TrailId[] = [
   'none', 'classic', 'fire', 'ice', 'rainbow', 'electric', 'leaf', 'void', 'gold', 'pixel',
   'neon',
+  // 外星人降临限定
+  'stardust',
+  // 新主题宝箱专属击球拖尾
+  'desTrailA', 'desTrailB', 'nimbTrailA', 'nimbTrailB',
+  'confTrailA', 'confTrailB', 'bigtTrailA', 'bigtTrailB',
+  'aegisTrailA', 'aegisTrailB', 'chanTrailA', 'chanTrailB',
+  'arcanTrailA', 'arcanTrailB', 'relicTrailA', 'relicTrailB',
+  'playTrailA', 'playTrailB', 'yuanTrailA', 'yuanTrailB',
+  'shanTrail',
 ];
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
   'frostbite', 'orbit', 'wave', 'thorn', 'prism', 'voidcut',
   'tempo', 'atomic',
+  // 外星人降临限定
+  'beam',
+  // 🧩 碎片兑换专属
+  'shardedge',
+  // 宇宙龙域限定
+  'drabreath',
+  // 新主题宝箱专属挥拍拖尾
+  'desSwing', 'nimbSwing', 'confSwing', 'bigtSwing', 'aegisSwing',
+  'chanSwing', 'arcanSwing', 'relicSwing', 'playSwing', 'yuanSwing',
+  'shanSwing',
 ];
 const MOUNT_IDS: MountId[] = [
   'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
-  'star', 'dragon', 'rocket', 'throne', 'nailongRoll',
+  'star', 'dragon', 'rocket', 'throne',
+  // 金币商店的普通款（1~3★）
+  'scooter', 'log', 'box', 'spring', 'cart', 'broom', 'turtle', 'bike', 'hover', 'shark',
+  'nailongRoll',
+  // 外星人降临限定
+  'ufo',
+  // 宇宙龙域限定
+  'stardrake',
+  // 主题宝箱专属坐骑
+  'dolphin', 'pumpkincart', 'gearbike', 'lion', 'kite',
+  'crescent', 'firewheel', 'polarbear', 'dino', 'laserbike',
+  // 新主题宝箱专属坐骑
+  'desCamel', 'nimbCloud', 'confCake', 'bigtBall', 'aegisSteed',
+  'chanBoat', 'arcanOrb', 'relicBone', 'playHorse', 'yuanBoat',
+  'shanMountKun',
 ];
 const RING_IDS: RingId[] = [
   'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
   'courtline',
+  // 外星人降临限定
+  'orbit',
+  // 🧩 碎片兑换专属
+  'shardring',
+  // 宇宙龙域限定
+  'draring',
+  // 新主题宝箱专属地环
+  'desRing', 'nimbRing', 'confRing', 'bigtRing', 'aegisRing',
+  'chanRing', 'arcanRing', 'relicRing', 'playRing', 'yuanRing',
+  'shanRing',
 ];
 
 /** 地环配色（跟着组别走） */
@@ -702,6 +1037,15 @@ export const RING_COLORS: Record<RingId, number> = {
   sky: 0xffb020,
   legend: 0xff5a5a,
   courtline: 0xfff2c8,
+  orbit: 0x9fe8ff,
+  shardring: 0xbfe8ff,
+  draring: 0x8f6ad8,
+  // 新主题宝箱专属地环
+  desRing: 0xe0b56a, nimbRing: 0xdcefff, confRing: 0xffb7d5,
+  bigtRing: 0xffd45c, aegisRing: 0xc0ccda, chanRing: 0x2f7a4a,
+  arcanRing: 0xb46cff, relicRing: 0xd8c8a0, playRing: 0x4a90d9,
+  yuanRing: 0xffd45c,
+  shanRing: 0x9fe8c0,
 };
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
@@ -712,6 +1056,16 @@ const AURA_IDS: AuraId[] = [
   'phantom', 'miasma', 'laurel', 'emberfall', 'static', 'tidalwave', 'sandstorm', 'auroraring', 'singularity', 'rebirth',
   'spotlight',
   'dorsal',
+  'warp',
+  'shardglow',
+  'dranebula',
+  // 新主题宝箱专属光环
+  'desSandAura', 'desSunAura', 'nimbWindAura', 'nimbStarAura',
+  'confSugarAura', 'confHeartAura', 'bigtConfetti', 'bigtSpotAura',
+  'aegisBanner', 'aegisSteel', 'chanInkAura', 'chanPetalAura',
+  'arcanRuneAura', 'arcanStarAura', 'relicDustAura', 'relicAmberAura',
+  'playBallAura', 'playSparkAura', 'yuanFireAura', 'yuanLanternAura',
+  'shanAuraSpirit', 'shanAuraStar',
 ];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
@@ -721,6 +1075,15 @@ const RACKET_SKIN_IDS: RacketSkinId[] = [
   'quantum', 'obsidian', 'sunsteel', 'moonlace', 'rosebranch', 'starpiercer', 'tsunami', 'magma', 'stormline', 'phoenixF',
   'dragonbone', 'iceberg', 'goldthread', 'coralrim', 'chrono', 'holo', 'gravity', 'sonic', 'willow', 'blossom',
   'wood',
+  // 外星人降临限定
+  'meteorite',
+  // 新主题宝箱专属球拍皮肤
+  'desRacketA', 'desRacketB', 'nimbRacketA', 'nimbRacketB',
+  'confRacketA', 'confRacketB', 'bigtRacketA', 'bigtRacketB',
+  'aegisRacketA', 'aegisRacketB', 'chanRacketA', 'chanRacketB',
+  'arcanRacketA', 'arcanRacketB', 'relicRacketA', 'relicRacketB',
+  'playRacketA', 'playRacketB', 'yuanRacketA', 'yuanRacketB',
+  'shanRacketA', 'shanRacketB',
 ];
 
 export const WING_COLORS: Record<WingId, number> = {
@@ -797,6 +1160,18 @@ export const WING_COLORS: Record<WingId, number> = {
   obsidian: 0x3a3a4a,
   chrono: 0xb46cff,
   turbo: 0x9fb6d8,
+  // 新主题宝箱专属翅膀
+  desSandWing: 0xe0b56a, desDuneWing: 0xd89a4a,
+  nimbWindWing: 0xdcefff, nimbFeatherWing: 0xffffff,
+  confSugarWing: 0xffc4da, confCandyWing: 0xff8ad4,
+  bigtTentWing: 0xffd45c, bigtConfettiWing: 0xff8a6a,
+  aegisShieldWing: 0xaab4c2, aegisBladeWing: 0xdfe8f5,
+  chanFanWing: 0x2f7a4a, chanLeafWing: 0x8fd45a,
+  arcanRuneWing: 0x9a86e8, arcanStarWing: 0xb46cff,
+  relicBoneWing: 0xd8c8a0, relicAmberWing: 0xffb02a,
+  playBlockWing: 0x4a90d9, playKiteWing: 0xffc04a,
+  yuanLanternWing: 0xe8404a, yuanFireWing: 0xff8a3c,
+  shanWingFeather: 0xd8e8ff, shanWingCloud: 0x9fe8c0,
 };
 
 /** which silhouette a wing draws with; lets styles look genuinely different */
@@ -895,9 +1270,40 @@ export const WING_SHAPE: Record<
   obsidian: { kind: 'spike', feathers: 7, len: 56, spread: 0.5, w: 8 },
   chrono: { kind: 'circuit', feathers: 4, len: 56, spread: 0.55, w: 8 },
   turbo: { kind: 'turbo', feathers: 2, len: 46, spread: 0.5, w: 14 },
+  // 新主题宝箱专属翅膀（复用既有 silhouette kind，只换长短与配色）
+  desSandWing: { kind: 'fin', feathers: 4, len: 56, spread: 0.6, w: 13 },
+  desDuneWing: { kind: 'membrane', feathers: 4, len: 60, spread: 0.5, w: 11 },
+  nimbWindWing: { kind: 'feather', feathers: 4, len: 62, spread: 0.78, w: 8 },
+  nimbFeatherWing: { kind: 'feather', feathers: 5, len: 66, spread: 0.86, w: 7 },
+  confSugarWing: { kind: 'butterfly', feathers: 2, len: 48, spread: 0.95, w: 13 },
+  confCandyWing: { kind: 'butterfly', feathers: 3, len: 52, spread: 0.9, w: 11 },
+  bigtTentWing: { kind: 'membrane', feathers: 4, len: 58, spread: 0.55, w: 10 },
+  bigtConfettiWing: { kind: 'ribbon', feathers: 4, len: 62, spread: 0.62, w: 8 },
+  aegisShieldWing: { kind: 'mech', feathers: 3, len: 54, spread: 0.46, w: 12 },
+  aegisBladeWing: { kind: 'blade', feathers: 5, len: 62, spread: 0.68, w: 6 },
+  chanFanWing: { kind: 'sail', feathers: 1, len: 68, spread: 0.5, w: 20 },
+  chanLeafWing: { kind: 'leaf', feathers: 4, len: 56, spread: 0.7, w: 12 },
+  arcanRuneWing: { kind: 'circuit', feathers: 4, len: 58, spread: 0.56, w: 8 },
+  arcanStarWing: { kind: 'feather', feathers: 5, len: 64, spread: 0.82, w: 8 },
+  relicBoneWing: { kind: 'membrane', feathers: 4, len: 60, spread: 0.48, w: 10 },
+  relicAmberWing: { kind: 'crystal', feathers: 4, len: 52, spread: 0.56, w: 7 },
+  playBlockWing: { kind: 'mech', feathers: 3, len: 50, spread: 0.42, w: 11 },
+  playKiteWing: { kind: 'sail', feathers: 1, len: 64, spread: 0.5, w: 18 },
+  yuanLanternWing: { kind: 'ribbon', feathers: 4, len: 60, spread: 0.6, w: 8 },
+  yuanFireWing: { kind: 'flame', feathers: 4, len: 58, spread: 0.6, w: 8 },
+  // 山海宝箱普通货
+  shanWingFeather: { kind: 'feather', feathers: 5, len: 66, spread: 0.85, w: 7 },
+  shanWingCloud: { kind: 'leaf', feathers: 4, len: 58, spread: 0.72, w: 12 },
 };
 
-export type CapeKind = 'cloth' | 'flame' | 'feather' | 'tatter' | 'royal' | 'split' | 'scales' | 'streak' | 'towel';
+export type CapeKind =
+  | 'cloth' | 'flame' | 'feather' | 'tatter' | 'royal' | 'split' | 'scales' | 'streak' | 'towel'
+  // 外星人降临：反重力——下摆浮起来、往上游走的光带
+  | 'antigrav'
+  // 后加的主题披风：每种一个独立剪影（见 drawCape）
+  | 'candywrap' | 'tentflap' | 'flag' | 'leafcloak' | 'pelt' | 'lanternrow'
+  | 'talon' | 'shellfan' | 'ribboncurl' | 'puffcloud' | 'inkflow' | 'gearhang'
+  | 'petalrain' | 'silkveil' | 'frostveil' | 'starpelt';
 
 export const CAPE_COLORS: Record<CapeId, number> = {
   none: 0x000000,
@@ -944,6 +1350,32 @@ export const CAPE_COLORS: Record<CapeId, number> = {
   goldenflame: 0xffd45c,
   towel: 0xf3ede0,
   scalecape: 0x3a7d44,
+  antigrav: 0x8fe0ff,
+  shardcape: 0x9fe8ff,
+  drakewing: 0x6a4ad8,
+  // 主题宝箱专属披风
+  seamist: 0x35a8b8,
+  batcape: 0x3a2a5a,
+  slagcape: 0x7f8fa8,
+  ermine: 0xf3ede0,
+  petalveil: 0xffc4da,
+  starmap: 0x2a3a8a,
+  cinder: 0x8a2a1a,
+  icemist: 0xd8f2ff,
+  canopy: 0x3a8a3a,
+  tapecape: 0xe83a9a,
+  // 新主题宝箱专属披风
+  desCloak: 0xc9803a, desOasis: 0xe0b56a,
+  nimbVeil: 0xdcefff, nimbSail: 0xeaf6ff,
+  confApron: 0xffd0e0, confRibbonCape: 0xff8ad4,
+  bigtCape: 0xc0392b, bigtCurtain: 0x8a1a4a,
+  aegisBanner: 0x8fb4de, aegisRoyal: 0x3a5a8a,
+  chanRobe: 0x2f7a4a, chanInkCape: 0x1e3a2a,
+  arcanCloak: 0x5540a0, arcanMantle: 0x7a5ad8,
+  relicHide: 0x7a6440, relicDustCape: 0xd8c8a0,
+  playCape: 0x4a90d9, playRibbonCape: 0xffc04a,
+  yuanSilk: 0xffd45c, yuanLanternCape: 0xc0392b,
+  shanCapeScale: 0x2f8a6a, shanCapeMist: 0xbfe8d8,
 };
 
 /** cape silhouette: length, base width and the kind of motion it uses */
@@ -951,47 +1383,85 @@ export const CAPE_SHAPE: Record<CapeId, { kind: CapeKind; len: number; w: number
   none: { kind: 'cloth', len: 0, w: 0 },
   hero: { kind: 'cloth', len: 54, w: 26 },
   shadow: { kind: 'tatter', len: 56, w: 28 },
-  storm: { kind: 'cloth', len: 50, w: 24 },
+  storm: { kind: 'streak', len: 50, w: 26 },
   ember: { kind: 'flame', len: 58, w: 26 },
-  frost: { kind: 'feather', len: 52, w: 30 },
+  frost: { kind: 'cloth', len: 52, w: 28 },
   leaf: { kind: 'feather', len: 50, w: 28 },
   royal: { kind: 'royal', len: 62, w: 32 },
   void: { kind: 'tatter', len: 60, w: 30 },
   dragon: { kind: 'cloth', len: 58, w: 30 },
   angel: { kind: 'feather', len: 56, w: 30 },
   phoenix: { kind: 'flame', len: 60, w: 28 },
-  knight: { kind: 'cloth', len: 52, w: 28 },
+  knight: { kind: 'flag', len: 56, w: 30 },
   mage: { kind: 'royal', len: 64, w: 34 },
-  ninja: { kind: 'tatter', len: 48, w: 24 },
-  winter: { kind: 'feather', len: 54, w: 32 },
-  autumn: { kind: 'feather', len: 52, w: 30 },
+  ninja: { kind: 'split', len: 48, w: 24 },
+  winter: { kind: 'pelt', len: 54, w: 32 },
+  autumn: { kind: 'petalrain', len: 52, w: 30 },
   ocean: { kind: 'cloth', len: 56, w: 28 },
   starCape: { kind: 'split', len: 62, w: 30 },
-  voidCape: { kind: 'split', len: 64, w: 32 },
-  goldRoyal: { kind: 'royal', len: 66, w: 34 },
+  voidCape: { kind: 'inkflow', len: 64, w: 32 },
+  goldRoyal: { kind: 'flag', len: 66, w: 34 },
   dragonfire: { kind: 'flame', len: 62, w: 30 },
-  auroraCape: { kind: 'cloth', len: 58, w: 26 },
-  stormlord: { kind: 'tatter', len: 60, w: 30 },
-  sakuraCape: { kind: 'feather', len: 54, w: 30 },
+  auroraCape: { kind: 'silkveil', len: 58, w: 28 },
+  stormlord: { kind: 'starpelt', len: 60, w: 30 },
+  sakuraCape: { kind: 'petalrain', len: 54, w: 30 },
   ironclad: { kind: 'scales', len: 58, w: 32 },
-  pharaoh: { kind: 'royal', len: 64, w: 34 },
-  emberwind: { kind: 'flame', len: 58, w: 26 },
-  abyssCape: { kind: 'split', len: 62, w: 30 },
-  jadeRobe: { kind: 'royal', len: 62, w: 32 },
-  plaguecoat: { kind: 'tatter', len: 56, w: 28 },
-  captainCape: { kind: 'cloth', len: 54, w: 28 },
+  pharaoh: { kind: 'silkveil', len: 64, w: 32 },
+  emberwind: { kind: 'streak', len: 58, w: 26 },
+  abyssCape: { kind: 'inkflow', len: 62, w: 30 },
+  jadeRobe: { kind: 'scales', len: 62, w: 32 },
+  plaguecoat: { kind: 'petalrain', len: 56, w: 28 },
+  captainCape: { kind: 'flag', len: 56, w: 30 },
   stardust: { kind: 'feather', len: 56, w: 30 },
-  warlord: { kind: 'cloth', len: 60, w: 30 },
-  frostlord: { kind: 'feather', len: 58, w: 32 },
-  venomCape: { kind: 'tatter', len: 58, w: 28 },
+  warlord: { kind: 'pelt', len: 60, w: 32 },
+  frostlord: { kind: 'royal', len: 58, w: 32 },
+  venomCape: { kind: 'gearhang', len: 58, w: 30 },
   cometCape: { kind: 'streak', len: 64, w: 26 },
-  thunderCape: { kind: 'streak', len: 60, w: 26 },
-  mooncloak: { kind: 'cloth', len: 56, w: 28 },
-  crimsonlord: { kind: 'royal', len: 64, w: 34 },
-  voidwalker: { kind: 'split', len: 62, w: 30 },
+  thunderCape: { kind: 'antigrav', len: 60, w: 28 },
+  mooncloak: { kind: 'frostveil', len: 56, w: 30 },
+  crimsonlord: { kind: 'lanternrow', len: 64, w: 30 },
+  voidwalker: { kind: 'puffcloud', len: 62, w: 30 },
   goldenflame: { kind: 'flame', len: 62, w: 30 },
   towel: { kind: 'towel', len: 40, w: 24 },
   scalecape: { kind: 'scales', len: 60, w: 30 },
+  antigrav: { kind: 'antigrav', len: 58, w: 30 },
+  shardcape: { kind: 'frostveil', len: 56, w: 30 },
+  drakewing: { kind: 'scales', len: 62, w: 32 },
+  // 主题宝箱专属披风：每个主题内**剪影不重样**
+  seamist: { kind: 'silkveil', len: 56, w: 28 },   // 深海雾纱
+  batcape: { kind: 'split', len: 58, w: 32 },      // 蝙蝠斗篷（分叉翼）
+  slagcape: { kind: 'gearhang', len: 52, w: 28 },  // 焊渣（齿轮帘）
+  ermine: { kind: 'royal', len: 62, w: 32 },       // 白貂
+  petalveil: { kind: 'silkveil', len: 54, w: 30 }, // 花瓣纱
+  starmap: { kind: 'starpelt', len: 62, w: 30 },   // 星图
+  cinder: { kind: 'pelt', len: 60, w: 32 },        // 火山灰兽皮
+  icemist: { kind: 'frostveil', len: 54, w: 30 },  // 冰雾（冰棱帘）
+  canopy: { kind: 'leafcloak', len: 56, w: 30 },   // 树冠（层叠叶）
+  tapecape: { kind: 'ribboncurl', len: 54, w: 26 }, // 磁带（卷曲）
+  // 新主题宝箱专属披风
+  // 每个主题两种各不相同的剪影（见 drawCape 的新 kind）
+  desCloak: { kind: 'pelt', len: 54, w: 28 },          // 旅人兽皮
+  desOasis: { kind: 'silkveil', len: 60, w: 28 },       // 绿洲纱帐
+  nimbVeil: { kind: 'puffcloud', len: 56, w: 30 },      // 云团
+  nimbSail: { kind: 'cloth', len: 58, w: 28 },          // 云帆
+  confApron: { kind: 'candywrap', len: 52, w: 28 },     // 糖霜卷帘
+  confRibbonCape: { kind: 'ribboncurl', len: 56, w: 24 }, // 卷曲缎带
+  bigtCape: { kind: 'tentflap', len: 58, w: 32 },       // 帐篷幕布
+  bigtCurtain: { kind: 'split', len: 62, w: 32 },       // 分叉帷幕
+  aegisBanner: { kind: 'flag', len: 62, w: 30 },        // 战旗
+  aegisRoyal: { kind: 'royal', len: 66, w: 34 },        // 王袍
+  chanRobe: { kind: 'inkflow', len: 62, w: 30 },        // 水墨垂流
+  chanInkCape: { kind: 'streak', len: 58, w: 26 },      // 墨迹拉丝
+  arcanCloak: { kind: 'starpelt', len: 60, w: 30 },     // 星幕
+  arcanMantle: { kind: 'feather', len: 62, w: 30 },     // 星辉羽
+  relicHide: { kind: 'tatter', len: 58, w: 30 },        // 破旧兽皮
+  relicDustCape: { kind: 'petalrain', len: 60, w: 30 }, // 尘土飘落
+  playCape: { kind: 'gearhang', len: 52, w: 30 },       // 齿轮帘
+  playRibbonCape: { kind: 'antigrav', len: 56, w: 26 }, // 反重力彩带
+  yuanSilk: { kind: 'flame', len: 58, w: 28 },          // 焰火绸
+  yuanLanternCape: { kind: 'lanternrow', len: 62, w: 30 }, // 灯笼帘
+  shanCapeScale: { kind: 'scales', len: 58, w: 30 },   // 鳞光
+  shanCapeMist: { kind: 'frostveil', len: 60, w: 30 }, // 雾纱（冰棱帘）
 };
 
 export type HatKind =
@@ -1084,8 +1554,64 @@ export type HatKind =
   | 'candle'
   | 'starCrown'
   | 'moonCrown'
+  // 第三批 50 款
+  | 'teapot'
+  | 'ramen'
+  | 'teacup'
+  | 'boba'
+  | 'popcorn'
+  | 'pizza'
+  | 'donut'
+  | 'sushi'
+  | 'taco'
+  | 'cake'
+  | 'lollipop'
+  | 'candyCane'
+  | 'sunflower'
+  | 'lotus'
+  | 'leafCrown'
+  | 'clover'
+  | 'sprout'
+  | 'cactusHat'
+  | 'acorn'
+  | 'strawberry'
+  | 'cherry'
+  | 'pineapple'
+  | 'bee'
+  | 'butterfly'
+  | 'chick'
+  | 'crab'
+  | 'frogHat'
+  | 'snailHat'
+  | 'fishBowl'
+  | 'birdCage'
+  | 'beehive'
+  | 'hedgehog'
+  | 'pinwheel'
+  | 'trafficCone'
+  | 'lantern'
+  | 'umbrella'
+  | 'alarmClock'
+  | 'trafficLight'
+  | 'satellite'
+  | 'planet'
+  | 'bulb'
+  | 'battery'
+  | 'magnet'
+  | 'weldingMask'
+  | 'tvHead'
+  | 'snowGlobe'
+  | 'paperBoat'
+  | 'dice'
+  | 'book'
+  | 'pencil'
   | 'nailongHood'
-  | 'coachcap';
+  | 'coachcap'
+  | 'ufoHelm'
+  | 'shardCrown'
+  | 'drakecrown'
+  // 新主题宝箱的头饰统一走这里的通用画法（按 id 查 THEME_HATS）
+  | 'themed';
 
 export const HAT_COLORS: Record<HatId, number> = {
   none: 0x000000,
@@ -1179,8 +1705,75 @@ export const HAT_COLORS: Record<HatId, number> = {
   candle: 0xfff0d0,
   starCrown: 0xffd45c,
   moonCrown: 0xcfe3ff,
+  // 第三批 50 款
+  teapot: 0xd8e4ea,
+  ramen: 0xe8b06a,
+  teacup: 0xf2f2f2,
+  boba: 0xc9a37a,
+  popcorn: 0xe8d8b0,
+  pizza: 0xe8a04a,
+  donut: 0xe89ab0,
+  sushi: 0xf2f0e0,
+  taco: 0xd8a05a,
+  cake: 0xf2c8d8,
+  lollipop: 0xff8ad4,
+  candyCane: 0xe8404a,
+  sunflower: 0xffd45c,
+  lotus: 0xffb8d8,
+  leafCrown: 0x6fbf5a,
+  clover: 0x4fae4a,
+  sprout: 0x8fd45a,
+  cactusHat: 0x4fa860,
+  acorn: 0xb98a4a,
+  strawberry: 0xe8404a,
+  cherry: 0xd8304a,
+  pineapple: 0xe8c04a,
+  bee: 0xffd45c,
+  butterfly: 0xff8ad4,
+  chick: 0xffe08a,
+  crab: 0xe8604a,
+  frogHat: 0x5cbf4a,
+  snailHat: 0xc9a37a,
+  fishBowl: 0x8fd8ff,
+  birdCage: 0xd8c08a,
+  beehive: 0xe0a84a,
+  hedgehog: 0x9a7a5a,
+  pinwheel: 0xff8a4a,
+  trafficCone: 0xe8602a,
+  lantern: 0xe8403a,
+  umbrella: 0x4f9ad8,
+  alarmClock: 0xe8e8e0,
+  trafficLight: 0x3a4a5c,
+  satellite: 0xc9d4e0,
+  planet: 0x8f6ad8,
+  bulb: 0xffe08a,
+  battery: 0x4fa860,
+  magnet: 0xe8403a,
+  weldingMask: 0x4a5460,
+  tvHead: 0x6a7a8a,
+  snowGlobe: 0x9fe8ff,
+  paperBoat: 0xf2f0e8,
+  dice: 0xf8f8f4,
+  book: 0xc9a37a,
+  pencil: 0xf2c04a,
   nailongHood: 0xffd93d,
   coachcap: 0x2f5d3a,
+  ufoHelm: 0x9fe8ff,
+  shardCrown: 0xbfe8ff,
+  drakecrown: 0xffd45c,
+  // 新主题宝箱专属头饰
+  desTurban: 0xe0b56a, desScarab: 0x4a8a5a,
+  nimbHalo: 0xeaf6ff, nimbCrown: 0xffe89a,
+  confCake: 0xffb7d5, confCrown: 0xffd45c,
+  bigtClown: 0xf2f2f2, bigtRing: 0xe8404a,
+  aegisHelm: 0xaab4c2, aegisCrest: 0xc0392b,
+  chanHat: 0x2f7a4a, chanLantern: 0xffd45c,
+  arcanCap: 0x5540a0, arcanCrown: 0xb46cff,
+  relicBone: 0xd8c8a0, relicAmber: 0xffb02a,
+  playBlock: 0x4a90d9, playTop: 0xe8404a,
+  yuanLamp: 0xe8404a, yuanMask: 0xffd45c,
+  // 山海宝箱普通货
+  shanHatFeather: 0xd8e8ff, shanHatDragon: 0xd42a2a,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -1275,9 +1868,110 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   candle: 'candle',
   starCrown: 'starCrown',
   moonCrown: 'moonCrown',
+  // 第三批 50 款（每款一个独立 kind）
+  teapot: 'teapot',
+  ramen: 'ramen',
+  teacup: 'teacup',
+  boba: 'boba',
+  popcorn: 'popcorn',
+  pizza: 'pizza',
+  donut: 'donut',
+  sushi: 'sushi',
+  taco: 'taco',
+  cake: 'cake',
+  lollipop: 'lollipop',
+  candyCane: 'candyCane',
+  sunflower: 'sunflower',
+  lotus: 'lotus',
+  leafCrown: 'leafCrown',
+  clover: 'clover',
+  sprout: 'sprout',
+  cactusHat: 'cactusHat',
+  acorn: 'acorn',
+  strawberry: 'strawberry',
+  cherry: 'cherry',
+  pineapple: 'pineapple',
+  bee: 'bee',
+  butterfly: 'butterfly',
+  chick: 'chick',
+  crab: 'crab',
+  frogHat: 'frogHat',
+  snailHat: 'snailHat',
+  fishBowl: 'fishBowl',
+  birdCage: 'birdCage',
+  beehive: 'beehive',
+  hedgehog: 'hedgehog',
+  pinwheel: 'pinwheel',
+  trafficCone: 'trafficCone',
+  lantern: 'lantern',
+  umbrella: 'umbrella',
+  alarmClock: 'alarmClock',
+  trafficLight: 'trafficLight',
+  satellite: 'satellite',
+  planet: 'planet',
+  bulb: 'bulb',
+  battery: 'battery',
+  magnet: 'magnet',
+  weldingMask: 'weldingMask',
+  tvHead: 'tvHead',
+  snowGlobe: 'snowGlobe',
+  paperBoat: 'paperBoat',
+  dice: 'dice',
+  book: 'book',
+  pencil: 'pencil',
   nailongHood: 'nailongHood',
   coachcap: 'coachcap',
+  ufoHelm: 'ufoHelm',
+  shardCrown: 'shardCrown',
+  drakecrown: 'drakecrown',
+  // 新主题宝箱头饰：统一走 'themed'（实际造型按 id 查 THEME_HATS）
+  desTurban: 'themed', desScarab: 'themed', nimbHalo: 'themed', nimbCrown: 'themed',
+  confCake: 'themed', confCrown: 'themed', bigtClown: 'themed', bigtRing: 'themed',
+  aegisHelm: 'themed', aegisCrest: 'themed', chanHat: 'themed', chanLantern: 'themed',
+  arcanCap: 'themed', arcanCrown: 'themed', relicBone: 'themed', relicAmber: 'themed',
+  playBlock: 'themed', playTop: 'themed', yuanLamp: 'themed', yuanMask: 'themed',
+  shanHatFeather: 'themed', shanHatDragon: 'themed',
 };
+
+/**
+ * 「整颗头换掉」的头饰：戴上之后**不画 emoji 脸**，头盔 / 面具 / 头套本身就是那颗头。
+ * 其余的头饰（王冠 / 鸭舌帽 / 兔耳 / 兜帽 / 眼罩…）只是**装饰在原来的头上面**，emoji 脸照画。
+ *
+ * 判断标准是那块头饰的绘制里**自带五官**或者**把整颗头包住**：
+ * 全罩头盔（飞碟头盔 / 宇航盔 / 骑士盔 / 武士盔 / VR / 潜水镜）与各种面具头套
+ * （瘟疫医生 / 防毒面具 / 骷髅 / 歌舞伎 / 狐狸 / 鬼面 / 南瓜 / 幽灵 / 小黄龙头套）。
+ */
+export const FULL_HEAD_HATS: HatId[] = [
+  'ufoHelm',
+  'astro',
+  'knightHelm',
+  'samurai',
+  'vr',
+  'snorkel',
+  'plague',
+  'gasMask',
+  'skullMask',
+  'kabukiMask',
+  'foxMask',
+  'oni',
+  'pumpkin',
+  'ghostHat',
+  'nailongHood',
+  // 第三批里这两款也是「把整颗头包住」的：电视头（屏幕就是脸）与焊接面罩
+  'tvHead',
+  'weldingMask',
+];
+
+/**
+ * 这些头饰的绘制是围着「帽子该在的高度」写的（比头再高一点），
+ * 所以替换头时要整体下移这么多，盔体才落得进原来那颗头的位置。
+ */
+export const FULL_HEAD_DY = 12;
+
+/** 这个头饰是不是「整头替换」（不画 emoji 脸） */
+export function replacesHead(hat: HatId): boolean {
+  return FULL_HEAD_HATS.includes(hat);
+}
 
 export type PetKind =
   | 'orb' | 'bird' | 'cat' | 'dragon' | 'fairy' | 'skull' | 'fox' | 'robot' | 'star' | 'flame' | 'ghost'
@@ -1327,6 +2021,19 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   gold: 0xffd45c,
   pixel: 0x39ffd0,
   neon: 0xb8ff3a,
+  stardust: 0x9fe8ff,
+  // 新主题宝箱专属击球拖尾
+  desTrailA: 0xe0b56a, desTrailB: 0xffd45c,
+  nimbTrailA: 0xdcefff, nimbTrailB: 0xffffff,
+  confTrailA: 0xffb7d5, confTrailB: 0xff8ad4,
+  bigtTrailA: 0xffd45c, bigtTrailB: 0xff8a6a,
+  aegisTrailA: 0xc0ccda, aegisTrailB: 0x3a5a8a,
+  chanTrailA: 0x2f7a4a, chanTrailB: 0xffb7d5,
+  arcanTrailA: 0xffd45c, arcanTrailB: 0xb46cff,
+  relicTrailA: 0xd8c8a0, relicTrailB: 0xffb02a,
+  playTrailA: 0x4a90d9, playTrailB: 0xffc04a,
+  yuanTrailA: 0xffd45c, yuanTrailB: 0xff8a6a,
+  shanTrail: 0x9fe8c0,
 };
 
 /** 挥拍拖尾各风格的主色 */
@@ -1346,6 +2053,15 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   voidcut: 0x9b5cff,
   tempo: 0xffb03a,
   atomic: 0x9fe8ff,
+  beam: 0x7fffd4,
+  shardedge: 0xbfe8ff,
+  drabreath: 0x9f7bff,
+  // 新主题宝箱专属挥拍拖尾
+  desSwing: 0xe0b56a, nimbSwing: 0xdcefff, confSwing: 0xffb7d5,
+  bigtSwing: 0xffd45c, aegisSwing: 0x8fb4de, chanSwing: 0x2f7a4a,
+  arcanSwing: 0xb46cff, relicSwing: 0xd8c8a0, playSwing: 0x4a90d9,
+  yuanSwing: 0xffd45c,
+  shanSwing: 0xff8a3c,
 };
 
 /** 坐骑各款的主色 */
@@ -1361,7 +2077,37 @@ export const MOUNT_COLORS: Record<MountId, number> = {
   dragon: 0x39d0a0,
   rocket: 0xe8eef5,
   throne: 0xffd45c,
+  // 金币商店的普通款
+  scooter: 0x4f9ad8,
+  log: 0x9a6b3a,
+  box: 0xc99a5c,
+  spring: 0x8fa6b8,
+  cart: 0xb06a3a,
+  broom: 0xd8a24a,
+  turtle: 0x6fae4f,
+  bike: 0xd05a4a,
+  hover: 0x54d6ff,
+  shark: 0x6f9fce,
   nailongRoll: 0xffd93d,
+  ufo: 0x9fd8e8,
+  stardrake: 0x8f6ad8,
+  // 主题宝箱专属坐骑
+  dolphin: 0x5aa8e8,
+  pumpkincart: 0xff8a2a,
+  gearbike: 0x8f9aa8,
+  lion: 0xd8a24a,
+  kite: 0xff8ad4,
+  crescent: 0xffe9a8,
+  firewheel: 0xff5a1a,
+  polarbear: 0xf0f4fa,
+  dino: 0x53c46a,
+  laserbike: 0x39ffd0,
+  // 新主题宝箱专属坐骑
+  desCamel: 0xd8a24a, nimbCloud: 0xeaf6ff, confCake: 0xffd0e0,
+  bigtBall: 0xe8404a, aegisSteed: 0xaab4c2, chanBoat: 0x3a8a5a,
+  arcanOrb: 0x9a86e8, relicBone: 0xd8c8a0, playHorse: 0xffc04a,
+  yuanBoat: 0xe8404a,
+  shanMountKun: 0x4aa8d8,
 };
 
 export const AURA_COLORS: Record<AuraId, number> = {
@@ -1457,6 +2203,21 @@ export const AURA_COLORS: Record<AuraId, number> = {
   rebirth: 0xff5a2a,
   spotlight: 0xfff0c0,
   dorsal: 0x8fe0ff,
+  warp: 0x6fe09a,
+  shardglow: 0xbfe8ff,
+  dranebula: 0x8f6ad8,
+  // 新主题宝箱专属光环
+  desSandAura: 0xe0b56a, desSunAura: 0xffd45c,
+  nimbWindAura: 0xdcefff, nimbStarAura: 0xffe89a,
+  confSugarAura: 0xffb7d5, confHeartAura: 0xff869c,
+  bigtConfetti: 0xffd45c, bigtSpotAura: 0xff8a6a,
+  aegisBanner: 0x8fb4de, aegisSteel: 0xc0ccda,
+  chanInkAura: 0x2f7a4a, chanPetalAura: 0xffb7d5,
+  arcanRuneAura: 0xffd45c, arcanStarAura: 0xb46cff,
+  relicDustAura: 0xd8c8a0, relicAmberAura: 0xffb02a,
+  playBallAura: 0x4a90d9, playSparkAura: 0xffc04a,
+  yuanFireAura: 0xff8a3c, yuanLanternAura: 0xffd45c,
+  shanAuraSpirit: 0x9fe8c0, shanAuraStar: 0xffe89a,
 };
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
@@ -1523,6 +2284,19 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   willow: 0x8fbf5a,
   blossom: 0xffb7d5,
   wood: 0x9a6a3a,
+  meteorite: 0x6a6f7a,
+  // 新主题宝箱专属球拍皮肤
+  desRacketA: 0xe0b56a, desRacketB: 0xc9803a,
+  nimbRacketA: 0xdcefff, nimbRacketB: 0xa8d4f5,
+  confRacketA: 0xffb7d5, confRacketB: 0xff869c,
+  bigtRacketA: 0xffd45c, bigtRacketB: 0xc0392b,
+  aegisRacketA: 0xc0ccda, aegisRacketB: 0x3a5a8a,
+  chanRacketA: 0x2f7a4a, chanRacketB: 0xd8c07a,
+  arcanRacketA: 0xb46cff, arcanRacketB: 0x5540a0,
+  relicRacketA: 0xd8c8a0, relicRacketB: 0x7a6440,
+  playRacketA: 0x4a90d9, playRacketB: 0xffc04a,
+  yuanRacketA: 0xe8404a, yuanRacketB: 0xffd45c,
+  shanRacketA: 0xd8e8ff, shanRacketB: 0xd42a2a,
 };
 
 export const EMOJI_PRESETS = [

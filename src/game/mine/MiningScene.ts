@@ -15,7 +15,7 @@ import {
   VIEW_W,
 } from '../constants';
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
-import { RacketTracker } from '../racket';
+import { RacketTracker, SwingPath } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
 import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
@@ -24,19 +24,20 @@ import { P } from '../theme';
 import type { NetLink } from '../../net/link';
 import { sfx } from '../audio';
 
-// ---- ore table: each broken block yields coins straight away ---------------
+// ---- ore table: each broken block yields **矿石材料**（不是直接给金币）--------
 interface OreKind {
   name: string;
   hp: number;
-  value: number;
+  /** 砸碎这块给几个「矿石」（越硬的给得越多；农场主按 ¥8/个 收购） */
+  units: number;
   color: number;
   ore: number; // the sparkly vein colour
 }
 const ORE_KINDS: OreKind[] = [
-  { name: '石头', hp: 3, value: 5, color: 0x8d949e, ore: 0x6d747e },
-  { name: '铁矿', hp: 6, value: 12, color: 0x9e8a72, ore: 0xc98a4b },
-  { name: '金矿', hp: 10, value: 30, color: 0x8f8f7a, ore: 0xffd45c },
-  { name: '钻石矿', hp: 16, value: 80, color: 0x7a8f9e, ore: 0x6fe3ff },
+  { name: '石头', hp: 3, units: 1, color: 0x8d949e, ore: 0x6d747e },
+  { name: '铁矿', hp: 6, units: 2, color: 0x9e8a72, ore: 0xc98a4b },
+  { name: '金矿', hp: 10, units: 4, color: 0x8f8f7a, ore: 0xffd45c },
+  { name: '钻石矿', hp: 16, units: 10, color: 0x7a8f9e, ore: 0x6fe3ff },
 ];
 
 // 矿山：进图生成一座由方块矿石叠成的小山，挖空后 1 分钟重新生成
@@ -96,14 +97,15 @@ interface Miner {
 export interface MiningSceneData {
   cosmetic: Cosmetic;
   session: NetLink | null;
-  /** reports earnings so the Vue page can show a running total */
-  onEarn?: (total: number) => void;
+  /** 本场累计挖到几个「矿石」，页面拿去显示（矿石要拉去农场主那里才换钱） */
+  onOre?: (total: number) => void;
 }
 
 /**
  * Mining: a block of ore in front of the player, broken by swinging the racket
  * into it. Debris flies with the same gravity + quadratic drag the shuttle
- * uses; each broken block pays coins on the spot.
+ * uses; each broken block yields **矿石材料**（越硬的矿给得越多，见 `ORE_KINDS`），
+ * 不是直接给金币——金币得把材料交给赚钱区的农场主才换得到。
  */
 export class MiningScene extends Phaser.Scene {
   private cfg!: MiningSceneData;
@@ -137,6 +139,11 @@ export class MiningScene extends Phaser.Scene {
   private poseClock = 0;
   /** exactly the match controls: tracker + sticks on touch */
   private racket = new RacketTracker();
+  /** 挥拍轨迹采样（我和对手各一份，拖尾沿真实路径画） */
+  private pathMe = new SwingPath();
+  private pathOther = new SwingPath();
+  private trailTMe = 0;
+  private trailTOther = 0;
   private touchControls: TouchControls | null = null;
 
   constructor() {
@@ -166,8 +173,8 @@ export class MiningScene extends Phaser.Scene {
     this.charOverG = this.add.graphics().setDepth(4);
     this.rigMe = createPlayerRig(this);
     this.rigOther = createPlayerRig(this);
-    // 左上角不再写矿石耐久 / 金币：耐久看裂纹，收获看破坏时的金币跳动
-    this.cfg.onEarn?.(this.total);
+    // 左上角不再写矿石耐久 / 收获：耐久看裂纹，收获看破坏时跳出来的「🪨 +N」
+    this.cfg.onOre?.(this.total);
 
     const kb = this.input.keyboard;
     if (kb) {
@@ -193,7 +200,7 @@ export class MiningScene extends Phaser.Scene {
           this.remoteReach = m.r;
           this.remote.facing = m.x > MINE_X ? -1 : 1;
         } else if (m.t === 'mineBreak') {
-          this.pop(`对方挖到 ${m.ore} +¥${m.value}`, 0x2a7ad4);
+          this.pop(`对方挖到 ${m.ore} +${m.units} 矿石`, 0x2a7ad4);
         }
       };
       link.onDisconnected = () => {
@@ -450,10 +457,10 @@ export class MiningScene extends Phaser.Scene {
     this.cameras.main.shake(220, 0.012);
     this.spawnDebris(b.x, b.y, b.kind.color, 14);
     this.spawnDebris(b.x, b.y, b.kind.ore, 8);
-    this.total += b.kind.value;
-    this.coinPop(b.x, b.y - BLOCK_S, b.kind.value);
-    this.cfg.session?.send({ t: 'mineBreak', ore: b.kind.name, value: b.kind.value });
-    this.cfg.onEarn?.(this.total);
+    this.total += b.kind.units;
+    this.orePop(b.x, b.y - BLOCK_S, b.kind.units);
+    this.cfg.session?.send({ t: 'mineBreak', ore: b.kind.name, units: b.kind.units });
+    this.cfg.onOre?.(this.total);
 
     this.blocks = this.blocks.filter((w) => w !== b);
     // 整座山挖空 → 1 分钟后重新生成；存档跟着更新（部分挖完退出也保留进度）
@@ -519,12 +526,12 @@ export class MiningScene extends Phaser.Scene {
   }
 
   /**
-   * 破坏矿石时的收获反馈：金币图标 + 跳动的数字。
+   * 破坏矿石时的收获反馈：矿石图标 + 跳动的数字（几个「矿石」，不是金币）。
    * 先弹出来（回弹缩放），再向上跳一下，最后飘起淡出。
    */
-  private coinPop(x: number, y: number, value: number): void {
+  private orePop(x: number, y: number, value: number): void {
     const icon = this.add
-      .text(x - 12, y, '🪙', { fontSize: '36px' })
+      .text(x - 12, y, '🪨', { fontSize: '36px' })
       .setOrigin(0.5)
       .setDepth(14)
       .setScale(0.3);
@@ -659,6 +666,15 @@ export class MiningScene extends Phaser.Scene {
   ): void {
     // same rig the match scene uses: body + arm + racket, identical visuals
     const rig = isMe ? this.rigMe : this.rigOther;
+    // 挥拍轨迹按帧采样（我和对手各一份），拖尾沿真实路径画
+    const rx = Math.cos(ang) * reach;
+    const ry = Math.sin(ang) * reach;
+    const lastT = isMe ? this.trailTMe : this.trailTOther;
+    const dt = Math.min(0.05, Math.max(0.001, (this.time.now - lastT) / 1000));
+    if (isMe) this.trailTMe = this.time.now;
+    else this.trailTOther = this.time.now;
+    const path = isMe ? this.pathMe : this.pathOther;
+    path.record(rx, ry, dt);
     rig.draw(
       g,
       this.time.now,
@@ -669,11 +685,12 @@ export class MiningScene extends Phaser.Scene {
         facing: a.facing,
         color: isMe ? P.player0 : P.player1,
       },
-      Math.cos(ang) * reach,
-      Math.sin(ang) * reach,
+      rx,
+      ry,
       Math.hypot(this.swingVX, this.swingVY),
       RACKET_HEAD_R,
       this.charOverG,
+      path.pts,
     );
   }
 }

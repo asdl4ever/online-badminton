@@ -37,10 +37,13 @@ function back() {
   void router.push('/');
 }
 
-/** coins are granted as blocks break: the scene reports a running total */
-function onEarn(total: number): void {
+/**
+ * 矿石砸碎就进仓（**材料，不是金币**）：场景上报的是本场累计个数，这里只记增量。
+ * 换钱要把矿石拉去赚钱区交给农场主。
+ */
+function onOre(total: number): void {
   if (total > sessionTotal.value) {
-    progress.coins += total - sessionTotal.value;
+    progress.addOre(total - sessionTotal.value);
     sessionTotal.value = total;
   }
 }
@@ -51,7 +54,7 @@ function boot(session: NetLink | null) {
   const data: MiningSceneData = {
     cosmetic: customize.cosmetic,
     session,
-    onEarn,
+    onOre,
   };
   game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -152,7 +155,9 @@ onBeforeUnmount(() => {
       @back="back"
     >
       <template #icons>
-        <span class="icon-btn ui-num mine-earn" title="本场收益">本场 ¥{{ sessionTotal }}</span>
+        <span class="icon-btn ui-num mine-earn" title="本场挖到多少矿石">
+          🪨 本场 {{ sessionTotal }} · 仓 {{ progress.ore }}
+        </span>
       </template>
 
       <template #dock>
@@ -160,7 +165,7 @@ onBeforeUnmount(() => {
           <StatusChip :tone="roomCode ? 'ok' : 'idle'">
             {{ roomCode ? `房间 ${roomCode}` : '单机' }}
           </StatusChip>
-          <span class="ui-num mine-earn">本场 ¥{{ sessionTotal }}</span>
+          <span class="ui-num mine-earn">🪨 本场 {{ sessionTotal }} · 仓 {{ progress.ore }}</span>
           <span v-if="phase" class="dock-note">{{ phase }}</span>
           <template v-if="!roomCode">
             <input

@@ -33,6 +33,7 @@ const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine']);
  */
 const SCENES = new Set([
   'godzilla',
+  'alien',
   'off',
   'home',
   'map',
@@ -44,6 +45,7 @@ const SCENES = new Set([
   'hall',
   'farm',
   'nailong',
+  'watch',
 ]);
 
 function normaliseScene(raw) {

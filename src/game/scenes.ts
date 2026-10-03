@@ -26,9 +26,11 @@ export const SCENE_META: Record<SceneId, SceneMeta> = {
   climb: { label: '在攀岩', icon: '🧗', route: '/climb' },
   petshop: { label: '在宠物店', icon: '🐾', route: '/petshop' },
   hall: { label: '在名人堂', icon: '🏛️', route: '/hall' },
+  watch: { label: '在赛事中心观战', icon: '👁', route: '/watch' },
   farm: { label: '在农场', icon: '🌾', route: '/farm' },
   nailong: { label: '在小黄龙联名', icon: '🐲', route: '/nailong' },
   godzilla: { label: '在打哥斯拉', icon: '🦖', route: '/godzilla' },
+  alien: { label: '在打外星人', icon: '🛸', route: '/alien' },
 };
 
 /** 能从「好友在玩什么」直接进房间的界面（地图/对局/潜水/矿洞） */
@@ -57,6 +59,7 @@ const NO_JOIN_REASON: Partial<Record<SceneId, string>> = {
   climb: '攀岩暂不支持联机',
   petshop: '宠物店里没有对局',
   hall: '在名人堂观战中',
+  watch: '在赛事中心看比赛',
   farm: '农场没有联机',
   nailong: '小黄龙联名单人挑战中',
   godzilla: '哥斯拉 Boss 战进行中，无法加入',
@@ -88,9 +91,11 @@ export function sceneFromPath(path: string): SceneId {
   if (path.startsWith('/climb')) return 'climb';
   if (path.startsWith('/petshop') || path.startsWith('/shop')) return 'petshop';
   if (path.startsWith('/hall')) return 'hall';
+  if (path.startsWith('/watch')) return 'watch';
   if (path.startsWith('/farm')) return 'farm';
   if (path.startsWith('/nailong')) return 'nailong';
   if (path.startsWith('/godzilla')) return 'godzilla';
+  if (path.startsWith('/alien')) return 'alien';
   if (path.startsWith('/home')) return 'home';
   if (path === '/' || path.startsWith('/world')) return 'map';
   return 'off';

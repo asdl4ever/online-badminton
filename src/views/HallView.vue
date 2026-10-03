@@ -1,48 +1,73 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import PlayerProfile from '../components/PlayerProfile.vue';
+import CharacterPreview from '../components/CharacterPreview.vue';
+import AppModal from '../components/ui/AppModal.vue';
 import PageShell from '../components/ui/PageShell.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import { STYLE_META, type AiStyle } from '../game/ai';
-import { ensureStats, LEGEND_ID, liveMatches, type AiPlayer, type LiveMatch } from '../game/players';
+import {
+  ensureStats,
+  LEGEND_ID,
+  rerollCosmetic,
+  type AiPlayer,
+  type LiveMatch,
+  type PlayerStats,
+} from '../game/players';
 import type { MatchOpponent } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import { sfx } from '../game/audio';
-import { toastWarn } from '../composables/useToast';
+import { toast, toastWarn } from '../composables/useToast';
+import { ARENA_ROUNDS } from '../game/arena';
+import { DEFAULT_COSMETIC, type Cosmetic } from '../game/cosmetics';
 import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
 
 /**
- * 名人堂：AI 球员排行榜 + 球员主页（四维图）+ 观战。
- * 观战只在球员「正在比赛」时才开放——赛程按时间片确定性生成（见 players.liveMatches）。
+ * 名人堂：AI 球员排行榜 + 球员主页（五维图）+ 观战 + **球员管理（新增 / 退役 / 编辑）**。
+ *
+ * 观战接的是**世界赛**（`game/world-arena.ts`）：名人堂球员持续打的 16 人淘汰赛，
+ * 现在正在打的那一场可以真看，看完结果写回赛程并计入双方战绩。
+ * 想看得更全（树状图 / 赛程 / 谁在打哪个赛事）就去赛事中心（`/watch`）。
  */
 const router = useRouter();
 const progress = useProgressStore();
 const customize = useCustomizeStore();
 const lobby = useLobbyStore();
 
-/* --- 正在进行的比赛（每 45 秒换一批，5 秒轮询一次 UI） ---------------------- */
+/* --- 世界赛里正在进行的那一场（1 秒轮询，和观战台的时钟同频） ---------------- */
 const nowTick = ref(Date.now());
 let timer: number | undefined;
 onMounted(() => {
   // 兜底校验一次：老存档、或「更新前就开着」的游戏，也要把传奇球员补进名录
   progress.ensureLegend();
-  timer = window.setInterval(() => (nowTick.value = Date.now()), 5000);
+  progress.ensureWorldEdition();
+  timer = window.setInterval(() => {
+    progress.ensureWorldEdition();
+    nowTick.value = Date.now();
+  }, 1000);
 });
 onBeforeUnmount(() => {
   if (timer) window.clearInterval(timer);
 });
 
-const live = computed<LiveMatch[]>(() => liveMatches(progress.aiPlayers, nowTick.value));
+const liveNow = computed(() => progress.worldLiveMatch(nowTick.value));
+
+/** 正在比赛的那两位 → 他们各自对应同一场（列表里显示 🔴、观战按钮可点） */
 const liveMap = computed(() => {
   const m = new Map<string, LiveMatch>();
-  for (const lm of live.value) {
-    m.set(lm.a.id, lm);
-    m.set(lm.b.id, lm);
+  const l = liveNow.value;
+  if (!l) return m;
+  const a = progress.aiPlayers.find((p) => p.id === l.a.id);
+  const b = progress.aiPlayers.find((p) => p.id === l.b.id);
+  if (a && b) {
+    const pair: LiveMatch = { a, b };
+    m.set(a.id, pair);
+    m.set(b.id, pair);
   }
   return m;
 });
@@ -58,8 +83,13 @@ interface Row {
   me: boolean;
 }
 
+/** 现役球员（排行榜上的人） */
+const activePlayers = computed(() => progress.aiPlayers.filter((p) => !p.retired));
+/** 退役名录（战绩保留，可复出） */
+const retiredPlayers = computed(() => progress.aiPlayers.filter((p) => p.retired));
+
 const rows = computed<Row[]>(() => {
-  const list: Row[] = progress.aiPlayers.map((p) => ({
+  const list: Row[] = activePlayers.value.map((p) => ({
     id: p.id,
     name: p.name,
     style: p.style,
@@ -82,6 +112,98 @@ const rows = computed<Row[]>(() => {
 
 /** 自己在榜单上的名次（右上角常显，省得在长列表里找自己） */
 const myRank = computed(() => rows.value.findIndex((r) => r.me) + 1);
+
+/* --- 球员管理：新增 / 退役 / 复出 / 编辑 ------------------------------------- */
+/** 榜单是否切成「退役名录」 */
+const showRetired = ref(false);
+
+/** 编辑弹窗 */
+const editing = ref<AiPlayer | null>(null);
+const editOpen = ref(false);
+const editName = ref('');
+const editCosmetic = ref<Cosmetic>({ ...DEFAULT_COSMETIC });
+const editStats = reactive<PlayerStats>({
+  technique: 50,
+  speed: 50,
+  attack: 50,
+  defense: 50,
+  jump: 50,
+});
+
+const STAT_LABELS: { key: keyof PlayerStats; label: string }[] = [
+  { key: 'technique', label: '技术' },
+  { key: 'speed', label: '速度' },
+  { key: 'attack', label: '进攻' },
+  { key: 'defense', label: '防守' },
+  { key: 'jump', label: '弹跳' },
+];
+
+/** 编辑里改任意一维之后，rating 会按五维重算（面板上实时预览） */
+const editRatingPreview = computed(() => {
+  const s = editStats;
+  const v = (s.technique + s.speed + s.attack + s.defense + s.jump) / 5;
+  return Math.round(Math.max(400, Math.min(2800, 900 + ((v - 45) / 52) * 1500)));
+});
+
+function addPlayer(): void {
+  sfx.click();
+  const p = progress.addAiPlayer();
+  toast(`「${p.name}」加入了名人堂`, 'good');
+  showRetired.value = false;
+  openEdit(p.id);
+}
+
+function openEdit(id: string): void {
+  const p = progress.aiPlayers.find((x) => x.id === id);
+  if (!p) return;
+  sfx.click();
+  editing.value = p;
+  editName.value = p.name;
+  editCosmetic.value = { ...p.cosmetic };
+  Object.assign(editStats, ensureStats(p));
+  editOpen.value = true;
+}
+
+function rerollLook(): void {
+  sfx.click();
+  const c = rerollCosmetic();
+  // 只换装扮（表情 / 帽子 / 翅膀 / 披风 / 光环 / 球拍 / 拖尾），保留原配色偏好
+  editCosmetic.value = { ...c, racket: editCosmetic.value.racket, trail: editCosmetic.value.trail };
+}
+
+function saveEdit(): void {
+  const p = editing.value;
+  if (!p) return;
+  sfx.click();
+  progress.updateAiPlayer(p.id, {
+    name: editName.value.trim() || p.name,
+    stats: { ...editStats },
+    cosmetic: editCosmetic.value,
+  });
+  toast(`已更新「${editName.value.trim() || p.name}」`, 'good');
+  editOpen.value = false;
+}
+
+function retireEditing(): void {
+  const p = editing.value;
+  if (!p) return;
+  sfx.click();
+  progress.setAiRetired(p.id, true);
+  editOpen.value = false;
+}
+
+function removeEditing(): void {
+  const p = editing.value;
+  if (!p) return;
+  sfx.click();
+  if (progress.removeAiPlayer(p.id)) editOpen.value = false;
+  else toastWarn('系统球员不能除名，请用「退役」');
+}
+
+function unretire(id: string): void {
+  sfx.click();
+  progress.setAiRetired(id, false);
+}
 
 /* --- 视图状态 -------------------------------------------------------------- */
 const view = ref<'board' | 'detail'>('board');
@@ -150,8 +272,17 @@ const canvasKey = computed(() => {
   return 'board';
 });
 
+/** 正在看的那一场在世界赛里的位置（结束时要写回赛程 + 记战绩） */
+const watchCtx = ref<{ round: number; index: number; aId: string; bId: string } | null>(null);
+
 function spectateMatch(m: LiveMatch): void {
+  const l = liveNow.value;
+  if (!l) {
+    toastWarn('这一场刚好结束了，去赛事中心看看下一场');
+    return;
+  }
   sfx.click();
+  watchCtx.value = { round: l.round, index: l.index, aId: m.a.id, bId: m.b.id };
   watch.value = { left: opponentOf(m.a), right: opponentOf(m.b) };
 }
 
@@ -177,6 +308,7 @@ function back(): void {
   sfx.click();
   if (watch.value) {
     watch.value = null;
+    watchCtx.value = null;
     return;
   }
   if (duel.value) {
@@ -199,7 +331,19 @@ function onEvent(e: SimEvent): void {
   else if (e.type === 'point') sfx.point();
   else if (e.type === 'gameover') {
     sfx.point();
-    // 只有「挑战」才结算战绩，纯观战不记
+    // 观战：把这一场的结果写回世界赛（胜者晋级、双方战绩都记一笔）
+    if (watch.value && watchCtx.value) {
+      const ctx = watchCtx.value;
+      const winnerId = e.scorer === 0 ? ctx.aId : ctx.bId;
+      const ok = progress.recordWorldMatch(ctx.round, ctx.index, winnerId);
+      const nm = progress.aiPlayers.find((p) => p.id === winnerId)?.name ?? '—';
+      toast(
+        `${ARENA_ROUNDS[ctx.round] ?? ''}：${nm} 胜出${ok ? '，战绩已记入名人堂' : ''}`,
+        'info',
+      );
+      watchCtx.value = null;
+    }
+    // 只有「挑战」才结算玩家自己的战绩，纯观战不记
     if (duel.value && !duelResult.value) {
       const win = e.scorer === 0;
       progress.recordResult(win, 'single');
@@ -223,6 +367,7 @@ function onEvent(e: SimEvent): void {
           :difficulty="watch ? 'normal' : 'hard'"
           :spectate="watch ?? undefined"
           :opponent="duel ?? undefined"
+          :no-rematch="!!watch"
           :session="null"
           :cosmetic="customize.cosmetic"
           :local-name="lobby.playerName"
@@ -271,18 +416,37 @@ function onEvent(e: SimEvent): void {
               <div>
                 <div class="hall-head__title">🏛️ 球员排行榜</div>
                 <div class="muted hall-head__sub">
-                  点球员进主页看四维图；只有「正在比赛」的球员才能观战。
+                  点球员进主页看五维图；正在比赛的球员可以观战（真打一局，结果写回世界赛）。
                 </div>
               </div>
               <div class="hall-head__right">
                 <div class="hall-me">
                   你的排名 <b class="num">#{{ myRank }}</b>
                 </div>
-                <span class="hall-season">共 {{ progress.aiPlayers.length }} 位</span>
+                <span class="hall-season">现役 {{ activePlayers.length }} 位</span>
+                <Button size="sm" variant="primary" @click="addPlayer">➕ 新增球员</Button>
+                <Button size="sm" variant="quiet" @click="showRetired = !showRetired">
+                  {{ showRetired ? '← 回榜单' : `退役名录 ${retiredPlayers.length}` }}
+                </Button>
               </div>
             </div>
 
-            <div class="rank-list">
+            <!-- 退役名录 -->
+            <div v-if="showRetired" class="rank-list">
+              <div v-if="!retiredPlayers.length" class="muted hall-empty">
+                还没有退役的球员。在上面点「⚙️」可以把人退役。
+              </div>
+              <div v-for="p in retiredPlayers" :key="p.id" class="rank-row is-retired">
+                <span class="rank-row__name">{{ p.name }}</span>
+                <span class="rank-row__record">{{ p.wins }}胜 {{ p.losses }}负</span>
+                <span class="rank-row__rating num">{{ p.rating }}</span>
+                <Button size="sm" variant="quiet" @click="openDetail(p.id)">主页</Button>
+                <Button size="sm" variant="quiet" @click="openEdit(p.id)">⚙️</Button>
+                <Button size="sm" @click="unretire(p.id)">复出</Button>
+              </div>
+            </div>
+
+            <div v-else class="rank-list">
               <div
                 v-for="(r, i) in rows"
                 :key="r.id"
@@ -315,6 +479,7 @@ function onEvent(e: SimEvent): void {
                   >
                     观战
                   </Button>
+                  <Button size="sm" variant="quiet" title="编辑 / 退役" @click="openEdit(r.id)">⚙️</Button>
                 </template>
                 <span v-else class="rank-row__spacer" />
               </div>
@@ -337,6 +502,41 @@ function onEvent(e: SimEvent): void {
         </div>
       </template>
     </PageShell>
+
+    <!-- 编辑球员：改名 / 调五维 / 换装扮 / 退役 / 除名 -->
+    <AppModal v-model="editOpen" :title="`编辑球员 · ${editing?.name ?? ''}`">
+      <div class="edit-player">
+        <div class="edit-top">
+          <div class="edit-preview"><CharacterPreview :cosmetic="editCosmetic" /></div>
+          <div class="edit-fields">
+            <label class="edit-field">
+              <span class="muted">名字</span>
+              <input v-model="editName" class="edit-input" maxlength="12" />
+            </label>
+            <div class="muted edit-hint">
+              改五维会按综合分重算榜单分数：<b class="num">{{ editRatingPreview }}</b>
+              （现在 {{ editing?.rating ?? 0 }}）
+            </div>
+            <Button size="sm" @click="rerollLook">🎲 随机换装</Button>
+          </div>
+        </div>
+
+        <div class="edit-stats">
+          <label v-for="s in STAT_LABELS" :key="s.key" class="edit-stat">
+            <span class="edit-stat__label">{{ s.label }}</span>
+            <input v-model.number="editStats[s.key]" type="range" min="20" max="99" />
+            <span class="num edit-stat__value">{{ editStats[s.key] }}</span>
+          </label>
+        </div>
+
+        <div class="edit-actions">
+          <Button variant="primary" @click="saveEdit">保存</Button>
+          <Button variant="quiet" @click="editOpen = false">取消</Button>
+          <Button variant="quiet" @click="retireEditing">🏳️ 退役</Button>
+          <Button v-if="editing?.custom" variant="quiet" @click="removeEditing">🗑 除名</Button>
+        </div>
+      </div>
+    </AppModal>
   </div>
 </template>
 
@@ -540,5 +740,103 @@ function onEvent(e: SimEvent): void {
   .hall-card {
     width: 100%;
   }
+}
+
+/* --- 退役名录 / 编辑球员 --------------------------------------------------- */
+
+.hall-empty {
+  padding: var(--s4) var(--s2);
+  font-size: 13px;
+}
+
+.rank-row.is-retired {
+  opacity: 0.72;
+}
+
+.edit-player {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.edit-top {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.edit-preview {
+  flex: none;
+  width: 120px;
+  border-radius: var(--r-md, 12px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.edit-fields {
+  flex: 1 1 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.edit-field {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 13px;
+}
+
+.edit-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.edit-hint {
+  font-size: 12px;
+}
+
+.edit-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.edit-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 13px;
+}
+
+.edit-stat__label {
+  flex: none;
+  width: 3em;
+  color: var(--text-dim);
+}
+
+.edit-stat input[type='range'] {
+  flex: 1 1 auto;
+}
+
+.edit-stat__value {
+  flex: none;
+  width: 2.5em;
+  text-align: right;
+  font-weight: 700;
+}
+
+.edit-actions {
+  display: flex;
+  gap: var(--s2);
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 </style>

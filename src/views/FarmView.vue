@@ -8,7 +8,10 @@ import Button from '../components/ui/Button.vue';
 import StatusChip from '../components/ui/StatusChip.vue';
 import { FarmScene, type FarmSceneData } from '../game/farm/FarmScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { FARM_MAX_LEVEL, FARM_UPGRADE_COST, TRACTOR_COST } from '../game/items';
+import { FARM_MAX_LEVEL, FARM_UPGRADE_COST, MATERIALS, TRACTOR_COST } from '../game/items';
+
+/** 农场主的棉花收购价（显示在提示里，价格本身在 `game/items.ts` 的 `MATERIALS`） */
+const COTTON_PRICE = MATERIALS.cotton.price;
 import { applyTheme } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
@@ -40,10 +43,13 @@ function back(): void {
   void router.push('/');
 }
 
-/** 金币在采摘时实时到账：场景上报的是累计值 */
-function onEarn(total: number): void {
+/**
+ * 棉花在采摘时实时进仓（**材料，不是金币**）：场景上报的是本场累计朵数，
+ * 这里只把增量记进 `progress.cotton`，换钱要拉去赚钱区交给农场主。
+ */
+function onPick(total: number): void {
   if (total > sessionTotal.value) {
-    progress.coins += total - sessionTotal.value;
+    progress.addCotton(total - sessionTotal.value);
     sessionTotal.value = total;
   }
 }
@@ -54,7 +60,7 @@ function boot(): void {
   const data: FarmSceneData = {
     cosmetic: customize.cosmetic,
     harvest: progress.farmLevel,
-    onEarn,
+    onPick,
   };
   game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -100,7 +106,7 @@ function harvestAll(): void {
     toastWarn('地里暂时没有棉花');
     return;
   }
-  toastGood(`拖拉机收成 +¥${gain}`);
+  toastGood(`拖拉机收成 +${gain} 朵棉花`);
 }
 
 onMounted(() => {
@@ -122,13 +128,15 @@ onBeforeUnmount(() => {
   <div class="page page--playing">
     <PageShell title="农场" back @back="back">
       <template #icons>
-        <span class="icon-btn ui-num farm-earn" title="本场收益">本场 ¥{{ sessionTotal }}</span>
+        <span class="icon-btn ui-num farm-earn" title="本场摘了多少棉花">
+          🧵 本场 {{ sessionTotal }} · 仓 {{ progress.cotton }}
+        </span>
       </template>
 
       <template #dock>
         <SideDock>
           <StatusChip tone="idle">单机</StatusChip>
-          <span class="ui-num farm-earn">本场 ¥{{ sessionTotal }}</span>
+          <span class="ui-num farm-earn">🧵 本场 {{ sessionTotal }} · 仓 {{ progress.cotton }}</span>
           <span class="dock-note">地里还有 {{ remaining }} 朵棉花</span>
 
           <Button v-if="!maxed" size="sm" block :disabled="progress.coins < upgradeCost" @click="upgrade">
@@ -142,7 +150,8 @@ onBeforeUnmount(() => {
           <Button v-else size="sm" block @click="harvestAll">🚜 一键收全地</Button>
 
           <p class="dock-note">
-            把球拍挥到棉花上就能摘；买断拖拉机后可以一键把整片地收完。
+            把球拍挥到棉花上就能摘（一朵 = 一个 🧵 棉花材料），买断拖拉机后可以一键把整片地收完。
+            <b>棉花不直接换钱</b>：拉去左下角赚钱区交给<b>农场主</b>，他按 ¥{{ COTTON_PRICE }}/朵 收购。
           </p>
         </SideDock>
       </template>

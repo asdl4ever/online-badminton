@@ -32,6 +32,38 @@ const {
 const code = ref('');
 const unlocked = ref<{ label: string; rarity: Rarity } | null>(null);
 
+// ---- 清空存档：两步确认，输入「同意删除」才执行 ------------------------------
+const wipeOpen = ref(false);
+const wipeText = ref('');
+/** 完全等于「同意删除」才允许确认（前后空格忽略） */
+const wipeReady = computed(() => wipeText.value.trim() === '同意删除');
+
+function cancelWipe(): void {
+  wipeOpen.value = false;
+  wipeText.value = '';
+}
+
+/** 删掉所有 bmt-* 存档键（进度 / 装扮 / 好友 / 成就统计…）然后整页刷新 */
+function wipeSave(): void {
+  if (!wipeReady.value) return;
+  const removed: string[] = [];
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('bmt-')) {
+      removed.push(key);
+      localStorage.removeItem(key);
+    }
+  }
+  if (!removed.length) {
+    toastBad('没有找到任何存档');
+    cancelWipe();
+    return;
+  }
+  sfx.click();
+  toastGood(`已清空 ${removed.length} 项存档，页面即将刷新`);
+  window.setTimeout(() => window.location.reload(), 700);
+}
+
 const redeemedCount = computed(() => progress.redeemed.length);
 
 function submit(): void {
@@ -144,6 +176,32 @@ function submit(): void {
         <li>所有进度都存在本机浏览器里，换了设备不会同步。</li>
       </ul>
     </section>
+
+    <section class="set__block set__danger">
+      <h4 class="set__title">清空存档</h4>
+      <p class="muted set__hint">
+        会删掉本机保存的<b>全部进度</b>：金币、装扮、宠物、段位、成就、好友……删了就找不回来。
+        点击后需要输入「<b>同意删除</b>」四个字才会执行。
+      </p>
+      <Button v-if="!wipeOpen" size="sm" variant="quiet" @click="wipeOpen = true">清空存档…</Button>
+      <template v-else>
+        <div class="set__row">
+          <VTextField
+            v-model="wipeText"
+            class="soft-field set__input"
+            placeholder="输入：同意删除"
+            maxlength="12"
+            hide-details
+            autocapitalize="off"
+            autocomplete="off"
+            @keyup.enter="wipeSave"
+          />
+          <Button size="sm" variant="primary" :disabled="!wipeReady" @click="wipeSave">确认清空</Button>
+          <Button size="sm" variant="quiet" @click="cancelWipe">取消</Button>
+        </div>
+        <p class="muted set__hint">输入框里是「{{ wipeText || '　' }}」——只有完全等于「同意删除」才会亮起确认按钮。</p>
+      </template>
+    </section>
   </div>
 </template>
 
@@ -222,5 +280,10 @@ function submit(): void {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+.set__danger {
+  border-color: color-mix(in srgb, #d05a4a 55%, var(--line));
+  background: color-mix(in srgb, #d05a4a 6%, var(--surface-2));
 }
 </style>

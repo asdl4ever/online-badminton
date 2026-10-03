@@ -81,7 +81,7 @@ onMounted(() => progress.syncAchievements());
 
         <div class="ach__right">
           <span class="muted ach__num">{{ r.cur }} / {{ r.ach.goal }}</span>
-          <span v-if="r.ach.coins" class="ach__coin">¥{{ r.ach.coins }}</span>
+          <span v-if="r.ach.keys" class="ach__coin">🔑 ×{{ r.ach.keys }}</span>
           <span
             v-if="r.item"
             class="ach__chip"
@@ -96,6 +96,7 @@ onMounted(() => progress.syncAchievements());
 
     <p class="muted ach__note">
       海域成就覆盖：下潜次数、渔获总量、图鉴种类、单条最重、卖鱼收入、最深下潜、买船与出海次数、渔具满级。
+      奖励是<b>宝箱钥匙</b>（开宝箱的唯一货币）与定制装扮，达成即发、不用点领取。
     </p>
   </div>
 </template>

@@ -1109,6 +1109,39 @@ h3 {
   border-radius: 8px;
 }
 
+/* 「赚钱区」这类地块：一块带虚线边框的地面，只做视觉分组，不参与点击
+   （z-index 0 + 排在区域卡前面 = 垫在区域卡下面；pointer-events: none 保证
+   区域卡那圈虚线大圆照样点得到） */
+.district {
+  position: absolute;
+  z-index: 0;
+  border: 3px dashed #d79a3c;
+  border-radius: 44px;
+  background: rgba(255, 231, 176, 0.42);
+  pointer-events: none;
+}
+
+.district__name {
+  position: absolute;
+  left: 28px;
+  top: 20px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #8a5a10;
+}
+
+.district__meta {
+  position: absolute;
+  left: 30px;
+  top: 50px;
+  max-width: 260px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a87b28;
+}
+
 .zone {
   position: absolute;
   width: 172px;
@@ -1244,7 +1277,8 @@ h3 {
   pointer-events: none;
 }
 
-/* 摇杆：底座圆盘 + 可拖的把手 */
+/* 摇杆：底座圆盘 + 可拖的把手。
+   尺寸/配色由 `game/draw/joystick.ts` 定义，组件内联注入宽高与把手金色。 */
 .joy {
   position: absolute;
   left: max(var(--s4), env(safe-area-inset-left));
@@ -1254,6 +1288,12 @@ h3 {
   height: 104px;
   touch-action: none;
   user-select: none;
+}
+
+/* 右侧那颗（大世界用右摇杆控球拍）：钉右下角 */
+.joy--right {
+  left: auto;
+  right: max(var(--s4), env(safe-area-inset-right));
 }
 
 .joy__ring {

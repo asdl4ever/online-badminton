@@ -35,8 +35,31 @@ export interface Item {
   /** display rating, 1–5 */
   stars: number;
   /** `code` = 兑换码获得；`honor` = 荣誉点兑换；`event` = 活动（转盘等）限定；
-   *  `combo` = 发球机连击里程碑专属（不在任何宝箱池里） */
-  source: 'free' | 'gacha' | 'egg' | 'streak' | 'code' | 'honor' | 'event' | 'combo' | TierId;
+   *  `combo` = 发球机连击里程碑专属（不在任何宝箱池里）；
+   *  `coin` = **金币商店专属**（只在金币商店卖，不进宝箱池）；
+   *  `chest` = **宝箱专属**（能开出来，但金币商店不卖——金币商店只上 `coin` 与
+   *  3★ 及以下的 `gacha`，见 `COIN_SHOP`）；
+   *  `shard` = **碎片兑换专属**：开箱抽不到、金币买不到，唯一途径是攒 🧩 星尘碎片
+   *  去宝箱的兑换区换（见 `SHARD_SHOP`） */
+  source:
+    | 'free'
+    | 'gacha'
+    | 'chest'
+    | 'shard'
+    | 'coin'
+    | 'egg'
+    | 'streak'
+    | 'code'
+    | 'honor'
+    | 'event'
+    | 'combo'
+    | TierId;
+  /**
+   * **抽奖权重覆盖**（可选，见 `stores/progress.ts` 的 `rollFrom`）。
+   * 不填 = 按星级权重 `STAR_WEIGHT` 在同星级的池子物品里平分；
+   * 填了就用它当绝对权重——山海宝箱的怪物皮肤靠它把概率压到极低。
+   */
+  pullWeight?: number;
 }
 
 export const SLOT_ORDER: ItemSlot[] = [
@@ -91,10 +114,23 @@ function it(
   return { id: `${slot}:${ref}`, slot, ref, label, rarity, stars, source };
 }
 
+/** 同 `it`，但带一个**抽奖权重覆盖**（「极稀有」物品用，见 `Item.pullWeight`） */
+function itw(
+  slot: ItemSlot,
+  ref: string,
+  label: string,
+  rarity: Rarity,
+  stars: number,
+  source: Item['source'],
+  pullWeight: number,
+): Item {
+  return { id: `${slot}:${ref}`, slot, ref, label, rarity, stars, source, pullWeight };
+}
+
 export const ITEMS: Item[] = [
   // --- character skin (special: earned by machine-mode combo milestones) ---
   it('skin', 'none', '默认', 'common', 1, 'free'),
-  // 哥斯拉：现在是「哥斯拉来袭」活动的首杀奖励（以前是发球机 100 连击）
+  // 哥斯拉：现在是「哥斯拉来袭」**地狱难度**的概率掉落（以前是发球机 100 连击 / 首杀）
   it('skin', 'godzilla', '哥斯拉', 'legendary', 5, 'event'),
   it('skin', 'ubear', 'U熊', 'legendary', 5, 'code'),
   it('skin', 'laopi', '老皮', 'legendary', 5, 'code'),
@@ -104,6 +140,17 @@ export const ITEMS: Item[] = [
   it('skin', 'dragonlord', '龙王', 'legendary', 5, 'honor'),
   // 发球机活动专属：绿呢鸭舌帽 + 口哨的教练
   it('skin', 'coach', '发球机教练', 'legendary', 5, 'combo'),
+  // --- 金币商店专属形象：1~3★ 的便宜货，造型简单但都会动（每款一个独立剪影） ---
+  it('skin', 'slime', '果冻史莱姆', 'common', 1, 'coin'),
+  it('skin', 'cactus', '仙人掌宝宝', 'common', 1, 'coin'),
+  it('skin', 'mushroom', '蘑菇人', 'common', 1, 'coin'),
+  it('skin', 'penguin', '胖企鹅', 'common', 2, 'coin'),
+  it('skin', 'frog', '呱呱蛙', 'common', 2, 'coin'),
+  it('skin', 'snowman', '小雪人', 'common', 2, 'coin'),
+  it('skin', 'ghost', '小幽灵', 'common', 2, 'coin'),
+  it('skin', 'robot', '小机器人', 'rare', 3, 'coin'),
+  it('skin', 'octopus', '小章鱼', 'rare', 3, 'coin'),
+  it('skin', 'panda', '团子熊猫', 'rare', 3, 'coin'),
 
   // --- 发球机连击里程碑专属套装「复古训练房」：每档一件，不进宝箱池 ---
   it('hat', 'coachcap', '教练帽', 'epic', 4, 'combo'),
@@ -115,11 +162,69 @@ export const ITEMS: Item[] = [
   it('swingTrail', 'tempo', '节拍器弧线', 'epic', 4, 'combo'),
   it('effect', 'pow', '砰！贴纸', 'epic', 4, 'combo'),
   it('ring', 'courtline', '场地标线', 'rare', 3, 'combo'),
-  // 「哥斯拉来袭」活动限定：首杀奖励，不可购买
+  // 「哥斯拉来袭」活动限定：三档难度概率掉落，不可购买（见 game/godzilla.ts 的 GZ_DROPS）
   it('aura', 'dorsal', '背鳍光焰', 'legendary', 5, 'event'),
   it('cape', 'scalecape', '鳞甲披风', 'legendary', 5, 'event'),
   it('swingTrail', 'atomic', '原子吐息', 'legendary', 5, 'event'),
   it('effect', 'gzfire', '原子烈焰', 'legendary', 5, 'event'),
+  // 🧩 碎片兑换专属：开箱抽不到、金币买不到，只能攒星尘碎片来换
+  it('hat', 'shardCrown', '碎晶冠', 'epic', 4, 'shard'),
+  it('aura', 'shardglow', '碎晶光环', 'rare', 3, 'shard'),
+  it('cape', 'shardcape', '碎晶披风', 'epic', 4, 'shard'),
+  it('ring', 'shardring', '碎晶地环', 'rare', 3, 'shard'),
+  it('effect', 'shardpop', '碎晶绽放', 'epic', 4, 'shard'),
+  it('swingTrail', 'shardedge', '碎晶刃', 'epic', 4, 'shard'),
+  // 宇宙龙域限定：只在该主题宝箱里出（见 game/chest.ts 的 CHEST_THEMES）
+  it('skin', 'cosmodra', '星渊龙', 'legendary', 5, 'chest'),
+  it('mount', 'stardrake', '星渊龙驹', 'epic', 4, 'chest'),
+  it('hat', 'drakecrown', '龙冕', 'epic', 4, 'chest'),
+  it('aura', 'dranebula', '龙星云气', 'rare', 3, 'chest'),
+  it('cape', 'drakewing', '龙翼披风', 'epic', 4, 'chest'),
+  it('ring', 'draring', '星渊地环', 'rare', 3, 'chest'),
+  it('effect', 'drastar', '龙星爆', 'epic', 4, 'chest'),
+  it('swingTrail', 'drabreath', '龙息', 'legendary', 5, 'chest'),
+  // 主题宝箱专属（每个主题三件套：形象 + 坐骑 + 披风，只在该主题宝箱里出，
+  // 归属用 game/chest.ts 的 extra 钦点，见 CHEST_THEMES）
+  // - 深海遗珍
+  it('skin', 'angler', '灯笼鱼', 'legendary', 5, 'chest'),
+  it('mount', 'dolphin', '小海豚', 'epic', 4, 'chest'),
+  it('cape', 'seamist', '深海雾纱', 'epic', 4, 'chest'),
+  // - 幽夜万圣
+  it('skin', 'mummy', '小木乃伊', 'legendary', 5, 'chest'),
+  it('mount', 'pumpkincart', '南瓜车', 'epic', 4, 'chest'),
+  it('cape', 'batcape', '蝙蝠斗篷', 'epic', 4, 'chest'),
+  // - 锈色机械
+  it('skin', 'windup', '发条木偶', 'legendary', 5, 'chest'),
+  it('mount', 'gearbike', '齿轮机车', 'epic', 4, 'chest'),
+  it('cape', 'slagcape', '焊渣披风', 'rare', 3, 'chest'),
+  // - 皇家典藏
+  it('skin', 'guard', '皇家卫兵', 'legendary', 5, 'chest'),
+  it('mount', 'lion', '小狮子', 'epic', 4, 'chest'),
+  it('cape', 'ermine', '白貂披风', 'epic', 4, 'chest'),
+  // - 樱吹雪
+  it('skin', 'sakurabun', '樱团兔', 'legendary', 5, 'chest'),
+  it('mount', 'kite', '春风纸鸢', 'epic', 4, 'chest'),
+  it('cape', 'petalveil', '花瓣纱', 'rare', 3, 'chest'),
+  // - 星海漫游
+  it('skin', 'starlet', '小星灵', 'legendary', 5, 'chest'),
+  it('mount', 'crescent', '弯月舟', 'epic', 4, 'chest'),
+  it('cape', 'starmap', '星图披风', 'epic', 4, 'chest'),
+  // - 烈焰熔炉
+  it('skin', 'emberling', '熔火精灵', 'legendary', 5, 'chest'),
+  it('mount', 'firewheel', '烈焰火轮', 'epic', 4, 'chest'),
+  it('cape', 'cinder', '火山灰披风', 'rare', 3, 'chest'),
+  // - 冰川秘境
+  it('skin', 'icesprite', '冰晶精灵', 'legendary', 5, 'chest'),
+  it('mount', 'polarbear', '雪原熊', 'epic', 4, 'chest'),
+  it('cape', 'icemist', '冰雾披风', 'rare', 3, 'chest'),
+  // - 丛林图腾
+  it('skin', 'monkey', '小猴子', 'legendary', 5, 'chest'),
+  it('mount', 'dino', '小恐龙', 'epic', 4, 'chest'),
+  it('cape', 'canopy', '树冠披风', 'rare', 3, 'chest'),
+  // - 霓虹街头
+  it('skin', 'neoncat', '霓虹猫', 'legendary', 5, 'chest'),
+  it('mount', 'laserbike', '霓虹摩托', 'epic', 4, 'chest'),
+  it('cape', 'tapecape', '磁带披风', 'rare', 3, 'chest'),
   // 小黄龙联名（转盘限定）
   it('skin', 'nailong', '小黄龙', 'legendary', 5, 'event'),
   // --- ring（地环：积分达到组别门槛后在荣誉面板领取） ---
@@ -224,6 +329,60 @@ export const ITEMS: Item[] = [
   it('hat', 'candle', '蜡烛帽', 'legendary', 5, 'gacha'),
   it('hat', 'starCrown', '星星冠', 'legendary', 5, 'gacha'),
   it('hat', 'moonCrown', '月牙冠', 'legendary', 5, 'gacha'),
+  // --- 第三批 50 款头饰：每款一套独立造型 + 自己的小动态（都不换色，见 drawHat）---
+  // 来源分两档：
+  // - `chest` **宝箱专属**（37 款）：开箱才出，金币商店**不卖**；
+  // - `gacha` 13 款最朴素的 1★ 留成平价货，金币商店 ¥200 就能买（见 COIN_PRICE_BY_STARS）。
+  it('hat', 'teapot', '茶壶帽', 'common', 2, 'chest'),
+  it('hat', 'ramen', '拉面碗', 'common', 2, 'chest'),
+  it('hat', 'teacup', '茶杯帽', 'common', 1, 'gacha'),
+  it('hat', 'boba', '珍珠奶茶', 'common', 2, 'chest'),
+  it('hat', 'popcorn', '爆米花桶', 'common', 1, 'gacha'),
+  it('hat', 'pizza', '披萨帽', 'common', 2, 'chest'),
+  it('hat', 'donut', '甜甜圈', 'common', 1, 'gacha'),
+  it('hat', 'sushi', '寿司帽', 'common', 2, 'chest'),
+  it('hat', 'taco', '卷饼帽', 'common', 2, 'chest'),
+  it('hat', 'cake', '蛋糕帽', 'common', 2, 'chest'),
+  it('hat', 'lollipop', '棒棒糖', 'common', 1, 'gacha'),
+  it('hat', 'candyCane', '拐杖糖', 'common', 1, 'gacha'),
+  it('hat', 'sunflower', '向日葵', 'common', 2, 'chest'),
+  it('hat', 'lotus', '莲花帽', 'rare', 3, 'chest'),
+  it('hat', 'leafCrown', '树叶冠', 'common', 1, 'gacha'),
+  it('hat', 'clover', '四叶草', 'common', 1, 'gacha'),
+  it('hat', 'sprout', '嫩芽帽', 'common', 1, 'gacha'),
+  it('hat', 'cactusHat', '仙人掌帽', 'common', 2, 'chest'),
+  it('hat', 'acorn', '橡果帽', 'common', 1, 'gacha'),
+  it('hat', 'strawberry', '草莓帽', 'common', 2, 'chest'),
+  it('hat', 'cherry', '樱桃枝', 'common', 2, 'chest'),
+  it('hat', 'pineapple', '菠萝头', 'common', 2, 'chest'),
+  it('hat', 'bee', '小蜜蜂', 'rare', 3, 'chest'),
+  it('hat', 'butterfly', '蝴蝶', 'rare', 3, 'chest'),
+  it('hat', 'chick', '小鸡帽', 'common', 2, 'chest'),
+  it('hat', 'crab', '螃蟹帽', 'rare', 3, 'chest'),
+  it('hat', 'frogHat', '青蛙帽', 'common', 2, 'chest'),
+  it('hat', 'snailHat', '蜗牛帽', 'rare', 3, 'chest'),
+  it('hat', 'fishBowl', '鱼缸帽', 'rare', 3, 'chest'),
+  it('hat', 'birdCage', '鸟笼帽', 'rare', 3, 'chest'),
+  it('hat', 'beehive', '蜂巢帽', 'rare', 3, 'chest'),
+  it('hat', 'hedgehog', '小刺猬', 'rare', 3, 'chest'),
+  it('hat', 'pinwheel', '小风车', 'common', 1, 'gacha'),
+  it('hat', 'trafficCone', '交通锥', 'common', 1, 'gacha'),
+  it('hat', 'lantern', '纸灯笼', 'common', 2, 'chest'),
+  it('hat', 'umbrella', '雨伞帽', 'common', 2, 'chest'),
+  it('hat', 'alarmClock', '闹钟帽', 'common', 2, 'chest'),
+  it('hat', 'trafficLight', '红绿灯', 'rare', 3, 'chest'),
+  it('hat', 'satellite', '卫星帽', 'rare', 3, 'chest'),
+  it('hat', 'planet', '行星环', 'rare', 3, 'chest'),
+  it('hat', 'bulb', '灯泡帽', 'common', 2, 'chest'),
+  it('hat', 'battery', '电池帽', 'common', 2, 'chest'),
+  it('hat', 'magnet', '磁铁帽', 'common', 2, 'chest'),
+  it('hat', 'weldingMask', '焊接面罩', 'rare', 3, 'chest'),
+  it('hat', 'tvHead', '电视头', 'rare', 3, 'chest'),
+  it('hat', 'snowGlobe', '水晶球', 'rare', 3, 'chest'),
+  it('hat', 'paperBoat', '纸船帽', 'common', 1, 'gacha'),
+  it('hat', 'dice', '骰子帽', 'common', 2, 'chest'),
+  it('hat', 'book', '书本帽', 'common', 2, 'chest'),
+  it('hat', 'pencil', '铅笔帽', 'common', 1, 'gacha'),
   // 小黄龙联名（转盘限定）
   it('hat', 'nailongHood', '小黄龙头套', 'legendary', 5, 'event'),
 
@@ -556,6 +715,17 @@ export const ITEMS: Item[] = [
   it('mount', 'dragon', '幼龙', 'legendary', 5, 'honor'),
   it('mount', 'rocket', '火箭', 'legendary', 5, 'honor'),
   it('mount', 'throne', '浮空王座', 'legendary', 5, 'honor'),
+  // --- 金币商店专属坐骑：1~3★ 的普通款，造型简单但各有一个小动态（见 draw/mounts.ts）---
+  it('mount', 'scooter', '滑板车', 'common', 1, 'coin'),
+  it('mount', 'log', '圆木', 'common', 1, 'coin'),
+  it('mount', 'box', '纸箱', 'common', 1, 'coin'),
+  it('mount', 'spring', '弹簧', 'common', 1, 'coin'),
+  it('mount', 'cart', '独轮小推车', 'common', 2, 'coin'),
+  it('mount', 'broom', '飞天扫帚', 'common', 2, 'coin'),
+  it('mount', 'turtle', '小乌龟', 'common', 2, 'coin'),
+  it('mount', 'bike', '小自行车', 'rare', 3, 'coin'),
+  it('mount', 'hover', '悬浮板', 'rare', 3, 'coin'),
+  it('mount', 'shark', '鲨鱼冲浪', 'rare', 3, 'coin'),
   // 小黄龙联名（转盘限定）
   it('mount', 'nailongRoll', '小黄龙滚滚', 'legendary', 5, 'event'),
 
@@ -660,21 +830,367 @@ export const ITEMS: Item[] = [
     return it('effect', id, label, rarity, stars, 'gacha');
   }),
   it('effect', 'holy', '圣十字', 'legendary', 5, 'gacha'),
+
+  // 「外星人降临」活动限定：单局击杀里程碑专属，十档十件、覆盖十个部位
+  // （对照表在 `game/alien.ts` 的 ALIEN_MILESTONES，不进任何宝箱池）
+  it('skin', 'alien', '外星人', 'legendary', 5, 'event'),
+  it('hat', 'ufoHelm', '飞碟头盔', 'epic', 4, 'event'),
+  it('aura', 'beacon', '幽绿信标', 'epic', 4, 'event'),
+  it('effect', 'meteor', '陨石爆', 'epic', 4, 'event'),
+  it('mount', 'ufo', '飞碟', 'legendary', 5, 'event'),
+  it('trail', 'stardust', '星尘拖尾', 'epic', 4, 'event'),
+  it('swingTrail', 'beam', '激光切片', 'epic', 4, 'event'),
+  it('racketSkin', 'meteorite', '陨石球拍', 'epic', 4, 'event'),
+  it('cape', 'antigrav', '反重力披风', 'epic', 4, 'event'),
+  it('ring', 'orbit', '轨道地环', 'rare', 3, 'event'),
+
+  // ==========================================================================
+  // 第二批 10 个主题宝箱（见 game/chest.ts 的 CHEST_THEMES）
+  // 每个主题 16 件**定制物品**（`chest` 专属：开箱才出、金币商店不卖），
+  // ref 统一带主题码，宝箱靠 `refPrefix` 整批认领；绘制走 game/draw/themeart.ts。
+  // 部位与星级固定：形象 5★ / 挥拍拖尾 5★ / 坐骑 4★ / 4★ 的帽子·翅膀·球拍·拖尾 /
+  // 3★ 的帽子·翅膀·披风·光环·球拍·拖尾 / 2★ 的披风·光环 / 1★ 地环。
+  // ==========================================================================
+  // --- 🏜️ 沙漠商队 ---
+  it('skin', 'desSpirit', '沙灯神', 'legendary', 5, 'chest'),
+  it('mount', 'desCamel', '沙漠骆驼', 'epic', 4, 'chest'),
+  it('hat', 'desTurban', '商队头巾', 'rare', 3, 'chest'),
+  it('hat', 'desScarab', '圣甲虫帽', 'epic', 4, 'chest'),
+  it('wings', 'desSandWing', '流沙之翼', 'rare', 3, 'chest'),
+  it('wings', 'desDuneWing', '沙丘之翼', 'epic', 4, 'chest'),
+  it('cape', 'desCloak', '旅人斗篷', 'common', 2, 'chest'),
+  it('cape', 'desOasis', '绿洲纱帐', 'rare', 3, 'chest'),
+  it('aura', 'desSandAura', '风沙环绕', 'common', 2, 'chest'),
+  it('aura', 'desSunAura', '烈日光环', 'rare', 3, 'chest'),
+  it('ring', 'desRing', '商队地环', 'common', 1, 'chest'),
+  it('racketSkin', 'desRacketA', '铜铃球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'desRacketB', '金字塔球拍', 'epic', 4, 'chest'),
+  it('trail', 'desTrailA', '黄沙拖尾', 'rare', 3, 'chest'),
+  it('trail', 'desTrailB', '烈日拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'desSwing', '弯刀斩', 'legendary', 5, 'chest'),
+  // --- ☁️ 云端空岛 ---
+  it('skin', 'nimbSpirit', '云风伯', 'legendary', 5, 'chest'),
+  it('mount', 'nimbCloud', '云朵飞毯', 'epic', 4, 'chest'),
+  it('hat', 'nimbHalo', '云光环', 'rare', 3, 'chest'),
+  it('hat', 'nimbCrown', '云冠', 'epic', 4, 'chest'),
+  it('wings', 'nimbWindWing', '风之翼', 'rare', 3, 'chest'),
+  it('wings', 'nimbFeatherWing', '羽云翼', 'epic', 4, 'chest'),
+  it('cape', 'nimbVeil', '云纱披风', 'common', 2, 'chest'),
+  it('cape', 'nimbSail', '云帆披风', 'rare', 3, 'chest'),
+  it('aura', 'nimbWindAura', '流风环绕', 'common', 2, 'chest'),
+  it('aura', 'nimbStarAura', '星云光环', 'rare', 3, 'chest'),
+  it('ring', 'nimbRing', '云端地环', 'common', 1, 'chest'),
+  it('racketSkin', 'nimbRacketA', '云纹球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'nimbRacketB', '星云球拍', 'epic', 4, 'chest'),
+  it('trail', 'nimbTrailA', '流云拖尾', 'rare', 3, 'chest'),
+  it('trail', 'nimbTrailB', '星羽拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'nimbSwing', '云涡斩', 'legendary', 5, 'chest'),
+  // --- 🧁 甜点工坊 ---
+  it('skin', 'confSpirit', '糖霜魔女', 'legendary', 5, 'chest'),
+  it('mount', 'confCake', '蛋糕坐骑', 'epic', 4, 'chest'),
+  it('hat', 'confCake', '蛋糕帽', 'rare', 3, 'chest'),
+  it('hat', 'confCrown', '糖霜冠', 'epic', 4, 'chest'),
+  it('wings', 'confSugarWing', '糖霜翼', 'rare', 3, 'chest'),
+  it('wings', 'confCandyWing', '糖果翼', 'epic', 4, 'chest'),
+  it('cape', 'confApron', '围裙披风', 'common', 2, 'chest'),
+  it('cape', 'confRibbonCape', '缎带披风', 'rare', 3, 'chest'),
+  it('aura', 'confSugarAura', '糖霜环绕', 'common', 2, 'chest'),
+  it('aura', 'confHeartAura', '爱心光环', 'rare', 3, 'chest'),
+  it('ring', 'confRing', '甜点地环', 'common', 1, 'chest'),
+  it('racketSkin', 'confRacketA', '糖果球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'confRacketB', '奶油球拍', 'epic', 4, 'chest'),
+  it('trail', 'confTrailA', '花瓣拖尾', 'rare', 3, 'chest'),
+  it('trail', 'confTrailB', '糖星拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'confSwing', '糖霜斩', 'legendary', 5, 'chest'),
+  // --- 🎪 马戏团 ---
+  it('skin', 'bigtSpirit', '幻术师', 'legendary', 5, 'chest'),
+  it('mount', 'bigtBall', '彩球坐骑', 'epic', 4, 'chest'),
+  it('hat', 'bigtClown', '小丑帽', 'rare', 3, 'chest'),
+  it('hat', 'bigtRing', '彩环头饰', 'epic', 4, 'chest'),
+  it('wings', 'bigtTentWing', '帐篷翼', 'rare', 3, 'chest'),
+  it('wings', 'bigtConfettiWing', '彩带翼', 'epic', 4, 'chest'),
+  it('cape', 'bigtCape', '马戏披风', 'common', 2, 'chest'),
+  it('cape', 'bigtCurtain', '帷幕披风', 'rare', 3, 'chest'),
+  it('aura', 'bigtConfetti', '彩纸环绕', 'common', 2, 'chest'),
+  it('aura', 'bigtSpotAura', '聚光光环', 'rare', 3, 'chest'),
+  it('ring', 'bigtRing', '彩环地环', 'common', 1, 'chest'),
+  it('racketSkin', 'bigtRacketA', '小丑球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'bigtRacketB', '彩条球拍', 'epic', 4, 'chest'),
+  it('trail', 'bigtTrailA', '彩星拖尾', 'rare', 3, 'chest'),
+  it('trail', 'bigtTrailB', '彩带拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'bigtSwing', '彩纸斩', 'legendary', 5, 'chest'),
+  // --- 🛡️ 骑士城堡 ---
+  it('skin', 'aegisSpirit', '圣盾神', 'legendary', 5, 'chest'),
+  it('mount', 'aegisSteed', '披甲战马', 'epic', 4, 'chest'),
+  it('hat', 'aegisHelm', '骑士盔', 'rare', 3, 'chest'),
+  it('hat', 'aegisCrest', '骑士冠', 'epic', 4, 'chest'),
+  it('wings', 'aegisShieldWing', '盾翼', 'rare', 3, 'chest'),
+  it('wings', 'aegisBladeWing', '刃翼', 'epic', 4, 'chest'),
+  it('cape', 'aegisBanner', '旗帜披风', 'common', 2, 'chest'),
+  it('cape', 'aegisRoyal', '王袍披风', 'rare', 3, 'chest'),
+  it('aura', 'aegisBanner', '战旗环绕', 'common', 2, 'chest'),
+  it('aura', 'aegisSteel', '钢铁光环', 'rare', 3, 'chest'),
+  it('ring', 'aegisRing', '城堡地环', 'common', 1, 'chest'),
+  it('racketSkin', 'aegisRacketA', '齿轮球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'aegisRacketB', '剑刃球拍', 'epic', 4, 'chest'),
+  it('trail', 'aegisTrailA', '铁尘拖尾', 'rare', 3, 'chest'),
+  it('trail', 'aegisTrailB', '战旗拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'aegisSwing', '雷霆斩', 'legendary', 5, 'chest'),
+  // --- 🍵 东方茶馆 ---
+  it('skin', 'chanSpirit', '茶仙', 'legendary', 5, 'chest'),
+  it('mount', 'chanBoat', '乌篷船', 'epic', 4, 'chest'),
+  it('hat', 'chanHat', '茶笠', 'rare', 3, 'chest'),
+  it('hat', 'chanLantern', '灯笼头饰', 'epic', 4, 'chest'),
+  it('wings', 'chanFanWing', '折扇翼', 'rare', 3, 'chest'),
+  it('wings', 'chanLeafWing', '竹叶翼', 'epic', 4, 'chest'),
+  it('cape', 'chanRobe', '茶袍披风', 'common', 2, 'chest'),
+  it('cape', 'chanInkCape', '水墨披风', 'rare', 3, 'chest'),
+  it('aura', 'chanInkAura', '水墨环绕', 'common', 2, 'chest'),
+  it('aura', 'chanPetalAura', '花瓣光环', 'rare', 3, 'chest'),
+  it('ring', 'chanRing', '茶馆地环', 'common', 1, 'chest'),
+  it('racketSkin', 'chanRacketA', '竹纹球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'chanRacketB', '云纹球拍', 'epic', 4, 'chest'),
+  it('trail', 'chanTrailA', '墨迹拖尾', 'rare', 3, 'chest'),
+  it('trail', 'chanTrailB', '花瓣拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'chanSwing', '水墨斩', 'legendary', 5, 'chest'),
+  // --- 🔮 魔法学院 ---
+  it('skin', 'arcanSpirit', '星界魔导', 'legendary', 5, 'chest'),
+  it('mount', 'arcanOrb', '魔法球坐骑', 'epic', 4, 'chest'),
+  it('hat', 'arcanCap', '魔法帽', 'rare', 3, 'chest'),
+  it('hat', 'arcanCrown', '星月冠', 'epic', 4, 'chest'),
+  it('wings', 'arcanRuneWing', '符文翼', 'rare', 3, 'chest'),
+  it('wings', 'arcanStarWing', '星辉翼', 'epic', 4, 'chest'),
+  it('cape', 'arcanCloak', '法师斗篷', 'common', 2, 'chest'),
+  it('cape', 'arcanMantle', '星辉披风', 'rare', 3, 'chest'),
+  it('aura', 'arcanRuneAura', '符文环绕', 'common', 2, 'chest'),
+  it('aura', 'arcanStarAura', '星辉光环', 'rare', 3, 'chest'),
+  it('ring', 'arcanRing', '法阵地环', 'common', 1, 'chest'),
+  it('racketSkin', 'arcanRacketA', '魔杖球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'arcanRacketB', '符文球拍', 'epic', 4, 'chest'),
+  it('trail', 'arcanTrailA', '星尘拖尾', 'rare', 3, 'chest'),
+  it('trail', 'arcanTrailB', '魔法拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'arcanSwing', '星辉斩', 'legendary', 5, 'chest'),
+  // --- 🦴 化石博物馆 ---
+  it('skin', 'relicSpirit', '白骨祭司', 'legendary', 5, 'chest'),
+  it('mount', 'relicBone', '骨龙坐骑', 'epic', 4, 'chest'),
+  it('hat', 'relicBone', '骨头帽', 'rare', 3, 'chest'),
+  it('hat', 'relicAmber', '琥珀冠', 'epic', 4, 'chest'),
+  it('wings', 'relicBoneWing', '骨翼', 'rare', 3, 'chest'),
+  it('wings', 'relicAmberWing', '琥珀翼', 'epic', 4, 'chest'),
+  it('cape', 'relicHide', '兽皮披风', 'common', 2, 'chest'),
+  it('cape', 'relicDustCape', '尘土披风', 'rare', 3, 'chest'),
+  it('aura', 'relicDustAura', '尘土环绕', 'common', 2, 'chest'),
+  it('aura', 'relicAmberAura', '琥珀光环', 'rare', 3, 'chest'),
+  it('ring', 'relicRing', '博物馆地环', 'common', 1, 'chest'),
+  it('racketSkin', 'relicRacketA', '骨纹球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'relicRacketB', '齿轮球拍', 'epic', 4, 'chest'),
+  it('trail', 'relicTrailA', '沙尘拖尾', 'rare', 3, 'chest'),
+  it('trail', 'relicTrailB', '琥珀拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'relicSwing', '沙尘斩', 'legendary', 5, 'chest'),
+  // --- 🧸 玩具工坊 ---
+  it('skin', 'playSpirit', '发条神', 'legendary', 5, 'chest'),
+  it('mount', 'playHorse', '摇摇马', 'epic', 4, 'chest'),
+  it('hat', 'playBlock', '积木头饰', 'rare', 3, 'chest'),
+  it('hat', 'playTop', '陀螺头饰', 'epic', 4, 'chest'),
+  it('wings', 'playBlockWing', '积木翼', 'rare', 3, 'chest'),
+  it('wings', 'playKiteWing', '风筝翼', 'epic', 4, 'chest'),
+  it('cape', 'playCape', '玩具披风', 'common', 2, 'chest'),
+  it('cape', 'playRibbonCape', '彩带披风', 'rare', 3, 'chest'),
+  it('aura', 'playBallAura', '弹球环绕', 'common', 2, 'chest'),
+  it('aura', 'playSparkAura', '火花光环', 'rare', 3, 'chest'),
+  it('ring', 'playRing', '玩具地环', 'common', 1, 'chest'),
+  it('racketSkin', 'playRacketA', '积木球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'playRacketB', '彩带球拍', 'epic', 4, 'chest'),
+  it('trail', 'playTrailA', '泡泡拖尾', 'rare', 3, 'chest'),
+  it('trail', 'playTrailB', '星彩拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'playSwing', '星彩斩', 'legendary', 5, 'chest'),
+  // --- 🏮 元宵灯会 ---
+  it('skin', 'yuanSpirit', '灯神元夕', 'legendary', 5, 'chest'),
+  it('mount', 'yuanBoat', '花灯船', 'epic', 4, 'chest'),
+  it('hat', 'yuanLamp', '花灯头饰', 'rare', 3, 'chest'),
+  it('hat', 'yuanMask', '面具头饰', 'epic', 4, 'chest'),
+  it('wings', 'yuanLanternWing', '灯笼翼', 'rare', 3, 'chest'),
+  it('wings', 'yuanFireWing', '焰火翼', 'epic', 4, 'chest'),
+  it('cape', 'yuanSilk', '绸缎披风', 'common', 2, 'chest'),
+  it('cape', 'yuanLanternCape', '灯彩披风', 'rare', 3, 'chest'),
+  it('aura', 'yuanFireAura', '焰火环绕', 'common', 2, 'chest'),
+  it('aura', 'yuanLanternAura', '灯笼光环', 'rare', 3, 'chest'),
+  it('ring', 'yuanRing', '灯会地环', 'common', 1, 'chest'),
+  it('racketSkin', 'yuanRacketA', '绸缎球拍', 'rare', 3, 'chest'),
+  it('racketSkin', 'yuanRacketB', '符文球拍', 'epic', 4, 'chest'),
+  it('trail', 'yuanTrailA', '焰火拖尾', 'rare', 3, 'chest'),
+  it('trail', 'yuanTrailB', '花瓣拖尾', 'epic', 4, 'chest'),
+  it('swingTrail', 'yuanSwing', '焰火斩', 'legendary', 5, 'chest'),
+
+  // ==========================================================================
+  // 🗺️ 山海宝箱（见 game/chest.ts 的 theme id `shan`）
+  // 10 只《山海经》怪物皮肤：`chest` 专属、5★，但额外挂了 `pullWeight`——
+  // 抽奖不看星级权重、按这个绝对权重算，所以**中奖率极低**（见 progress.rollFrom）。
+  // 再配 14 件普通山海物品凑数（低星、好出），衬托皮肤的珍贵。
+  // ==========================================================================
+  itw('skin', 'zhuLong', '烛龙', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'xiangLiu', '相柳', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'qiongQi', '穷奇', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'taoTie', '饕餮', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'taoWu', '梼杌', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'hunDun', '混沌', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'jiuweiHu', '九尾狐', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'baShe', '巴蛇', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'guDiao', '蛊雕', 'legendary', 5, 'chest', 0.3),
+  itw('skin', 'yuYu', '猰貐', 'legendary', 5, 'chest', 0.3),
+  // 普通山海物品（凑数用，低星好出）
+  it('ring', 'shanRing', '昆仑地环', 'common', 1, 'chest'),
+  it('hat', 'shanHatFeather', '鹤羽笠', 'common', 2, 'chest'),
+  it('wings', 'shanWingFeather', '鲲羽之翼', 'common', 2, 'chest'),
+  it('cape', 'shanCapeScale', '鳞光披风', 'common', 2, 'chest'),
+  it('cape', 'shanCapeMist', '瀛洲雾纱', 'common', 2, 'chest'),
+  it('aura', 'shanAuraSpirit', '灵气环绕', 'common', 2, 'chest'),
+  it('racketSkin', 'shanRacketA', '玉简球拍', 'common', 2, 'chest'),
+  it('trail', 'shanTrail', '灵气拖尾', 'common', 2, 'chest'),
+  it('hat', 'shanHatDragon', '螭龙角', 'rare', 3, 'chest'),
+  it('wings', 'shanWingCloud', '云螭翼', 'rare', 3, 'chest'),
+  it('aura', 'shanAuraStar', '星汉光环', 'rare', 3, 'chest'),
+  it('racketSkin', 'shanRacketB', '螭鳞球拍', 'rare', 3, 'chest'),
+  it('swingTrail', 'shanSwing', '山海斩', 'rare', 3, 'chest'),
+  it('mount', 'shanMountKun', '鲲鹏', 'epic', 4, 'chest'),
 ];
 
-export const GACHA_POOL = ITEMS.filter((i) => i.source === 'gacha');
+export const GACHA_POOL = ITEMS.filter((i) => i.source === 'gacha' || i.source === 'chest');
+
+// ---- 宝箱抽取：先等概率选类别，再在类别内按星级加权 ------------------------
+
+/**
+ * 抽奖的**星级权重**（越高的星越难出）。
+ *
+ * 抽取分两步（见 `stores/progress.ts` 的 `rollOne`）：
+ * 1. 在宝箱池实际出现过的**类别**（`GACHA_SLOTS`）里**等概率**选一个；
+ * 2. 在选中的类别里按这份权重抽星级，1★ 最常见、5★ 极少见。
+ * 所以「抽到哪个部位」是均匀的，稀有感完全由星级决定。
+ */
+export const STAR_WEIGHT: Record<number, number> = {
+  1: 45,
+  2: 28,
+  3: 16,
+  4: 8,
+  5: 3,
+};
+
+/** 开一次宝箱要的钥匙数（十连 = 10 把） */
+export const CHEST_KEYS = 1;
+
+/** 宝箱池里实际出现过的类别：抽奖第一步在这几个里等概率选一个 */
+export const GACHA_SLOTS: ItemSlot[] = [...new Set(GACHA_POOL.map((i) => i.slot))];
+
+// ---- 金币商店：宝箱池里的低星物品可以直接用金币买 --------------------------
+
+/** 金币商店按星级定价 */
+const COIN_PRICE_BY_STARS: Record<number, number> = { 1: 200, 2: 450, 3: 900 };
+
+/**
+ * 金币商店**专属款**（`source: 'coin'`：10 款角色形象 + 10 款坐骑）的星级价，
+ * 比同星级的普通货贵一截——它们是「整套皮肤 / 整只坐骑」，
+ * 要攒一攒（赚钱区砸矿 / 采棉花 / 抓鱼 → 交给农场主）才买得起。
+ */
+const COIN_EXCLUSIVE_PRICE_BY_STARS: Record<number, number> = { 1: 800, 2: 1800, 3: 3600 };
+
+/**
+ * 「金币商店」在售清单，两来源：
+ * ① 宝箱池里 **3★ 及以下**的 `gacha` 物品（低星特效 + 低星头饰 / 拖尾 / 球拍皮肤…），
+ *    拿出来用金币直购，省得为了几件普通货反复开箱子；高星（4★ / 5★）只从宝箱出；
+ * ② **`source: 'coin'` 的金币商店专属**（10 款 1~3★ 角色形象）——它们**不在宝箱池里**，
+ *    所以开箱抽不到，只能花钱买（这样也不会稀释宝箱的类别分布）。
+ *
+ * 注意 `source: 'chest'` 的**宝箱专属**（第三批头饰里的 37 款）不在这里：
+ * 它们能开出来，但**金币买不到**——"宝箱出的东西就得开箱拿"。
+ * 售价：
+ * - 宝箱池那批看 `COIN_PRICE_BY_STARS`（1★ ¥200 / 2★ ¥450 / 3★ ¥900）；
+ * - 专属形象看 `COIN_SKIN_PRICE_BY_STARS`（1★ ¥800 / 2★ ¥1800 / 3★ ¥3600）。
+ */
+export const COIN_SHOP: { id: string; price: number }[] = ITEMS.filter(
+  (i) => i.source === 'coin' || (i.source === 'gacha' && i.stars <= 3),
+).map((i) => ({
+  id: i.id,
+  price:
+    i.source === 'coin'
+      ? (COIN_EXCLUSIVE_PRICE_BY_STARS[i.stars] ?? 3600)
+      : (COIN_PRICE_BY_STARS[i.stars] ?? 900),
+}));
+
+/** 金币商店的商品（带物品对象，界面直接用） */
+export const COIN_SHOP_ITEMS: { item: Item; price: number }[] = COIN_SHOP.map((e) => ({
+  item: ITEMS.find((i) => i.id === e.id)!,
+  price: e.price,
+})).filter((e) => !!e.item);
+
+/** 某件金币商品的价格（不在售时返回 0） */
+export function coinPriceOf(id: string): number {
+  return COIN_SHOP.find((e) => e.id === id)?.price ?? 0;
+}
+
+// ---- 开箱的「袋子档」与 🧩 星尘碎片兑换 --------------------------------------
+
+/**
+ * 每次开箱先摇一次**袋子档**：`BAG_CHANCE` 的抽**不给装扮**，改成一小袋金币
+ * 或星尘碎片。这是刻意加的**占位**——「每抽必出物品」会让几百件装扮一起变廉价，
+ * 有了袋子，抽到装扮才算抽到东西。
+ *
+ * 两个例外，避免袋子吃掉玩家的盼头：
+ * - **保底抽**（`floor: 'epic'` 或攒够 `PITY_LIMIT`）**不走袋子**；
+ * - 袋子抽照样给 `pity` 计数 +1（所以保底不会被拖慢）。
+ */
+export const BAG_CHANCE = 0.2;
+/** 袋子档里给**金币袋**的概率，剩下的是碎片袋 */
+export const BAG_COIN_SHARE = 0.45;
+/** 金币袋：`COIN_BAG_MIN` ~ `COIN_BAG_MIN + COIN_BAG_RANGE`（≈ 一件 1★ 的金币商店价） */
+export const COIN_BAG_MIN = 120;
+export const COIN_BAG_RANGE = 120;
+/** 碎片袋：`SHARD_BAG_MIN` ~ `SHARD_BAG_MIN + SHARD_BAG_RANGE` */
+export const SHARD_BAG_MIN = 9;
+export const SHARD_BAG_RANGE = 12;
+
+/** 碎片袋的期望产出 ≈ 15 🧩/袋，下面的定价按「几袋能换一件」定 */
+export const SHARD_SHOP: { id: string; price: number }[] = [
+  { id: 'aura:shardglow', price: 60 },
+  { id: 'ring:shardring', price: 60 },
+  { id: 'effect:shardpop', price: 90 },
+  { id: 'cape:shardcape', price: 100 },
+  { id: 'swingTrail:shardedge', price: 110 },
+  { id: 'hat:shardCrown', price: 120 },
+];
+
+/** 碎片兑换的商品（带物品对象，界面直接用） */
+export const SHARD_SHOP_ITEMS: { item: Item; price: number }[] = SHARD_SHOP.map((e) => ({
+  item: ITEMS.find((i) => i.id === e.id)!,
+  price: e.price,
+})).filter((e) => !!e.item);
+
+/** 某件碎片商品的价格（不在清单里返回 0） */
+export function shardPriceOf(id: string): number {
+  return SHARD_SHOP.find((e) => e.id === id)?.price ?? 0;
+}
 
 /** every hatching pet (the "none" placeholder is not hatchable) */
 export const PETS = ITEMS.filter((i) => i.slot === 'pet' && i.ref !== 'none');
 
-/** 理发店（大地图上的外观自定义）：进门一次的花费 */
+/** 理发店（大地图上的外观自定义）：进门一次的花费（金币） */
 export const BARBER_COST = 100;
-export const CHEST_COST = 400;
+/** 宝箱的史诗保底：连着这么多次没出史诗+，下一次强制史诗+ */
 export const PITY_LIMIT = 10;
 
-// ---- 农场（棉花地）----------------------------------------------------------
-/** 一朵棉花的卖价区间 */
-export const COTTON_VALUE = { min: 6, max: 18 };
+// ---- 材料（采集类产出）-------------------------------------------------------
+/**
+ * 采集玩法（棉花 / 矿石 / 鱼）**不再直接给金币**，而是给这些材料，
+ * 拉回赚钱区交给**农场主**（`game/world/npcs.ts` 里那位收购商）才换钱。
+ *
+ * `price` 是农场主的收购单价（鱼按各自的 `value`，不进这张表）：
+ * 棉花一朵 **¥5**、矿石一个 ¥8——棉花一片地能收的量比矿多得多，所以单价压低。
+ */
+export const MATERIALS = {
+  cotton: { name: '棉花', emoji: '🧵', price: 5 },
+  ore: { name: '矿石', emoji: '🪨', price: 8 },
+} as const;
+
+export type MaterialId = keyof typeof MATERIALS;
 /**
  * 采摘等级：等级 = 一次挥拍能同时摘下的棉花数（初始 1）。
  * 下标 i 是「从 i 级升到 i+1 级」的价格。
@@ -742,8 +1258,6 @@ export const MILESTONE_REWARD: Record<number, string> = {
 };
 
 /** ten draws cost 10% less than ten singles */
-export const TEN_PULL_COST = Math.round(CHEST_COST * 10 * 0.9);
-
 /** pet stars are a per-player quality, independent of the pet species */
 export const PET_STAR_MAX = 5;
 

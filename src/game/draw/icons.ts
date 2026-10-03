@@ -72,7 +72,8 @@ export function paintItemIcon(item: Item, canvas: HTMLCanvasElement): void {
       // 头饰以「头顶」为锚（topY），往上长——锚点放低给帽子留空间
       ctx.translate(c, ICON * 0.8);
       ctx.scale(fit(90), fit(90));
-      drawHat(g, 0, 0, item.ref as HatId);
+      // 传 NOW：图标虽然是静止的一帧，但动态头饰要有个像样的姿态
+      drawHat(g, 0, 0, item.ref as HatId, NOW);
       break;
     case 'wings':
       // 翅膀从肩部（topY+48）向两侧上后方展开

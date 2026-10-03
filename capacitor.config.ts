@@ -25,6 +25,13 @@ const config: CapacitorConfig = {
   android: {
     /** 联机走 wss，没有混用 https 里加载 http 的需求 */
     allowMixedContent: false,
+    /**
+     * 关掉 Capacitor 对 edge-to-edge 的自动加边距：Android 15+ 强制全屏后，
+     * 横屏时手势导航栏的内缩会被算成 WebView 的**左边距**——画面左侧就露出
+     * 一条竖着的黑条。MainActivity 已经自己在做沉浸式全屏（藏系统栏 + shortEdges），
+     * 这里禁用即可让画面铺满整块屏幕。
+     */
+    adjustMarginsForEdgeToEdge: 'disable',
     /** 允许用 chrome://inspect 调试 WebView（上线前可以删掉这行） */
     webContentsDebuggingEnabled: true,
   },

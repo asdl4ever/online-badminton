@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Phaser from 'phaser';
 import PageShell from '../components/ui/PageShell.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
-import { GZ_DIFFS, GZ_DIFF_ORDER, GZ_DAILY_MAX, GZ_NAME, type GzDifficulty } from '../game/godzilla';
+import {
+  GZ_DIFFS,
+  GZ_DIFF_ORDER,
+  GZ_DROPS,
+  GZ_DAILY_MAX,
+  GZ_NAME,
+  GZ_REWARD_ODDS,
+  type GzDifficulty,
+} from '../game/godzilla';
 import { GodzillaScene, type GodzillaSceneCfg } from '../game/godzilla/GodzillaScene';
 import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
@@ -17,7 +25,7 @@ import { RARITY_META } from '../game/items';
 /**
  * 「哥斯拉来袭」活动页：选难度 → 开打。
  * 场景里 3 颗心，火球拍回去砸哥斯拉扣血、贴地激光跳起来躲；
- * 击杀结算在 `onEnd` 里走 `progress.grantGodzillaKill`（首杀送限定套装）。
+ * 击杀结算在 `onEnd` 里走 `progress.grantGodzillaKill`（按难度概率掉该档限定）。
  */
 const router = useRouter();
 const progress = useProgressStore();
@@ -33,7 +41,25 @@ const loot = ref<{ label: string; color: string }[]>([]);
 
 const attemptsLeft = computed(() => progress.gzLeftToday);
 
-function start(): void {
+/** 三选一摇奖的三个概率（给说明文案用，改 `GZ_REWARD_ODDS` 这里自动跟着变） */
+const odds = computed(() => ({
+  coins: Math.round(GZ_REWARD_ODDS.coins * 100),
+  skin: Math.round(GZ_REWARD_ODDS.skin * 100),
+  keys: Math.round(GZ_REWARD_ODDS.keys * 100),
+}));
+
+/** 每档限定的收集进度：皮肤档只在「还没拥有的」里掉，集齐了会折算金币 */
+const setInfo = computed(
+  () =>
+    Object.fromEntries(
+      GZ_DIFF_ORDER.map((d) => {
+        const ids = GZ_DROPS[d].ids;
+        return [d, { owned: ids.filter((id) => progress.owned.includes(id)).length, total: ids.length }];
+      }),
+    ) as Record<GzDifficulty, { owned: number; total: number }>,
+);
+
+async function start(): Promise<void> {
   if (playing.value) return;
   const r = progress.useGodzillaAttempt();
   if (!r.ok) {
@@ -44,10 +70,16 @@ function start(): void {
   result.value = null;
   loot.value = [];
   playing.value = true;
+  // ⚠️ 必须等战斗容器真正显示出来（有尺寸）再启 Phaser：
+  // 容器是 v-show 控制的，`playing = true` 只是改了个标志，DOM 还是 display:none；
+  // 在隐藏的父节点上启动，ScaleManager 会按 0×0 算缩放，之后再靠它每 500ms 一次的
+  // 父节点尺寸轮询才纠正回来——这就是「进去半天才有图案」的原因。
+  await nextTick();
   bootScene();
 }
 
 function bootScene(): void {
+  if (!host.value) return;
   if (game) game.destroy(true);
   const data: GodzillaSceneCfg = {
     difficulty: difficulty.value,
@@ -73,22 +105,36 @@ function bootScene(): void {
 function onEnd(win: boolean): void {
   playing.value = false;
   result.value = win ? 'win' : 'lose';
-  if (win) {
-    const r = progress.grantGodzillaKill(difficulty.value);
-    sfx.win();
-    celebrate(3, ['#3a7d44', '#e8a33d', '#8fe0ff']);
-    const parts: string[] = [`🪙 +${r.coins}`, `🏅 +${r.honor}`];
-    loot.value = r.items.map((i) => ({ label: i.label, color: RARITY_META[i.rarity].color }));
-    // 首杀送了哥斯拉本体：直接穿上，昭告天下
-    if (r.items.some((i) => i.id === 'skin:godzilla')) customize.characterSkin = 'godzilla';
-    resultText.value = r.firstKill
-      ? `🏆 首杀达成！${GZ_NAME}倒下了：${parts.join(' · ')}，限定套装已进背包`
-      : `🏆 击杀成功！（累计 ${progress.gzKills} 杀）${parts.join(' · ')}`;
-    toastGood(resultText.value);
-  } else {
+  if (!win) {
     sfx.lose();
     resultText.value = `你被 ${GZ_NAME} 打倒了，还剩 ${progress.gzLeftToday} 次挑战机会`;
+    return;
   }
+
+  // 战利品是**三选一摇出来的**（50% 金币 / 20% 该档限定 / 30% 钥匙），荣誉点固定给
+  const r = progress.grantGodzillaKill(difficulty.value);
+  sfx.win();
+  celebrate(3, ['#3a7d44', '#e8a33d', '#8fe0ff']);
+  loot.value = r.drop ? [{ label: r.drop.label, color: RARITY_META[r.drop.rarity].color }] : [];
+  // 掉出哥斯拉本体就直接穿上
+  if (r.drop?.id === 'skin:godzilla') customize.characterSkin = 'godzilla';
+
+  let gain: string;
+  if (r.drop) {
+    gain = `🎁 掉落限定「${r.drop.label}」`;
+  } else if (r.kind === 'skin') {
+    // 这一档的限定已经全拿到 → 不重复发，折算成金币
+    gain = `这一档的限定已经拿齐了，折算 🪙 +${r.refund}`;
+  } else if (r.kind === 'keys') {
+    gain = `🔑 宝箱钥匙 +${r.keys}`;
+  } else {
+    gain = `🪙 金币 +${r.coins}`;
+  }
+
+  resultText.value =
+    `🏆 击杀成功！（累计 ${progress.gzKills} 杀）${gain} · 🏅 +${r.honor}` +
+    (r.allOwned ? ' · 这一档的限定已集齐' : '');
+  toastGood(gain);
 }
 
 function back(): void {
@@ -101,12 +147,6 @@ function destroyGame(): void {
   game?.destroy(true);
   game = null;
 }
-
-onMounted(() => {
-  if (attemptsLeft.value <= 0) {
-    // 进来一看次数用完了也别拦着，页面还能看介绍；只是开打会被拒
-  }
-});
 
 onBeforeUnmount(destroyGame);
 </script>
@@ -151,13 +191,19 @@ onBeforeUnmount(destroyGame);
                 <b>{{ GZ_DIFFS[d].label }}</b>
                 <span class="num">血量 {{ GZ_DIFFS[d].hits }} 击</span>
                 <span class="num">🪙 {{ GZ_DIFFS[d].coins }} · 🏅 {{ GZ_DIFFS[d].honor }}</span>
+                <span class="num">
+                  🎁 限定 {{ setInfo[d].owned }}/{{ setInfo[d].total
+                  }}<template v-if="setInfo[d].owned >= setInfo[d].total"> · 已集齐</template>
+                </span>
               </button>
             </div>
 
             <p class="muted gz-note">
               每天 <b>{{ GZ_DAILY_MAX }}</b> 次免费挑战，失败也消耗次数。
-              <b>首次击杀</b>（任意难度）送「哥斯拉来袭」限定套装：背鳍光焰 · 鳞甲披风 ·
-              原子吐息 · 原子烈焰；重复击杀按难度给金币和荣誉点。
+              每次击杀摇一次<b>三选一</b>：🪙 金币 <b>{{ odds.coins }}%</b> ·
+              🎁 该档限定 <b>{{ odds.skin }}%</b> · 🔑 宝箱钥匙 <b>{{ odds.keys }}%</b>（荣誉点固定给）。
+              <b>简单</b>掉 原子烈焰 · 原子吐息，<b>普通</b>掉 背鳍光焰 · 鳞甲披风，<b>地狱</b>才是
+              <b>哥斯拉本体皮肤</b>；每档只掉你还没有的，该档拿齐后皮肤档<b>折算成金币</b>，不会重复给。
             </p>
 
             <div v-if="loot.length" class="gz-loot">

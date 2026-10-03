@@ -6,10 +6,12 @@ import {
   HAT_COLORS,
   HAT_KIND,
   PET_COLORS,
+  FULL_HEAD_DY,
   PET_KIND,
   RING_COLORS,
   WING_COLORS,
   WING_SHAPE,
+  replacesHead,
   type AuraId,
   type CapeId,
   type Cosmetic,
@@ -20,6 +22,15 @@ import {
 import { PLAYER_H } from '../constants';
 import { P } from '../theme';
 import { drawMount } from './mounts';
+import {
+  THEME_AURAS,
+  THEME_HATS,
+  THEME_RINGS,
+  THEME_SKIN_ART,
+  drawThemeAura,
+  drawThemeHat,
+  drawThemeRing,
+} from './themeart';
 
 /**
  * Draws a player character and every cosmetic slot it can wear.
@@ -166,6 +177,35 @@ export function drawCape(g: Phaser.GameObjects.Graphics, now: number, x: number,
       g.fillCircle(x, baseY + 4, 4);
       break;
     }
+    case 'antigrav': {
+      // 反重力披风：下摆不落地、往上飘，几道光带沿布面向上游走
+      const lift = 10 + Math.sin(now / 420) * 4;
+      g.fillStyle(color, 0.34);
+      g.beginPath();
+      g.moveTo(x - w * 0.5, baseY);
+      g.lineTo(x + w * 0.5, baseY);
+      g.lineTo(x + w * 0.34 + sway, baseY + len - lift);
+      g.lineTo(x - w * 0.34 + sway, baseY + len - lift);
+      g.closePath();
+      g.fillPath();
+      g.lineStyle(2, color, 0.75);
+      g.beginPath();
+      g.moveTo(x - w * 0.5, baseY);
+      g.lineTo(x - w * 0.34 + sway, baseY + len - lift);
+      g.moveTo(x + w * 0.5, baseY);
+      g.lineTo(x + w * 0.34 + sway, baseY + len - lift);
+      g.strokePath();
+      for (let k = 0; k < 3; k++) {
+        const ph = (now / 1100 + k / 3) % 1;
+        const px = x - w * 0.3 + k * w * 0.3;
+        const py = baseY + len * (1 - ph) + sway * 0.6;
+        g.lineStyle(2.2, 0xd8fff0, 0.65 * (1 - ph));
+        g.lineBetween(px, py, px, py - 12);
+      }
+      g.fillStyle(0xffffff, 0.5);
+      g.fillEllipse(x + sway * 0.4, baseY + 3, w * 0.86, 6);
+      break;
+    }
     case 'towel': {
       // 冠军毛巾：肩上一条白毛巾，红条纹，尾端随 sway 轻摆
       g.fillStyle(color, 0.96);
@@ -177,13 +217,310 @@ export function drawCape(g: Phaser.GameObjects.Graphics, now: number, x: number,
       g.fillRect(x - w * 0.5, baseY + 4, w, 3);
       break;
     }
+    case 'candywrap': {
+      // 糖霜卷帘：斜条纹的糖果布，底端收成一段卷
+      g.fillStyle(color, 0.94);
+      g.fillRect(x - w * 0.5, baseY, w, len);
+      g.fillStyle(0xffffff, 0.85);
+      for (let k = -2; k <= 3; k++) {
+        const cy = baseY + k * 12;
+        g.beginPath();
+        g.moveTo(x - w * 0.5, cy);
+        g.lineTo(x - w * 0.5, cy + 6);
+        g.lineTo(x + w * 0.5, cy + 6 - 10);
+        g.lineTo(x + w * 0.5, cy - 4 - 10);
+        g.closePath();
+        g.fillPath();
+      }
+      g.fillStyle(art0(color), 0.9);
+      g.fillCircle(x + sway * 0.6, baseY + len + 4, w * 0.26);
+      break;
+    }
+    case 'tentflap': {
+      // 帐篷幕布：顶杆 + 两片下垂的条纹幔，底边打波浪
+      g.fillStyle(0x8a7248, 1);
+      g.fillRect(x - w * 0.62, baseY - 2, w * 1.24, 4);
+      for (const d of [-1, 1]) {
+        g.fillStyle(d < 0 ? color : 0xd42a3a, 0.92);
+        g.beginPath();
+        g.moveTo(x, baseY);
+        g.lineTo(x + d * w * 0.6, baseY);
+        for (let k = 4; k >= 0; k--) {
+          const px = x + d * w * (0.2 + (k / 4) * 0.4) + sway;
+          g.lineTo(px, baseY + len - (k % 2 === 0 ? 0 : 11));
+        }
+        g.closePath();
+        g.fillPath();
+      }
+      break;
+    }
+    case 'flag': {
+      // 战旗：一根旗杆挂着一面飘动的方旗 + 中央纹章
+      g.fillStyle(0xc0ccda, 1);
+      g.fillRect(x - 1.5, baseY - 6, 3, len + 10);
+      g.fillStyle(color, 0.94);
+      g.beginPath();
+      g.moveTo(x + 1.5, baseY - 4);
+      g.lineTo(x + 1.5 + w * 0.8 + sway, baseY + 6);
+      g.lineTo(x + 1.5 + w * 0.8 + sway, baseY + len * 0.7);
+      g.lineTo(x + 1.5, baseY + len * 0.8);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xffd45c, 0.95);
+      g.fillCircle(x + w * 0.42 + sway * 0.5, baseY + len * 0.38, w * 0.16);
+      break;
+    }
+    case 'leafcloak': {
+      // 叶披风：三片大叶子交叠，各自轻摆
+      for (let k = 0; k < 3; k++) {
+        const ox = (k - 1) * w * 0.34;
+        const sw = sway * (0.4 + k * 0.35);
+        g.fillStyle(k % 2 ? color : art0(color), 0.92);
+        g.beginPath();
+        g.moveTo(x + ox - w * 0.2, baseY);
+        g.lineTo(x + ox + w * 0.2, baseY);
+        g.lineTo(x + ox + sw, baseY + len - k * 4);
+        g.closePath();
+        g.fillPath();
+        g.lineStyle(1.2, 0xffffff, 0.45);
+        g.lineBetween(x + ox, baseY + 4, x + ox + sw, baseY + len - 6 - k * 4);
+      }
+      break;
+    }
+    case 'pelt': {
+      // 兽皮：一块带毛边的皮子，边缘一撮撮毛、中央一块斑纹
+      g.fillStyle(color, 0.95);
+      g.beginPath();
+      g.moveTo(x - w * 0.5, baseY);
+      g.lineTo(x + w * 0.5, baseY);
+      g.lineTo(x + w * 0.56 + sway, baseY + len);
+      g.lineTo(x - w * 0.56 + sway, baseY + len);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(color, 1);
+      for (let k = -3; k <= 3; k++) {
+        const px = x + k * w * 0.16 + sway;
+        g.fillTriangle(px - 3, baseY + len, px + 3, baseY + len, px, baseY + len + 6);
+      }
+      g.fillStyle(0x1a1a22, 0.4);
+      g.fillEllipse(x + sway * 0.5, baseY + len * 0.45, w * 0.5, len * 0.3);
+      break;
+    }
+    case 'lanternrow': {
+      // 灯帘：一根横杆下挂三盏晃动的灯笼
+      g.fillStyle(0x8a5a2a, 1);
+      g.fillRect(x - w * 0.55 + sway * 0.4, baseY - 2, w * 1.1, 3);
+      for (let k = -1; k <= 1; k++) {
+        const ph = Math.sin(now / 400 + k * 1.2) * 3;
+        const lx = x + k * w * 0.36 + ph;
+        const ly = baseY + 6 + len * (0.3 + (k + 1) * 0.14);
+        g.lineStyle(1.4, 0x8a5a2a, 0.9);
+        g.lineBetween(x + k * w * 0.36 + sway * 0.4, baseY, lx, ly - 7);
+        g.fillStyle(k % 2 ? color : 0xffd45c, 0.95);
+        g.fillEllipse(lx, ly, w * 0.24, len * 0.16);
+        g.fillStyle(0xfff0b0, 0.7);
+        g.fillCircle(lx, ly, w * 0.08);
+      }
+      break;
+    }
+    case 'talon': {
+      // 白骨爪：三根骨爪垂下来，关节处一个圆
+      for (let k = -1; k <= 1; k++) {
+        const bx = x + k * w * 0.34;
+        g.lineStyle(4, 0xe8e0cf, 0.95);
+        g.lineBetween(bx, baseY, bx + sway * 0.5, baseY + len);
+        g.fillStyle(0xe8e0cf, 1);
+        g.fillCircle(bx + sway * 0.2, baseY + len * 0.5, 3.2);
+        g.fillCircle(bx + sway * 0.5, baseY + len, 2.6);
+      }
+      break;
+    }
+    case 'shellfan': {
+      // 贝扇：一把扇贝壳，放射纹 + 底端同心弧
+      g.fillStyle(color, 0.92);
+      g.beginPath();
+      g.arc(x, baseY + len * 0.9, len * 0.75 + sway * 0.4, Math.PI * 1.08, Math.PI * 1.92, false, 0);
+      g.closePath();
+      g.fillPath();
+      g.lineStyle(1.4, 0xffffff, 0.6);
+      for (let k = 0; k <= 6; k++) {
+        const a = Math.PI * (1.06 + (k / 6) * 0.88);
+        g.lineBetween(x, baseY + len * 0.9, x + Math.cos(a) * len * 0.72, baseY + len * 0.9 + Math.sin(a) * len * 0.72);
+      }
+      g.lineStyle(1.4, 0xffffff, 0.5);
+      g.beginPath();
+      g.arc(x, baseY + len * 0.9, len * 0.42, Math.PI * 1.1, Math.PI * 1.9, false, 0);
+      g.strokePath();
+      break;
+    }
+    case 'ribboncurl': {
+      // 卷曲缎带：一条 S 形飘带，末端打卷
+      g.lineStyle(7, color, 0.95);
+      g.beginPath();
+      for (let s = 0; s <= 8; s++) {
+        const u = s / 8;
+        const px = x + Math.sin(u * 4 + now / 500) * w * 0.4 + sway * u;
+        const py = baseY + u * len;
+        if (s === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.strokePath();
+      g.lineStyle(4, 0xffffff, 0.4);
+      g.beginPath();
+      for (let s = 0; s <= 8; s++) {
+        const u = s / 8;
+        const px = x + Math.sin(u * 4 + now / 500) * w * 0.4 + sway * u;
+        const py = baseY + u * len;
+        if (s === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.strokePath();
+      break;
+    }
+    case 'puffcloud': {
+      // 云披：几团云叠着往下堆，各自缓缓起伏
+      for (let k = 0; k < 4; k++) {
+        const ph = Math.sin(now / 500 + k);
+        g.fillStyle(k % 2 ? 0xffffff : color, 0.85);
+        g.fillCircle(x + (k - 1.5) * w * 0.26 + ph * 2, baseY + 10 + k * (len / 4.4), w * (0.42 - k * 0.04));
+      }
+      break;
+    }
+    case 'inkflow': {
+      // 水墨披：上方一块浓墨，下方拖出一串墨滴
+      g.fillStyle(color, 0.9);
+      g.beginPath();
+      g.moveTo(x - w * 0.5, baseY);
+      g.lineTo(x + w * 0.5, baseY);
+      g.lineTo(x + w * 0.4 + sway, baseY + len * 0.6);
+      g.lineTo(x - w * 0.4 + sway, baseY + len * 0.6);
+      g.closePath();
+      g.fillPath();
+      for (let k = 0; k < 4; k++) {
+        const ph = (now / 900 + k / 4) % 1;
+        g.fillStyle(color, 0.5 * (1 - ph));
+        g.fillCircle(x + (k - 1.5) * w * 0.24 + sway * 0.5, baseY + len * 0.6 + ph * len * 0.5, 3 * (1 - ph) + 1);
+      }
+      break;
+    }
+    case 'gearhang': {
+      // 齿轮帘：横杆下挂三个转动的齿轮
+      g.fillStyle(0x5a6472, 1);
+      g.fillRect(x - w * 0.55 + sway * 0.4, baseY - 2, w * 1.1, 3);
+      for (let k = -1; k <= 1; k++) {
+        const gx = x + k * w * 0.34 + sway * 0.4;
+        const gy = baseY + 12 + len * (0.28 + (k + 1) * 0.12);
+        g.lineStyle(1.6, 0x8fa0b8, 0.8);
+        g.lineBetween(gx, baseY, gx, gy - 6);
+        g.fillStyle(k % 2 ? color : 0x8fa0b8, 0.95);
+        for (let j = 0; j < 6; j++) {
+          const ga = (j / 6) * Math.PI * 2 + now / 300 * (k % 2 ? -1 : 1);
+          g.fillRect(gx + Math.cos(ga) * 7 - 2, gy + Math.sin(ga) * 7 - 2, 4, 4);
+        }
+        g.fillCircle(gx, gy, 4);
+      }
+      break;
+    }
+    case 'petalrain': {
+      // 花雨披：花瓣自上而下loop飘落
+      for (let k = 0; k < 6; k++) {
+        const ph = (now / 1600 + k / 6) % 1;
+        g.fillStyle(k % 2 ? color : 0xffffff, 0.85 * Math.sin(ph * Math.PI));
+        g.fillEllipse(
+          x + Math.sin(k * 2.1 + now / 600) * w * 0.5 + sway * 0.4,
+          baseY + ph * len,
+          7, 4,
+        );
+      }
+      break;
+    }
+    case 'silkveil': {
+      // 丝绸：半透明帘 + 两道流动的高光
+      g.fillStyle(color, 0.55);
+      g.beginPath();
+      g.moveTo(x - w * 0.5, baseY);
+      g.lineTo(x + w * 0.5, baseY);
+      g.lineTo(x + w * 0.6 + sway, baseY + len);
+      g.lineTo(x - w * 0.6 + sway, baseY + len);
+      g.closePath();
+      g.fillPath();
+      for (const d of [-0.25, 0.25]) {
+        g.lineStyle(2.4, 0xffffff, 0.45);
+        g.beginPath();
+        for (let s = 0; s <= 6; s++) {
+          const u = s / 6;
+          const px = x + d * w + Math.sin(u * 4 + now / 400) * w * 0.16 + sway * u;
+          const py = baseY + u * len;
+          if (s === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+      break;
+    }
+    case 'frostveil': {
+      // 冰晶帘：一排长短不一的冰锥，尖端微微闪光
+      for (let k = -3; k <= 3; k++) {
+        const px = x + k * w * 0.16 + sway * 0.4;
+        const hh = len * (0.6 + ((k + 3) % 3) * 0.2);
+        g.fillStyle(color, 0.82);
+        g.fillTriangle(px - 4, baseY, px + 4, baseY, px, baseY + hh);
+        g.fillStyle(0xffffff, 0.7);
+        g.fillCircle(px, baseY + hh - 2, 1.6);
+      }
+      break;
+    }
+    case 'starpelt': {
+      // 星幕：深色幕布上星点明灭
+      g.fillStyle(color, 0.92);
+      g.beginPath();
+      g.moveTo(x - w * 0.5, baseY);
+      g.lineTo(x + w * 0.5, baseY);
+      g.lineTo(x + w * 0.6 + sway, baseY + len);
+      g.lineTo(x - w * 0.6 + sway, baseY + len);
+      g.closePath();
+      g.fillPath();
+      for (let k = 0; k < 10; k++) {
+        const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 500 + k * 1.7));
+        g.fillStyle(0xffffff, 0.85 * tw);
+        const rx = x + Math.sin(k * 2.3) * w * 0.45 + sway * 0.5;
+        const ry = baseY + 6 + ((k * 37) % Math.max(8, len - 12));
+        g.fillCircle(rx, ry, k % 4 === 0 ? 2.2 : 1.3);
+      }
+      break;
+    }
   }
 }
 
-/** a headpiece drawn just above the player's head */
-export function drawHat(g: Phaser.GameObjects.Graphics, x: number, topY: number, id: HatId): void {
+/** 取一个比主色更亮的近似色（同色系高光），给披风当条纹/第二层用 */
+function art0(c: number): number {
+  const r = Math.min(255, ((c >> 16) & 255) + 60);
+  const gg = Math.min(255, ((c >> 8) & 255) + 60);
+  const b = Math.min(255, (c & 255) + 60);
+  return (r << 16) | (gg << 8) | b;
+}
+
+/**
+ * a headpiece drawn just above the player's head
+ *
+ * `now` 是毫秒时间戳，只给**新那批会动的头饰**用（风车在转、蜜蜂在绕、灯泡在闪…）。
+ * 默认 0，所以图标那种静态场合不用传。
+ */
+export function drawHat(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  topY: number,
+  id: HatId,
+  now = 0,
+): void {
   const color = HAT_COLORS[id];
   const hy = topY + 4;
+  // 新主题宝箱的头饰：统一走 themeart 的通用画法
+  const themeHat = THEME_HATS[id];
+  if (themeHat) {
+    drawThemeHat(g, x, topY, color, themeHat, now);
+    return;
+  }
   switch (HAT_KIND[id]) {
     case 'crown': {
       g.fillStyle(color, 1);
@@ -198,6 +535,25 @@ export function drawHat(g: Phaser.GameObjects.Graphics, x: number, topY: number,
       g.fillEllipse(x, hy + 2, 30, 20);
       g.fillRect(x - 16, hy + 2, 32, 5);
       g.fillRect(x + 2, hy + 2, 16, 4);
+      break;
+    }
+    case 'ufoHelm': {
+      // 飞碟头盔：半透明玻璃罩 + 罩里的绿色小外星人 + 罩底金属颈环 + 顶上天线
+      g.fillStyle(color, 0.3);
+      g.fillCircle(x, hy - 6, 17);
+      g.lineStyle(2, color, 0.9);
+      g.strokeCircle(x, hy - 6, 17);
+      g.fillStyle(0x6fe09a, 1);
+      g.fillEllipse(x, hy - 3, 18, 22);
+      g.fillStyle(0x0e1a14, 1);
+      g.fillEllipse(x - 4.5, hy - 7, 6, 8);
+      g.fillEllipse(x + 4.5, hy - 7, 6, 8);
+      g.fillStyle(0xd8e2ea, 1);
+      g.fillRect(x - 18, hy + 9, 36, 5);
+      g.lineStyle(2, 0xd8e2ea, 1);
+      g.lineBetween(x, hy - 23, x, hy - 29);
+      g.fillStyle(0xff6a6a, 1);
+      g.fillCircle(x, hy - 31, 3);
       break;
     }
     case 'coachcap': {
@@ -1215,6 +1571,977 @@ export function drawHat(g: Phaser.GameObjects.Graphics, x: number, topY: number,
       g.fillCircle(x - 12, hy - 22, 2);
       break;
     }
+    // ==== 第三批 50 款：每款独立造型，多数带一个 `now` 驱动的小动态 ==============
+    // 坐标约定：`x` 是角色中心，`hy` 是帽子锚点（头顶再往上一点）。
+
+    // ---- 吃喝 ----
+    case 'teapot': {
+      // 茶壶帽：壶身 + 壶嘴 + 提手，壶嘴一直在冒热气
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 16, hy - 12, 32, 22, 7);
+      g.fillRoundedRect(x - 9, hy - 18, 18, 8, 3);
+      g.fillCircle(x, hy - 19, 4);
+      g.fillTriangle(x - 16, hy - 8, x - 30, hy - 15, x - 16, hy + 2);
+      g.lineStyle(3, color, 1);
+      g.beginPath();
+      g.arc(x + 22, hy - 2, 8, Math.PI * 0.7, Math.PI * 1.6, false, 0);
+      g.strokePath();
+      const steam = (now / 900) % 1;
+      for (let k = 0; k < 3; k++) {
+        const t = (steam + k / 3) % 1;
+        g.fillStyle(0xffffff, 0.5 * (1 - t));
+        g.fillCircle(x - 24 - t * 6, hy - 14 - t * 20, 3.4 - t * 1.6);
+      }
+      break;
+    }
+    case 'ramen': {
+      // 拉面碗：碗里两根会起伏的面 + 斜插的筷子 + 热气
+      g.fillStyle(0xe8e0d0, 1);
+      g.fillRoundedRect(x - 22, hy - 6, 44, 20, 8);
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy - 6, 44, 12);
+      g.fillStyle(0xfff0c0, 1);
+      g.fillEllipse(x, hy - 8, 34, 8);
+      g.lineStyle(2.4, 0xf2d48a, 1);
+      for (let k = 0; k < 2; k++) {
+        const yy = hy - 12 - k * 4;
+        g.beginPath();
+        for (let s = 0; s <= 4; s++) {
+          const px = x - 14 + s * 7;
+          const py = yy + Math.sin(now / 260 + s) * 2;
+          if (s === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+      g.lineStyle(2.6, 0x8a6238, 1);
+      g.lineBetween(x + 6, hy - 4, x + 20, hy - 30);
+      g.lineBetween(x + 11, hy - 4, x + 25, hy - 30);
+      const t = (now / 900) % 1;
+      g.fillStyle(0xffffff, 0.5 * (1 - t));
+      g.fillCircle(x - 4 + Math.sin(now / 400) * 4, hy - 14 - t * 20, 4 - t * 2);
+      break;
+    }
+    case 'teacup': {
+      // 茶杯帽：碟子 + 杯子 + 一缕热气
+      g.fillStyle(0xf2f2f2, 1);
+      g.fillEllipse(x, hy + 10, 44, 10);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 15, hy - 10, 30, 20, 5);
+      g.fillStyle(0xfff0d0, 1);
+      g.fillEllipse(x, hy - 9, 28, 7);
+      g.lineStyle(3, color, 1);
+      g.beginPath();
+      g.arc(x + 19, hy - 2, 6, Math.PI * 0.7, Math.PI * 1.6, false, 0);
+      g.strokePath();
+      const t = (now / 1100) % 1;
+      g.fillStyle(0xffffff, 0.55 * (1 - t));
+      g.fillCircle(x + Math.sin(now / 380) * 5, hy - 14 - t * 18, 3.6 - t * 1.8);
+      break;
+    }
+    case 'boba': {
+      // 珍珠奶茶：杯 + 吸管，杯底的珍珠跟着晃
+      const wob = Math.sin(now / 220) * 1.6;
+      g.fillStyle(0xd8c8b0, 0.9);
+      g.fillRoundedRect(x - 15, hy - 16, 30, 34, 6);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 12, hy - 6, 24, 22, 5);
+      g.fillStyle(0xf2ead8, 1);
+      g.fillRoundedRect(x - 16, hy - 20, 32, 6, 3);
+      g.fillStyle(0xff8ad4, 1);
+      g.fillRoundedRect(x + 4, hy - 34, 6, 18, 3);
+      g.fillStyle(0x3a2a1c, 1);
+      for (let k = 0; k < 3; k++) g.fillCircle(x - 6 + k * 6 + wob * (k - 1), hy + 11, 3);
+      break;
+    }
+    case 'popcorn': {
+      // 爆米花桶：红白条桶，顶上偶尔蹦起一颗玉米花
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 17, hy - 6, 34, 26, 4);
+      g.fillStyle(0xe8404a, 0.85);
+      for (let k = -1; k <= 1; k++) g.fillRect(x + k * 11 - 2, hy - 6, 4, 26);
+      g.fillStyle(0xfff6e0, 1);
+      g.fillCircle(x - 10, hy - 10, 6);
+      g.fillCircle(x, hy - 14, 7);
+      g.fillCircle(x + 10, hy - 10, 6);
+      const t = (now / 700) % 1;
+      if (t < 0.6) {
+        g.fillCircle(x + 4, hy - 20 - Math.sin((t / 0.6) * Math.PI) * 14, 5.4);
+      }
+      break;
+    }
+    case 'pizza': {
+      // 披萨帽：一片三角披萨，尖端那坨芝士往下拉丝
+      g.fillStyle(color, 1);
+      g.fillTriangle(x - 20, hy - 6, x + 20, hy - 6, x, hy + 18);
+      g.fillStyle(0xf2c85c, 1);
+      g.fillTriangle(x - 15, hy - 4, x + 15, hy - 4, x, hy + 13);
+      g.fillStyle(0xd8382a, 1);
+      g.fillCircle(x - 7, hy, 4);
+      g.fillCircle(x + 8, hy + 1, 3.6);
+      g.fillCircle(x, hy + 8, 3.2);
+      g.fillStyle(0xfff0c0, 0.95);
+      const drip = 6 + Math.sin(now / 500) * 4;
+      g.fillTriangle(x - 3, hy + 12, x + 3, hy + 12, x, hy + 12 + drip);
+      break;
+    }
+    case 'donut': {
+      // 甜甜圈：糖霜 + 一圈慢慢游走的彩针
+      g.fillStyle(0xd8a36a, 1);
+      g.fillCircle(x, hy, 20);
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy, 17);
+      g.fillStyle(0xf2b8c8, 1);
+      g.fillCircle(x, hy - 1, 15);
+      g.fillStyle(0xf2ead8, 1);
+      g.fillCircle(x, hy, 6);
+      const w = now / 700;
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2 + w;
+        g.fillStyle(k % 2 ? 0x6fe3ff : 0xfff06a, 1);
+        g.fillRect(x + Math.cos(a) * 11 - 2, hy + Math.sin(a) * 11, 4, 2.4);
+      }
+      break;
+    }
+    case 'sushi': {
+      // 寿司帽：饭团 + 三文鱼片 + 海苔带，整体轻轻上下
+      const bob = Math.sin(now / 400) * 1.2;
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 19, hy - 8 + bob, 38, 20, 6);
+      g.fillStyle(0xe8703a, 1);
+      g.fillRoundedRect(x - 21, hy - 12 + bob, 42, 8, 4);
+      g.fillStyle(0xf2f0e0, 0.9);
+      for (let k = -1; k <= 1; k++) g.fillRect(x + k * 11 - 1, hy - 12 + bob, 3, 8);
+      g.fillStyle(0x2f4a2a, 1);
+      g.fillRect(x - 6, hy - 10 + bob, 12, 22);
+      break;
+    }
+    case 'taco': {
+      // 墨西哥卷：外壳小幅开合，露出里面的生菜与番茄
+      const open = 0.5 + Math.sin(now / 600) * 0.5;
+      g.fillStyle(0xf2c85c, 1);
+      g.fillEllipse(x, hy + 4, 44, 26);
+      g.save();
+      g.translateCanvas(x, hy + 12);
+      g.rotateCanvas(-0.16 - open * 0.14);
+      g.fillStyle(color, 1);
+      g.fillEllipse(0, 0, 46, 18);
+      g.restore();
+      g.fillStyle(0x4fae4a, 1);
+      g.fillCircle(x - 8, hy - 2, 5);
+      g.fillCircle(x + 6, hy - 4, 4.4);
+      g.fillStyle(0xd8382a, 1);
+      g.fillCircle(x, hy - 1, 3.6);
+      g.fillStyle(0xf2c85c, 1);
+      g.fillCircle(x + 13, hy + 1, 3.4);
+      break;
+    }
+    case 'cake': {
+      // 蛋糕帽：两层奶油蛋糕，蜡烛的火苗左右摇
+      g.fillStyle(0xf2d8b0, 1);
+      g.fillRoundedRect(x - 22, hy - 2, 44, 16, 4);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 18, hy - 12, 36, 12, 4);
+      g.fillStyle(0xfff6e0, 1);
+      g.fillRoundedRect(x - 18, hy - 6, 36, 3, 1.5);
+      g.fillStyle(0x6fe3ff, 1);
+      g.fillRect(x - 2.5, hy - 24, 5, 13);
+      const fl = Math.sin(now / 140) * 2;
+      g.fillStyle(0xffd45c, 1);
+      g.fillEllipse(x + fl, hy - 28, 6, 9);
+      g.fillStyle(0xff8a3c, 1);
+      g.fillEllipse(x + fl, hy - 27, 3, 5);
+      break;
+    }
+    case 'lollipop': {
+      // 棒棒糖：糖球上的螺旋一直在转
+      g.fillStyle(0xd8c8b0, 1);
+      g.fillRect(x - 2.5, hy - 2, 5, 22);
+      g.fillStyle(0xfff6e0, 1);
+      g.fillCircle(x, hy - 12, 17);
+      g.lineStyle(4, color, 1);
+      g.beginPath();
+      for (let s = 0; s <= 26; s++) {
+        const u = s / 26;
+        const a = now / 420 + u * Math.PI * 3.4;
+        const r = 2 + u * 13;
+        const px = x + Math.cos(a) * r;
+        const py = hy - 12 + Math.sin(a) * r;
+        if (s === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.strokePath();
+      break;
+    }
+    case 'candyCane': {
+      // 拐杖糖：白拐杖，红条纹一圈圈往上走
+      g.lineStyle(9, 0xfff6e8, 1);
+      g.beginPath();
+      g.moveTo(x, hy + 18);
+      g.lineTo(x, hy - 10);
+      g.arc(x + 9, hy - 10, 9, Math.PI, Math.PI * 1.85, false, 0);
+      g.strokePath();
+      g.lineStyle(4, color, 0.95);
+      const off = (now / 90) % 12;
+      for (let k = 0; k < 4; k++) {
+        const yy = hy + 16 - k * 12 - off;
+        if (yy > hy - 12) g.lineBetween(x - 4.5, yy, x + 4.5, yy - 3);
+      }
+      g.beginPath();
+      g.arc(x + 9, hy - 10, 9, Math.PI * 1.05, Math.PI * 1.42, false, 0);
+      g.strokePath();
+      break;
+    }
+
+    // ---- 花草果蔬 ----
+    case 'sunflower': {
+      // 向日葵：一圈花瓣慢慢转，中间的花心带点籽
+      const a0 = now / 1700;
+      for (let k = 0; k < 10; k++) {
+        const a = a0 + (k / 10) * Math.PI * 2;
+        g.fillStyle(k % 2 ? color : 0xffc02a, 1);
+        g.fillCircle(x + Math.cos(a) * 16, hy - 6 + Math.sin(a) * 16, 6);
+      }
+      g.fillStyle(0x6b4a26, 1);
+      g.fillCircle(x, hy - 6, 11);
+      g.fillStyle(0x4a3218, 0.6);
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2;
+        g.fillCircle(x + Math.cos(a) * 5, hy - 6 + Math.sin(a) * 5, 1.8);
+      }
+      break;
+    }
+    case 'lotus': {
+      // 莲花：花瓣一开一合，中间一颗金蕊
+      const open = 0.5 + Math.sin(now / 900) * 0.5;
+      for (let k = -2; k <= 2; k++) {
+        g.save();
+        g.translateCanvas(x, hy + 8);
+        g.rotateCanvas(k * 0.42 * (0.6 + open * 0.7));
+        g.fillStyle(k === 0 ? 0xffffff : color, 0.95);
+        g.fillEllipse(0, -16, 11, 22);
+        g.restore();
+      }
+      g.fillStyle(0xffe08a, 1);
+      g.fillCircle(x, hy + 2, 5);
+      break;
+    }
+    case 'leafCrown': {
+      // 树叶冠：藤圈上一排叶子，按顺序轻轻摇
+      g.lineStyle(4, 0x6b4a26, 1);
+      g.beginPath();
+      g.arc(x, hy + 2, 17, Math.PI * 1.08, Math.PI * 1.92, false, 0);
+      g.strokePath();
+      for (let k = 0; k < 6; k++) {
+        const a = Math.PI * 1.08 + (k / 5) * Math.PI * 0.84;
+        g.save();
+        g.translateCanvas(x + Math.cos(a) * 17, hy + 2 + Math.sin(a) * 17);
+        g.rotateCanvas(a + Math.PI / 2 + Math.sin(now / 300 + k) * 0.16);
+        g.fillStyle(k % 2 ? color : 0x4fa860, 1);
+        g.fillEllipse(0, -9, 9, 17);
+        g.restore();
+      }
+      break;
+    }
+    case 'clover': {
+      // 四叶草：四片心形叶，整株会晃
+      g.save();
+      g.translateCanvas(x, hy - 2);
+      g.rotateCanvas(Math.sin(now / 520) * 0.12);
+      g.lineStyle(3, 0x3a7a3a, 1);
+      g.lineBetween(0, 6, 0, 20);
+      g.fillStyle(color, 1);
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+        g.fillCircle(Math.cos(a) * 8, Math.sin(a) * 8 - 2, 8);
+      }
+      g.restore();
+      break;
+    }
+    case 'sprout': {
+      // 嫩芽帽：两片叶子一开一合地长
+      const grow = 0.6 + Math.sin(now / 800) * 0.4;
+      g.lineStyle(4, 0x6fae4f, 1);
+      g.lineBetween(x, hy + 16, x, hy - 2 - grow * 4);
+      for (const s of [-1, 1]) {
+        g.save();
+        g.translateCanvas(x, hy - 2 - grow * 4);
+        g.rotateCanvas(s * (0.5 + grow * 0.45));
+        g.fillStyle(s > 0 ? color : 0x4fae4a, 1);
+        g.fillEllipse(s * 7, -4, 16, 9);
+        g.restore();
+      }
+      break;
+    }
+    case 'cactusHat': {
+      // 仙人掌帽：小柱 + 两只手臂，整体左右轻摆
+      const wob = Math.sin(now / 700) * 1.6;
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 11 + wob, hy - 16, 22, 32, 9);
+      g.fillRoundedRect(x - 22 + wob, hy - 8, 12, 8, 4);
+      g.fillRoundedRect(x - 22 + wob, hy - 16, 8, 14, 4);
+      g.fillRoundedRect(x + 10 + wob, hy - 2, 12, 8, 4);
+      g.fillRoundedRect(x + 14 + wob, hy - 12, 8, 14, 4);
+      g.fillStyle(0xff8ac0, 1);
+      g.fillCircle(x + wob, hy - 20, 5.4);
+      break;
+    }
+    case 'acorn': {
+      // 橡果帽：果壳 + 会点头的柄
+      g.save();
+      g.translateCanvas(x, hy + 2);
+      g.rotateCanvas(Math.sin(now / 600) * 0.14);
+      g.fillStyle(0xe8c48a, 1);
+      g.fillCircle(0, 6, 16);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(-17, -10, 34, 14, 6);
+      g.fillStyle(0x8a6238, 1);
+      g.fillRoundedRect(-2, -18, 4, 10, 2);
+      g.restore();
+      break;
+    }
+    case 'strawberry': {
+      // 草莓帽：果身 + 一排排籽 + 顶上的萼叶
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.moveTo(x - 17, hy - 8);
+      g.lineTo(x + 17, hy - 8);
+      g.lineTo(x, hy + 20);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xfff0c0, 1);
+      for (let r = 0; r < 3; r++) {
+        for (let k = -1; k <= 1; k++) {
+          g.fillEllipse(x + k * 9 - r * 1.5, hy - 2 + r * 8, 3, 4.4);
+        }
+      }
+      g.fillStyle(0x4fae4a, 1);
+      for (let k = -1; k <= 1; k++) g.fillEllipse(x + k * 9, hy - 12, 10, 7);
+      break;
+    }
+    case 'cherry': {
+      // 樱桃枝：两颗樱桃吊在柄上，像钟摆一样荡
+      g.save();
+      g.translateCanvas(x, hy - 14);
+      g.rotateCanvas(Math.sin(now / 620) * 0.22);
+      g.lineStyle(3, 0x4f8a3a, 1);
+      g.lineBetween(0, 0, -10, 14);
+      g.lineBetween(0, 0, 10, 16);
+      g.fillStyle(color, 1);
+      g.fillCircle(-11, 17, 7.4);
+      g.fillCircle(11, 19, 7.4);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillCircle(-13, 15, 2.2);
+      g.fillCircle(9, 17, 2.2);
+      g.fillStyle(0x4fae4a, 1);
+      g.fillEllipse(0, -3, 14, 6);
+      g.restore();
+      break;
+    }
+    case 'pineapple': {
+      // 菠萝头：菱格果身 + 一撮会摇的叶冠
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 2, 34, 40);
+      g.lineStyle(1.6, 0xb08a2a, 0.75);
+      for (let k = -2; k <= 2; k++) {
+        g.lineBetween(x + k * 7, hy - 16, x + k * 7 + 10, hy + 18);
+        g.lineBetween(x + k * 7, hy - 16, x + k * 7 - 10, hy + 18);
+      }
+      g.save();
+      g.translateCanvas(x, hy - 16);
+      g.rotateCanvas(Math.sin(now / 560) * 0.1);
+      for (let k = -2; k <= 2; k++) {
+        g.save();
+        g.rotateCanvas(k * 0.34);
+        g.fillStyle(k % 2 ? 0x4fae4a : 0x3f8a3a, 1);
+        g.fillTriangle(-4, 0, 4, 0, 0, -17);
+        g.restore();
+      }
+      g.restore();
+      break;
+    }
+
+    // ---- 小动物 ----
+    case 'bee': {
+      // 小蜜蜂：沿着椭圆轨道绕头飞，翅膀一直在抖
+      const a = now / 420;
+      const bx = x + Math.cos(a) * 26;
+      const by = hy - 16 + Math.sin(a) * 9;
+      g.fillStyle(0xfff6c0, 0.3);
+      g.fillCircle(bx, by, 5 + Math.sin(now / 60) * 1);
+      g.fillStyle(color, 1);
+      g.fillEllipse(bx, by, 13, 10);
+      g.fillStyle(0x2a2a2a, 1);
+      g.fillRect(bx - 4, by - 5, 3, 10);
+      g.fillRect(bx + 1, by - 5, 3, 10);
+      g.fillStyle(0xffffff, 0.75);
+      g.fillEllipse(bx - 1, by - 7 - Math.abs(Math.sin(now / 50)) * 3, 9, 5);
+      break;
+    }
+    case 'butterfly': {
+      // 蝴蝶：停在头顶，翅膀一开一合（靠椭圆的宽度变化，不用 scale）
+      const flap = Math.abs(Math.sin(now / 200));
+      for (const s of [-1, 1]) {
+        g.fillStyle(s > 0 ? color : 0xffb8e0, 1);
+        g.fillEllipse(x + s * (7 + flap * 6), hy - 10, 10 + flap * 12, 16);
+        g.fillEllipse(x + s * (6 + flap * 5), hy + 1, 8 + flap * 9, 11);
+      }
+      g.fillStyle(0x3a2a3a, 1);
+      g.fillEllipse(x, hy - 8, 4, 18);
+      g.lineStyle(1.6, 0x3a2a3a, 1);
+      g.lineBetween(x - 1, hy - 17, x - 6 + Math.sin(now / 260) * 2, hy - 23);
+      g.lineBetween(x + 1, hy - 17, x + 6 + Math.sin(now / 260) * 2, hy - 23);
+      break;
+    }
+    case 'chick': {
+      // 小鸡：坐在头顶，脑袋一点一点地啄
+      const peck = Math.max(0, Math.sin(now / 500));
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 2, 26, 20);
+      g.lineStyle(2.4, 0xffa63c, 1);
+      g.lineBetween(x - 8, hy + 11, x - 8, hy + 16);
+      g.lineBetween(x + 8, hy + 11, x + 8, hy + 16);
+      g.save();
+      g.translateCanvas(x + 4, hy - 2);
+      g.rotateCanvas(peck * 0.5);
+      g.fillStyle(0xfff0b0, 1);
+      g.fillCircle(0, -2, 11);
+      g.fillStyle(0xffa63c, 1);
+      g.fillTriangle(8, -2, 17, 1, 8, 4);
+      g.fillStyle(0x2a2a2a, 1);
+      g.fillCircle(4, -5, 1.8);
+      g.restore();
+      break;
+    }
+    case 'crab': {
+      // 螃蟹帽：两只大夹子一开一合，眼睛竖在壳上
+      const open = Math.abs(Math.sin(now / 380));
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 2, 40, 24);
+      for (const s of [-1, 1]) {
+        g.fillStyle(0xd8382a, 1);
+        g.fillEllipse(x + s * 22, hy - 2, 14, 10);
+        g.lineStyle(2.4, 0xd8382a, 1);
+        g.lineBetween(x + s * 28, hy - 2, x + s * (28 + open * 9), hy - 9);
+        g.fillCircle(x + s * 28, hy - 3, 4);
+      }
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(x - 8, hy - 10, 5);
+      g.fillCircle(x + 8, hy - 10, 5);
+      g.fillStyle(0x2a2a2a, 1);
+      g.fillCircle(x - 8, hy - 10, 2.4);
+      g.fillCircle(x + 8, hy - 10, 2.4);
+      break;
+    }
+    case 'frogHat': {
+      // 青蛙帽：趴着的小青蛙，腮帮一鼓一鼓
+      const br = Math.sin(now / 600);
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 4, 44, 30);
+      g.fillStyle(0xd8e8a0, 1);
+      g.fillEllipse(x, hy + 10 + br * 2, 30, 12 + br * 4);
+      g.fillStyle(color, 1);
+      g.fillCircle(x - 12, hy - 12, 9);
+      g.fillCircle(x + 12, hy - 12, 9);
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(x - 12, hy - 12, 6);
+      g.fillCircle(x + 12, hy - 12, 6);
+      g.fillStyle(0x1c3a12, 1);
+      g.fillCircle(x - 12, hy - 11, 2.6);
+      g.fillCircle(x + 12, hy - 11, 2.6);
+      break;
+    }
+    case 'snailHat': {
+      // 蜗牛帽：壳 + 两根会晃的触角
+      const sw = Math.sin(now / 520);
+      g.fillStyle(color, 1);
+      g.fillEllipse(x - 6, hy + 10, 40, 14);
+      g.fillStyle(0x8a6238, 1);
+      g.fillCircle(x + 8, hy - 2, 14);
+      g.lineStyle(2.4, 0xb08a4a, 1);
+      g.beginPath();
+      g.arc(x + 8, hy - 2, 8, 0, Math.PI * 1.6, false, 0);
+      g.strokePath();
+      g.lineStyle(2, color, 1);
+      g.lineBetween(x - 24, hy + 8, x - 30 + sw * 3, hy - 6);
+      g.lineBetween(x - 20, hy + 8, x - 24 + sw * 2, hy - 4);
+      g.fillStyle(color, 1);
+      g.fillCircle(x - 30 + sw * 3, hy - 7, 2.4);
+      g.fillCircle(x - 24 + sw * 2, hy - 5, 2.4);
+      break;
+    }
+    case 'fishBowl': {
+      // 鱼缸帽：玻璃碗里一条小鱼绕圈游
+      g.fillStyle(color, 0.35);
+      g.fillCircle(x, hy + 2, 22);
+      const a = now / 600;
+      const fx = x + Math.cos(a) * 11;
+      const fy = hy + 2 + Math.sin(a) * 7;
+      g.fillStyle(0xff8a3c, 1);
+      g.fillEllipse(fx, fy, 13, 8);
+      g.fillTriangle(
+        fx - 6 * Math.cos(a),
+        fy - 3,
+        fx - 6 * Math.cos(a),
+        fy + 3,
+        fx - 11 * Math.cos(a),
+        fy,
+      );
+      g.fillStyle(0x2a2a2a, 1);
+      g.fillCircle(fx + Math.cos(a) * 4, fy - 1, 1.4);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillEllipse(x - 8, hy - 12, 8, 5);
+      g.lineStyle(2, 0xffffff, 0.7);
+      g.strokeCircle(x, hy + 2, 22);
+      break;
+    }
+    case 'birdCage': {
+      // 鸟笼帽：笼子里的小鸟来回跳
+      const hop = Math.abs(Math.sin(now / 300)) * 5;
+      const bx = x + Math.sin(now / 700) * 6;
+      g.fillStyle(0xf2ead8, 1);
+      g.fillCircle(bx, hy + 4 - hop, 6);
+      g.fillStyle(0xffa63c, 1);
+      g.fillTriangle(bx + 5, hy + 3 - hop, bx + 11, hy + 5 - hop, bx + 5, hy + 7 - hop);
+      g.fillStyle(0x2a2a2a, 1);
+      g.fillCircle(bx + 2, hy + 2 - hop, 1.4);
+      g.lineStyle(2, color, 1);
+      g.beginPath();
+      g.arc(x, hy + 2, 22, Math.PI, Math.PI * 2, false, 0);
+      g.strokePath();
+      for (let k = -2; k <= 2; k++) g.lineBetween(x + k * 9, hy - 18, x + k * 9, hy + 14);
+      g.lineBetween(x - 22, hy + 14, x + 22, hy + 14);
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy - 20, 3.4);
+      break;
+    }
+    case 'beehive': {
+      // 蜂巢帽：一层层巢 + 绕飞的蜜蜂 + 底下滴的蜂蜜
+      const a = now / 380;
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy + 6, 42, 18);
+      g.fillEllipse(x, hy - 4, 36, 16);
+      g.fillEllipse(x, hy - 14, 28, 14);
+      g.fillEllipse(x, hy - 22, 18, 10);
+      g.lineStyle(1.6, 0x8a6238, 0.7);
+      g.lineBetween(x - 21, hy + 6, x + 21, hy + 6);
+      g.lineBetween(x - 18, hy - 4, x + 18, hy - 4);
+      g.fillStyle(0xffd45c, 1);
+      g.fillCircle(x + Math.cos(a) * 30, hy - 16 + Math.sin(a) * 10, 4);
+      g.fillStyle(0x2a2a2a, 1);
+      g.fillRect(x + Math.cos(a) * 30 - 1.4, hy - 20 + Math.sin(a) * 10, 2, 8);
+      const drip = (now / 900) % 1;
+      g.fillStyle(0xffb03a, 0.9);
+      g.fillEllipse(x + 14, hy + 14 + drip * 12, 4, 6 + drip * 4);
+      break;
+    }
+    case 'hedgehog': {
+      // 小刺猬：一身尖刺 + 鼻子一嗅一嗅
+      const sniff = Math.sin(now / 260) * 1.6;
+      g.fillStyle(0x2a2a2a, 1);
+      for (let k = -3; k <= 3; k++) {
+        g.fillTriangle(x + k * 6 - 3, hy - 14, x + k * 6 + 3, hy - 14, x + k * 6, hy - 27);
+      }
+      g.fillStyle(color, 1);
+      g.fillEllipse(x, hy - 2, 48, 28);
+      g.fillStyle(0xf2d8b0, 1);
+      g.fillEllipse(x + 3, hy + 6, 26, 18);
+      g.fillStyle(0x2a2a2a, 1);
+      g.fillCircle(x + 15 + sniff * 0.5, hy + 10, 3);
+      g.fillCircle(x + 2, hy - 4, 2);
+      g.fillCircle(x - 6, hy - 5, 2);
+      break;
+    }
+
+    // ---- 杂物与机械 ----
+    case 'pinwheel': {
+      // 小风车：四片叶子转得飞快
+      g.fillStyle(0xd8c8b0, 1);
+      g.fillRect(x - 2, hy - 2, 4, 24);
+      const a0 = now / 140;
+      const blades = [0xff8a4a, 0x6fe3ff, 0xffd45c, 0xff8ad4];
+      for (let k = 0; k < 4; k++) {
+        g.save();
+        g.translateCanvas(x, hy - 6);
+        g.rotateCanvas(a0 + (k / 4) * Math.PI * 2);
+        g.fillStyle(blades[k], 1);
+        g.fillTriangle(0, 0, 18, -7, 18, 0);
+        g.restore();
+      }
+      g.fillStyle(0x4a5460, 1);
+      g.fillCircle(x, hy - 6, 3);
+      break;
+    }
+    case 'trafficCone': {
+      // 交通锥：两道反光带，整体轻轻晃
+      g.save();
+      g.translateCanvas(x, hy + 16);
+      g.rotateCanvas(Math.sin(now / 700) * 0.06);
+      g.fillStyle(color, 1);
+      g.fillTriangle(-20, 0, 20, 0, 0, -34);
+      g.fillStyle(0xf2f2f2, 1);
+      g.fillRect(-13, -12, 26, 5);
+      g.fillRect(-9, -21, 18, 4);
+      g.fillRoundedRect(-22, -2, 44, 6, 2);
+      g.restore();
+      break;
+    }
+    case 'lantern': {
+      // 纸灯笼帽：吊着晃，里面透出暖光
+      g.lineStyle(2, 0x8a6238, 1);
+      g.lineBetween(x, hy - 24, x, hy - 14);
+      g.save();
+      g.translateCanvas(x, hy - 14);
+      g.rotateCanvas(Math.sin(now / 620) * 0.12);
+      g.fillStyle(color, 0.95);
+      g.fillEllipse(0, 8, 34, 30);
+      g.fillStyle(0xfff0b0, 0.35 + 0.15 * Math.sin(now / 300));
+      g.fillEllipse(0, 8, 24, 22);
+      g.fillStyle(0x8a6238, 1);
+      g.fillRect(-8, -6, 16, 5);
+      g.fillRect(-8, 20, 16, 5);
+      g.restore();
+      break;
+    }
+    case 'umbrella': {
+      // 雨伞帽：伞骨在转，四周掉雨点
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.arc(x, hy + 2, 30, Math.PI, Math.PI * 2, false, 0);
+      g.fillPath();
+      const a0 = now / 700;
+      g.lineStyle(2, 0xffffff, 0.5);
+      for (let k = 0; k < 4; k++) {
+        const a = a0 + (k / 4) * Math.PI * 2;
+        g.lineBetween(x, hy + 2, x + Math.cos(a) * 30, hy + 2 - Math.abs(Math.sin(a)) * 30);
+      }
+      g.lineStyle(2.6, 0xd8c8b0, 1);
+      g.lineBetween(x, hy + 2, x, hy - 22);
+      g.beginPath();
+      g.arc(x + 5, hy - 22, 5, Math.PI, Math.PI * 1.6, false, 0);
+      g.strokePath();
+      for (let k = 0; k < 4; k++) {
+        const t = (now / 700 + k / 4) % 1;
+        g.fillStyle(0x9fe8ff, 0.7 * (1 - t));
+        g.fillEllipse(x - 26 + k * 17, hy + 6 + t * 20, 3, 6);
+      }
+      break;
+    }
+    case 'alarmClock': {
+      // 闹钟帽：指针在转，两边铃铛不停抖
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy + 2, 20);
+      g.fillStyle(0xfff6e0, 1);
+      g.fillCircle(x, hy + 2, 16);
+      const a = now / 400;
+      g.lineStyle(2.4, 0x2a2a2a, 1);
+      g.lineBetween(x, hy + 2, x + Math.cos(a) * 11, hy + 2 + Math.sin(a) * 11);
+      g.lineBetween(x, hy + 2, x + Math.cos(a * 3.2) * 7, hy + 2 + Math.sin(a * 3.2) * 7);
+      const shake = Math.abs(Math.sin(now / 120)) * 2;
+      for (const s of [-1, 1]) {
+        g.fillStyle(color, 1);
+        g.fillEllipse(x + s * 15, hy - 16 + s * shake, 9, 8);
+        g.lineBetween(x + s * 12, hy - 8, x + s * 22, hy - 3);
+      }
+      break;
+    }
+    case 'trafficLight': {
+      // 红绿灯帽：三盏灯按时间轮着亮
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 11, hy - 26, 22, 46, 5);
+      const on = Math.floor(now / 900) % 3;
+      const lamp = [0xff3a3a, 0xffd45c, 0x4fe07a];
+      for (let k = 0; k < 3; k++) {
+        const lit = k === on;
+        if (lit) {
+          g.fillStyle(lamp[k], 0.2 + 0.12 * Math.sin(now / 160));
+          g.fillCircle(x, hy - 16 + k * 15, 12);
+        }
+        g.fillStyle(lit ? lamp[k] : 0x2a3038, 1);
+        g.fillCircle(x, hy - 16 + k * 15, 7);
+      }
+      break;
+    }
+    case 'satellite': {
+      // 卫星帽：两块太阳能板轮流倾 + 天线上的灯在闪
+      const tilt = Math.sin(now / 700) * 0.2;
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 9, hy - 12, 18, 24, 4);
+      for (const s of [-1, 1]) {
+        g.save();
+        g.translateCanvas(x + s * 10, hy);
+        g.rotateCanvas(s * tilt);
+        g.fillStyle(0x2a4a8a, 1);
+        g.fillRoundedRect(s > 0 ? 0 : -26, -10, 26, 20, 3);
+        g.lineStyle(1.4, 0x9fe8ff, 0.8);
+        g.lineBetween(s * 9, -10, s * 9, 10);
+        g.restore();
+      }
+      g.lineStyle(2, 0xd8e6f0, 1);
+      g.lineBetween(x, hy - 12, x, hy - 24);
+      g.fillStyle(Math.sin(now / 260) > 0 ? 0xff5a5a : 0x6a4a4a, 1);
+      g.fillCircle(x, hy - 26, 3.4);
+      break;
+    }
+    case 'planet': {
+      // 行星帽：本体 + 一圈环（前半环画在身上）+ 一颗绕行的小卫星
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy, 16);
+      g.fillStyle(0xffffff, 0.18);
+      g.fillEllipse(x - 5, hy - 6, 10, 7);
+      g.lineStyle(4, 0xffd45c, 0.85);
+      g.beginPath();
+      g.arc(x, hy + 4, 25, Math.PI * 0.05, Math.PI * 0.95, false, 0);
+      g.strokePath();
+      const a = now / 500;
+      g.fillStyle(0xfff0b0, 1);
+      g.fillCircle(x + Math.cos(a) * 27, hy + 1 - Math.abs(Math.sin(a)) * 9, 3);
+      break;
+    }
+    case 'bulb': {
+      // 灯泡帽：一亮一暗，亮的时候往四周冒光
+      const on = 0.55 + 0.45 * Math.sin(now / 320);
+      g.fillStyle(0xd8c8b0, 1);
+      g.fillRoundedRect(x - 7, hy + 6, 14, 10, 2);
+      g.fillStyle(color, 1);
+      g.fillCircle(x, hy - 4, 15);
+      g.fillStyle(0xfff0b0, on * 0.9);
+      g.fillCircle(x, hy - 4, 10);
+      g.lineStyle(2, 0xfff0b0, on * 0.7);
+      for (let k = 0; k < 4; k++) {
+        const a = -Math.PI * 0.8 + (k / 3) * Math.PI * 0.6;
+        g.lineBetween(
+          x + Math.cos(a) * 19,
+          hy - 4 + Math.sin(a) * 19,
+          x + Math.cos(a) * 25,
+          hy - 4 + Math.sin(a) * 25,
+        );
+      }
+      break;
+    }
+    case 'battery': {
+      // 电池帽：电量条一格一格涨上去
+      const lv = Math.ceil((now / 700) % 4.0001);
+      g.fillStyle(0xd8c8b0, 1);
+      g.fillRoundedRect(x - 9, hy - 26, 18, 6, 2);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 16, hy - 20, 32, 34, 4);
+      g.lineStyle(1.6, 0x1f3a1f, 0.6);
+      g.strokeRoundedRect(x - 16, hy - 20, 32, 34, 4);
+      for (let k = 0; k < 4; k++) {
+        if (k + 1 > lv) continue;
+        g.fillStyle(k < 2 ? 0x8fe06a : k === 2 ? 0xffd45c : 0xff6b5a, 1);
+        g.fillRect(x - 12, hy + 8 - k * 7, 24, 5);
+      }
+      break;
+    }
+    case 'magnet': {
+      // 磁铁帽：马蹄形磁铁，两端时不时迸火花
+      g.lineStyle(11, color, 1);
+      g.beginPath();
+      g.arc(x, hy - 2, 15, Math.PI, Math.PI * 2, false, 0);
+      g.strokePath();
+      g.fillStyle(0xd8d8d8, 1);
+      g.fillRect(x - 20.5, hy - 2, 11, 12);
+      g.fillRect(x + 9.5, hy - 2, 11, 12);
+      const spark = Math.abs(Math.sin(now / 240));
+      if (spark > 0.6) {
+        g.fillStyle(0x9fe8ff, (spark - 0.6) * 2);
+        g.fillCircle(x - 15, hy + 13, 3.4);
+        g.fillCircle(x + 15, hy + 13, 3.4);
+      }
+      break;
+    }
+    case 'weldingMask': {
+      // 焊接面罩（整头替换）：方罩 + 长条护目镜，镜里电弧一直闪
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 19, hy - 18, 38, 40, 7);
+      g.fillStyle(0x2a3038, 1);
+      g.fillRoundedRect(x - 15, hy - 10, 30, 11, 3);
+      const arc = Math.abs(Math.sin(now / 90));
+      g.fillStyle(0x8fd8ff, 0.35 + 0.4 * arc);
+      g.fillCircle(x + 4, hy - 4, 5);
+      g.fillStyle(0xffffff, arc * 0.85);
+      g.fillRect(x - 13, hy - 8, 26 * arc, 7);
+      g.fillStyle(0x3a444e, 1);
+      g.fillCircle(x - 17, hy + 9, 4);
+      g.fillCircle(x + 17, hy + 9, 4);
+      g.lineStyle(1.6, 0x9aa7b8, 0.6);
+      g.strokeRoundedRect(x - 19, hy - 18, 38, 40, 7);
+      break;
+    }
+
+    // ---- 玩具 ----
+    case 'tvHead': {
+      // 电视头（整头替换）：老电视外壳 + 雪花屏 + 两根天线
+      g.fillStyle(0xc9b89a, 1);
+      g.fillRoundedRect(x - 21, hy - 16, 42, 40, 6);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 17, hy - 12, 34, 26, 4);
+      g.fillStyle(0xd8f0ff, 0.85);
+      for (let k = 0; k < 4; k++) {
+        const t = (now / 300 + k / 4) % 1;
+        g.fillRect(x - 16, hy - 11 + t * 24, 32, 2 + (k % 2) * 2);
+      }
+      g.fillStyle(0xffffff, 0.3);
+      g.fillRect(x - 16, hy - 11 + ((now / 90) % 1) * 22, 32, 3);
+      g.fillStyle(0x8a7a5a, 1);
+      g.fillCircle(x + 14, hy + 18, 3);
+      g.lineStyle(1.8, 0xd8e6f0, 1);
+      g.lineBetween(x - 8, hy - 16, x - 18, hy - 30);
+      g.lineBetween(x + 8, hy - 16, x + 18, hy - 30);
+      break;
+    }
+    case 'snowGlobe': {
+      // 水晶球：底座上飘着永远不停的雪
+      g.fillStyle(color, 0.5);
+      g.fillCircle(x, hy - 2, 22);
+      g.fillStyle(0xf2f8ff, 0.85);
+      g.fillEllipse(x, hy + 13, 30, 9);
+      for (let k = 0; k < 6; k++) {
+        const t = (now / 1400 + k / 6) % 1;
+        g.fillStyle(0xffffff, 0.9 * (1 - t * 0.4));
+        g.fillCircle(x - 16 + (k % 3) * 15 + Math.sin(now / 400 + k) * 3, hy - 20 + t * 30, 2.2);
+      }
+      g.lineStyle(2, 0xffffff, 0.75);
+      g.strokeCircle(x, hy - 2, 22);
+      break;
+    }
+    case 'paperBoat': {
+      // 纸船帽：骑在两波小浪上，浪花一直在动
+      g.save();
+      g.translateCanvas(x, hy + 6);
+      g.rotateCanvas(Math.sin(now / 500) * 0.09);
+      g.fillStyle(color, 1);
+      g.fillTriangle(-22, 4, 22, 4, 0, 18);
+      g.fillTriangle(-18, 3, 0, 3, 0, -16);
+      g.fillTriangle(18, 3, 0, 3, 0, -16);
+      g.fillStyle(0xd8d4c8, 1);
+      g.fillTriangle(-16, 0, 0, 0, 0, -13);
+      g.restore();
+      g.lineStyle(2.4, 0x8fd8ff, 0.85);
+      for (let k = 0; k < 3; k++) {
+        g.beginPath();
+        for (let s = 0; s <= 4; s++) {
+          const px = x - 26 + s * 13;
+          const py = hy + 18 + k * 3 + Math.sin(now / 300 + s + k) * 2;
+          if (s === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+      break;
+    }
+    case 'dice': {
+      // 骰子帽：点数每隔一会儿换一次
+      const face = Math.floor(now / 700) % 6;
+      const dots: number[][][] = [
+        [[17, 17]],
+        [
+          [8, 8],
+          [26, 26],
+        ],
+        [
+          [8, 8],
+          [17, 17],
+          [26, 26],
+        ],
+        [
+          [8, 8],
+          [8, 26],
+          [26, 8],
+          [26, 26],
+        ],
+        [
+          [8, 8],
+          [8, 26],
+          [17, 17],
+          [26, 8],
+          [26, 26],
+        ],
+        [
+          [8, 8],
+          [8, 17],
+          [8, 26],
+          [26, 8],
+          [26, 17],
+          [26, 26],
+        ],
+      ];
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 17, hy - 16, 34, 34, 7);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillRoundedRect(x - 17, hy - 16, 34, 9, 7);
+      g.fillStyle(0x3a3a44, 1);
+      for (const d of dots[face]) g.fillCircle(x - 17 + d[0], hy - 16 + d[1], 3.2);
+      break;
+    }
+    case 'book': {
+      // 书本帽：摊开的一本书，书页自己翻
+      const t = (now / 1200) % 1;
+      const flip = Math.sin(t * Math.PI);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 24, hy - 2, 48, 8, 2);
+      g.fillStyle(0xf8f8f2, 1);
+      g.fillTriangle(x - 23, hy - 2, x - 2, hy - 2, x - 13, hy - 18);
+      g.fillTriangle(x + 23, hy - 2, x + 2, hy - 2, x + 13, hy - 18);
+      if (t < 0.5) {
+        g.fillStyle(0xffffff, 0.95);
+        g.fillTriangle(x - 2, hy - 2, x - 2 + flip * 20, hy - 2 - flip * 14, x - 2, hy - 18);
+      }
+      break;
+    }
+    case 'pencil': {
+      // 铅笔帽：立着的铅笔 + 旁边一卷木屑，整体轻轻抖
+      const jig = Math.sin(now / 300) * 1.4;
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(x - 7 + jig, hy - 6, 14, 28, 2);
+      g.fillStyle(0xe8a04a, 1);
+      g.fillTriangle(x - 7 + jig, hy - 6, x + 7 + jig, hy - 6, x + jig, hy - 20);
+      g.fillStyle(0x3a3a44, 1);
+      g.fillTriangle(x - 3 + jig, hy - 14, x + 3 + jig, hy - 14, x + jig, hy - 21);
+      g.fillStyle(0xe86a8a, 1);
+      g.fillRoundedRect(x - 7 + jig, hy + 18, 14, 6, 2);
+      g.lineStyle(2, 0xd8c8b0, 1);
+      g.beginPath();
+      g.arc(x + 12 + jig, hy + 2, 6, Math.PI * 0.2, Math.PI * 1.5, false, 0);
+      g.strokePath();
+      break;
+    }
+    // ==== 🧩 碎片兑换专属 / 宇宙龙域 ==========================================
+    case 'shardCrown': {
+      // 碎晶冠：一圈悬浮晶片绕头缓转，中间立一道主晶柱
+      const a0 = now / 900;
+      for (let k = 0; k < 6; k++) {
+        const a = a0 + (k / 6) * Math.PI * 2;
+        const px = x + Math.cos(a) * 17;
+        const py = hy - 10 + Math.sin(a) * 5;
+        const s = 4 + Math.sin(a) * 1.5;
+        g.fillStyle(k % 2 ? 0xbfe8ff : 0xe8fbff, 0.9);
+        g.fillTriangle(px, py - s, px + s * 0.6, py + s * 0.7, px - s * 0.6, py + s * 0.7);
+      }
+      g.fillStyle(0xdff4ff, 0.95);
+      g.fillTriangle(x, hy - 26, x + 5, hy - 8, x - 5, hy - 8);
+      g.fillStyle(0xffffff, 0.7);
+      g.fillTriangle(x, hy - 22, x + 2.4, hy - 10, x - 2.4, hy - 10);
+      break;
+    }
+    case 'drakecrown': {
+      // 龙冕：三根后掠的龙角，角尖一点金色星焰
+      for (const s of [-1, 0, 1]) {
+        const w = s === 0 ? 1 : 0.7;
+        const sway = Math.sin(now / 500 + s) * 1.5;
+        g.fillStyle(color, 0.95);
+        g.fillTriangle(x + s * 9, hy - 6, x + s * 15 * w, hy - 4, x + s * 12 + sway, hy - 26);
+        g.fillStyle(0xfff2b0, 0.85);
+        g.fillCircle(x + s * 12 + sway, hy - 26, 2.2);
+      }
+      g.lineStyle(3, color, 0.9);
+      g.beginPath();
+      g.arc(x, hy - 4, 12, Math.PI * 1.05, Math.PI * 1.95, false, 0);
+      g.strokePath();
+      break;
+    }
     case 'nailongHood': {
       // 小黄龙头套：黄色恐龙兜帽，包住整个头 + 呆萌大眼 + 小圆角
       g.fillStyle(color, 1);
@@ -1443,6 +2770,13 @@ export function drawAura(
   g.fillEllipse(x, cy, 98, 152);
   g.lineStyle(2, color, 0.2 + 0.2 * pulse);
   g.strokeEllipse(x, cy, 116 + pulse * 6, 172 + pulse * 10);
+
+  // 新主题宝箱的光环：底光保留，图案走 themeart 的通用画法
+  const themeAura = THEME_AURAS[id];
+  if (themeAura) {
+    drawThemeAura(g, now, x, cy, color, themeAura);
+    return;
+  }
 
   switch (id) {
     case 'flame': {
@@ -2465,6 +3799,57 @@ export function drawAura(
       g.fillCircle(topX, cy - 90, 6);
       break;
     }
+    case 'shardglow': {
+      // 碎晶光环：一圈碎晶绕身缓转，中间一层淡光
+      const a0 = now / 1600;
+      g.fillStyle(color, 0.1 + 0.08 * pulse);
+      g.fillEllipse(x, cy, 58, 74);
+      for (let k = 0; k < 7; k++) {
+        const a = a0 + (k / 7) * Math.PI * 2;
+        const px = x + Math.cos(a) * 30;
+        const py = cy + Math.sin(a) * 42;
+        const s = 3.4 + Math.sin(a) * 1.4;
+        g.save();
+        g.translateCanvas(px, py);
+        g.rotateCanvas(a + Math.PI / 2);
+        g.fillStyle(k % 2 ? color : 0xffffff, 0.9);
+        g.fillTriangle(0, -s, s * 0.6, s * 0.7, -s * 0.6, s * 0.7);
+        g.restore();
+      }
+      break;
+    }
+    case 'dranebula': {
+      // 龙星云气：身周一团紫金色的星云，几颗星子在云里游
+      for (let k = 0; k < 4; k++) {
+        const a = now / 1900 + (k / 4) * Math.PI * 2;
+        g.fillStyle(k % 2 ? color : 0xffd45c, 0.1);
+        g.fillEllipse(x + Math.cos(a) * 20, cy + Math.sin(a) * 26, 40, 30);
+      }
+      g.lineStyle(2, color, 0.35 + 0.2 * pulse);
+      g.strokeEllipse(x, cy, 62, 78);
+      for (let k = 0; k < 9; k++) {
+        const a = (k / 9) * Math.PI * 2 + now / 1500;
+        g.fillStyle(0xfff2b0, 0.5 + 0.4 * Math.sin(now / 240 + k));
+        g.fillCircle(x + Math.cos(a) * (24 + (k % 3) * 7), cy + Math.sin(a) * (32 + (k % 2) * 8), 1.6 + (k % 2));
+      }
+      break;
+    }
+    case 'warp': {
+      // 曲速信标：三圈由下往上收束的幽绿光波 + 中心一盏信标灯
+      for (let k = 0; k < 3; k++) {
+        const ph = (now / 1400 + k / 3) % 1;
+        g.lineStyle(3 - k * 0.6, color, (1 - ph) * 0.75);
+        g.strokeEllipse(x, cy + 62 - ph * 150, 60 + k * 14, 20 + k * 5);
+      }
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2 + now / 2000;
+        g.fillStyle(color, 0.5 + 0.4 * Math.sin(now / 260 + k));
+        g.fillCircle(x + Math.cos(a) * 34, cy + Math.sin(a) * 46, 1.8);
+      }
+      g.fillStyle(0xffffff, 0.5 + 0.35 * pulse);
+      g.fillCircle(x, cy, 5);
+      break;
+    }
     case 'dorsal': {
       // 背鳍光焰：绕身一周的哥式背鳍，尖端窜着原子蓝的火苗
       for (let k = 0; k < 8; k++) {
@@ -2741,6 +4126,12 @@ export interface CharacterPose {
    * 由场景的阻尼弹簧驱动（见 `GameScene.stepBelly`）。
    */
   belly?: number;
+  /**
+   * **横向移动强度**（0 = 站定，1 = 全速）。给「肉会动」的形象用：
+   * U熊的肚子、老皮的钢铁屁股都靠它做「走路时一颤一颤地跳」。
+   * `GameScene.drawPlayer` 按 `|vx| / PLAYER_SPEED` 算好传进来；不传 = 0。
+   */
+  move?: number;
 }
 
 export interface CharacterOpts {
@@ -2764,47 +4155,155 @@ export interface CharacterOpts {
  * its own.
  */
 /**
- * The streak-100 Godzilla form: chunky scaled body, dorsal spikes, a tail and
- * a little head with eyes, all drawn in the character's footprint.
+ * 哥斯拉（「哥斯拉来袭」首杀奖励）：侧视的厚皮巨兽——三爪大脚与粗腿、甩到身后的
+ * 带鳍长尾、一排从脖子排到屁股的锯齿背鳍、浅色腹甲、短胳膊，以及突出的吻部、
+ * 上排牙与琥珀色竖瞳。配色与场景里那只 Boss（`GodzillaScene.drawGz`）同源，
+ * 所以「自己变的」和「打的那只」看着是一族的。
+ *
+ * 全部围着 `x / feetY / topY` 画，尾巴与头跟着 `now` 轻轻摆/呼吸。
  */
 function drawGodzilla(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
-  const topY = pose.feetY - PLAYER_H;
-  const bob = Math.sin(now / 400) * 1.5;
-  const body = 0x3a7d44;
-  const dark = 0x2c5f34;
-  const belly = 0x9cc48e;
+  const x = pose.x;
+  const f = pose.facing;
+  const feetY = pose.feetY;
+  const breathe = Math.sin(now / 520) * 1.2;
+  const sway = Math.sin(now / 430);
 
-  // tail sweeping behind
-  const tailDir = -pose.facing;
-  g.fillStyle(body, 1);
-  g.fillEllipse(pose.x + tailDir * 26, pose.feetY - 8 + bob, 40, 14);
-  g.fillEllipse(pose.x + tailDir * 46, pose.feetY - 12 + bob, 26, 9);
+  // 配色与 Boss（`GodzillaScene.drawGz`）同源：背深腹浅的橄榄绿巨兽
+  const body = 0x3f6f52;
+  const dark = 0x2a4a3a;
+  const deep = 0x1e3529;
+  const belly = 0xa8cf94;
+  const bellyDark = 0x86ac74;
+  const fin = 0xd8e4d0;
+  const claw = 0xe8e4d0;
+  const eye = 0xffc24a;
 
-  // dorsal spikes down the back
-  g.fillStyle(0xf2e7c9, 1);
-  for (let i = 0; i < 4; i++) {
-    const sx = pose.x + tailDir * (8 + i * 12);
-    const sy = topY + 34 + i * 6 + bob;
-    g.fillTriangle(sx, sy - 9, sx - 4, sy + 3, sx + 4, sy + 3);
+  /** 枫叶状背鳍：中间一片高的 + 根部压一层暗色，看着像从背上长出来 */
+  const spike = (sx: number, sy: number, s: number): void => {
+    g.fillStyle(fin, 1);
+    g.fillTriangle(
+      sx - s * 0.62,
+      sy + s * 0.34,
+      sx + s * 0.62,
+      sy + s * 0.34,
+      sx - f * s * 0.45,
+      sy - s * 0.86,
+    );
+    g.fillTriangle(sx - s * 0.85, sy + s * 0.34, sx - s * 0.1, sy + s * 0.3, sx - s * 0.62, sy - s * 0.42);
+    g.fillTriangle(sx + s * 0.85, sy + s * 0.34, sx + s * 0.1, sy + s * 0.3, sx + s * 0.66, sy - s * 0.36);
+    g.fillStyle(deep, 0.9);
+    g.fillTriangle(
+      sx - s * 0.52,
+      sy + s * 0.36,
+      sx + s * 0.52,
+      sy + s * 0.36,
+      sx - f * s * 0.08,
+      sy + s * 0.02,
+    );
+  };
+
+  // ---- 尾巴：从屁股甩出去，越往后越细，贴地但尾尖微微抬起 ----
+  const tailN = 7;
+  for (let i = tailN; i >= 1; i--) {
+    const t = i / tailN;
+    const tx = x - f * (10 + 50 * t) + sway * 5 * t;
+    const ty = feetY - 30 + 26 * t * t + sway * 2 * t;
+    g.fillStyle(t > 0.5 ? dark : body, 1);
+    g.fillCircle(tx, ty, 12 - 8.6 * t);
+  }
+  // 尾巴上的那几片鳍
+  for (let k = 0; k < 3; k++) {
+    const t = 0.28 + k * 0.24;
+    spike(x - f * (10 + 50 * t) + sway * 5 * t, feetY - 30 + 26 * t * t - (10 - 6 * t), 7 - k * 1.2);
   }
 
-  // body
-  g.fillStyle(body, 1);
-  g.fillRoundedRect(pose.x - 16, topY + 24, 32, PLAYER_H - 24, 9);
-  g.fillStyle(belly, 1);
-  g.fillRoundedRect(pose.x - 8, topY + 40, 16, PLAYER_H - 46, 6);
+  // ---- 远侧的手臂与腿（压深一档、往后错开，拉出前后关系；爪子被近侧挡住就不画）----
+  g.fillStyle(deep, 1);
+  g.fillRoundedRect(x - f * 30 - 7, feetY - 84, 14, 22, 6);
+  g.fillRoundedRect(x - f * 14 - 9, feetY - 38, 18, 36, 8);
+  g.fillEllipse(x - f * 16, feetY - 4, 26, 9);
 
-  // head
+  // ---- 躯干：后侧深、前侧浅，胸口一排腹甲 ----
+  g.fillStyle(deep, 1);
+  g.fillEllipse(x - f * 5, feetY - 66 + breathe, 46, 78);
   g.fillStyle(body, 1);
-  g.fillRoundedRect(pose.x - 15, topY + 2, 30, 26, 8);
+  g.fillEllipse(x + f * 3, feetY - 66 + breathe, 44, 76);
+  g.fillStyle(belly, 1);
+  g.fillEllipse(x + f * 10, feetY - 60 + breathe, 24, 54);
+  g.fillStyle(bellyDark, 0.9);
+  for (let k = 0; k < 5; k++) {
+    const bx = f > 0 ? x + 2 : x - 15;
+    g.fillRect(bx, feetY - 88 + k * 11 + breathe, 13, 2.2);
+  }
+  // 肩背的鳞纹
+  g.fillStyle(deep, 0.45);
+  for (let k = 0; k < 8; k++) {
+    g.fillCircle(x - f * (5 + (k % 3) * 7), feetY - 96 + Math.floor(k / 3) * 9 + breathe, 1.7);
+  }
+
+  // ---- 背鳍：从脖子一路排到屁股 ----
+  for (let k = 0; k < 5; k++) {
+    spike(x - f * (13 + k * 1.6), feetY - 100 + k * 15 + breathe, 11.5 - k * 0.7);
+  }
+
+  // ---- 近侧的腿 + 三爪大脚 ----
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(x + f * 3 - 10, feetY - 42, 21, 40, 9);
+  g.fillEllipse(x + f * 5, feetY - 4, 29, 10);
+  g.fillStyle(claw, 1);
+  for (let k = 0; k < 3; k++) {
+    const cx = x + f * 11 + f * k * 6;
+    g.fillTriangle(cx, feetY - 8, cx + f * 9, feetY - 3.5, cx, feetY + 1.5);
+  }
+
+  // ---- 脖子 + 头（吻部朝前，一排牙）----
   g.fillStyle(dark, 1);
-  g.fillEllipse(pose.x - pose.facing * 4, topY + 20, 22, 9); // jaw
-  g.fillStyle(0xffe27a, 1);
-  g.fillCircle(pose.x + pose.facing * 6, topY + 12, 3); // eyes
-  g.fillCircle(pose.x + pose.facing * 12, topY + 11, 3);
-  g.fillStyle(0x1c2a1c, 1);
-  g.fillCircle(pose.x + pose.facing * 6, topY + 12, 1.4);
-  g.fillCircle(pose.x + pose.facing * 12, topY + 11, 1.4);
+  g.fillRoundedRect(x + f * 2 - 9, feetY - 104, 17, 22, 7);
+  g.fillStyle(body, 1);
+  g.fillEllipse(x + f * 5, feetY - 94 + breathe, 31, 27);
+  g.fillEllipse(x + f * 17, feetY - 91 + breathe, 27, 19);
+  // 眉骨：压在眼睛上的暗色
+  g.fillStyle(dark, 1);
+  g.fillTriangle(
+    x + f * 2,
+    feetY - 105 + breathe,
+    x + f * 19,
+    feetY - 100 + breathe,
+    x + f * 4,
+    feetY - 95 + breathe,
+  );
+  // 嘴缝 + 上排牙 + 下巴
+  g.fillStyle(deep, 1);
+  g.fillEllipse(x + f * 15, feetY - 84 + breathe, 25, 5.5);
+  g.fillStyle(0xfff6e0, 1);
+  for (let k = 0; k < 4; k++) {
+    const tx = x + f * 9 + f * k * 5;
+    g.fillTriangle(tx, feetY - 87 + breathe, tx + f * 3.4, feetY - 87 + breathe, tx + f * 1.6, feetY - 80 + breathe);
+  }
+  g.fillStyle(dark, 1);
+  g.fillEllipse(x + f * 13, feetY - 78 + breathe, 19, 8);
+  // 琥珀色竖瞳 + 高光 + 鼻孔
+  g.fillStyle(eye, 1);
+  g.fillCircle(x + f * 11, feetY - 96 + breathe, 4);
+  g.fillStyle(deep, 1);
+  g.fillRect(x + f * 11 - 0.9, feetY - 99.4 + breathe, 1.8, 6.6);
+  g.fillStyle(0xffffff, 0.85);
+  g.fillCircle(x + f * 9.7, feetY - 97.6 + breathe, 1.1);
+  g.fillCircle(x + f * 28, feetY - 92 + breathe, 1.4);
+  // 头后的小角
+  g.fillStyle(dark, 1);
+  g.fillTriangle(x - f * 7, feetY - 103, x - f * 15, feetY - 112, x - f * 3, feetY - 100);
+
+  // ---- 近侧的短胳膊 + 三爪 ----
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(x + f * 11 - 7, feetY - 90, 14, 21, 6);
+  g.fillRoundedRect(x + f * 22 - 10, feetY - 78, 20, 12, 6);
+  g.fillStyle(claw, 1);
+  for (let k = 0; k < 3; k++) {
+    const cx = x + f * 31 + f * k * 5;
+    g.fillTriangle(cx, feetY - 76, cx + f * 7, feetY - 72.5, cx, feetY - 68);
+  }
 }
 
 /**
@@ -2815,68 +4314,112 @@ function drawNailong(g: Phaser.GameObjects.Graphics, now: number, pose: Characte
   const topY = pose.feetY - PLAYER_H;
   const x = pose.x;
   const f = pose.facing;
-  const bob = Math.sin(now / 520) * 1.4;
   const body = 0xffd93d;
   const bodyDark = 0xefb81e;
+  const bodyDeep = 0xdda50f;
   const belly = 0xfff3bd;
   const ink = 0x3a2a06;
-  const bodyCy = topY + PLAYER_H - 26 + bob;
 
-  // 粗尾巴
-  g.fillStyle(bodyDark, 1);
-  g.fillEllipse(x - f * 32, bodyCy + 12, 36, 18);
+  // ---- 动态：一呼一吸 + 身体上下（越往下压得越扁，像一颗弹起来的团子）----
+  const br = Math.sin(now / 520); // -1..1
+  const bob = br * 1.8;
+  const bodyCy = topY + 84 + bob;
+  const bodyRx = 32 + br * 1.4;
+  const bodyRy = 30 - br * 1.4;
+  const headCy = topY + 36 + bob * 1.3;
+
+  // ---- 尾巴：一串越甩越细的球，尾尖跟着时间左右摆 ----
+  for (let i = 6; i >= 1; i--) {
+    const t = i / 6;
+    const tx = x - f * (16 + 30 * t);
+    const ty = bodyCy + 10 + 8 * t + Math.sin(now / 430 - t * 3.4) * 7 * t;
+    g.fillStyle(t > 0.45 ? bodyDeep : bodyDark, 1);
+    g.fillCircle(tx, ty, 10.5 - 5.6 * t);
+  }
+  // 尾尖上一小块浅色
+  g.fillStyle(belly, 0.9);
+  g.fillCircle(x - f * 46, bodyCy + 18 + Math.sin(now / 430 - 3.4) * 7, 3);
+
+  // ---- 远侧的手脚（压深一档，先画）----
+  g.fillStyle(bodyDeep, 1);
+  g.fillEllipse(x - f * 32, bodyCy + 2, 17, 14);
+  g.fillRoundedRect(x - f * 11 - 8, pose.feetY - 26, 16, 26, 8);
+  g.fillEllipse(x - f * 11, pose.feetY - 3, 23, 9);
+
+  // ---- 圆胖身体 + 浅色圆肚 + 背上三颗小圆刺 ----
   g.fillStyle(body, 1);
-  g.fillEllipse(x - f * 28, bodyCy + 10, 26, 13);
-
-  // 两条小短腿
-  g.fillStyle(bodyDark, 1);
-  g.fillRoundedRect(x - 18, pose.feetY - 24, 16, 24, 8);
-  g.fillRoundedRect(x + 2, pose.feetY - 24, 16, 24, 8);
-
-  // 圆胖身体 + 浅色圆肚
-  g.fillStyle(body, 1);
-  g.fillEllipse(x, bodyCy, 64, 62);
+  g.fillEllipse(x, bodyCy, bodyRx * 2, bodyRy * 2);
   g.fillStyle(belly, 1);
-  g.fillEllipse(x, bodyCy + 6, 42, 44);
-
-  // 小短手
-  g.fillStyle(body, 1);
-  g.fillEllipse(x - f * 28, bodyCy - 8, 18, 15);
-  g.fillEllipse(x + f * 28, bodyCy - 8, 18, 15);
+  g.fillEllipse(x, bodyCy + 6, 40, 43);
   g.fillStyle(bodyDark, 1);
-  g.fillCircle(x - f * 33, bodyCy - 5, 5);
-  g.fillCircle(x + f * 33, bodyCy - 5, 5);
+  for (let k = 0; k < 3; k++) {
+    const t = k / 2;
+    const sx = x - f * (10 + t * 16);
+    const sy = bodyCy - 24 + t * 14;
+    g.fillTriangle(sx - 5, sy, sx + 5, sy, sx, sy - 10 + t * 2);
+  }
 
-  // 大头 + 头顶两个小圆角
-  const headCy = topY + 32 + bob;
+  // ---- 近侧的腿：一脚一脚轻轻抬（跳跳的）----
+  const lift = Math.max(0, Math.sin(now / 400)) * 3;
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(x + f * 3 - 8, pose.feetY - 26 - lift, 16, 26 + lift, 8);
+  g.fillEllipse(x + f * 5, pose.feetY - 3 - lift, 25, 10);
+  g.fillStyle(bodyDark, 0.55);
+  g.fillEllipse(x + f * 5, pose.feetY - 1 - lift, 15, 4);
+
+  // ---- 近侧的小短手：跟着呼吸前后晃 ----
+  const swing = Math.sin(now / 520 + 0.9) * 4;
+  g.fillStyle(body, 1);
+  g.fillEllipse(x + f * 29, bodyCy - 8 + swing, 18, 15);
+  g.fillStyle(bodyDark, 1);
+  g.fillCircle(x + f * 34, bodyCy - 5 + swing, 5.5);
+
+  // ---- 大头（比身体还大的那种）----
   g.fillStyle(body, 1);
   g.fillCircle(x, headCy, 30);
-  g.fillStyle(bodyDark, 1);
-  g.fillCircle(x - 15, headCy - 26, 7.5);
-  g.fillCircle(x + 15, headCy - 26, 7.5);
 
-  // 浅色口鼻
+  // ---- 头顶两只小耳朵：一前一后，跟着节奏一翘一翘 ----
+  const flap = Math.sin(now / 380) * 0.16;
+  const ear = (ex: number, ey: number, rot: number, dark: boolean): void => {
+    g.save();
+    g.translateCanvas(ex, ey);
+    g.rotateCanvas(rot);
+    g.fillStyle(dark ? bodyDark : body, 1);
+    g.fillRoundedRect(-7, -9, 14, 18, 7);
+    g.fillStyle(belly, dark ? 0.35 : 0.85);
+    g.fillRoundedRect(-3.6, -5.6, 7.2, 11, 3.6);
+    g.restore();
+  };
+  ear(x - f * 18, headCy - 30, -f * 0.34 - flap, true);
+  ear(x + f * 16, headCy - 32, f * 0.2 + flap, false);
+
+  // ---- 浅色口鼻 + 小鼻子 ----
   g.fillStyle(belly, 1);
-  g.fillEllipse(x + f * 7, headCy + 11, 36, 25);
+  g.fillEllipse(x + f * 5, headCy + 15, 36, 23);
+  g.fillStyle(ink, 0.85);
+  g.fillEllipse(x + f * 14, headCy + 6, 9, 6);
 
-  // 呆萌圆眼
-  g.fillStyle(ink, 1);
-  g.fillCircle(x + f * 1, headCy - 6, 5);
-  g.fillCircle(x + f * 17, headCy - 6, 5);
-  g.fillStyle(0xffffff, 0.95);
-  g.fillCircle(x + f * 2.6, headCy - 7.6, 1.8);
-  g.fillCircle(x + f * 18.6, headCy - 7.6, 1.8);
+  // ---- 呆萌大眼：两层高光 ----
+  const eye = (ex: number): void => {
+    g.fillStyle(ink, 1);
+    g.fillCircle(ex, headCy - 7, 6.2);
+    g.fillStyle(0xffffff, 0.95);
+    g.fillCircle(ex + f * 1.8, headCy - 9.4, 2.5);
+    g.fillCircle(ex - f * 1.5, headCy - 4.6, 1.2);
+  };
+  eye(x + f * 1);
+  eye(x + f * 18);
 
-  // 腮红
+  // ---- 腮红 ----
   g.fillStyle(0xffa8a8, 0.5);
-  g.fillEllipse(x - f * 13, headCy + 8, 13, 8);
-  g.fillEllipse(x + f * 27, headCy + 8, 13, 8);
+  g.fillEllipse(x - f * 15, headCy + 9, 14, 9);
+  g.fillEllipse(x + f * 28, headCy + 9, 14, 9);
 
-  // 张嘴笑
+  // ---- 张嘴笑 + 小舌头 ----
   g.fillStyle(0x8a3a2a, 1);
-  g.fillEllipse(x + f * 8, headCy + 18, 13, 9);
+  g.fillEllipse(x + f * 5, headCy + 19, 16, 10);
   g.fillStyle(0xff8a8a, 1);
-  g.fillEllipse(x + f * 8, headCy + 20, 8, 4.5);
+  g.fillEllipse(x + f * 5, headCy + 22, 10, 5);
 }
 
 /**
@@ -3130,95 +4673,114 @@ function drawCoach(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterP
 }
 
 /**
- * U熊：敦实的熊，胸口有肌肉、肚子很大。肚子被打中时会像果冻一样变宽变扁
- * （`pose.belly`），和模拟层那块「把球弹开」的肚皮圆（见 simulation.ts 的
- * `BELLY_R / BELLY_CY`）位置一致，所以看起来就是那里把球弹走的。
+ * U熊：敦实的熊，胸口有肌肉、肚子很大。
+ *
+ * 肚子的两套形变：
+ * - **被打中**：`pose.belly` 那块阻尼弹簧（见 `GameScene.stepBelly`）让它变宽变扁、回弹再反过来，
+ *   位置与模拟层「把球弹开」的肚皮圆（simulation.ts 的 `BELLY_R / BELLY_CY`）一致；
+ * - **走路**：`pose.move` 越大，肚子抖得越厉害——两条腿一步一拍，全身小颠、肚子跟着颤，
+ *   停下后只剩呼吸的起伏。
  */
 function drawUBear(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
   const topY = pose.feetY - PLAYER_H;
   const x = pose.x;
   const f = pose.facing;
   const b = pose.belly ?? 0;
+  const jog = pose.move ?? 0;
   const breathe = Math.sin(now / 620) * 1.2;
+  // 走路：两步一拍（150ms）的上下颠 + 肚子独立颤抖
+  const step = Math.abs(Math.sin(now / 150));
+  const bounce = step * jog * 3;
+  const wob = Math.sin(now / 130) * 3.6 * jog;
+  const fy = (v: number): number => v - bounce;
   const fur = 0x8b5a2b;
   const furDark = 0x6f4620;
   const furLight = 0xa9703a;
   const belly = 0xf0cf9e;
   const bellyLight = 0xffe6c2;
 
-  // 尾巴
+  // 尾巴（左右摆，走动时摆得更急）
+  const wag = Math.sin(now / 260) * 4 + Math.sin(now / 150) * 6 * jog;
   g.fillStyle(furDark, 1);
-  g.fillEllipse(x - f * 24, pose.feetY - 44, 24, 18);
+  g.fillEllipse(x - f * 24 - wag * 0.35, fy(pose.feetY - 44), 24, 18);
 
-  // 腿
+  // 腿（交替抬起）
+  const lift = (k: number): number => Math.max(0, Math.sin(now / 150 + k * Math.PI)) * jog * 5;
   g.fillStyle(furDark, 1);
-  g.fillRoundedRect(x - 16, pose.feetY - 30, 14, 30, 7);
-  g.fillRoundedRect(x + 2, pose.feetY - 30, 14, 30, 7);
+  g.fillRoundedRect(x - 16, fy(pose.feetY - 30) - lift(0), 14, 30, 7);
+  g.fillRoundedRect(x + 2, fy(pose.feetY - 30) - lift(1), 14, 30, 7);
 
   // 后侧手臂（压在身体后面）
   g.fillStyle(furDark, 1);
-  g.fillRoundedRect(x - f * 30 - 8, topY + 46, 16, 46, 8);
+  g.fillRoundedRect(x - f * 30 - 8, fy(topY + 46), 16, 46, 8);
 
   // 躯干
   g.fillStyle(fur, 1);
-  g.fillRoundedRect(x - 26, topY + 34, 52, PLAYER_H - 60, 16);
+  g.fillRoundedRect(x - 26, fy(topY + 34), 52, PLAYER_H - 60, 16);
 
-  // 胸肌
+  // 胸肌（跟着颤）
   g.fillStyle(furLight, 1);
-  g.fillEllipse(x - f * 11, topY + 44, 24, 16);
-  g.fillEllipse(x + f * 11, topY + 44, 24, 16);
+  g.fillEllipse(x - f * 11, fy(topY + 44) + wob * 0.15, 24, 16);
+  g.fillEllipse(x + f * 11, fy(topY + 44) + wob * 0.15, 24, 16);
 
-  // 大肚皮：果冻形变 = 变宽 + 变扁，回弹时反过来
-  const rx = 26 * (1 + 0.42 * b) + breathe;
-  const ry = 27 * (1 - 0.34 * b);
+  // 大肚皮：被打的果冻形变（宽扁 ⇄ 窄高）+ 走路时的抖颤
+  const rx = 26 * (1 + 0.42 * b) + breathe + wob * 0.7;
+  const ry = 27 * (1 - 0.34 * b) - wob * 0.6;
+  const cy = fy(topY + 66) + wob * 0.5;
   g.fillStyle(belly, 1);
-  g.fillEllipse(x, topY + 66, rx * 2, ry * 2);
+  g.fillEllipse(x, cy, rx * 2, ry * 2);
   g.fillStyle(bellyLight, 1);
-  g.fillEllipse(x, topY + 66, rx * 1.34, ry * 1.18);
-  // 肚皮上的 U
+  g.fillEllipse(x, cy, rx * 1.34, ry * 1.18);
+  // 肚皮上的 U（跟着肚皮一起抖）
   g.lineStyle(4, 0xffffff, 0.85);
   g.beginPath();
-  g.arc(x, topY + 62, 9, 0, Math.PI, false, 0);
+  g.arc(x, cy - 4, 9, 0, Math.PI, false, 0);
   g.strokePath();
-  g.lineBetween(x - 9, topY + 62, x - 9, topY + 48);
-  g.lineBetween(x + 9, topY + 62, x + 9, topY + 48);
+  g.lineBetween(x - 9, cy - 4, x - 9, cy - 18);
+  g.lineBetween(x + 9, cy - 4, x + 9, cy - 18);
 
   // 前侧手臂 + 二头肌 + 拳头
   g.fillStyle(fur, 1);
-  g.fillRoundedRect(x + f * 22 - 9, topY + 46, 18, 48, 9);
+  g.fillRoundedRect(x + f * 22 - 9, fy(topY + 46), 18, 48, 9);
   g.fillStyle(furLight, 1);
-  g.fillEllipse(x + f * 22, topY + 56, 20, 16);
+  g.fillEllipse(x + f * 22, fy(topY + 56), 20, 16);
   g.fillStyle(fur, 1);
-  g.fillCircle(x + f * 22, topY + 94, 11);
+  g.fillCircle(x + f * 22, fy(topY + 94), 11);
 
   // 头
   g.fillStyle(fur, 1);
-  g.fillCircle(x, topY + 18, 17);
+  g.fillCircle(x, fy(topY + 18), 17);
   // 耳朵
-  g.fillCircle(x - 13, topY + 4, 7);
-  g.fillCircle(x + 13, topY + 4, 7);
+  g.fillCircle(x - 13, fy(topY + 4), 7);
+  g.fillCircle(x + 13, fy(topY + 4), 7);
   g.fillStyle(furLight, 1);
-  g.fillCircle(x - 13, topY + 4, 3.6);
-  g.fillCircle(x + 13, topY + 4, 3.6);
+  g.fillCircle(x - 13, fy(topY + 4), 3.6);
+  g.fillCircle(x + 13, fy(topY + 4), 3.6);
   // 口鼻 + 鼻子
   g.fillStyle(belly, 1);
-  g.fillEllipse(x + f * 6, topY + 25, 20, 14);
+  g.fillEllipse(x + f * 6, fy(topY + 25), 20, 14);
   g.fillStyle(0x3a2a1c, 1);
-  g.fillEllipse(x + f * 10, topY + 21, 8, 6);
+  g.fillEllipse(x + f * 10, fy(topY + 21), 8, 6);
   // 眼睛
   g.fillStyle(0x2a1c12, 1);
-  g.fillCircle(x + f * 3, topY + 14, 2.6);
-  g.fillCircle(x + f * 12, topY + 13, 2.6);
+  g.fillCircle(x + f * 3, fy(topY + 14), 2.6);
+  g.fillCircle(x + f * 12, fy(topY + 13), 2.6);
   g.fillStyle(0xffffff, 0.9);
-  g.fillCircle(x + f * 3.8, topY + 13.2, 0.9);
-  g.fillCircle(x + f * 12.8, topY + 12.2, 0.9);
+  g.fillCircle(x + f * 3.8, fy(topY + 13.2), 0.9);
+  g.fillCircle(x + f * 12.8, fy(topY + 12.2), 0.9);
 }
 
-/** 老皮：皮衣小人，hip 高度左右各挂一坨钢铁屁股——球弹上去是钢板反弹 */
+/**
+ * 老皮：皮衣小人，hip 高度左右各挂一坨钢铁屁股（球弹上去是钢板反弹）。
+ *
+ * 两坨屁股**会跳**：静止时一上一下轻轻颠，走起来（`pose.move`）跳得又高又频，
+ * 落地那下钢板还会被压扁一点——像俩铁球在腰上弹；帽顶那颗小铆钉球跟着一起颠。
+ */
 function drawLaopi(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
   const topY = pose.feetY - PLAYER_H;
   const x = pose.x;
   const f = pose.facing;
+  const jog = pose.move ?? 0;
   const leather = 0x8b5a2b;
   const leatherDark = 0x6f4620;
   const leatherLight = 0xa9703a;
@@ -3226,27 +4788,36 @@ function drawLaopi(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterP
   const steelDark = 0x5a6472;
   const steelLight = 0xe8f0f8;
 
+  // 走动时全身跟着一颠一颠
+  const bounce = Math.abs(Math.sin(now / 160)) * jog * 3;
+  const fy = (v: number): number => v - bounce;
+
   // 两条短腿（藏在屁股后面）
   g.fillStyle(leatherDark, 1);
-  g.fillRoundedRect(x - 13, pose.feetY - 16, 10, 16, 4);
-  g.fillRoundedRect(x + 3, pose.feetY - 16, 10, 16, 4);
+  g.fillRoundedRect(x - 13, fy(pose.feetY - 16), 10, 16, 4);
+  g.fillRoundedRect(x + 3, fy(pose.feetY - 16), 10, 16, 4);
 
-  // 两坨钢铁屁股：铆钉钢板圆，先画（在身体后面，左右各露出一半）
+  // 两坨钢铁屁股：各自相位弹跳（走路时跳得更高更快、落地时压扁）
   for (const off of [-17, 17]) {
+    const side = off < 0 ? 0 : 1;
+    const period = jog > 0.12 ? 130 : 320; // 站着慢慢颠、走起来快节奏
+    const jig = Math.max(0, Math.sin(now / period + side * Math.PI));
     const bx = x + off;
-    const by = pose.feetY - 26;
+    const by = fy(pose.feetY - 26) - jig * (2 + 9 * jog);
+    // 跳起来时鼓一点、落地时压扁
+    const r = 18 + (jig - 0.5) * (1.4 + 3.4 * jog);
     g.fillStyle(steelDark, 1);
-    g.fillCircle(bx, by, 18);
+    g.fillCircle(bx, by, r);
     g.fillStyle(steel, 1);
-    g.fillCircle(bx, by, 15.5);
+    g.fillCircle(bx, by, r - 2.5);
     // 钢板斜高光
     g.fillStyle(steelLight, 0.85);
-    g.fillEllipse(bx - 4, by - 5, 12, 6);
-    // 四颗铆钉
+    g.fillEllipse(bx - 4, by - r * 0.28, r * 0.66, r * 0.33);
+    // 四颗铆钉（跳起来时拧一点）
     g.fillStyle(steelDark, 1);
     for (let k = 0; k < 4; k++) {
-      const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
-      g.fillCircle(bx + Math.cos(a) * 11, by + Math.sin(a) * 11, 1.6);
+      const a = (k / 4) * Math.PI * 2 + Math.PI / 4 + jig * 0.5;
+      g.fillCircle(bx + Math.cos(a) * r * 0.61, by + Math.sin(a) * r * 0.61, 1.6);
     }
     // 中心螺栓
     g.fillStyle(steelDark, 1);
@@ -3255,49 +4826,51 @@ function drawLaopi(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterP
     g.fillCircle(bx - 1, by - 1, 1.2);
   }
 
-  // 躯干：皮衣（缝线 + 拉链）
+  // 躯干：皮衣（外深内亮两层当描边——Canvas2D 适配层没有 strokeRoundedRect）
+  g.fillStyle(leatherDark, 1);
+  g.fillRoundedRect(x - 20, fy(topY + 39), 40, PLAYER_H - 72, 11);
   g.fillStyle(leather, 1);
-  g.fillRoundedRect(x - 19, topY + 40, 38, PLAYER_H - 74, 10);
-  g.lineStyle(2, leatherDark, 0.9);
-  g.strokeRoundedRect(x - 19, topY + 40, 38, PLAYER_H - 74, 10);
+  g.fillRoundedRect(x - 19, fy(topY + 40), 38, PLAYER_H - 74, 10);
+  // 缝线 + 拉链
   g.lineStyle(1.5, leatherLight, 0.8);
-  g.lineBetween(x, topY + 44, x, pose.feetY - 42);
+  g.lineBetween(x, fy(topY + 44), x, fy(pose.feetY - 42));
   for (let k = 0; k < 4; k++) {
-    g.lineBetween(x - 15, topY + 50 + k * 9, x - 8, topY + 52 + k * 9);
-    g.lineBetween(x + 8, topY + 52 + k * 9, x + 15, topY + 50 + k * 9);
+    g.lineBetween(x - 15, fy(topY + 50 + k * 9), x - 8, fy(topY + 52 + k * 9));
+    g.lineBetween(x + 8, fy(topY + 52 + k * 9), x + 15, fy(topY + 50 + k * 9));
   }
-  // 腰带扣住屁股上方
+  // 腰带 + 金扣（压住屁股上方，跟着颠）
   g.fillStyle(0x3a2a1c, 1);
-  g.fillRect(x - 19, pose.feetY - 38, 38, 8);
+  g.fillRect(x - 19, fy(pose.feetY - 38), 38, 8);
   g.fillStyle(0xffd45c, 1);
-  g.fillRect(x - 4, pose.feetY - 39, 8, 10);
+  g.fillRect(x - 4, fy(pose.feetY - 39), 8, 10);
 
-  // 手臂
+  // 手臂（走动时前后摆）
+  const swing = Math.sin(now / 160) * 4 * jog;
   g.fillStyle(leather, 1);
-  g.fillRoundedRect(x - f * 28 - 7, topY + 46, 14, 42, 7);
+  g.fillRoundedRect(x - f * 28 - 7, fy(topY + 46) + swing, 14, 42, 7);
   g.fillStyle(leatherDark, 1);
-  g.fillCircle(x - f * 28, topY + 88, 8);
+  g.fillCircle(x - f * 28, fy(topY + 88) + swing, 8);
   g.fillStyle(leather, 1);
-  g.fillRoundedRect(x + f * 24 - 7, topY + 46, 14, 42, 7);
+  g.fillRoundedRect(x + f * 24 - 7, fy(topY + 46) - swing, 14, 42, 7);
   g.fillStyle(leatherDark, 1);
-  g.fillCircle(x + f * 24, topY + 88, 8);
+  g.fillCircle(x + f * 24, fy(topY + 88) - swing, 8);
 
   // 头：皮帽子 + 眯眯眼 + 缝嘴
   g.fillStyle(leather, 1);
-  g.fillCircle(x, topY + 18, 16);
+  g.fillCircle(x, fy(topY + 18), 16);
   g.fillStyle(leatherDark, 1);
-  g.fillRoundedRect(x - 16, topY + 6, 32, 8, 4);
+  g.fillRoundedRect(x - 16, fy(topY + 6), 32, 8, 4);
   g.fillStyle(0x2a1c12, 1);
-  g.fillCircle(x + f * 4, topY + 17, 2.2);
-  g.fillCircle(x + f * 13, topY + 17, 2.2);
+  g.fillCircle(x + f * 4, fy(topY + 17), 2.2);
+  g.fillCircle(x + f * 13, fy(topY + 17), 2.2);
   g.lineStyle(1.8, 0x2a1c12, 0.9);
   g.beginPath();
-  g.arc(x + f * 8, topY + 25, 4, 0.15 * Math.PI, 0.85 * Math.PI, false, 0);
+  g.arc(x + f * 8, fy(topY + 25), 4, 0.15 * Math.PI, 0.85 * Math.PI, false, 0);
   g.strokePath();
-  // 帽子随呼吸微微起伏
-  const bob = Math.sin(now / 620) * 0.8;
+  // 帽顶的小铆钉球：呼吸 + 走路时颠得更高
+  const bob = Math.sin(now / 620) * 0.8 + Math.abs(Math.sin(now / 160)) * jog * 2.5;
   g.fillStyle(leatherLight, 1);
-  g.fillCircle(x, topY + 4 + bob, 4);
+  g.fillCircle(x, fy(topY + 4) - bob, 4);
 }
 
 /** 地环：角色脚下的装饰环（积分荣誉奖励），每个组别一种样式 */
@@ -3311,7 +4884,41 @@ export function drawRing(
   const color = RING_COLORS[id];
   if (id === 'none') return;
   const y = feetY - 3;
+  // 新主题宝箱的地环：走 themeart 的通用画法
+  const themeRing = THEME_RINGS[id];
+  if (themeRing) {
+    drawThemeRing(g, now, x, feetY, color, themeRing);
+    return;
+  }
   switch (id) {
+    case 'shardring': {
+      // 碎晶地环：碎晶围成的环，晶片慢慢转
+      const a0 = now / 2200;
+      g.lineStyle(2, color, 0.4);
+      g.strokeEllipse(x, y, 48, 14);
+      for (let k = 0; k < 8; k++) {
+        const a = a0 + (k / 8) * Math.PI * 2;
+        const px = x + Math.cos(a) * 24;
+        const py = y + Math.sin(a) * 7;
+        const s = 3 + Math.sin(a) * 1.2;
+        g.fillStyle(k % 2 ? color : 0xffffff, 0.85);
+        g.fillTriangle(px, py - s, px + s * 0.6, py + s * 0.7, px - s * 0.6, py + s * 0.7);
+      }
+      break;
+    }
+    case 'draring': {
+      // 星渊地环：双环 + 一颗绕行的星渊龙珠
+      const a = now / 800;
+      g.lineStyle(2.5, color, 0.8);
+      g.strokeEllipse(x, y, 56, 17);
+      g.lineStyle(1.2, 0xffd45c, 0.5);
+      g.strokeEllipse(x, y, 42, 12);
+      g.fillStyle(0xffd45c, 0.95);
+      g.fillCircle(x + Math.cos(a) * 28, y + Math.sin(a) * 8, 3.2);
+      g.fillStyle(0xffffff, 0.6);
+      g.fillCircle(x + Math.cos(a) * 28, y + Math.sin(a) * 8, 1.4);
+      break;
+    }
     case 'sprout': {
       // 新芽：绿环 + 两片嫩叶
       g.lineStyle(3, color, 0.85);
@@ -3319,6 +4926,24 @@ export function drawRing(
       g.fillStyle(color, 0.9);
       g.fillEllipse(x - 10, y - 8, 9, 5);
       g.fillEllipse(x + 10, y - 8, 9, 5);
+      break;
+    }
+    case 'orbit': {
+      // 轨道地环：一圈细轨 + 两颗绕地卫星，轨道面还在慢慢倾斜
+      const tilt = Math.sin(now / 900) * 0.35;
+      g.lineStyle(2.5, color, 0.8);
+      g.strokeEllipse(x, y, 54, 16);
+      g.lineStyle(1.2, 0xffffff, 0.45);
+      g.strokeEllipse(x, y, 40, 11);
+      for (let k = 0; k < 2; k++) {
+        const a = now / 700 + k * Math.PI;
+        const px = x + Math.cos(a) * 27;
+        const py = y + Math.sin(a) * 8 + Math.sin(a + tilt) * 4;
+        g.fillStyle(k % 2 ? 0xd8fff0 : color, 0.95);
+        g.fillCircle(px, py, 2.6);
+        g.fillStyle(color, 0.35);
+        g.fillCircle(px, py, 5);
+      }
       break;
     }
     case 'courtline': {
@@ -3421,6 +5046,1057 @@ export function drawRing(
   }
 }
 
+/**
+ * 外星人（「外星人降临」活动专属）：细长的绿色躯体、两只吊梢大黑眼、头顶两根触角，
+ * 脚下一圈反重力微光——和活动里那些从陨石里掉出来的同一族。
+ */
+/**
+ * 星渊龙（宇宙龙域限定角色形象）：深紫色的龙身缀着星子，
+ * 背后一对会扇的星翼，尾巴尖一点金光，眼睛是星云色的发光眼。
+ */
+export function drawCosmoDra(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const body = 0x3a2f6b;
+  const belly = 0x8f7bff;
+  const gold = 0xffd45c;
+  const bob = Math.sin(now / 460) * 1.5;
+  const flap = Math.sin(now / 180);
+
+  // 后腿 + 龙爪
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(x - 13, pose.feetY - 32, 10, 32, 4);
+  g.fillRoundedRect(x + 3, pose.feetY - 32, 10, 32, 4);
+  g.fillStyle(0x2a224e, 1);
+  for (const s of [-1, 1]) {
+    g.fillTriangle(x + s * 8 - 5, pose.feetY, x + s * 8 + 6, pose.feetY, x + s * 8 + 1, pose.feetY - 6);
+  }
+
+  // 尾巴：从身后甩出去，尾尖一点金光
+  const wag = Math.sin(now / 300) * 6;
+  g.fillStyle(body, 1);
+  g.fillTriangle(x - f * 16, topY + 52, x - f * 16, topY + 78, x - f * 40 + wag, topY + 66);
+  g.fillStyle(gold, 0.9);
+  g.fillCircle(x - f * 40 + wag, topY + 66, 3.2);
+
+  // 躯干 + 浅色腹甲（三道腹纹）
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(x - 18, topY + 34, 36, PLAYER_H - 60, 12);
+  g.fillStyle(belly, 1);
+  g.fillRoundedRect(x - 10, topY + 44, 20, 30, 9);
+  g.fillStyle(0x5a4a9a, 0.6);
+  for (let k = 0; k < 3; k++) g.fillRect(x - 10, topY + 52 + k * 9, 20, 1.6);
+
+  // 身上的星子
+  for (let k = 0; k < 6; k++) {
+    g.fillStyle(0xffffff, 0.4 + 0.4 * Math.sin(now / 300 + k));
+    g.fillCircle(x - 14 + ((k * 53) % 28), topY + 38 + ((k * 37) % 44), 1.2);
+  }
+
+  // 星翼：背后一对，随呼吸扇
+  for (const s of [-1, 1]) {
+    g.save();
+    g.translateCanvas(x + s * 14, topY + 40);
+    g.rotateCanvas(s * (0.5 + flap * 0.25));
+    g.fillStyle(0x5a4a9a, 0.95);
+    g.fillTriangle(0, 0, s * 26, -18, s * 30, 4);
+    g.fillStyle(0x8f7bff, 0.8);
+    g.fillTriangle(0, 0, s * 24, -10, s * 26, 4);
+    g.restore();
+  }
+
+  // 背鳍一排
+  for (let k = 0; k < 4; k++) {
+    g.fillStyle(0x5a4a9a, 1);
+    g.fillTriangle(x - 10 + k * 7, topY + 36, x - 5 + k * 7, topY + 36, x - 8 + k * 7 + f * 2, topY + 26 - k);
+  }
+
+  // 龙头：吻部 + 金角 + 星云色的发光眼
+  g.fillStyle(body, 1);
+  g.fillEllipse(x + f * 2, topY + 16 + bob, 36, 32);
+  g.fillStyle(belly, 1);
+  g.fillEllipse(x + f * 8, topY + 22 + bob, 14, 10);
+  for (const s of [-1, 1]) {
+    g.fillStyle(gold, 1);
+    g.fillTriangle(x + s * 7, topY + 2 + bob, x + s * 13, topY + 4 + bob, x + s * 12, topY - 10 + bob);
+  }
+  g.fillStyle(0x9fe8ff, 1);
+  g.fillEllipse(x + f * 2 - 7, topY + 12 + bob, 7, 9);
+  g.fillEllipse(x + f * 2 + 7, topY + 12 + bob, 7, 9);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillCircle(x + f * 2 - 6, topY + 10 + bob, 1.6);
+  g.fillCircle(x + f * 2 + 8, topY + 10 + bob, 1.6);
+  g.fillStyle(0x241d45, 1);
+  g.fillCircle(x + f * 12, topY + 20 + bob, 1.2);
+}
+
+export function drawAlien(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const skin = 0x6fe09a;
+  const light = 0x9ceeb8;
+  const bob = Math.sin(now / 480) * 1.5;
+
+  // 细腿 + 分叉的脚
+  g.fillStyle(skin, 1);
+  g.fillRoundedRect(x - 12, pose.feetY - 34, 9, 34, 4);
+  g.fillRoundedRect(x + 3, pose.feetY - 34, 9, 34, 4);
+  g.fillStyle(light, 1);
+  g.fillEllipse(x - 8, pose.feetY - 1, 16, 6);
+  g.fillEllipse(x + 8, pose.feetY - 1, 16, 6);
+
+  // 躯干 + 胸口那盏呼吸的灯
+  g.fillStyle(skin, 1);
+  g.fillRoundedRect(x - 18, topY + 36, 36, PLAYER_H - 62, 12);
+  g.fillStyle(light, 1);
+  g.fillRoundedRect(x - 10, topY + 44, 20, 26, 9);
+  g.fillStyle(0xd8fff0, 0.5 + 0.35 * Math.sin(now / 420));
+  g.fillCircle(x, topY + 56, 5);
+
+  // 手臂 + 三根细指
+  g.fillStyle(skin, 1);
+  g.fillRoundedRect(x + f * 16 - 7, topY + 44, 14, 40, 7);
+  g.fillStyle(light, 1);
+  g.fillCircle(x + f * 16, topY + 86, 7);
+  g.fillStyle(skin, 1);
+  for (let k = -1; k <= 1; k++) {
+    g.fillRoundedRect(x + f * 16 + k * 4 - 1.5, topY + 90, 3, 9, 1.5);
+  }
+
+  // 大头 + 两只吊梢黑眼 + 一道小嘴
+  g.fillStyle(skin, 1);
+  g.fillEllipse(x, topY + 16 + bob, 38, 44);
+  g.fillStyle(light, 1);
+  g.fillEllipse(x - f * 5, topY + 24 + bob, 20, 22);
+  g.fillStyle(0x0e1a14, 1);
+  g.fillEllipse(x - 8, topY + 14 + bob, 13, 18);
+  g.fillEllipse(x + 8, topY + 14 + bob, 13, 18);
+  g.fillStyle(0xffffff, 0.85);
+  g.fillCircle(x - 10, topY + 9 + bob, 2.4);
+  g.fillCircle(x + 6, topY + 9 + bob, 2.4);
+  g.fillStyle(0x2f6a4a, 1);
+  g.fillRect(x - 4, topY + 30 + bob, 8, 2);
+
+  // 两根触角，顶端一点幽光
+  g.lineStyle(2, skin, 1);
+  g.lineBetween(x - 8, topY - 4 + bob, x - 14, topY - 18 + bob);
+  g.lineBetween(x + 8, topY - 4 + bob, x + 14, topY - 18 + bob);
+  g.fillStyle(0xd8fff0, 0.9);
+  g.fillCircle(x - 14, topY - 19 + bob, 3);
+  g.fillCircle(x + 14, topY - 19 + bob, 3);
+
+  // 脚下的反重力微光
+  g.fillStyle(skin, 0.16 + 0.08 * Math.sin(now / 300));
+  g.fillEllipse(x, pose.feetY + 2, 54, 12);
+}
+
+// ---- 金币商店那批低星形象（1~3★）------------------------------------------------
+//
+// 都是「看一眼就知道是什么」的简单剪影，靠三个小工具把动态做出来：
+// 呼吸 / 摇摆都走 `pulse`，眨眼走 `blinkOpen`，眼睛走 `cuteEyes`——
+// 所以它们不靠帧动画，也不需要贴图，跟其它形象一样只是一段绘制。
+
+/** 周期脉冲：-1~1，用来做呼吸 / 摆动 / 弹跳的相位（`phase` 传 0~1 表示错开） */
+function pulse(now: number, period: number, phase = 0): number {
+  return Math.sin(((now % period) / period) * Math.PI * 2 + phase * Math.PI * 2);
+}
+
+/** 眨眼：1 = 睁着，中间的 0 = 闭上（每隔 `period` 眨一次，闭眼过程 `dur` 毫秒） */
+function blinkOpen(now: number, period = 3400, dur = 170): number {
+  const t = now % period;
+  if (t < period - dur) return 1;
+  return Math.abs(1 - ((t - (period - dur)) / dur) * 2);
+}
+
+/** 一对呆萌圆眼（左右对称 + 高光），`open` 用 `blinkOpen()` 传进来就是会眨的眼睛 */
+function cuteEyes(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  offset: number,
+  r: number,
+  open: number,
+  ink: number,
+): void {
+  for (const s of [-1, 1]) {
+    const ex = cx + s * offset;
+    if (open <= 0.12) {
+      g.lineStyle(2.2, ink, 0.9);
+      g.lineBetween(ex - r, cy, ex + r, cy);
+      continue;
+    }
+    g.fillStyle(ink, 1);
+    g.fillEllipse(ex, cy, r * 2, r * 2 * open);
+    g.fillStyle(0xffffff, 0.95);
+    g.fillCircle(ex + r * 0.34, cy - r * 0.4, r * 0.34);
+  }
+}
+
+/** 果冻史莱姆（1★）：一坨会弹跳的青色果冻，落地压扁、弹起拉长 */
+function drawSlime(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const f = pose.facing;
+  const feetY = pose.feetY;
+  const t = pulse(now, 880); // 一上一下算一拍
+  const land = Math.max(0, -t); // 触底的那半边
+  const h = 96 * (1 - 0.16 * land);
+  const w = 64 * (1 + 0.12 * land);
+  const body = 0x63e0c4;
+  const ink = 0x123a34;
+
+  // 触地的一圈水痕
+  g.fillStyle(body, 0.3);
+  g.fillEllipse(x, feetY + 1, w * (1.02 + 0.06 * land), 9);
+
+  // 果冻本体 + 左上高光 + 身体里那颗核
+  g.fillStyle(body, 0.88);
+  g.fillEllipse(x, feetY - h * 0.42, w, h * 0.86);
+  g.fillStyle(0xffffff, 0.3);
+  g.fillEllipse(x - f * 14, feetY - h * 0.62, 17, 11);
+  g.fillStyle(0x2fae94, 0.5);
+  g.fillEllipse(x + f * 3, feetY - h * 0.3, 19, 15);
+
+  // 眼 + 笑 + 腮红
+  cuteEyes(g, x, feetY - h * 0.56, 12, 4.6, blinkOpen(now), ink);
+  g.lineStyle(2.4, ink, 0.8);
+  g.beginPath();
+  g.arc(x, feetY - h * 0.5, 7, Math.PI * 0.22, Math.PI * 0.78, false, 0);
+  g.strokePath();
+  g.fillStyle(0xff9db0, 0.45);
+  g.fillEllipse(x - 21, feetY - h * 0.48, 10, 6);
+  g.fillEllipse(x + 21, feetY - h * 0.48, 10, 6);
+}
+
+/** 仙人掌宝宝（1★）：花盆里的仙人掌，两条胳膊一上一下地摆，头顶小花跟着晃 */
+function drawCactus(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const wob = pulse(now, 1500) * 1.8;
+  const sway = pulse(now, 1200);
+  const green = 0x4fa860;
+  const greenDark = 0x3b8249;
+  const ink = 0x1f3a24;
+
+  // 花盆（土 + 盆身 + 盆沿）
+  g.fillStyle(0xb9793f, 1);
+  g.fillRoundedRect(x - 21, feetY - 26, 42, 26, 6);
+  g.fillStyle(0x9a6330, 1);
+  g.fillRect(x - 24, feetY - 31, 48, 8);
+  g.fillStyle(0x6b4a26, 1);
+  g.fillEllipse(x, feetY - 29, 40, 8);
+
+  // 柱身 + 两条胳膊（一高一低、反向摆）
+  g.fillStyle(green, 1);
+  g.fillRoundedRect(x - 15 + wob, topY + 20, 30, PLAYER_H - 48, 14);
+  g.fillStyle(greenDark, 1);
+  g.fillRoundedRect(x - 33 + wob, topY + 36 + sway * 3, 14, 26, 7);
+  g.fillRoundedRect(x - 33 + wob, topY + 52 + sway * 3, 22, 13, 6);
+  g.fillStyle(green, 1);
+  g.fillRoundedRect(x + 19 + wob, topY + 48 - sway * 3, 14, 26, 7);
+  g.fillRoundedRect(x + 11 + wob, topY + 64 - sway * 3, 22, 13, 6);
+
+  // 小刺
+  g.lineStyle(1.4, 0xdcecc4, 0.85);
+  for (let k = 0; k < 6; k++) {
+    const yy = topY + 32 + k * 9;
+    g.lineBetween(x - 15 + wob, yy, x - 22 + wob, yy - 3);
+    g.lineBetween(x + 15 + wob, yy, x + 22 + wob, yy - 3);
+  }
+
+  // 头顶小花 + 脸
+  g.fillStyle(0xff8ac0, 1);
+  g.fillCircle(x + wob, topY + 13, 8.5);
+  g.fillStyle(0xffe08a, 1);
+  g.fillCircle(x + wob, topY + 13, 3.6);
+  cuteEyes(g, x + wob, topY + 54, 9, 4.4, blinkOpen(now, 4000), ink);
+  g.fillStyle(ink, 0.85);
+  g.fillEllipse(x + wob, topY + 67, 12, 6);
+  g.fillStyle(green, 0.55);
+  g.fillEllipse(x + wob, topY + 62, 18, 3);
+}
+
+/** 蘑菇人（1★）：红伞白点 + 米色菌柄，伞盖一压一弹，孢子慢慢往上飘 */
+function drawMushroom(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const f = pose.facing;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const br = pulse(now, 1100);
+  const capY = topY + 40 + br * 2;
+  const red = 0xe0503c;
+  const redDark = 0xc43f2e;
+  const stem = 0xf2e2c4;
+  const ink = 0x4a3220;
+
+  // 三个往上飘的孢子（不同高度、循环）
+  for (let k = 0; k < 3; k++) {
+    const t = ((now / 2600 + k / 3) % 1);
+    const px = x + f * (k === 1 ? -26 : k === 2 ? 24 : -6);
+    g.fillStyle(0xfff0c0, 0.55 * (1 - t));
+    g.fillCircle(px, capY - 14 - t * 42, 3.2 - t * 1.4);
+  }
+
+  // 菌柄身体 + 两条小短腿
+  g.fillStyle(0xdcc9a4, 1);
+  g.fillRoundedRect(x - 12, feetY - 20, 10, 20, 5);
+  g.fillRoundedRect(x + 2, feetY - 20, 10, 20, 5);
+  g.fillStyle(stem, 1);
+  g.fillRoundedRect(x - 21, topY + 44, 42, PLAYER_H - 62, 13);
+
+  // 伞盖 + 白点
+  g.fillStyle(redDark, 1);
+  g.fillEllipse(x, capY + 8, 78, 26);
+  g.fillStyle(red, 1);
+  g.fillEllipse(x, capY, 78, 44);
+  g.fillStyle(0xfff6e4, 0.95);
+  g.fillCircle(x - 20, capY - 4, 7);
+  g.fillCircle(x + 12, capY - 12, 8.4);
+  g.fillCircle(x + 26, capY + 6, 5.4);
+  g.fillCircle(x - 4, capY + 10, 4.4);
+
+  // 脸
+  cuteEyes(g, x, topY + 68, 9.4, 4.4, blinkOpen(now, 3000), ink);
+  g.fillStyle(ink, 0.8);
+  g.fillEllipse(x, topY + 80, 12, 6);
+  g.fillStyle(0xffa8a8, 0.5);
+  g.fillEllipse(x - 17, topY + 74, 10, 6);
+  g.fillEllipse(x + 17, topY + 74, 10, 6);
+}
+
+/** 胖企鹅（2★）：黑白企鹅，一摇一摆地走，翅膀一开一合 */
+function drawPenguin(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const feetY = pose.feetY;
+  const f = pose.facing;
+  const waddle = pulse(now, 780);
+  const flap = pulse(now, 900);
+  const ink = 0x28303c;
+  const white = 0xf6f8fb;
+  const beak = 0xffa63c;
+
+  // 整个人（含脚）绕着脚底左右晃：走路的一摇一摆
+  g.save();
+  g.translateCanvas(pose.x, feetY);
+  g.rotateCanvas(waddle * 0.055);
+
+  // 蹼足
+  g.fillStyle(beak, 1);
+  g.fillEllipse(-8, -4, 22, 9);
+  g.fillEllipse(9, -4, 22, 9);
+
+  // 身体 + 白肚 + 尾巴
+  g.fillStyle(ink, 1);
+  g.fillEllipse(-f * 12, -38, 22, 26);
+  g.fillEllipse(0, -46, 58, 78);
+  g.fillStyle(white, 1);
+  g.fillEllipse(0, -40, 38, 56);
+
+  // 翅膀：一开一合（前翅往外张，后翅小一点）
+  g.fillStyle(ink, 1);
+  g.save();
+  g.translateCanvas(-13, -56);
+  g.rotateCanvas(-0.25 - flap * 0.35);
+  g.fillEllipse(0, 12, 14, 34);
+  g.restore();
+  g.save();
+  g.translateCanvas(13, -56);
+  g.rotateCanvas(f * (0.25 + flap * 0.35));
+  g.fillEllipse(0, 12, 14, 34);
+  g.restore();
+
+  // 头 + 喙 + 眼（企鹅的眼睛本来就小，不用眨眼工具）
+  g.fillStyle(ink, 1);
+  g.fillEllipse(-f * 3, -86, 50, 46);
+  g.fillStyle(white, 1);
+  g.fillEllipse(-f * 12, -84, 26, 24);
+  g.fillStyle(beak, 1);
+  g.fillTriangle(-f * 24, -86, -f * 34, -82, -f * 24, -76);
+  g.fillStyle(0x28303c, 1);
+  g.fillCircle(-f * 12, -94, 3.4);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillCircle(-f * 13, -95, 1.2);
+
+  g.restore();
+}
+
+/** 呱呱蛙（2★）：蹲着的绿青蛙，腮帮一鼓一鼓，两只眼睛在头顶转 */
+function drawFrog(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const f = pose.facing;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const br = pulse(now, 900);
+  const look = pulse(now, 2600);
+  const green = 0x5cbf4a;
+  const greenDark = 0x429138;
+  const ink = 0x1c3a12;
+
+  // 后腿（蹲姿：大腿 + 大脚蹼）
+  g.fillStyle(greenDark, 1);
+  g.fillEllipse(x - 22, feetY - 22, 26, 22);
+  g.fillEllipse(x + 22, feetY - 22, 26, 22);
+  g.fillStyle(green, 1);
+  g.fillEllipse(x - 20, feetY - 4, 24, 9);
+  g.fillEllipse(x + 20, feetY - 4, 24, 9);
+
+  // 身体 + 白肚 + 鼓起来的腮
+  g.fillStyle(green, 1);
+  g.fillEllipse(x, topY + 74 + br * 1.2, 62, 62);
+  g.fillStyle(0xf2f7d8, 1);
+  g.fillEllipse(x, topY + 80, 40, 42);
+  g.fillStyle(0xd8e8a0, 1);
+  g.fillEllipse(x, topY + 62 + br * 3, 34, 16 + br * 4);
+
+  // 前爪
+  g.fillStyle(greenDark, 1);
+  g.fillEllipse(x - f * 26, topY + 84, 12, 20);
+  g.fillEllipse(x + f * 26, topY + 84, 12, 20);
+
+  // 头顶两只鼓眼：眼珠会左右转
+  g.fillStyle(green, 1);
+  g.fillCircle(x - 15, topY + 30, 14);
+  g.fillCircle(x + 15, topY + 30, 14);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(x - 15, topY + 30, 10);
+  g.fillCircle(x + 15, topY + 30, 10);
+  g.fillStyle(ink, 1);
+  g.fillCircle(x - 15 + look * 3, topY + 31, 4.6);
+  g.fillCircle(x + 15 + look * 3, topY + 31, 4.6);
+
+  // 大嘴 + 腮红
+  g.lineStyle(2.4, ink, 0.8);
+  g.beginPath();
+  g.arc(x, topY + 46, 16, Math.PI * 0.15, Math.PI * 0.85, false, 0);
+  g.strokePath();
+  g.fillStyle(0xff9db0, 0.42);
+  g.fillEllipse(x - 24, topY + 50, 12, 7);
+  g.fillEllipse(x + 24, topY + 50, 12, 7);
+}
+
+/** 小雪人（2★）：两个雪球 + 胡萝卜鼻，树枝手上下挥，身边飘着雪 */
+function drawSnowman(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const wave = pulse(now, 1300);
+  const snow = 0xffffff;
+  const snowShade = 0xd7e4ef;
+  const ink = 0x2a3442;
+  const twig = 0x8a6238;
+
+  // 飘雪：四颗不同高度的雪花循环往下落
+  for (let k = 0; k < 4; k++) {
+    const t = (now / 3000 + k / 4) % 1;
+    const sx = x + (k % 2 ? 34 : -34) - (k % 3) * 8;
+    g.fillStyle(snow, 0.75 * (1 - t * 0.7));
+    g.fillCircle(sx, topY + 6 + t * 100, 2.6);
+  }
+
+  // 雪球身体（下大上小）+ 阴影侧
+  g.fillStyle(snowShade, 1);
+  g.fillEllipse(x, feetY - 28, 72, 60);
+  g.fillStyle(snow, 1);
+  g.fillEllipse(x, feetY - 31, 68, 56);
+  g.fillStyle(snowShade, 1);
+  g.fillEllipse(x + 6, topY + 62, 52, 46);
+  g.fillStyle(snow, 1);
+  g.fillEllipse(x, topY + 60, 48, 42);
+  g.fillStyle(snow, 1);
+  g.fillEllipse(x, topY + 26, 42, 38);
+
+  // 树枝手 + 三根手指（跟着 `wave` 上下挥）
+  for (const s of [-1, 1]) {
+    const ay = topY + 58 - s * wave * 5;
+    g.lineStyle(3.4, twig, 1);
+    g.lineBetween(x + s * 20, topY + 62, x + s * 40, ay - 8);
+    g.lineBetween(x + s * 40, ay - 8, x + s * 50, ay - 14);
+    g.lineBetween(x + s * 40, ay - 8, x + s * 49, ay - 2);
+    g.lineBetween(x + s * 40, ay - 8, x + s * 44, ay - 18);
+  }
+
+  // 纽扣 + 胡萝卜鼻 + 黑礼帽
+  g.fillStyle(ink, 0.75);
+  g.fillCircle(x, topY + 52, 2.6);
+  g.fillCircle(x, topY + 66, 2.6);
+  g.fillStyle(0xff8a3c, 1);
+  g.fillTriangle(x - 2, topY + 26, x + 2, topY + 26, x, topY + 34);
+  g.fillStyle(ink, 1);
+  g.fillRect(x - 17, topY + 4, 34, 5);
+  g.fillRoundedRect(x - 11, topY - 9, 22, 14, 3);
+
+  // 眼 + 笑
+  cuteEyes(g, x, topY + 22, 7.4, 3.4, blinkOpen(now, 4600), ink);
+  g.fillStyle(ink, 0.8);
+  for (let k = 0; k < 4; k++) g.fillCircle(x - 6 + k * 4, topY + 33, 1.6);
+}
+
+/** 小幽灵（2★）：半透明的布飘在半空，下摆一波一波，眼睛跟着心形腮红 */
+function drawGhost(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const f = pose.facing;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const float = pulse(now, 1900);
+  const ink = 0x2c3040;
+  const cloth = 0xf2f6ff;
+  const cy = topY + 52 + float * 3.4;
+
+  // 身后的光晕
+  g.fillStyle(0xbfd8ff, 0.16);
+  g.fillEllipse(x, cy + 6, 76, 96);
+
+  // 身体（上圆下摆）：下摆用一串三角做波浪，相位跟时间走
+  g.fillStyle(cloth, 0.92);
+  g.fillCircle(x, cy, 34);
+  g.fillRect(x - 34, cy, 68, 34);
+  for (let k = 0; k < 5; k++) {
+    const bx = x - 34 + k * 17;
+    const wave = Math.sin(now / 260 + k * 1.3) * 4;
+    g.fillTriangle(bx, cy + 32, bx + 17, cy + 32, bx + 8.5, cy + 46 + wave);
+  }
+
+  // 两只飘起来的小手
+  for (const s of [-1, 1]) {
+    g.fillStyle(cloth, 0.85);
+    g.fillEllipse(x + s * 36, cy + 6 + pulse(now, 1400, s > 0 ? 0.3 : 0.8) * 5, 15, 12);
+  }
+
+  // 眼（会眨）+ 心形腮红 + 小嘴
+  cuteEyes(g, x, cy - 6, 12, 4.8, blinkOpen(now, 2900), ink);
+  g.fillStyle(0xffa8c0, 0.5);
+  g.fillCircle(x - 21, cy + 8, 5);
+  g.fillCircle(x + 21, cy + 8, 5);
+  g.fillStyle(ink, 0.7);
+  g.fillEllipse(x, cy + 12, 9, 7);
+  // 左下角那点「尾巴」的不透明感，让它不飘得没边
+  g.fillStyle(cloth, 0.5);
+  g.fillEllipse(x - f * 26, cy + 36 + Math.sin(now / 300) * 3, 22, 12);
+}
+
+/** 小机器人（3★）：方头方身，天线与胸口灯会闪，两只机械臂一前一后摆 */
+function drawRobot(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const f = pose.facing;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const swing = pulse(now, 1100);
+  const blink = 0.5 + 0.5 * Math.sin(now / 160); // 灯闪得快一点
+  const metal = 0xb8c4d4;
+  const metalDark = 0x8494a8;
+  const ink = 0x25303e;
+  const led = blink > 0.6 ? 0x6cf0c0 : 0x2f6f5a;
+
+  // 悬浮微光（它没有脚，靠这个站住）
+  g.fillStyle(0x6cf0c0, 0.12 + 0.08 * blink);
+  g.fillEllipse(x, feetY - 2, 58, 14);
+
+  // 两条小履带腿
+  g.fillStyle(metalDark, 1);
+  g.fillRoundedRect(x - 20, feetY - 24, 16, 24, 8);
+  g.fillRoundedRect(x + 4, feetY - 24, 16, 24, 8);
+  g.fillStyle(metal, 1);
+  g.fillRoundedRect(x - 19, feetY - 22, 14, 20, 7);
+  g.fillRoundedRect(x + 5, feetY - 22, 14, 20, 7);
+
+  // 机械臂（两段式，一前一后）
+  for (const s of [-1, 1]) {
+    const a = swing * (s > 0 ? 1 : -1);
+    g.fillStyle(metalDark, 1);
+    g.fillRoundedRect(x + s * 24 - 5, topY + 52 + a * 3, 10, 26, 5);
+    g.fillStyle(metal, 1);
+    g.fillCircle(x + s * 24, topY + 80 + a * 4, 6.5);
+  }
+
+  // 躯干 + 胸口灯 + 指示灯排
+  g.fillStyle(metalDark, 1);
+  g.fillRoundedRect(x - 24, topY + 46, 48, PLAYER_H - 68, 9);
+  g.fillStyle(metal, 1);
+  g.fillRoundedRect(x - 21, topY + 49, 42, PLAYER_H - 74, 7);
+  g.fillStyle(led, 0.95);
+  g.fillCircle(x, topY + 62, 6);
+  g.fillStyle(0x6cf0c0, 0.7);
+  for (let k = 0; k < 3; k++) g.fillRect(x - 14 + k * 11, topY + 76, 7, 4);
+
+  // 方脑袋 + 屏幕脸 + 天线
+  g.fillStyle(metalDark, 1);
+  g.fillRoundedRect(x - 23, topY + 6, 46, 40, 8);
+  g.fillStyle(metal, 1);
+  g.fillRoundedRect(x - 20, topY + 9, 40, 34, 6);
+  g.fillStyle(ink, 0.92);
+  g.fillRoundedRect(x - 16, topY + 14, 32, 24, 5);
+  g.fillStyle(0x6cf0c0, 0.95);
+  const eo = blinkOpen(now, 2200) > 0.5 ? 1 : 0.18;
+  g.fillRect(x - 12, topY + 22, 8, 8 * eo);
+  g.fillRect(x + 4, topY + 22, 8, 8 * eo);
+  g.lineStyle(2.4, metalDark, 1);
+  g.lineBetween(x, topY + 6, x, topY - 6);
+  g.fillStyle(led, 1);
+  g.fillCircle(x, topY - 8, 4);
+  // 侧面的小耳朵（朝向那侧亮一点）
+  g.fillStyle(metalDark, 1);
+  g.fillRect(x + f * 22, topY + 20, 6, 12);
+}
+
+/** 小章鱼（3★）：紫粉色的圆头 + 八条（画五条）各自扭动的触手 */
+function drawOctopus(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const z = pulse(now, 1600);
+  const body = 0xc07ad8;
+  const bodyDark = 0x9a55b8;
+  const ink = 0x2e1638;
+  const cy = topY + 46 + z * 2.6;
+
+  // 触手：五条，各自不同相位地扭（上下两段弯）
+  for (let k = 0; k < 5; k++) {
+    const t = k / 4 - 0.5;
+    const bx = x + t * 40;
+    const ph = Math.sin(now / 300 + k * 1.1) * 9;
+    g.fillStyle(k % 2 ? body : bodyDark, 1);
+    g.fillRoundedRect(bx - 6, cy + 20, 12, 34, 6);
+    g.fillCircle(bx + ph * 0.6, cy + 58, 7.5);
+    // 触手内侧的吸盘
+    g.fillStyle(0xffd6ee, 0.75);
+    g.fillCircle(bx + ph * 0.18, cy + 34, 2.2);
+    g.fillCircle(bx + ph * 0.42, cy + 48, 2.2);
+  }
+
+  // 头部（大圆 + 高光）
+  g.fillStyle(body, 1);
+  g.fillEllipse(x, cy, 74, 68);
+  g.fillStyle(0xffffff, 0.22);
+  g.fillEllipse(x - 18, cy - 16, 22, 14);
+
+  // 大眼（眨眼比别的慢，显得慵懒）+ 腮红 + 小嘴
+  cuteEyes(g, x, cy - 6, 15, 7.4, blinkOpen(now, 5200), ink);
+  g.fillStyle(0xff9db0, 0.45);
+  g.fillEllipse(x - 30, cy + 12, 12, 7);
+  g.fillEllipse(x + 30, cy + 12, 12, 7);
+  g.fillStyle(ink, 0.75);
+  g.fillEllipse(x, cy + 16, 11, 7);
+}
+
+/** 团子熊猫（3★）：圆滚滚的黑白熊猫，抱着会摆的竹子 */
+function drawPanda(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const x = pose.x;
+  const f = pose.facing;
+  const feetY = pose.feetY;
+  const topY = feetY - PLAYER_H;
+  const br = pulse(now, 1400);
+  const white = 0xf8f8f4;
+  const ink = 0x2b2b33;
+  const leaf = 0x6fbf5a;
+  const cy = topY + 72 + br * 1.4;
+
+  // 竹子（先画，抱在身上）：竹竿 + 两片会摆的叶
+  const sway = pulse(now, 1800);
+  g.lineStyle(6, 0x8fbf4a, 1);
+  g.lineBetween(x + f * 20, feetY - 6, x + f * 34, topY + 34 + sway * 3);
+  g.fillStyle(leaf, 1);
+  g.fillEllipse(x + f * 44, topY + 34 + sway * 3, 22, 9);
+  g.fillEllipse(x + f * 30, topY + 20 + sway * 3, 18, 8);
+
+  // 后腿 + 身体
+  g.fillStyle(ink, 1);
+  g.fillEllipse(x - 16, feetY - 18, 26, 22);
+  g.fillEllipse(x + 16, feetY - 18, 26, 22);
+  g.fillStyle(white, 1);
+  g.fillEllipse(x, cy, 62, 66);
+  g.fillStyle(0xe8e8e0, 1);
+  g.fillEllipse(x + f * 8, cy + 4, 40, 46);
+
+  // 黑肩带 + 抱竹子的两只前爪
+  g.fillStyle(ink, 1);
+  g.fillEllipse(x - 28, cy - 4, 22, 18);
+  g.fillEllipse(x + 28, cy - 4, 22, 18);
+  g.fillCircle(x + f * 22, cy + 4, 8);
+
+  // 头：白脸 + 两只黑耳 + 黑眼圈
+  g.fillStyle(ink, 1);
+  g.fillCircle(x - 19, topY + 24, 10.5);
+  g.fillCircle(x + 19, topY + 24, 10.5);
+  g.fillStyle(white, 1);
+  g.fillEllipse(x, topY + 40, 60, 54);
+  g.fillStyle(ink, 1);
+  g.save();
+  g.translateCanvas(x - 13, topY + 36);
+  g.rotateCanvas(-0.3);
+  g.fillEllipse(0, 0, 20, 15);
+  g.restore();
+  g.save();
+  g.translateCanvas(x + 13, topY + 36);
+  g.rotateCanvas(0.3);
+  g.fillEllipse(0, 0, 20, 15);
+  g.restore();
+
+  // 眼圈里的眼睛（会眨）+ 鼻子 + 嘴
+  cuteEyes(g, x, topY + 37, 13, 4, blinkOpen(now, 3600), white);
+  g.fillStyle(ink, 1);
+  g.fillEllipse(x, topY + 50, 11, 7);
+  g.fillStyle(0xffffff, 0.85);
+  g.fillEllipse(x, topY + 48.4, 5, 3);
+}
+
+// ======================= 主题宝箱专属形象（每个主题一款，见 game/chest.ts） =======================
+
+/** 灯笼鱼（深海遗珍）：深海底的圆身子小鱼，头顶一根会晃的发光小灯笼 */
+function drawAngler(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const body = 0x27455c;
+  const fin = 0x3a6a88;
+  const bob = Math.sin(now / 420) * 2;
+  const glow = 0.7 + 0.3 * Math.sin(now / 240);
+  // 尾鳍
+  g.fillStyle(fin, 1);
+  g.fillTriangle(x - f * 16, topY + 62, x - f * 34, topY + 48, x - f * 30, topY + 76);
+  // 圆身子
+  g.fillStyle(body, 1);
+  g.fillEllipse(x, topY + 48 + bob, 54, 62);
+  g.fillStyle(fin, 1);
+  g.fillEllipse(x + f * 2, topY + 64 + bob, 26, 22);
+  // 头顶的灯笼：一根杆 + 发光的球
+  g.lineStyle(3, fin, 1);
+  g.lineBetween(x + f * 4, topY + 22 + bob, x + f * 16, topY - 2 + bob);
+  g.fillStyle(0xfff2a0, glow);
+  g.fillCircle(x + f * 17, topY - 5 + bob, 6);
+  g.fillStyle(0xffffff, glow);
+  g.fillCircle(x + f * 17, topY - 5 + bob, 2.4);
+  // 大嘴一排小尖牙 + 眼睛
+  g.fillStyle(0x142a3a, 1);
+  g.fillEllipse(x + f * 12, topY + 52 + bob, 18, 10);
+  g.fillStyle(0xffffff, 1);
+  for (let k = 0; k < 3; k++) g.fillCircle(x + f * 7 + k * 5, topY + 50 + bob, 1.6);
+  g.fillStyle(0xd8f0ff, 1);
+  g.fillCircle(x + f * 2, topY + 36 + bob, 4.6);
+  g.fillStyle(0x10202c, 1);
+  g.fillCircle(x + f * 3, topY + 36 + bob, 2.2);
+}
+
+/** 小木乃伊（幽夜万圣）：缠满绷带的小家伙，走起来绷带尾巴一飘一飘 */
+function drawMummy(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const band = 0xe8e0cc;
+  const shade = 0xcfc4a8;
+  const bob = Math.sin(now / 520) * 1.6;
+  // 腿（绷带缠的短腿）
+  g.fillStyle(band, 1);
+  g.fillRoundedRect(x - 12, pose.feetY - 26, 9, 26, 4);
+  g.fillRoundedRect(x + 3, pose.feetY - 26, 9, 26, 4);
+  // 身体 + 一道道缠痕
+  g.fillStyle(band, 1);
+  g.fillRoundedRect(x - 16, topY + 34, 32, PLAYER_H - 58, 10);
+  g.fillStyle(shade, 1);
+  for (let k = 0; k < 4; k++) g.fillRect(x - 16, topY + 42 + k * 11, 32, 2.4);
+  // 飘出来的绷带尾巴
+  const wag = Math.sin(now / 260) * 4;
+  g.lineStyle(3, band, 0.95);
+  g.lineBetween(x - f * 14, topY + 44, x - f * 30 + wag, topY + 30);
+  // 圆头 + 两颗黑眼窝（一点幽光）
+  g.fillStyle(band, 1);
+  g.fillCircle(x, topY + 16 + bob, 17);
+  g.fillStyle(shade, 1);
+  g.fillRect(x - 17, topY + 12 + bob, 34, 2.2);
+  g.fillStyle(0x1c1c24, 1);
+  g.fillEllipse(x - 6, topY + 14 + bob, 7, 8);
+  g.fillEllipse(x + 6, topY + 14 + bob, 7, 8);
+  g.fillStyle(0x9fe8ff, 0.5 + 0.4 * Math.sin(now / 300));
+  g.fillCircle(x - 6, topY + 14 + bob, 1.6);
+  g.fillCircle(x + 6, topY + 14 + bob, 1.6);
+}
+
+/** 发条木偶（锈色机械）：背后一把会转的发条钥匙，眼睛是两颗灯珠 */
+function drawWindup(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const body = 0xc9a05a;
+  const joint = 0x8a6a3a;
+  const tilt = Math.sin(now / 600) * 0.06;
+  // 背后的发条钥匙（会转）
+  g.save();
+  g.translateCanvas(x - f * 20, topY + 44);
+  g.rotateCanvas(now / 500);
+  g.lineStyle(4, joint, 1);
+  g.lineBetween(-8, 0, 8, 0);
+  g.lineBetween(0, -8, 0, 8);
+  g.lineBetween(-10, -6, -10, 6);
+  g.restore();
+  g.lineStyle(3, joint, 1);
+  g.lineBetween(x - f * 14, topY + 44, x - f * 20, topY + 44);
+  // 方木身子（微微左右晃）
+  g.save();
+  g.translateCanvas(x, topY + 56);
+  g.rotateCanvas(tilt);
+  g.fillStyle(body, 1);
+  g.fillRoundedRect(-15, -22, 30, 44, 6);
+  g.fillStyle(joint, 1);
+  g.fillRect(-15, -2, 30, 3);
+  g.restore();
+  // 关节腿 + 圆头
+  g.fillStyle(joint, 1);
+  g.fillCircle(x - 8, pose.feetY - 14, 5);
+  g.fillCircle(x + 8, pose.feetY - 14, 5);
+  g.fillRect(x - 10, pose.feetY - 14, 4, 14);
+  g.fillRect(x + 6, pose.feetY - 14, 4, 14);
+  g.fillStyle(body, 1);
+  g.fillCircle(x, topY + 14 + tilt * 40, 16);
+  // 侧发的螺栓 + 灯珠眼睛（交替闪）
+  g.fillStyle(joint, 1);
+  g.fillCircle(x - 14, topY + 6, 3);
+  g.fillCircle(x + 14, topY + 6, 3);
+  const blink = Math.sin(now / 350) > 0;
+  g.fillStyle(blink ? 0xfff2a0 : 0x6a4a2a, 1);
+  g.fillCircle(x - 6, topY + 12, 3);
+  g.fillStyle(blink ? 0x6a4a2a : 0xfff2a0, 1);
+  g.fillCircle(x + 6, topY + 12, 3);
+}
+
+/** 皇家卫兵（皇家典藏）：红袍黑高帽，站得笔直，胸口一枚金扣 */
+function drawGuard(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const coat = 0xc22a3a;
+  const dark = 0x8a1a28;
+  const bob = Math.sin(now / 700) * 0.8;
+  // 黑裤黑鞋
+  g.fillStyle(0x2a2a34, 1);
+  g.fillRoundedRect(x - 12, pose.feetY - 26, 9, 26, 4);
+  g.fillRoundedRect(x + 3, pose.feetY - 26, 9, 26, 4);
+  // 红袍身子 + 金扣一排
+  g.fillStyle(coat, 1);
+  g.fillRoundedRect(x - 15, topY + 30, 30, PLAYER_H - 52, 8);
+  g.fillStyle(0xffd45c, 1);
+  for (let k = 0; k < 3; k++) g.fillCircle(x + f * 4, topY + 40 + k * 11, 2);
+  g.fillStyle(dark, 1);
+  g.fillRoundedRect(x + f * 8, topY + 30, 7, PLAYER_H - 52, 3);
+  // 下巴一撮白胡子边（衣领）+ 黑高帽
+  g.fillStyle(0xf3ede0, 1);
+  g.fillRoundedRect(x - 10, topY + 28, 20, 5, 2);
+  g.fillStyle(0x1c1c24, 1);
+  g.fillRoundedRect(x - 12, topY - 12 + bob, 24, 22, 5);
+  g.fillStyle(0x3a3a44, 1);
+  g.fillRect(x - 12, topY + 4 + bob, 24, 5);
+  // 一本正经的眼睛
+  g.fillStyle(0x1c1c24, 1);
+  g.fillCircle(x - 5, topY + 16 + bob, 1.8);
+  g.fillCircle(x + 5, topY + 16 + bob, 1.8);
+  g.fillStyle(0xc22a3a, 1);
+  g.fillEllipse(x, topY + 22 + bob, 6, 3);
+}
+
+/** 樱团兔（樱吹雪）：粉白团子兔，耳朵随呼吸一颤一颤 */
+function drawSakuraBun(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const body = 0xfdf0f4;
+  const blush = 0xffb7d5;
+  const br = pulse(now, 1300);
+  const twitch = Math.sin(now / 300) * 0.08;
+  // 两只长耳（会颤）
+  for (const s of [-1, 1]) {
+    g.save();
+    g.translateCanvas(x + s * 10, topY + 8);
+    g.rotateCanvas(s * (0.16 + twitch));
+    g.fillStyle(0xffffff, 1);
+    g.fillEllipse(0, -14, 10, 34);
+    g.fillStyle(blush, 1);
+    g.fillEllipse(0, -14, 5, 24);
+    g.restore();
+  }
+  // 团子身子
+  g.fillStyle(body, 1);
+  g.fillEllipse(x, topY + 46 + br * 1.2, 50, 56);
+  g.fillCircle(x, topY + 16 + br * 1.2, 18);
+  // 眼睛（会眨）+ 腮红 + 小嘴
+  const open = blinkOpen(now, 3400);
+  cuteEyes(g, x, topY + 14 + br * 1.2, 14, 3, open, 0x2b2b33);
+  g.fillStyle(blush, 0.8);
+  g.fillEllipse(x - 11, topY + 22 + br * 1.2, 8, 5);
+  g.fillEllipse(x + 11, topY + 22 + br * 1.2, 8, 5);
+  // 头顶一朵小樱花
+  g.fillStyle(blush, 1);
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2 + 0.3;
+    g.fillCircle(x + Math.cos(a) * 5, topY - 4 + Math.sin(a) * 5, 3);
+  }
+  g.fillStyle(0xffd45c, 1);
+  g.fillCircle(x, topY - 4, 2);
+}
+
+/** 小星灵（星海漫游）：一颗会飘的星星成了精，脚下没有腿、绕着两粒小星 */
+function drawStarlet(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const glow = 0xffe9a8;
+  const float = Math.sin(now / 460) * 3;
+  const cy = topY + 44 + float;
+  // 身体：五角星星（发光描边）
+  g.fillStyle(glow, 0.25);
+  g.fillCircle(x, cy, 30);
+  g.fillStyle(glow, 1);
+  for (let k = 0; k < 5; k++) {
+    const a = -Math.PI / 2 + (k / 5) * Math.PI * 2;
+    const a2 = a + Math.PI / 5;
+    g.fillTriangle(
+      x + Math.cos(a) * 20, cy + Math.sin(a) * 20,
+      x + Math.cos(a + Math.PI / 5) * 8, cy + Math.sin(a + Math.PI / 5) * 8,
+      x + Math.cos(a2) * 8, cy + Math.sin(a2) * 8,
+    );
+    g.fillTriangle(
+      x + Math.cos(a) * 20, cy + Math.sin(a) * 20,
+      x + Math.cos(a - Math.PI / 5) * 8, cy + Math.sin(a - Math.PI / 5) * 8,
+      x + Math.cos(a - Math.PI / 10) * 8, cy + Math.sin(a - Math.PI / 10) * 8,
+    );
+  }
+  // 眯眯眼 + 绕圈的两粒小星
+  g.fillStyle(0x4a3a10, 1);
+  g.fillCircle(x - 6, cy - 2, 2);
+  g.fillCircle(x + 6, cy - 2, 2);
+  for (const s of [0, Math.PI]) {
+    const a = now / 400 + s;
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(x + Math.cos(a) * 34, cy + Math.sin(a) * 22, 2.2);
+  }
+}
+
+/** 熔火精灵（烈焰熔炉）：一团小火焰成了精，头顶火苗呼呼蹿 */
+function drawEmberling(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const body = 0xff7a2a;
+  const core = 0xffd45c;
+  const br = pulse(now, 900);
+  const cy = topY + 44;
+  // 火苗身体（两层：外焰内焰）
+  g.fillStyle(body, 1);
+  g.fillEllipse(x, cy, 46, 56 + br * 6);
+  g.fillTriangle(x - 14, cy - 20, x + 14, cy - 20, x + Math.sin(now / 200) * 6, cy - 44 - br * 8);
+  g.fillStyle(core, 1);
+  g.fillEllipse(x, cy + 6, 26, 34);
+  // 黑豆眼 + 得意的小嘴
+  g.fillStyle(0x3a1408, 1);
+  g.fillCircle(x - 7, cy - 4, 2.6);
+  g.fillCircle(x + 7, cy - 4, 2.6);
+  g.lineStyle(2, 0x3a1408, 1);
+  g.strokeCircle(x, cy + 4, 4);
+  // 脚下两撮小火星（跟着跳）
+  g.fillStyle(core, 0.8);
+  g.fillCircle(x - 12, pose.feetY - 4 - br * 3, 2.6);
+  g.fillCircle(x + 13, pose.feetY - 6 - br * 2, 2.2);
+}
+
+/** 冰晶精灵（冰川秘境）：半透明的小雪精，头顶一根冰锥，身周飘雪 */
+function drawIceSprite(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const body = 0xcfeaff;
+  const ice = 0x8fd8ff;
+  const float = Math.sin(now / 480) * 3;
+  const cy = topY + 44 + float;
+  // 身体（水滴形）+ 头顶冰锥
+  g.fillStyle(body, 0.92);
+  g.fillEllipse(x, cy, 40, 52);
+  g.fillStyle(ice, 1);
+  g.fillTriangle(x - 6, cy - 24, x + 6, cy - 24, x, cy - 44);
+  // 眯眯眼 + 小圆腮
+  g.fillStyle(0x2a4a5a, 1);
+  g.fillEllipse(x - 7, cy - 4, 6, 3);
+  g.fillEllipse(x + 7, cy - 4, 6, 3);
+  g.fillStyle(ice, 0.7);
+  g.fillCircle(x - 12, cy + 2, 3);
+  g.fillCircle(x + 12, cy + 2, 3);
+  // 绕身飘的四片雪花
+  g.fillStyle(0xffffff, 0.95);
+  for (let k = 0; k < 4; k++) {
+    const a = now / 600 + (k / 4) * Math.PI * 2;
+    g.fillCircle(x + Math.cos(a) * 26, cy + Math.sin(a) * 16, 2);
+  }
+}
+
+/** 小猴子（丛林图腾）：棕毛小猴，尾巴卷成一个圈还会晃 */
+function drawMonkey(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const fur = 0x8a5a34;
+  const face = 0xe8c49a;
+  const bob = Math.sin(now / 420) * 1.6;
+  // 腿 + 身体
+  g.fillStyle(fur, 1);
+  g.fillRoundedRect(x - 11, pose.feetY - 24, 8, 24, 4);
+  g.fillRoundedRect(x + 3, pose.feetY - 24, 8, 24, 4);
+  g.fillRoundedRect(x - 15, topY + 34, 30, PLAYER_H - 58, 12);
+  // 卷尾巴（末端画个圈，轻轻晃）
+  const wag = Math.sin(now / 320) * 3;
+  g.lineStyle(5, fur, 1);
+  g.beginPath();
+  g.moveTo(x - f * 14, topY + 44);
+  g.lineTo(x - f * 28, topY + 30 + wag);
+  g.strokePath();
+  g.lineStyle(4, fur, 1);
+  g.strokeCircle(x - f * 30, topY + 24 + wag, 6);
+  // 浅色脸盘 + 两只圆耳
+  g.fillStyle(fur, 1);
+  g.fillCircle(x - 15, topY + 14 + bob, 6);
+  g.fillCircle(x + 15, topY + 14 + bob, 6);
+  g.fillCircle(x, topY + 16 + bob, 16);
+  g.fillStyle(face, 1);
+  g.fillEllipse(x, topY + 20 + bob, 22, 18);
+  // 眼睛 + 咧嘴
+  g.fillStyle(0x2b2b33, 1);
+  g.fillCircle(x - 5, topY + 14 + bob, 2);
+  g.fillCircle(x + 5, topY + 14 + bob, 2);
+  g.lineStyle(2, 0x2b2b33, 1);
+  g.strokeCircle(x, topY + 21 + bob, 4);
+}
+
+/** 霓虹猫（霓虹街头）：黑猫一身，戴着发光的霓虹项圈和条纹 */
+function drawNeonCat(g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose): void {
+  const topY = pose.feetY - PLAYER_H;
+  const x = pose.x;
+  const f = pose.facing;
+  const fur = 0x24242e;
+  const neon = 0x39ffd0;
+  const bob = Math.sin(now / 380) * 1.6;
+  const glow = 0.6 + 0.4 * Math.sin(now / 260);
+  // 猫尾巴（S 形甩）+ 腿
+  g.lineStyle(6, fur, 1);
+  g.beginPath();
+  g.moveTo(x - f * 12, pose.feetY - 16);
+  g.lineTo(x - f * 26, pose.feetY - 10);
+  g.lineTo(x - f * 30, pose.feetY - 24 + Math.sin(now / 240) * 4);
+  g.strokePath();
+  g.fillStyle(fur, 1);
+  g.fillRoundedRect(x - 11, pose.feetY - 20, 8, 20, 4);
+  g.fillRoundedRect(x + 3, pose.feetY - 20, 8, 20, 4);
+  g.fillRoundedRect(x - 14, topY + 36, 28, PLAYER_H - 60, 11);
+  // 头 + 两只三角耳
+  g.fillStyle(fur, 1);
+  g.fillCircle(x, topY + 16 + bob, 16);
+  g.fillTriangle(x - 14, topY + 8 + bob, x - 4, topY + 6 + bob, x - 12, topY - 6 + bob);
+  g.fillTriangle(x + 14, topY + 8 + bob, x + 4, topY + 6 + bob, x + 12, topY - 6 + bob);
+  // 霓虹条纹（额头）+ 项圈
+  g.fillStyle(neon, glow);
+  g.fillRect(x - 2, topY + 4 + bob, 4, 8);
+  g.fillStyle(neon, 1);
+  g.fillRoundedRect(x - 12, topY + 28 + bob, 24, 4, 2);
+  // 眯眼 + 胡须
+  g.fillStyle(neon, glow);
+  g.fillEllipse(x - 6, topY + 16 + bob, 7, 4);
+  g.fillEllipse(x + 6, topY + 16 + bob, 7, 4);
+  g.lineStyle(1.5, 0xffffff, 0.7);
+  g.lineBetween(x + f * 10, topY + 20 + bob, x + f * 20, topY + 18 + bob);
+  g.lineBetween(x + f * 10, topY + 22 + bob, x + f * 20, topY + 24 + bob);
+}
+
 export function drawCharacter(
   g: Phaser.GameObjects.Graphics,
   now: number,
@@ -3435,9 +6111,6 @@ export function drawCharacter(
     g.fillStyle(P.shadow, 0.16);
     g.fillEllipse(pose.x, pose.feetY + 2, 46, 10);
   }
-
-  // 坐骑：压在最底层（光环之下），跟着角色跑跳，纯装饰
-  if (cos.mount !== 'none') drawMount(g, now, cos.mount, pose);
 
   if (cos.aura !== 'none') drawAura(g, now, pose.x, pose.feetY, cos.aura, AURA_COLORS[cos.aura]);
   if (cos.cape !== 'none') drawCape(g, now, pose.x, topY, cos.cape);
@@ -3459,13 +6132,72 @@ export function drawCharacter(
     drawNailong(g, now, pose);
   } else if (cos.characterSkin === 'coach') {
     drawCoach(g, now, pose);
+  } else if (cos.characterSkin === 'alien') {
+    drawAlien(g, now, pose);
+  } else if (cos.characterSkin === 'cosmodra') {
+    drawCosmoDra(g, now, pose);
+  } else if (cos.characterSkin === 'slime') {
+    drawSlime(g, now, pose);
+  } else if (cos.characterSkin === 'cactus') {
+    drawCactus(g, now, pose);
+  } else if (cos.characterSkin === 'mushroom') {
+    drawMushroom(g, now, pose);
+  } else if (cos.characterSkin === 'penguin') {
+    drawPenguin(g, now, pose);
+  } else if (cos.characterSkin === 'frog') {
+    drawFrog(g, now, pose);
+  } else if (cos.characterSkin === 'snowman') {
+    drawSnowman(g, now, pose);
+  } else if (cos.characterSkin === 'ghost') {
+    drawGhost(g, now, pose);
+  } else if (cos.characterSkin === 'robot') {
+    drawRobot(g, now, pose);
+  } else if (cos.characterSkin === 'octopus') {
+    drawOctopus(g, now, pose);
+  } else if (cos.characterSkin === 'panda') {
+    drawPanda(g, now, pose);
+  } else if (cos.characterSkin === 'angler') {
+    drawAngler(g, now, pose);
+  } else if (cos.characterSkin === 'mummy') {
+    drawMummy(g, now, pose);
+  } else if (cos.characterSkin === 'windup') {
+    drawWindup(g, now, pose);
+  } else if (cos.characterSkin === 'guard') {
+    drawGuard(g, now, pose);
+  } else if (cos.characterSkin === 'sakurabun') {
+    drawSakuraBun(g, now, pose);
+  } else if (cos.characterSkin === 'starlet') {
+    drawStarlet(g, now, pose);
+  } else if (cos.characterSkin === 'emberling') {
+    drawEmberling(g, now, pose);
+  } else if (cos.characterSkin === 'icesprite') {
+    drawIceSprite(g, now, pose);
+  } else if (cos.characterSkin === 'monkey') {
+    drawMonkey(g, now, pose);
+  } else if (cos.characterSkin === 'neoncat') {
+    drawNeonCat(g, now, pose);
   } else {
-    g.fillStyle(pose.color, 1);
-    g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
+    // 新主题宝箱的专属形象：10 个主题各一只独立造型的神怪（见 themeart.ts）
+    const themeSkin = THEME_SKIN_ART[cos.characterSkin];
+    if (themeSkin) {
+      themeSkin(g, now, pose);
+    } else {
+      g.fillStyle(pose.color, 1);
+      g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
+    }
   }
+
+  // 坐骑：画在身体**之上**（坐上 / 钻进坐骑里时，坐骑会压住腿脚才对），
+  // 跟着角色跑跳，纯装饰——只有帽子与宠物（overG，depth 4）还在它上面。
+  if (cos.mount !== 'none') drawMount(g, now, cos.mount, pose);
+
+  // 整头替换的头饰（飞碟头盔 / 各种面具）：头盔自己就是头，emoji 脸不画
+  const headOff = replacesHead(cos.hat) ? FULL_HEAD_DY : 0;
 
   if (cos.characterSkin !== 'none') {
     // 整只角色都换掉了，emoji 头就不画了
+    opts.face?.setVisible(false);
+  } else if (headOff) {
     opts.face?.setVisible(false);
   } else if (cos.emoji && opts.face) {
     const face = opts.face;
@@ -3479,7 +6211,9 @@ export function drawCharacter(
 
   // 帽子 / 宠物画在「头之上」的层（overG），没给就退回单层渲染
   const over = opts.overG ?? g;
-  if (cos.hat !== 'none') drawHat(over, pose.x, topY, cos.hat);
+  // headOff > 0 时把头饰往下挪到原来那颗头的位置（见 FULL_HEAD_DY）；
+  // `now` 传下去，新增那批会动的头饰（风车 / 蜜蜂 / 灯泡…）才动得起来
+  if (cos.hat !== 'none') drawHat(over, pose.x, topY + headOff, cos.hat, now);
   if (cos.pet !== 'none') {
     drawPet(over, now, pose.x, topY, pose.facing < 0 ? 1 : 0, cos.pet, cos.petStar);
   }

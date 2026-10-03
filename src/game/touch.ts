@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { isTouchDevice, joystickFreeOn, joystickScale } from './device';
+import { JOY, joyMetrics } from './draw/joystick';
 import { FONT_UI, P } from './theme';
 
 export { isTouchDevice };
@@ -15,7 +16,6 @@ export interface TouchLayout {
   racket: StickConfig;
 }
 
-const KNOB_RATIO = 0.42;
 /** extra grab radius so the sticks are not fiddly to catch */
 const GRAB_PAD = 44;
 /** 摇杆死区：调小一点，手指轻推也响应（灵敏度更高） */
@@ -43,10 +43,8 @@ export const DEFAULT_LAYOUT: TouchLayout = {
   racket: { x: 1092, y: 602, r: 66 },
 };
 
-/** 玻璃底座的描边/填充，与大地图 `.joy__ring` 的白玻璃一个味道 */
+/** 圆盘的白：DOM 的 `.joy__ring` 是 CSS 毛玻璃，画布内用半透明白近似（见 draw/joystick.ts） */
 const RING_FILL = 0xffffff;
-/** 把手的金色，同 `.joy__knob` 的 #f2c14e */
-const KNOB_GOLD = 0xf2c14e;
 
 export interface TouchReadout {
   left: boolean;
@@ -164,7 +162,8 @@ export class TouchControls {
   }
 
   private knobRadius(s: StickConfig): number {
-    return Math.max(16, s.r * KNOB_RATIO);
+    // 把手/圆盘的比例与大世界那颗摇杆共用一份定义
+    return joyMetrics(s.r).knobR;
   }
 
   private maxTravel(s: StickConfig): number {
@@ -296,7 +295,7 @@ export class TouchControls {
 
   // ---- rendering --------------------------------------------------------
 
-  /** 白玻璃圆盘 + 金色把手，和大地图 Vue 摇杆同款 */
+  /** 白玻璃圆盘 + 金色把手：尺寸与配色取自 `draw/joystick.ts`，和大地图那颗同款 */
   private drawStick(
     g: Phaser.GameObjects.Graphics,
     which: Which,
@@ -307,15 +306,15 @@ export class TouchControls {
     const knobR = this.knobRadius(s);
     const k = this.knob[which];
 
-    g.fillStyle(RING_FILL, live ? 0.5 : 0.34);
+    g.fillStyle(RING_FILL, live ? JOY.fillLive : JOY.fillIdle);
     g.fillCircle(s.x, s.y, s.r);
-    g.lineStyle(2, RING_FILL, live ? 0.9 : 0.55);
+    g.lineStyle(JOY.lineWidth, RING_FILL, live ? JOY.lineLive : JOY.lineIdle);
     g.strokeCircle(s.x, s.y, s.r);
 
     const moved = k.x !== 0 || k.y !== 0;
-    g.fillStyle(moved ? accent : KNOB_GOLD, live || moved ? 0.95 : 0.88);
+    g.fillStyle(moved ? accent : JOY.gold, live || moved ? JOY.knobLiveAlpha : JOY.knobIdleAlpha);
     g.fillCircle(s.x + k.x, s.y + k.y, knobR);
-    g.lineStyle(2, RING_FILL, 0.85);
+    g.lineStyle(JOY.lineWidth, RING_FILL, 0.85);
     g.strokeCircle(s.x + k.x, s.y + k.y, knobR);
   }
 

@@ -24,7 +24,7 @@ const PAD_X = 88;
 const PAD_TOP = 74;
 const PAD_BOTTOM = 10;
 /** 地图上的持拍姿势：球拍斜举在身前（rx 随朝向翻转） */
-const REST_RACKET = { rx: 44, ry: -58 };
+export const REST_RACKET = { rx: 44, ry: -58 };
 
 /** 头像盒子的 CSS 尺寸（角色高 PLAYER_H 乘 scale） */
 export function avatarBoxSize(scale = 1): { w: number; h: number } {
@@ -251,6 +251,11 @@ export interface AvatarPaintOptions {
   facing?: 1 | -1;
   /** 身体颜色，默认和游戏里的 1 号位一样 */
   color?: number;
+  /**
+   * 拍头相对肩膀的偏移（「朝右」坐标系，内部按 facing 翻转）。
+   * 不传就是地图上的默认姿势 `REST_RACKET`；大世界的右摇杆就在动它。
+   */
+  racket?: { rx: number; ry: number };
 }
 
 /**
@@ -285,13 +290,14 @@ export function paintAvatar(
 
   const facing = opts.facing ?? 1;
   const face = new CanvasFace(ctx);
+  const racket = opts.racket ?? REST_RACKET;
   drawRigGraphics(
     asGraphics(ctx),
     now,
     cos,
     { x: PAD_X, feetY: PLAYER_H + PAD_TOP, facing, color: opts.color ?? P.player0 },
-    REST_RACKET.rx * facing,
-    REST_RACKET.ry,
+    racket.rx * facing,
+    racket.ry,
     0,
     0,
     face,

@@ -1,37 +1,48 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useJoystickPrefs } from '../../composables/useJoystick';
+import { JOY, hexColor, joyMetrics, ringRadius } from '../../game/draw/joystick';
 
 /**
- * 大地图用的虚拟摇杆：拖把手给出一个方向向量（长度 0~1）。
+ * 通用虚拟摇杆：拖把手给出一个方向向量（长度 0~1）。
  *
- * - 推力大小映射成移动速度（推一半走一半），所以模型只暴露归一化向量；
- * - 半径之外就是满速，中心有很小的死区，手指抖动不会让角色乱飘；
- * - 键盘在 WorldView 里单独处理，两者相加后仍然夹到 1。
+ * - 推力大小映射成输出大小（推一半给一半），所以模型只暴露归一化向量；
+ * - 半径之外就是满值，中心有很小的死区，手指抖动不会乱飘；
+ * - 尺寸 / 配色 / 把手比例取自 `game/draw/joystick.ts`——各玩法画在画布里的那颗
+ *   摇杆用的是同一份常量，所以大世界与游戏里的摇杆长得一样。
  *
  * 形态（设置 → 操作）：
- * - 固定（默认）：摇杆钉在左下角；
- * - 自由：本体隐藏，在左侧热区任意位置按下，摇杆出现在按下点，松手消失。
+ * - 固定（默认）：摇杆钉在屏幕角落（`side` 决定左 / 右下角）；
+ * - 自由：本体隐藏，在本侧热区任意位置按下，摇杆出现在按下点，松手消失。
  * 大小：`scale`（0.7~1.5）缩放半径，把手随之等比缩放。
  * 两种形态的输入完全一致——只是出现方式不同。
  */
-const props = withDefaults(defineProps<{ deadZone?: number }>(), {
-  deadZone: 0.12,
-});
+const props = withDefaults(
+  defineProps<{
+    deadZone?: number;
+    /** 钉在哪一边：大世界左边走动、右边控球拍 */
+    side?: 'left' | 'right';
+  }>(),
+  { deadZone: 0.12, side: 'left' },
+);
 
 const emit = defineEmits<{ move: [x: number, y: number] }>();
 
 const { free, scale } = useJoystickPrefs();
 
-/** 基础半径 40px × 大小缩放 */
-const R = computed(() => Math.round(40 * scale.value));
-/** 底座圆盘直径（半径 × 2 + 一点留白） */
-const ringPx = computed(() => R.value * 2 + 24);
-const knobPx = computed(() => Math.max(30, Math.round(R.value * 1.15)));
+const isRight = computed(() => props.side === 'right');
+/** 把手行程半径 = 公共基准 × 大小缩放（把手最多能离圆心这么远） */
+const R = computed(() => Math.round(JOY.baseR * scale.value));
+/** 圆盘半径由行程半径推出来（见 `ringRadius`），几何比例与画布里的那颗一致 */
+const metrics = computed(() => joyMetrics(ringRadius(R.value)));
+/** 底座圆盘边长（= 圆盘直径，圆盘元素铺满容器） */
+const ringPx = computed(() => metrics.value.ringPx);
+const knobPx = computed(() => metrics.value.knobR * 2);
 const knobStyle = computed(() => ({
   width: `${knobPx.value}px`,
   height: `${knobPx.value}px`,
   margin: `${-knobPx.value / 2}px 0 0 ${-knobPx.value / 2}px`,
+  background: hexColor(JOY.gold),
 }));
 
 const knob = ref<HTMLElement | null>(null);
@@ -112,10 +123,11 @@ function onZoneUp(): void {
 </script>
 
 <template>
-  <!-- 固定摇杆：钉在左下角 -->
+  <!-- 固定摇杆：钉在这一侧的角落 -->
   <div
     v-if="!free"
     class="joy"
+    :class="{ 'joy--right': isRight }"
     :style="{ width: `${ringPx}px`, height: `${ringPx}px` }"
     @pointerdown="onDown"
     @pointermove="onMove"
@@ -126,10 +138,11 @@ function onZoneUp(): void {
     <div ref="knob" class="joy__knob" :style="knobStyle" />
   </div>
 
-  <!-- 自由摇杆：左侧热区（点哪出现在哪，松手消失），不挡右半屏的按钮 -->
+  <!-- 自由摇杆：本侧热区（点哪出现在哪，松手消失），不挡另一半屏 -->
   <div
     v-else
     class="joy-zone"
+    :class="{ 'joy-zone--right': isRight }"
     @pointerdown="onZoneDown"
     @pointermove="onMove"
     @pointerup="onZoneUp"
@@ -147,22 +160,31 @@ function onZoneUp(): void {
 </template>
 
 <style scoped>
-/* 自由模式热区：屏幕左侧 55%、避开顶部一栏，按住拖动都归它 */
+/* 自由模式热区：本侧半屏（左 0~50% / 右 50~100%），避开顶部一栏。
+   左右各半是因为大世界两颗摇杆都在：分开正好，谁也不抢谁（和游戏里
+   640 / 1280 那条分界一致）。 */
 .joy-zone {
   position: absolute;
   left: 0;
   top: 15%;
   bottom: 0;
-  width: 55%;
+  width: 50%;
   z-index: 28;
   touch-action: none;
   user-select: none;
 }
 
-/* 自由模式的圆盘由 left/top 定位（覆盖全局 CSS 的 left/bottom 钉位） */
+/* 右侧那颗（控球拍）：热区镜像到右半屏 */
+.joy-zone--right {
+  left: auto;
+  right: 0;
+}
+
+/* 自由模式的圆盘由 left/top 定位（覆盖全局 CSS 的 left/bottom/right 钉位） */
 .joy--free {
   left: 0;
   top: 0;
+  right: auto;
   bottom: auto;
 }
 </style>

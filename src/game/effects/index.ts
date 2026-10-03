@@ -7,6 +7,8 @@ import { bubble, note, heart, coin, dice, cube, pyramid, gear, sonic, sonar, web
 import { eye, ink, pixelate, glitch, binary, butterfly, phantom } from './odd';
 import { pow } from './pow';
 import { gzfire } from './gzfire';
+import { meteorBurst } from './alienburst';
+import { shardpop, drastar } from './crystal';
 import { PLUS_PAINTERS, PLUS_SPAN } from './plus';
 import { paintDefault } from './basic';
 import type { EffectPainter } from './types';
@@ -112,6 +114,9 @@ export const EFFECT_SPAN: Record<HitStyle, number> = {
   prismfan: 0.5,
   pow: 0.5,
   gzfire: 0.5,
+  meteorBurst: 0.56,
+  shardpop: 0.5,
+  drastar: 0.56,
 };
 
 /** every style that has a bespoke painter; the rest use `paintDefault` */
@@ -173,6 +178,9 @@ export const EFFECT_PAINTERS: Partial<Record<HitStyle, EffectPainter>> = {
   portal,
   pow,
   gzfire,
+  meteorBurst,
+  shardpop,
+  drastar,
   prism,
   prismfan,
   pyramid,

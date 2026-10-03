@@ -40,7 +40,8 @@ export interface WheelPrize {
   icon: string;
   /** 抽中的相对权重 */
   weight: number;
-  kind: 'coins' | 'honor' | 'item';
+  /** `key` = 宝箱钥匙（开宝箱的唯一货币） */
+  kind: 'coins' | 'honor' | 'key' | 'item';
   amount?: number;
   itemId?: string;
   /** 联名物品（参与保底计数） */
@@ -49,7 +50,7 @@ export interface WheelPrize {
 
 /** 转盘 8 格（顺序就是盘面上的顺序，权重合计 100） */
 export const WHEEL_PRIZES: WheelPrize[] = [
-  { id: 'coins-s', label: '金币 ×100', icon: '🪙', weight: 28, kind: 'coins', amount: 100 },
+  { id: 'keys', label: '宝箱钥匙 ×2', icon: '🔑', weight: 28, kind: 'key', amount: 2 },
   { id: 'honor-s', label: '荣誉点 ×20', icon: '🏅', weight: 18, kind: 'honor', amount: 20 },
   { id: 'hood', label: '小黄龙头套', icon: '🧢', weight: 12, kind: 'item', itemId: 'hat:nailongHood', grand: true },
   { id: 'coins-m', label: '金币 ×300', icon: '🪙', weight: 16, kind: 'coins', amount: 300 },

@@ -12,25 +12,33 @@ import {
   type TierId,
 } from '../game/ranks';
 import {
-  CHEST_COST,
+  BAG_CHANCE,
+  BAG_COIN_SHARE,
+  CHEST_KEYS,
+  COIN_BAG_MIN,
+  COIN_BAG_RANGE,
   COIN_RULES,
   FARM_MAX_LEVEL,
   FARM_UPGRADE_COST,
   GACHA_POOL,
+  SHARD_BAG_MIN,
+  SHARD_BAG_RANGE,
+  coinPriceOf,
   honorPriceOf,
   ITEMS,
+  MATERIALS,
   MILESTONE_REWARD,
   PET_EGGS,
   PET_STAR_META,
   PETS,
-  PITY_LIMIT,
   RARITY_META,
-  TEN_PULL_COST,
+  STAR_WEIGHT,
   TRACTOR_COST,
+  shardPriceOf,
   type Item,
   type ItemSlot,
-  type Rarity,
 } from '../game/items';
+import { pickChestPool } from '../game/chest';
 import {
   BOAT_COST,
   FISH_TASKS,
@@ -43,17 +51,26 @@ import {
 } from '../game/dive/fish';
 import { styleFromStats, tierFromStats } from '../game/ai';
 import {
+  applyAiResult,
   applyMatchResult,
   attrsFromStats,
   ensureStats,
   generatePlayers,
   LEGEND_ID,
+  makeRandomPlayer,
   playerStats,
+  ratingFromStats,
   syncDerived,
   withLegend,
   type AiPlayer,
   type PlayerStats,
 } from '../game/players';
+import {
+  MATCH_KEY,
+  worldEdition,
+  worldState,
+  type WorldArenaState,
+} from '../game/world-arena';
 import { DEFAULT_COSMETIC, type Cosmetic } from '../game/cosmetics';
 import {
   effectiveAlloc,
@@ -71,7 +88,19 @@ import {
   rollWheelIndex,
   WHEEL_PRIZES,
 } from '../game/nailong';
-import { GZ_DIFFS, GZ_DAILY_MAX, GZ_SET_IDS, type GzDifficulty } from '../game/godzilla';
+import {
+  GZ_DIFFS,
+  GZ_DROPS,
+  GZ_DAILY_MAX,
+  GZ_REWARD_ODDS,
+  type GzDifficulty,
+} from '../game/godzilla';
+import {
+  ALIEN_COINS_PER_KILL,
+  ALIEN_DAILY_MAX,
+  ALIEN_HONOR_PER_KILL,
+  ALIEN_MILESTONES,
+} from '../game/alien';
 import {
   ARENA_COOLDOWN_MS,
   ARENA_ROUNDS,
@@ -117,7 +146,15 @@ function todayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export type PullResult = { kind: 'item'; item: Item; duplicate: boolean; refund: number };
+/**
+ * 一次开箱的产物：
+ * - `item`：抽到装扮（重复的话 `refund` 是返还的金币）；
+ * - `bag`：**袋子档**（`BAG_CHANCE` 的概率）——没抽到装扮，给一小袋金币
+ *   或 🧩 星尘碎片（碎片能在宝箱的兑换区换指定低星装扮）。
+ */
+export type PullResult =
+  | { kind: 'item'; item: Item; duplicate: boolean; refund: number }
+  | { kind: 'bag'; bag: 'coins' | 'shards'; amount: number };
 
 export interface HatchResult {
   pet: Item;
@@ -143,17 +180,6 @@ function rollStar(weights: readonly number[]): number {
     if (x <= 0) return i + 1;
   }
   return weights.length;
-}
-
-/** weighted pick, but only across rarities that actually exist in the pool */
-function weightedRarity(available: Rarity[]): Rarity {
-  const total = available.reduce((s, r) => s + RARITY_META[r].weight, 0);
-  let x = Math.random() * total;
-  for (const r of available) {
-    x -= RARITY_META[r].weight;
-    if (x <= 0) return r;
-  }
-  return available[available.length - 1];
 }
 
 /**
@@ -184,15 +210,13 @@ export const useProgressStore = defineStore('progress', () => {
     const used = nailongDay.value === todayKey() ? nailongAttempts.value : 0;
     return Math.max(0, NAILONG_DAILY_MAX - used);
   });
-  // ---- 哥斯拉来袭：每日次数 / 击杀数 / 首杀 ----
+  // ---- 哥斯拉来袭：每日次数 / 击杀数（限定物品按难度概率掉落，见 GZ_DROPS）----
   /** 今天已经用掉几次哥斯拉挑战 */
   const gzUsed = useLocalStorage('bmt-gz-used', 0);
   /** 次数属于哪一天（YYYY-MM-DD，跨天自动重置） */
   const gzDay = useLocalStorage('bmt-gz-day', '');
   /** 累计击杀哥斯拉的次数（刷战绩用） */
   const gzKills = useLocalStorage('bmt-gz-kills', 0);
-  /** 是否已经拿过首杀限定套装 */
-  const gzFirstKill = useLocalStorage('bmt-gz-first-kill', false);
 
   /** 今天还剩几次哥斯拉挑战 */
   const gzLeftToday = computed(() =>
@@ -216,44 +240,165 @@ export const useProgressStore = defineStore('progress', () => {
   }
 
   /**
-   * 击杀哥斯拉的结算：首杀（任意难度）送「哥斯拉来袭」限定套装，
-   * 重复击杀按难度给金币 + 荣誉点。返回界面拿来弹横幅的信息。
+   * 击杀哥斯拉的结算（**三选一摇奖**，见 `GZ_REWARD_ODDS`）：
+   * 50% 金币 / 20% 该档限定皮肤 / 30% 宝箱钥匙；荣誉点不摇、打赢就固定给。
+   *
+   * 「皮肤不会重复」：皮肤档只在**这一档自己还没拥有**的里挑；这一档全拿齐之后，
+   * 再摇到皮肤档就**折算成该档那份金币**，不会给你一件已经有过的。
+   * 返回界面拿来弹横幅的信息。
    */
   function grantGodzillaKill(difficulty: GzDifficulty): {
+    /** 这次摇到的分支 */
+    kind: 'coins' | 'skin' | 'keys';
+    /** 金币档发的金币（皮肤档折算时也记在这里） */
     coins: number;
+    /** 皮肤档撞上已拥有 → 折算的金币（已算进 `coins`） */
+    refund: number;
     honor: number;
-    firstKill: boolean;
-    items: Item[];
+    /** 钥匙档发了几把 */
+    keys: number;
+    /** 这次掉出来的限定（没掉就是 undefined） */
+    drop?: Item;
+    /** 这一档的限定物品是否已经全部拿到 */
+    allOwned: boolean;
   } {
     const cfg = GZ_DIFFS[difficulty];
-    coins.value += cfg.coins;
     honor.value += cfg.honor;
     gzKills.value += 1;
 
-    let first = false;
-    const items: Item[] = [];
-    if (!gzFirstKill.value) {
-      first = true;
-      gzFirstKill.value = true;
-      for (const id of GZ_SET_IDS) {
+    const missing = GZ_DROPS[difficulty].ids.filter((id) => !owned.value.includes(id));
+    const roll = Math.random();
+    const res = {
+      coins: 0,
+      refund: 0,
+      honor: cfg.honor,
+      keys: 0,
+      drop: undefined as Item | undefined,
+      allOwned: missing.length === 0,
+    };
+
+    if (roll < GZ_REWARD_ODDS.coins) {
+      // 🪙 金币档
+      res.coins = cfg.coins;
+      coins.value += cfg.coins;
+      return { ...res, kind: 'coins' as const };
+    }
+
+    if (roll < GZ_REWARD_ODDS.coins + GZ_REWARD_ODDS.skin) {
+      // 🎁 皮肤档：只在「这一档还没拥有的」里挑
+      if (missing.length) {
+        const id = missing[Math.floor(Math.random() * missing.length)];
         const it = ITEMS.find((i) => i.id === id);
         if (it) {
-          if (!owned.value.includes(it.id)) owned.value = [...owned.value, it.id];
-          items.push(it);
+          owned.value = [...owned.value, it.id];
+          res.drop = it;
         }
+        res.allOwned = missing.length === 1;
+        return { ...res, kind: 'skin' as const };
       }
+      // 这一档拿齐了：不重复给，折算成该档那份金币
+      res.coins = cfg.coins;
+      res.refund = cfg.coins;
+      coins.value += cfg.coins;
+      return { ...res, kind: 'skin' as const };
     }
-    return { coins: cfg.coins, honor: cfg.honor, firstKill: first, items };
+
+    // 🔑 钥匙档
+    res.keys = cfg.keys;
+    grantKeys(cfg.keys);
+    return { ...res, kind: 'keys' as const };
+  }
+
+  // ---- 外星人降临：每日次数 / 单局最佳击杀 / 击杀里程碑 ----
+  /** 今天已经用掉几次外星人挑战 */
+  const alienUsed = useLocalStorage('bmt-alien-used', 0);
+  /** 次数属于哪一天（YYYY-MM-DD，跨天自动重置） */
+  const alienDay = useLocalStorage('bmt-alien-day', '');
+  /** 单局最高击杀（进度条 / 战绩） */
+  const alienBest = useLocalStorage('bmt-alien-best', 0);
+  /** 已经解锁过的里程碑档位（存的是那档要求的击杀数） */
+  const alienTiers = useLocalStorage<number[]>('bmt-alien-tiers', []);
+
+  /** 今天还剩几次外星人挑战 */
+  const alienLeftToday = computed(() =>
+    Math.max(0, ALIEN_DAILY_MAX - (alienDay.value === todayKey() ? alienUsed.value : 0)),
+  );
+
+  /** 开打前扣一次每日次数（失败也算），和哥斯拉同一套 */
+  function useAlienAttempt(): { ok: boolean; message: string } {
+    if (alienDay.value !== todayKey()) {
+      alienDay.value = todayKey();
+      alienUsed.value = 0;
+    }
+    if (alienUsed.value >= ALIEN_DAILY_MAX) {
+      return { ok: false, message: `今天 ${ALIEN_DAILY_MAX} 次挑战已经用完了，明天再来` };
+    }
+    alienUsed.value += 1;
+    return { ok: true, message: `剩余次数 ${ALIEN_DAILY_MAX - alienUsed.value}` };
+  }
+
+  /**
+   * 一局结束的结算：按击杀数发金币与荣誉点，再把达到的里程碑**一次性**解锁
+   * （每档只给一次；早期档位给的是金币，见 `ALIEN_MILESTONES`）。
+   * 返回这次新解锁的物品 / 里程碑金币与是否刷新了纪录，界面拿去弹横幅。
+   */
+  function grantAlienRun(kills: number): {
+    coins: number;
+    /** 里程碑里的金币档发下来的那部分（已算进 coins 总账，单独返回给界面展示） */
+    bonus: number;
+    honor: number;
+    items: Item[];
+    best: boolean;
+  } {
+    const coinsGained = kills * ALIEN_COINS_PER_KILL;
+    const honorGained = kills * ALIEN_HONOR_PER_KILL;
+    honor.value += honorGained;
+
+    const best = kills > alienBest.value;
+    if (best) alienBest.value = kills;
+
+    const unlocked: Item[] = [];
+    let bonus = 0;
+    for (const m of ALIEN_MILESTONES) {
+      if (kills < m.kills || alienTiers.value.includes(m.kills)) continue;
+      alienTiers.value = [...alienTiers.value, m.kills];
+      // 金币档：直接进金币，不占物品名额
+      if (m.coins) {
+        bonus += m.coins;
+        continue;
+      }
+      const it = ITEMS.find((i) => i.id === m.id);
+      if (!it) continue;
+      if (!owned.value.includes(it.id)) owned.value = [...owned.value, it.id];
+      unlocked.push(it);
+    }
+    coins.value += coinsGained + bonus;
+    return { coins: coinsGained, bonus, honor: honorGained, items: unlocked, best };
   }
 
   /** ids of gacha items the player has won */
   const owned = useLocalStorage<string[]>('bmt-owned', []);
   /** highest star level owned per pet ref (absent = not hatched yet) */
   const petStars = useLocalStorage<Record<string, number>>('bmt-pet-stars', {});
+  /**
+   * 宝箱钥匙：开宝箱的唯一货币（**不再花金币**）。
+   * 来源：成就（主要）、发球机里程碑、段位奖励、每日钓鱼任务、晋级赛名次、小黄龙转盘。
+   */
+  const chestKeys = useLocalStorage('bmt-chest-keys', 0);
+  /**
+   * 🧩 星尘碎片：开箱抽到「袋子档」时给的（见 `BAG_CHANCE`），
+   * 只能在宝箱的**兑换区**里花——换 3★ 及以下的指定装扮（含宝箱专属那批）。
+   * 跟金币不通用：金币是赚钱区挣的，碎片必须开箱才有。
+   */
+  const shards = useLocalStorage('bmt-shards', 0);
   /** free ten-pulls the player still holds */
   const tenTickets = useLocalStorage<number>('bmt-ten-tickets', 0);
-  /** pulls since the last epic/legendary */
-  const pity = useLocalStorage('bmt-pity', 0);
+
+  /** 发钥匙（各玩法的发奖统一走它），返回新的余量 */
+  function grantKeys(n: number): number {
+    if (n > 0) chestKeys.value += n;
+    return chestKeys.value;
+  }
   /** machine-mode combo milestones (10/20/…/100) already claimed */
   const milestones = useLocalStorage<number[]>('bmt-milestones', []);
   /** 发球机模式的历史最高连击：里程碑详情页的进度条就是它 */
@@ -279,6 +424,69 @@ export const useProgressStore = defineStore('progress', () => {
     'bmt-fish-log',
     {},
   );
+
+  // ---- 材料（采集产出：不直接是钱，交给赚钱区的农场主才换钱）------------------
+  /** 棉花：采棉花得到，一朵一个 */
+  const cotton = useLocalStorage('bmt-cotton', 0);
+  /** 矿石：砸矿得到，越硬的矿给得越多（石头 1 / 铁矿 2 / 金矿 4 / 钻石 10） */
+  const ore = useLocalStorage('bmt-ore', 0);
+  /**
+   * 鱼仓：潜水那一趟的渔获**上岸时**入仓（氧气耗尽不算，那一趟直接白潜），
+   * 然后拉去农场主那里按条卖。每条都带着当时算好的 `value`（闪光/鱼王的倍率已含在内）。
+   */
+  const fishBox = useLocalStorage<
+    { id: string; name: string; emoji: string; kg: number; value: number }[]
+  >('bmt-fish-box', []);
+
+  /** 仓库里这些东西按农场主收购价一共值多少 */
+  const materialValue = computed(
+    () =>
+      cotton.value * MATERIALS.cotton.price +
+      ore.value * MATERIALS.ore.price +
+      fishBox.value.reduce((s, f) => s + f.value, 0),
+  );
+
+  function addCotton(n: number): void {
+    if (n > 0) cotton.value += n;
+  }
+
+  function addOre(n: number): void {
+    if (n > 0) ore.value += n;
+  }
+
+  /** 潜水一趟的渔获入仓（上岸 / 离开潜水页时调用；一次性转入，不重复） */
+  function addFish(
+    list: { id: string; name: string; emoji: string; kg: number; value: number }[],
+  ): void {
+    if (!list.length) return;
+    fishBox.value = [...fishBox.value, ...list];
+  }
+
+  /**
+   * 农场主收购：把仓库里的材料换成金币（`what` 选一类，或 `all` 全卖）。
+   * 鱼的收入记进「卖鱼累计」（`noteSold`），那条成就靠它。
+   */
+  function sellMaterials(what: 'cotton' | 'ore' | 'fish' | 'all'): {
+    ok: boolean;
+    coins: number;
+    message: string;
+  } {
+    const takeCotton = what === 'cotton' || what === 'all';
+    const takeOre = what === 'ore' || what === 'all';
+    const takeFish = what === 'fish' || what === 'all';
+    const c = takeCotton ? cotton.value : 0;
+    const o = takeOre ? ore.value : 0;
+    const fish = takeFish ? [...fishBox.value] : [];
+    const fishCoins = fish.reduce((s, f) => s + f.value, 0);
+    const gained = c * MATERIALS.cotton.price + o * MATERIALS.ore.price + fishCoins;
+    if (gained <= 0) return { ok: false, coins: 0, message: '仓库里没有能换钱的东西' };
+    if (takeCotton) cotton.value = 0;
+    if (takeOre) ore.value = 0;
+    if (takeFish) fishBox.value = [];
+    coins.value += gained;
+    if (fishCoins > 0) noteSold(fishCoins);
+    return { ok: true, coins: gained, message: `换到 ¥${gained}` };
+  }
   /** 成就专用的小计数器：卖鱼总额 / 下潜次数 / 出海次数 / 最深下潜（米）+ 鱼王 / 闪光 */
   const achStats = useLocalStorage<{
     sold: number;
@@ -348,10 +556,17 @@ export const useProgressStore = defineStore('progress', () => {
     return claimed.value.includes(id);
   }
 
-  /** ownership: free always, gacha/code by collection, pets by hatching, else by tier */
+  /** ownership: free always, gacha/chest/coin/code by collection, pets by hatching, else by tier */
   function isOwned(item: Item): boolean {
     if (item.source === 'free') return true;
-    if (item.source === 'gacha' || item.source === 'code') return owned.value.includes(item.id);
+    if (
+      item.source === 'gacha' ||
+      item.source === 'chest' ||
+      item.source === 'shard' ||
+      item.source === 'coin' ||
+      item.source === 'code'
+    )
+      return owned.value.includes(item.id);
     if (item.source === 'egg') return (petStars.value[item.ref] ?? 0) > 0;
     if (item.source === 'streak') return milestones.value.includes(100);
     // 荣誉商店 / 活动限定 / 连击里程碑的东西：拿到过才算拥有（都记在 owned 里）
@@ -464,7 +679,7 @@ export const useProgressStore = defineStore('progress', () => {
   }
   ensureLegend();
 
-  // 老存档兼容：以前 100 连击送「哥斯拉」，改版后哥斯拉由「哥斯拉来袭」首杀赠送。
+  // 老存档兼容：以前 100 连击送「哥斯拉」，改版后哥斯拉由「哥斯拉来袭」地狱难度掉落。
   // 已经打到 100 连击的老玩家，把哥斯拉按旧规则补进收藏，不让人白打。
   if (milestones.value.includes(100) && !owned.value.includes('skin:godzilla')) {
     owned.value = [...owned.value, 'skin:godzilla'];
@@ -670,10 +885,14 @@ export const useProgressStore = defineStore('progress', () => {
       };
     }
     const after = tierForPoints(points.value);
+    // 钥匙：冠亚季军各有一点（宝箱钥匙的来源之一）
+    const keyGain = place === 'champion' ? 5 : place === 'runner' ? 3 : place === 'third' ? 2 : 0;
+    if (keyGain) grantKeys(keyGain);
     let text =
       `「${run.cupName}」${PLACE_LABEL[place]}：金币 +${gold}` +
       (gain ? ` · 积分 +${gain}` : ' · 无积分') +
-      (hon ? ` · 荣誉 +${hon}` : '');
+      (hon ? ` · 荣誉 +${hon}` : '') +
+      (keyGain ? ` · 🔑 钥匙 +${keyGain}` : '');
     if (after.id !== before) text += ` · 升入 ${after.label}！可领取荣誉奖励`;
     pushNotice(text);
     // 本届结束：该杯赛进入冷却
@@ -762,11 +981,149 @@ export const useProgressStore = defineStore('progress', () => {
     };
   }
 
+  // ---- 名人堂的增删改（新增 / 退役 / 编辑）----------------------------------
+
+  /** 新增一位球员（随机生成，随后可以在编辑面板里改） */
+  function addAiPlayer(): AiPlayer {
+    const p = makeRandomPlayer(aiPlayers.value);
+    aiPlayers.value = [...aiPlayers.value, p];
+    pushNotice(`名人堂新增球员「${p.name}」`);
+    return p;
+  }
+
+  /**
+   * 编辑一位球员：名字 / 装扮 / rating / 五维。
+   * 改了五维就按五维**重算 rating**（不传 rating 时），并顺手把 style / difficulty 校准。
+   */
+  function updateAiPlayer(
+    id: string,
+    patch: Partial<Pick<AiPlayer, 'name' | 'rating' | 'cosmetic'>> & { stats?: Partial<PlayerStats> },
+  ): void {
+    const idx = aiPlayers.value.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    const cur = aiPlayers.value[idx];
+    const stats: PlayerStats = patch.stats
+      ? { ...ensureStats(cur), ...patch.stats }
+      : ensureStats(cur);
+    const next = [...aiPlayers.value];
+    next[idx] = syncDerived({
+      ...cur,
+      ...patch,
+      stats,
+      rating: patch.rating ?? (patch.stats ? ratingFromStats(stats) : cur.rating),
+    });
+    aiPlayers.value = next;
+  }
+
+  /** 退役（不再上榜单 / 不再参加赛事）或复出；战绩与履历都保留 */
+  function setAiRetired(id: string, retired: boolean): void {
+    const idx = aiPlayers.value.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    const next = [...aiPlayers.value];
+    next[idx] = { ...next[idx], retired };
+    aiPlayers.value = next;
+    pushNotice(`「${next[idx].name}」${retired ? '已退役，不再参加赛事' : '复出了'}`);
+  }
+
+  /** 除名：只允许删掉**自己新增**的球员（系统球员请用「退役」） */
+  function removeAiPlayer(id: string): boolean {
+    const p = aiPlayers.value.find((x) => x.id === id);
+    if (!p || !p.custom || id === LEGEND_ID) return false;
+    aiPlayers.value = aiPlayers.value.filter((x) => x.id !== id);
+    pushNotice(`已把「${p.name}」除名`);
+    return true;
+  }
+
+  // ---- 🌍 世界赛（观战台的数据源）-------------------------------------------
+
+  /** 只存「玩家真看过 / 快进过」的那几场；届一换就清空（联赛自己往前滚） */
+  const worldArena = useLocalStorage<{ edition: number; overrides: Record<string, string> }>(
+    'bmt-world-arena',
+    { edition: -1, overrides: {} },
+  );
+
+  /** 翻届：届号一变就把「看过的那几场」清掉（联赛自己往前滚）。视图每秒调一次 */
+  function ensureWorldEdition(now = Date.now()): number {
+    const ed = worldEdition(now);
+    if (worldArena.value.edition !== ed) worldArena.value = { edition: ed, overrides: {} };
+    return ed;
+  }
+
+  /**
+   * 当前这一届世界赛"到此刻为止"的样子——**纯读**（不在 computed 里写状态）。
+   * 届号还没翻（视图没来得及调 `ensureWorldEdition`）时，按"没有任何 override"算。
+   */
+  function worldArenaState(now = Date.now()): WorldArenaState {
+    const ed = worldEdition(now);
+    const overrides = worldArena.value.edition === ed ? worldArena.value.overrides : {};
+    return worldState(aiPlayers.value, ed, now, overrides);
+  }
+
+  /** 正在打的那一场（没有就 null） */
+  function worldLiveMatch(
+    now = Date.now(),
+  ): { round: number; index: number; a: ArenaEntrant; b: ArenaEntrant } | null {
+    const st = worldArenaState(now);
+    if (!st.live) return null;
+    const m = st.rounds[st.live.round]?.[st.live.index];
+    if (!m) return null;
+    const a = st.entrants.find((e) => e.id === m.a);
+    const b = st.entrants.find((e) => e.id === m.b);
+    return a && b ? { round: st.live.round, index: st.live.index, a, b } : null;
+  }
+
+  /**
+   * 记下一场世界赛的结果（**真观战打完**与**快进**都走这里）：
+   * 写进 `overrides`（刷新也认这个结果），并把两位 AI 的战绩一起更新——
+   * 所以"看比赛"是真的在改变名人堂的名次。
+   */
+  function recordWorldMatch(round: number, index: number, winnerId: string): boolean {
+    const ed = ensureWorldEdition();
+    const key = MATCH_KEY(round, index);
+    if (worldArena.value.overrides[key]) return false; // 已经记过，别重复记战绩
+    const st = worldState(aiPlayers.value, ed, Date.now(), worldArena.value.overrides);
+    const m = st.rounds[round]?.[index];
+    if (!m || (winnerId !== m.a && winnerId !== m.b)) return false;
+    const loserId = winnerId === m.a ? m.b : m.a;
+    worldArena.value = {
+      edition: ed,
+      overrides: { ...worldArena.value.overrides, [key]: winnerId },
+    };
+    const wi = aiPlayers.value.findIndex((p) => p.id === winnerId);
+    const li = aiPlayers.value.findIndex((p) => p.id === loserId);
+    if (wi >= 0 && li >= 0 && wi !== li) {
+      const next = [...aiPlayers.value];
+      const out = applyAiResult(next[wi], next[li]);
+      next[wi] = out.winner;
+      next[li] = out.loser;
+      aiPlayers.value = next;
+    }
+    return true;
+  }
+
+  /** 快进：不看这一场，直接按五维算结果并写回赛程 */
+  function fastForwardWorldMatch(round: number, index: number): boolean {
+    const ed = ensureWorldEdition();
+    const st = worldState(aiPlayers.value, ed, Date.now(), worldArena.value.overrides);
+    const m = st.rounds[round]?.[index];
+    if (!m || !m.a || !m.b) return false;
+    let winner = m.winner;
+    if (!winner) {
+      const a = st.entrants.find((e) => e.id === m.a);
+      const b = st.entrants.find((e) => e.id === m.b);
+      if (!a || !b) return false;
+      winner = simulateArenaMatch(a, b);
+    }
+    return recordWorldMatch(round, index, winner);
+  }
+
+  /** 段位奖励：每档 3 把宝箱钥匙（宝箱钥匙的来源之一） */
   function claim(id: TierId): void {
     const t = TIERS.find((x) => x.id === id);
     if (!t || points.value < t.points || claimed.value.includes(id)) return;
     claimed.value = [...claimed.value, id];
-    pushNotice(`已领取 ${t.label} 奖励：${t.reward}`);
+    grantKeys(3);
+    pushNotice(`已领取 ${t.label} 奖励：${t.reward} · 🔑 钥匙 +3（共 ${chestKeys.value} 把）`);
   }
 
   /**
@@ -781,7 +1138,7 @@ export const useProgressStore = defineStore('progress', () => {
    * 10~100 给「复古训练房」套装里为这个活动定制的同主题装扮
    * （固定对照表见 items.MILESTONE_REWARD，不进宝箱池）；
    * 100 连击的终极大奖是「发球机教练」形象。
-   * 哥斯拉皮肤不在这里——它是「哥斯拉来袭」活动的首杀奖励。
+   * 哥斯拉皮肤不在这里——它是「哥斯拉来袭」地狱难度的概率掉落。
    */
   function claimMilestone(n: number): { kind: 'item'; item: Item } | null {
     if (n <= 0 || n % 10 !== 0 || milestones.value.includes(n)) return null;
@@ -791,6 +1148,8 @@ export const useProgressStore = defineStore('progress', () => {
     if (!item) return null;
     if (!owned.value.includes(item.id)) owned.value = [...owned.value, item.id];
     milestoneLog.value = { ...milestoneLog.value, [String(n)]: item.id };
+    // 每档附带 1 把宝箱钥匙（宝箱钥匙的来源之一）
+    grantKeys(1);
     return { kind: 'item', item };
   }
 
@@ -895,7 +1254,12 @@ export const useProgressStore = defineStore('progress', () => {
     fishTaskClaimed.value = true;
     coins.value += task.coins;
     honor.value += task.honor;
-    return { ok: true, message: `任务完成！🪙 +${task.coins} · 🏅 +${task.honor}` };
+    // 每日任务的额外小奖励：1 把宝箱钥匙
+    grantKeys(1);
+    return {
+      ok: true,
+      message: `任务完成！🪙 +${task.coins} · 🏅 +${task.honor} · 🔑 钥匙 +1`,
+    };
   }
 
   /** 开宝箱获得闪光鱼饵 */
@@ -997,6 +1361,10 @@ export const useProgressStore = defineStore('progress', () => {
     if (prize.kind === 'honor') {
       honor.value += prize.amount ?? 0;
       return { ok: true, index, message: `荣誉点 +${prize.amount}` };
+    }
+    if (prize.kind === 'key') {
+      grantKeys(prize.amount ?? 0);
+      return { ok: true, index, message: `🔑 宝箱钥匙 +${prize.amount}` };
     }
     const item = prize.itemId ? ITEMS.find((i) => i.id === prize.itemId) : undefined;
     if (!item || !prize.itemId) return { ok: true, index, message: '谢谢参与' };
@@ -1119,18 +1487,19 @@ export const useProgressStore = defineStore('progress', () => {
   }
 
   /**
-   * 检查所有成就：新达成的一律**立刻发奖**（金币 + 收藏里的定制物品 / 皮肤）。
+   * 检查所有成就：新达成的一律**立刻发奖**（宝箱钥匙 + 收藏里的定制物品 / 皮肤）。
+   * 成就**不再发金币**——金币改成只在金币商店花，钥匙才是开宝箱的东西。
    * 返回刚完成的那批，调用方可以逐条弹提示。重复调用没有副作用。
    */
   function syncAchievements(): Achievement[] {
     const fresh: Achievement[] = [];
-    let coinGain = 0;
+    let keyGain = 0;
     let nextOwned: string[] | null = null;
     for (const ach of ACHIEVEMENTS) {
       if (achDone.value.includes(ach.id)) continue;
       if (metricValue(ach.metric) < ach.goal) continue;
       fresh.push(ach);
-      if (ach.coins) coinGain += ach.coins;
+      if (ach.keys) keyGain += ach.keys;
       if (ach.itemId) {
         const list: string[] = nextOwned ?? [...owned.value];
         if (!list.includes(ach.itemId)) list.push(ach.itemId);
@@ -1139,9 +1508,9 @@ export const useProgressStore = defineStore('progress', () => {
     }
     if (!fresh.length) return fresh;
     achDone.value = [...achDone.value, ...fresh.map((a) => a.id)];
-    if (coinGain) coins.value += coinGain;
+    if (keyGain) grantKeys(keyGain);
     if (nextOwned) owned.value = nextOwned;
-    const parts = [coinGain ? `+¥${coinGain}` : '', ...fresh.map((a) => a.name)];
+    const parts = [keyGain ? `🔑 +${keyGain}` : '', ...fresh.map((a) => a.name)];
     pushNotice(`🏅 成就达成：${parts.filter(Boolean).join(' · ')}`);
     return fresh;
   }
@@ -1159,22 +1528,59 @@ export const useProgressStore = defineStore('progress', () => {
     return true;
   }
 
-  /** one weighted draw, without touching the wallet (the caller pays) */
-  function rollOne(floor?: 'epic'): PullResult {
-    pity.value += 1;
-
-    const available = [...new Set(GACHA_POOL.map((i) => i.rarity))];
-    let rarity: Rarity;
-    if (pity.value >= PITY_LIMIT) {
-      rarity = available.includes('epic') ? 'epic' : available[available.length - 1];
-      if (available.includes('legendary') && Math.random() < 0.25) rarity = 'legendary';
-    } else {
-      rarity = weightedRarity(available);
+  /**
+   * 从**给定池子**里按星级权重抽一件（同星级内等概率）；挂了 `pullWeight` 的按绝对权重。
+   * 池子由 `game/chest.ts` 的 `pickChestPool()` 摇类别给出（`rollOne` 里），
+   * 或者由调用方直接传（`pull(banner)` 那种显式指定池子的老用法仍然有效）。
+   */
+  function rollFrom(banner: Item[] = GACHA_POOL): Item {
+    const items = banner.length ? banner : GACHA_POOL;
+    // 每件物品的权重：默认 = 它那一档的全局权重 ÷ 同档件数（同档内等概率）；
+    // 挂了 `pullWeight` 的（山海宝箱的怪物皮肤）就用绝对权重，**无视星级**，
+    // 所以能把它们的概率单独压到极低——不填时分布与老逻辑完全一致。
+    const perStar = new Map<number, number>();
+    for (const i of items) perStar.set(i.stars, (perStar.get(i.stars) ?? 0) + 1);
+    const weightOf = (i: Item): number =>
+      i.pullWeight ?? (STAR_WEIGHT[i.stars] ?? 1) / (perStar.get(i.stars) ?? 1);
+    let total = 0;
+    for (const i of items) total += weightOf(i);
+    let x = Math.random() * total;
+    let pick = items[items.length - 1];
+    for (const i of items) {
+      x -= weightOf(i);
+      if (x <= 0) {
+        pick = i;
+        break;
+      }
     }
-    if (floor === 'epic' && rarity !== 'epic' && rarity !== 'legendary') rarity = 'epic';
+    return pick;
+  }
 
-    const candidates = GACHA_POOL.filter((i) => i.rarity === rarity);
-    const item = candidates[Math.floor(Math.random() * candidates.length)];
+  /**
+   * 一次抽取，不动钱包（钥匙由调用方扣）。重复物品折算金币返还。
+   *
+   * **没有保底**：概率就是概率（星级权重见 `STAR_WEIGHT`），抽不到就是抽不到——
+   * 缺的「确定性」由碎片兑换补（开箱攒 🧩，攒够直接换指定的碎片专属装扮）。
+   *
+   * **袋子档**：先摇一次 `BAG_CHANCE`，中了就不给装扮，改给一小袋金币或 🧩 星尘
+   * 碎片——「每抽必出物品」会让几百件装扮一起变廉价，这个占位把「抽到装扮」
+   * 重新变成一件值得高兴的事。
+   */
+  function rollOne(banner?: Item[]): PullResult {
+    if (Math.random() < BAG_CHANCE) {
+      if (Math.random() < BAG_COIN_SHARE) {
+        const amount = COIN_BAG_MIN + Math.floor(Math.random() * COIN_BAG_RANGE);
+        coins.value += amount;
+        return { kind: 'bag', bag: 'coins', amount };
+      }
+      const amount = SHARD_BAG_MIN + Math.floor(Math.random() * SHARD_BAG_RANGE);
+      shards.value += amount;
+      return { kind: 'bag', bag: 'shards', amount };
+    }
+
+    // 传了池子就按它抽（显式指定）；没传就先**摇类别**——
+    // 普通宝箱概率最高、本期的主题宝箱次高、高级宝箱最低（`game/chest.ts` 的 CHEST_ODDS）
+    const item = banner ? rollFrom(banner) : rollFrom(pickChestPool());
 
     let duplicate = false;
     let refund = 0;
@@ -1185,38 +1591,71 @@ export const useProgressStore = defineStore('progress', () => {
     } else {
       owned.value = [...owned.value, item.id];
     }
-    if (item.rarity === 'epic' || item.rarity === 'legendary') pity.value = 0;
 
     return { kind: 'item', item, duplicate, refund };
   }
 
-  /** open a chest; returns what was drawn, or null if the player is broke */
-  function pull(): PullResult | null {
-    if (coins.value < CHEST_COST) return null;
-    coins.value -= CHEST_COST;
-    return rollOne();
+  /**
+   * 开一次宝箱：花 1 把钥匙（金币只用于商店买东西）。
+   * `banner` 是**当期主题宝箱**的那 12 件（见 `game/chest.ts`），不传就是标准大池。
+   */
+  function pull(banner?: Item[]): PullResult | null {
+    if (chestKeys.value < CHEST_KEYS) return null;
+    chestKeys.value -= CHEST_KEYS;
+    return rollOne(banner);
+  }
+
+  /**
+   * 🧩 碎片兑换（宝箱面板里的兑换区）：花星尘碎片换一件**碎片专属装扮**
+   * （`source: 'shard'`——开箱抽不到、金币买不到，唯一入手途径）。
+   */
+  function redeemShardItem(id: string): { ok: boolean; message: string } {
+    const price = shardPriceOf(id);
+    const item = ITEMS.find((i) => i.id === id);
+    if (!price || !item) return { ok: false, message: '这件不在兑换清单里' };
+    if (owned.value.includes(id)) return { ok: false, message: `已经拥有「${item.label}」了` };
+    if (shards.value < price) {
+      return { ok: false, message: `碎片不够，还差 🧩${price - shards.value}` };
+    }
+    shards.value -= price;
+    owned.value = [...owned.value, id];
+    return { ok: true, message: `用 🧩${price} 换到了「${item.label}」` };
+  }
+
+  /**
+   * 金币商店：花金币直接买一件低星装扮（3★ 及以下的宝箱物品），买了就进收藏。
+   */
+  function buyCoinItem(id: string): { ok: boolean; message: string } {
+    const price = coinPriceOf(id);
+    const item = ITEMS.find((i) => i.id === id);
+    if (!price || !item) return { ok: false, message: '这件不在售' };
+    if (owned.value.includes(id)) return { ok: false, message: `已经拥有「${item.label}」了` };
+    if (coins.value < price) {
+      return { ok: false, message: `金币不够，还差 ¥${price - coins.value}` };
+    }
+    coins.value -= price;
+    owned.value = [...owned.value, id];
+    return { ok: true, message: `已买下「${item.label}」` };
   }
 
   /** whether the free welcome ten-pull is still available */
   const canFreeTen = computed(() => tenTickets.value > 0);
 
-  /** ten draws at a 10% discount; `useTicket` spends a free ten-pull instead */
-  function pullTen(useTicket = false): PullResult[] | null {
+  /**
+   * 十连：10 把钥匙（`useTicket` 则消耗一张免费十连券）。
+   * `banner` 同 `pull`：传当期宝箱的 12 件，不传就是标准大池。
+   */
+  function pullTen(useTicket = false, banner?: Item[]): PullResult[] | null {
     if (useTicket) {
       if (tenTickets.value <= 0) return null;
       tenTickets.value -= 1;
     } else {
-      if (coins.value < TEN_PULL_COST) return null;
-      coins.value -= TEN_PULL_COST;
+      if (chestKeys.value < CHEST_KEYS * 10) return null;
+      chestKeys.value -= CHEST_KEYS * 10;
     }
 
     const out: PullResult[] = [];
-    for (let i = 0; i < 10; i++) out.push(rollOne());
-    // ten-pulls guarantee at least one epic+ (a slight courtesy over singles)
-    const hasHigh = out.some(
-      (r) => r.item.rarity === 'epic' || r.item.rarity === 'legendary',
-    );
-    if (!hasHigh) out[9] = rollOne('epic');
+    for (let i = 0; i < 10; i++) out.push(rollOne(banner));
     return out;
   }
 
@@ -1224,10 +1663,14 @@ export const useProgressStore = defineStore('progress', () => {
     points,
     claimed,
     coins,
+    chestKeys,
+    shards,
+    grantKeys,
+    buyCoinItem,
+    redeemShardItem,
     owned,
     petStars,
     tenTickets,
-    pity,
     notice,
     canFreeTen,
     tier,
@@ -1272,6 +1715,14 @@ export const useProgressStore = defineStore('progress', () => {
     upgradeDive,
     upgradeFarm,
     buyTractor,
+    cotton,
+    ore,
+    fishBox,
+    materialValue,
+    addCotton,
+    addOre,
+    addFish,
+    sellMaterials,
     buyHonorItem,
     nailongTickets,
     nailongLeftToday,
@@ -1282,6 +1733,11 @@ export const useProgressStore = defineStore('progress', () => {
     useGodzillaAttempt,
     grantGodzillaKill,
     gzKills,
+    alienLeftToday,
+    useAlienAttempt,
+    grantAlienRun,
+    alienBest,
+    alienTiers,
     sailTo,
     achStats,
     achDone,
@@ -1313,6 +1769,15 @@ export const useProgressStore = defineStore('progress', () => {
     honor,
     playerRecord,
     recordVsAi,
+    addAiPlayer,
+    updateAiPlayer,
+    setAiRetired,
+    removeAiPlayer,
+    ensureWorldEdition,
+    worldArenaState,
+    worldLiveMatch,
+    recordWorldMatch,
+    fastForwardWorldMatch,
     seasonId,
     seasonPeak,
   };

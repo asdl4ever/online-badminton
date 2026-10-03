@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import SideDock from '../components/ui/SideDock.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import ChestPanel from '../components/ChestPanel.vue';
+import CoinShopPanel from '../components/CoinShopPanel.vue';
 import HonorShopPanel from '../components/HonorShopPanel.vue';
 import { useProgressStore } from '../stores/progress';
 import { useWalk } from '../composables/useWalk';
@@ -21,6 +22,7 @@ import { sfx } from '../game/audio';
  * 走动逻辑在 `useWalk`（和大地图同一套手感），角色是游戏同一份绘制。
  */
 const router = useRouter();
+const route = useRoute();
 const progress = useProgressStore();
 const customize = useCustomizeStore();
 
@@ -41,13 +43,15 @@ function paintMe(now: number): void {
 }
 
 const OBJECTS = [
-  { id: 'notice', x: 320, y: 430 },
-  { id: 'honor', x: 600, y: 430 },
-  { id: 'chest', x: 880, y: 430 },
+  { id: 'notice', x: 240, y: 430 },
+  { id: 'honor', x: 520, y: 430 },
+  { id: 'coin', x: 800, y: 430 },
+  { id: 'chest', x: 1080, y: 430 },
 ];
 
 const showEvents = ref(false);
 const showHonor = ref(false);
+const showCoin = ref(false);
 const showChest = ref(false);
 
 /** 活动卡：小黄龙 / 哥斯拉可以点开跳转（其余还是占位） */
@@ -72,6 +76,7 @@ const walk = useWalk({
     if (id === 'notice') showEvents.value = true;
     else if (id === 'chest') showChest.value = true;
     else if (id === 'honor') showHonor.value = true;
+    else if (id === 'coin') showCoin.value = true;
   },
   onFrame: paintMe,
 });
@@ -108,7 +113,7 @@ const EVENTS = [
     id: 'godzilla',
     icon: '🦖',
     title: '哥斯拉来袭 · 拍火球打巨兽',
-    desc: '用球拍把它的火球拍回去砸它扣血，躲开贴地激光；每天 3 次免费挑战，首杀送限定套装',
+    desc: '用球拍把它的火球拍回去砸它扣血，躲开贴地激光；每天 3 次免费挑战，三档难度概率掉不同的限定（地狱才掉哥斯拉皮肤）',
     time: '限时活动',
     tone: 'red',
     tag: '新活动',
@@ -164,6 +169,12 @@ const now = ref(Date.now());
 let timer = 0;
 onMounted(() => {
   timer = window.setInterval(() => (now.value = Date.now()), 1000);
+  // 直达链接：/shop?open=chest（或 coin / honor / events）直接弹对应面板，不用走过去
+  const open = route.query.open;
+  if (open === 'chest') showChest.value = true;
+  else if (open === 'coin') showCoin.value = true;
+  else if (open === 'honor') showHonor.value = true;
+  else if (open === 'events') showEvents.value = true;
 });
 onBeforeUnmount(() => window.clearInterval(timer));
 /** 占位倒计时：距离下个整点 */
@@ -182,6 +193,7 @@ const countdown = computed(() => {
         <SideDock>
           <span class="dock-coins">🪙 {{ progress.coins }}</span>
           <span class="dock-honor">🏅 {{ progress.honor }}</span>
+          <span class="dock-keys">🔑 {{ progress.chestKeys }}</span>
           <p class="dock-note">
             {{ touch ? '拖动摇杆走动，点按柜台查看。' : '摇杆 / WASD 走动，走到柜台前按 E。' }}
           </p>
@@ -200,7 +212,8 @@ const countdown = computed(() => {
               v-for="o in [
                 { ...OBJECTS[0], sign: '🎪', name: '活动告示板' },
                 { ...OBJECTS[1], sign: '🏅', name: '荣誉柜台' },
-                { ...OBJECTS[2], sign: '🎁', name: '宝箱柜' },
+                { ...OBJECTS[2], sign: '🪙', name: '金币商店' },
+                { ...OBJECTS[3], sign: '🎁', name: '宝箱柜' },
               ]"
               :key="o.id"
               class="counter jelly"
@@ -271,8 +284,13 @@ const countdown = computed(() => {
       <HonorShopPanel />
     </AppModal>
 
-    <!-- 宝箱柜 -->
-    <AppModal v-model="showChest" title="🎁 宝箱柜" max-width="540px">
+    <!-- 金币商店 -->
+    <AppModal v-model="showCoin" title="🪙 金币商店" max-width="680px">
+      <CoinShopPanel />
+    </AppModal>
+
+    <!-- 宝箱柜：左边宝箱、右边物品墙，两列布局所以给宽一点 -->
+    <AppModal v-model="showChest" title="🎁 宝箱柜" max-width="900px">
       <ChestPanel />
     </AppModal>
 
@@ -290,6 +308,12 @@ const countdown = computed(() => {
   font-size: 14px;
   font-weight: 700;
   color: #e8a33d;
+}
+
+.dock-keys {
+  font-size: 14px;
+  font-weight: 700;
+  color: #7fd4ff;
 }
 
 .dock-note {

@@ -1,9 +1,11 @@
 import type Phaser from 'phaser';
 import { PLAYER_H, SHOULDER_DX, SHOULDER_DY } from '../constants';
 import { SWING_TRAIL_COLORS, type Cosmetic, type SwingTrailId } from '../cosmetics';
+import type { SwingSample } from '../racket';
 import { FONT_EMOJI, P } from '../theme';
 import { drawCharacter, type FaceSink } from './character';
 import { drawRacketHead, racketFrameColor } from './racket';
+import { THEME_SWINGS, drawThemeSwing } from './themeart';
 
 /**
  * The shared player rig: emoji face + body + arm + racket, drawn exactly the
@@ -20,6 +22,8 @@ export interface RigPose {
   color: number;
   /** U熊肚皮的果冻形变（0 = 静止），见 `CharacterPose.belly` */
   belly?: number;
+  /** 横向移动强度（0~1），给 U熊 / 老皮 走路时的抖动用，见 `CharacterPose.move` */
+  move?: number;
 }
 
 export interface PlayerRig {
@@ -29,6 +33,9 @@ export interface PlayerRig {
    * Draw the whole character. rx/ry is the racket-head offset from the
    * shoulder (same values the RacketTracker produces), swingSpeed drives the
    * swing trail arc, contactR optionally draws the sweet-spot ring.
+   *
+   * `path` 是拍头最近的真实轨迹（`RacketTracker.path.pts`，肩部相对坐标）——
+   * 挥拍拖尾沿它画；不传（背包 / 商店的静态预览）就不画拖尾。
    */
   draw(
     g: Phaser.GameObjects.Graphics,
@@ -41,6 +48,8 @@ export interface PlayerRig {
     contactR?: number,
     /** 帽子 / 宠物专用高层：emoji 头（depth 3）之上 */
     over?: Phaser.GameObjects.Graphics | null,
+    /** 挥拍轨迹采样（`SwingPath.pts`） */
+    path?: readonly SwingSample[],
   ): { shoulder: { x: number; y: number }; head: { x: number; y: number }; ang: number };
 }
 
@@ -56,8 +65,8 @@ export function createPlayerRig(scene: Phaser.Scene): PlayerRig {
 
   return {
     face,
-    draw: (g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0, over = null) =>
-      drawRigGraphics(g, now, cos, pose, rx, ry, swingSpeed, contactR, face, over),
+    draw: (g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0, over = null, path) =>
+      drawRigGraphics(g, now, cos, pose, rx, ry, swingSpeed, contactR, face, over, path),
   };
 }
 
@@ -78,6 +87,7 @@ export function drawRigGraphics(
   contactR = 0,
   face: FaceSink | null = null,
   over: Phaser.GameObjects.Graphics | null = null,
+  path?: readonly SwingSample[],
 ): { shoulder: { x: number; y: number }; head: { x: number; y: number }; ang: number } {
   const shoulder = {
     x: pose.x + pose.facing * SHOULDER_DX,
@@ -86,9 +96,9 @@ export function drawRigGraphics(
   const head = { x: shoulder.x + rx, y: shoulder.y + ry };
   const ang = Math.atan2(head.y - shoulder.y, head.x - shoulder.x);
 
-  // swing trail arc, same thresholds as the match
+  // 挥拍拖尾：沿拍头最近的真实轨迹画（没有轨迹数据的场合不画）
   const hot = Math.min(1, swingSpeed / 1400);
-  drawSwingTrail(g, now, cos, shoulder.x, shoulder.y, head.x, head.y, ang, hot);
+  drawSwingTrail(g, now, cos, shoulder.x, shoulder.y, head.x, head.y, ang, hot, path);
 
   drawCharacter(g, now, cos, {
     x: pose.x,
@@ -96,6 +106,7 @@ export function drawRigGraphics(
     facing: pose.facing,
     color: pose.color,
     belly: pose.belly,
+    move: pose.move,
   }, { face, overG: over });
 
   // arm from shoulder to just behind the racket head
@@ -120,9 +131,31 @@ export function drawRigGraphics(
   return { shoulder, head, ang };
 }
 
+// ---- 挥拍拖尾 ---------------------------------------------------------------
+
+/** 拖尾寿命（秒）：挥过去这么久之后就完全淡掉 */
+const TRAIL_LIFE = 0.32;
+/** 慢于这个速度的采样不算挥拍（举着拍走 / 慢慢挪不拖尾巴） */
+const TRAIL_MIN_SPEED = 220;
+
+interface PathPt {
+  x: number;
+  y: number;
+  /** 透明度：越旧越淡 × 越快越亮 */
+  a: number;
+  /** 这一点的带宽（拍头端最粗） */
+  w: number;
+}
+
 /**
- * 挥拍拖尾：球拍挥动时那条弧线的绘制。`cos.swingTrail` 为 'none' 时回退成
- * 按挥拍速度上色的普通弧线（旧观感）。比赛场景与网页预览（canvas2d）共用。
+ * 挥拍拖尾：**沿拍头最近的真实轨迹画**（`path` = `RacketTracker.path.pts`）。
+ *
+ * 旧版是「以肩膀为圆心、当前拍角往回扫 0.55 弧度」的一段固定弧——不管你怎么挥
+ * 都是同一形状，所以显得死板。现在每帧采样拍头位置，拖尾就是真实走过的那条线：
+ * 上撩是上弧、下压是下劈、绕圈就是圈，带一点残影淡出。
+ *
+ * 每种风格都是**同一条轨迹 + 不同的画法**（带宽 / 分层 / 抖动 / 沿路粒子），
+ * 所以 16 种风格共用一套路径逻辑（`SWING_TRAIL_COLORS` 不变，数据层零改动）。
  */
 export function drawSwingTrail(
   g: Phaser.GameObjects.Graphics,
@@ -130,178 +163,246 @@ export function drawSwingTrail(
   cos: Cosmetic,
   sx: number,
   sy: number,
-  hx: number,
-  hy: number,
-  ang: number,
+  _hx: number,
+  _hy: number,
+  _ang: number,
   hot: number,
+  path?: readonly SwingSample[],
 ): void {
-  if (hot <= 0.08) return;
   const style: SwingTrailId = cos.swingTrail ?? 'none';
-  const reach = Math.hypot(hx - sx, hy - sy);
+  if (!path || path.length < 3) return;
+
+  // ---- ① 采样 → 世界坐标路径：慢速段丢掉、越旧越淡、拍头端最粗最亮 ----------
+  const pts: PathPt[] = [];
+  const tNow = path[path.length - 1].t;
+  for (const s of path) {
+    const age = tNow - s.t;
+    if (age > TRAIL_LIFE || s.s < TRAIL_MIN_SPEED) continue;
+    const fade = 1 - age / TRAIL_LIFE;
+    const spd = Math.min(1, s.s / 1400);
+    pts.push({ x: sx + s.rx, y: sy + s.ry, a: fade * (0.22 + 0.62 * spd), w: 0 });
+  }
+  if (pts.length < 2) return;
+  const base = 5 + 10 * hot;
+  for (let i = 0; i < pts.length; i++) {
+    pts[i].w = base * (0.3 + 0.7 * (i / (pts.length - 1)));
+  }
+
+  // ---- ② 沿路径的小工具 ----------------------------------------------------
+  /** 第 i 段的法线（i 从 1 开始） */
+  const perp = (i: number): { x: number; y: number } => {
+    const dx = pts[i].x - pts[i - 1].x;
+    const dy = pts[i].y - pts[i - 1].y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: -dy / len, y: dx / len };
+  };
+  /** 沿路径铺一条从细到粗、从淡到亮的带子（off = 朝法线方向整体挪多少） */
+  const ribbon = (wm: number, color: number, am: number, off = 0): void => {
+    for (let i = 1; i < pts.length; i++) {
+      const p = perp(i);
+      g.lineStyle(Math.max(1, pts[i].w * wm), color, Math.min(1, pts[i].a * am));
+      g.lineBetween(
+        pts[i - 1].x + p.x * off,
+        pts[i - 1].y + p.y * off,
+        pts[i].x + p.x * off,
+        pts[i].y + p.y * off,
+      );
+    }
+  };
+  /** 白芯 */
+  const core = (wm: number, am: number): void => ribbon(wm, 0xffffff, am);
+  /** 路径上第 i 个点（可带法向偏移） */
+  const at = (i: number, off = 0): { x: number; y: number } => {
+    const p = perp(Math.max(1, i));
+    return { x: pts[i].x + p.x * off, y: pts[i].y + p.y * off };
+  };
+  const dot = (i: number, r: number, color: number, am = 1): void => {
+    const p = at(i);
+    g.fillStyle(color, Math.min(1, pts[i].a * am));
+    g.fillCircle(p.x, p.y, r);
+  };
+  /** 抖动带：每个点朝法线方向按 wave 偏移 */
+  const wobble = (
+    amp: (i: number) => number,
+    wm: number,
+    color: number,
+    am: number,
+  ): void => {
+    for (let i = 1; i < pts.length; i++) {
+      const p = perp(i);
+      const o = amp(i);
+      g.lineStyle(Math.max(1, pts[i].w * wm), color, Math.min(1, pts[i].a * am));
+      g.lineBetween(
+        pts[i - 1].x + p.x * amp(i - 1),
+        pts[i - 1].y + p.y * amp(i - 1),
+        pts[i].x + p.x * o,
+        pts[i].y + p.y * o,
+      );
+    }
+  };
+
+  const color = SWING_TRAIL_COLORS[style] ?? cos.trail;
+  const n = pts.length;
 
   if (style === 'none') {
-    g.lineStyle(6 + 10 * hot, cos.trail, 0.18 + 0.3 * hot);
-    g.beginPath();
-    g.arc(sx, sy, reach, ang - 0.55, ang, false, 0);
-    g.strokePath();
+    ribbon(1, cos.trail, 0.6);
     return;
   }
 
-  const color = SWING_TRAIL_COLORS[style];
-  const a0 = ang - 0.55;
-  const a1 = ang;
-  const pt = (f: number, r = reach) => ({
-    x: sx + Math.cos(a0 + (a1 - a0) * f) * r,
-    y: sy + Math.sin(a0 + (a1 - a0) * f) * r,
-  });
-  const stroke = (pts: { x: number; y: number }[]): void => {
-    if (pts.length < 2) return;
-    g.beginPath();
-    g.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
-    g.strokePath();
-  };
-  const arcAt = (r: number, w: number, c: number, a: number): void => {
-    g.lineStyle(w, c, a);
-    g.beginPath();
-    g.arc(sx, sy, r, a0, a1, false, 0);
-    g.strokePath();
-  };
-  const samples = (fr: (f: number) => number, n = 12): { x: number; y: number }[] => {
-    const out: { x: number; y: number }[] = [];
-    for (let i = 0; i <= n; i++) out.push(pt(i / n, fr(i / n)));
-    return out;
-  };
+  // 新主题宝箱的挥拍拖尾：复用同一条真实轨迹，只是画法不同
+  const themeSwing = THEME_SWINGS[style];
+  if (themeSwing) {
+    drawThemeSwing(themeSwing, { g, color, n, ribbon, core, at, dot, wobble });
+    return;
+  }
 
   switch (style) {
-    case 'slash': {
-      arcAt(reach, 10 + 10 * hot, color, 0.16 + 0.3 * hot);
-      arcAt(reach, 3 + 4 * hot, 0xffffff, 0.3 + 0.45 * hot);
+    case 'slash':
+      // 斩击：宽弧 + 白芯
+      ribbon(1.7, color, 1);
+      core(0.4, 1.2);
       break;
-    }
-    case 'atomic': {
-      // 原子吐息：三层电蓝能量弧 + 翻涌的白芯，像哥斯拉的吐息扫过
-      arcAt(reach, 13 + 9 * hot, 0x123a4a, 0.45 + 0.3 * hot);
-      for (let k = 0; k < 3; k++) {
-        arcAt(reach - k * 5, 4 - k, color, (0.42 - k * 0.1) * (0.6 + hot));
-      }
-      arcAt(reach + 2, 2 + 2 * hot, 0xffffff, 0.25 + 0.5 * hot);
+    case 'atomic':
+      // 原子吐息：深色底 + 三层电蓝 + 白芯
+      ribbon(2.3, 0x123a4a, 0.85);
+      ribbon(1.3, color, 1);
+      ribbon(0.6, color, 0.85);
+      core(0.3, 1);
       break;
-    }
-    case 'tempo': {
-      // 节拍器：主弧 + 均匀刻度短线，像节拍器摆杆上的一格格刻度
-      arcAt(reach, 7 + 6 * hot, color, 0.4 + 0.3 * hot);
-      for (let k = 1; k <= 5; k++) {
-        const a = a0 + (a1 - a0) * (k / 6);
-        g.lineStyle(2, 0xffffff, 0.3 + 0.4 * hot);
+    case 'tempo':
+      // 节拍器：细弧 + 等距刻度
+      ribbon(1, color, 1);
+      for (let i = 2; i < n; i += 3) {
+        const p = perp(i);
+        g.lineStyle(2, 0xffffff, Math.min(1, pts[i].a * 1.2));
         g.lineBetween(
-          sx + Math.cos(a) * (reach - 6),
-          sy + Math.sin(a) * (reach - 6),
-          sx + Math.cos(a) * (reach + 6 + k * hot * 2),
-          sy + Math.sin(a) * (reach + 6 + k * hot * 2),
+          pts[i].x - p.x * 5,
+          pts[i].y - p.y * 5,
+          pts[i].x + p.x * (5 + 7 * hot),
+          pts[i].y + p.y * (5 + 7 * hot),
         );
       }
       break;
-    }
-    case 'shock': {
-      for (let k = 0; k < 3; k++) arcAt(reach + k * 7, 5 - k, color, (0.34 - 0.09 * k) * (0.5 + hot));
+    case 'shock':
+      // 冲击：三条错开的余波 + 拍头一圈
+      ribbon(1.1, color, 1);
+      ribbon(0.7, color, 0.7, 6);
+      ribbon(0.5, color, 0.45, -6);
+      g.lineStyle(2, color, Math.min(1, pts[n - 1].a * 1.3));
+      g.strokeCircle(pts[n - 1].x, pts[n - 1].y, 10 + 16 * hot);
       break;
-    }
-    case 'cyclone': {
-      stroke(samples((f) => reach + Math.sin(f * Math.PI * 3) * 11));
-      arcAt(reach, 2, 0xffffff, 0.2 + 0.3 * hot);
+    case 'cyclone':
+      // 旋风：轨迹上叠一道驻波
+      wobble((i) => Math.sin((i / n) * Math.PI * 5) * 9, 0.9, color, 1.1);
+      core(0.25, 1);
       break;
-    }
-    case 'afterimage': {
-      for (let k = 0; k < 3; k++) {
-        g.lineStyle(6 - k, color, (0.3 - 0.08 * k) * (0.6 + hot));
-        g.beginPath();
-        g.arc(sx, sy, reach, a0 - 0.13 * k, a1 - 0.13 * k, false, 0);
-        g.strokePath();
+    case 'afterimage':
+      // 残像：同一条轨迹往法线方向再描两道
+      for (let k = 0; k < 3; k++) ribbon(1.15 - k * 0.28, color, 1 - k * 0.3, k * 5);
+      break;
+    case 'bolt':
+      // 落雷：锯齿
+      wobble((i) => (i % 2 === 0 ? 7 : -7) * (0.4 + hot), 0.8, color, 1.2);
+      core(0.3, 1.3);
+      break;
+    case 'blaze':
+      // 烈焰：橙带 + 沿路的火苗
+      ribbon(1.5, 0xff7a2a, 1);
+      ribbon(0.7, 0xffe08a, 1);
+      for (let i = 2; i < n; i += 2) {
+        const p = perp(i);
+        const q = at(i);
+        const len = 10 + 12 * hot;
+        g.fillStyle(0xff9a3c, Math.min(1, pts[i].a * 1.2));
+        g.fillTriangle(q.x, q.y, q.x + p.x * len, q.y + p.y * len, q.x - p.y * 3, q.y + p.x * 3);
       }
       break;
-    }
-    case 'bolt': {
-      const pts: { x: number; y: number }[] = [];
-      for (let i = 0; i <= 10; i++) {
-        const jitter = i % 2 === 0 ? 7 : -7;
-        pts.push(pt(i / 10, reach + jitter * (0.4 + hot)));
-      }
-      g.lineStyle(6, color, 0.18 + 0.2 * hot);
-      stroke(pts);
-      g.lineStyle(2, 0xffffff, 0.5 + 0.4 * hot);
-      stroke(pts);
+    case 'frostbite':
+      // 冰痕：白芯 + 沿路冰晶
+      ribbon(0.9, color, 1);
+      core(0.4, 1.2);
+      for (let i = 1; i < n; i += 2) dot(i, 2 + 2.5 * hot, 0xdcf4ff, 1.4);
       break;
-    }
-    case 'blaze': {
-      arcAt(reach, 6 + 8 * hot, 0xff7a2a, 0.2 + 0.3 * hot);
-      arcAt(reach, 3 + 3 * hot, 0xffe08a, 0.25 + 0.4 * hot);
-      for (let i = 0; i <= 6; i++) {
-        const f = i / 6;
-        const jitter = ((i * 37) % 11) / 11 - 0.5;
-        const base = pt(f, reach);
-        const tip = pt(f, reach + 12 + 14 * hot + jitter * 12);
-        g.fillStyle(0xff9a3c, 0.3 + 0.4 * hot);
-        g.fillTriangle(base.x, base.y, tip.x, tip.y, base.x + 4, base.y + 4);
-      }
-      break;
-    }
-    case 'frostbite': {
-      arcAt(reach, 3 + 3 * hot, 0xffffff, 0.3 + 0.4 * hot);
-      arcAt(reach, 5, color, 0.2 + 0.25 * hot);
-      for (let i = 0; i <= 6; i++) {
-        const p = pt(i / 6, reach + 3);
-        g.fillStyle(0xdcf4ff, 0.5 + 0.4 * hot);
-        g.fillCircle(p.x, p.y, 2 + 2 * hot);
-      }
-      break;
-    }
     case 'orbit': {
-      arcAt(reach, 2 + 2 * hot, color, 0.25 + 0.3 * hot);
-      for (let i = 0; i < 5; i++) {
-        const f = (i / 5 + (now / 900) % 1) % 1;
-        const p = pt(f, reach);
-        g.fillStyle(0xfff2b0, 0.6 + 0.4 * hot);
-        g.fillCircle(p.x, p.y, 1.5 + 2.5 * hot);
+      // 星轨：细弧 + 几个沿路径跑的光点
+      ribbon(0.55, color, 1);
+      const head0 = Math.floor(now / 90) % n;
+      for (let k = 0; k < 5; k++) dot((head0 + k * 3) % n, 2 + 2.5 * hot, 0xfff2b0, 1.6);
+      break;
+    }
+    case 'wave':
+      // 波浪：随时间起伏的带子
+      wobble((i) => Math.sin(i * 0.9 + now / 90) * 6, 0.8, color, 1.2);
+      core(0.2, 1);
+      break;
+    case 'thorn':
+      // 荆棘：带子 + 垂直尖刺
+      ribbon(0.8, color, 1);
+      for (let i = 1; i < n; i += 2) {
+        const p = perp(i);
+        const len = 8 + 9 * hot;
+        g.lineStyle(2, color, Math.min(1, pts[i].a * 1.3));
+        g.lineBetween(pts[i].x, pts[i].y, pts[i].x + p.x * len, pts[i].y + p.y * len);
       }
       break;
-    }
-    case 'wave': {
-      stroke(samples((f) => reach + Math.sin(f * Math.PI * 6 + now / 120) * 6));
-      arcAt(reach, 2, color, 0.3 + 0.3 * hot);
-      break;
-    }
-    case 'thorn': {
-      arcAt(reach, 3 + 3 * hot, color, 0.3 + 0.35 * hot);
-      for (let i = 0; i <= 7; i++) {
-        const f = i / 7;
-        const base = pt(f, reach);
-        const tip = pt(f, reach + 9 + 9 * hot);
-        g.lineStyle(2, color, 0.4 + 0.3 * hot);
-        g.lineBetween(base.x, base.y, tip.x, tip.y);
+    case 'prism':
+      // 棱镜：轨迹按四色分段
+      {
+        const segs = [0xff8ad4, 0xffd45c, 0x8fe0ff, 0x9fe8b0];
+        const q = Math.ceil(n / segs.length);
+        for (let k = 0; k < segs.length; k++) {
+          const from = k * q;
+          const to = Math.min(n, from + q + 1);
+          for (let i = Math.max(1, from); i < to; i++) {
+            g.lineStyle(Math.max(1, pts[i].w * 1.4), segs[k], Math.min(1, pts[i].a * 1.2));
+            g.lineBetween(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+          }
+        }
       }
       break;
-    }
-    case 'prism': {
-      const segs = [0xff8ad4, 0xffd45c, 0x8fe0ff, 0x9fe8b0];
-      for (let k = 0; k < segs.length; k++) {
-        g.lineStyle(7 + 5 * hot, segs[k], 0.2 + 0.3 * hot);
-        g.beginPath();
-        g.arc(
-          sx, sy, reach,
-          a0 + ((a1 - a0) * k) / segs.length,
-          a0 + ((a1 - a0) * (k + 1)) / segs.length,
-          false, 0,
-        );
-        g.strokePath();
+    case 'beam':
+      // 激光切片：深底 + 亮芯 + 白边 + 星点
+      ribbon(2.6, 0x0d3a2c, 0.85);
+      ribbon(1.2, color, 1);
+      core(0.3, 1.2);
+      for (let i = 2; i < n; i += 3) dot(i, 2 + 2 * hot, 0xd8fff0, 1.4);
+      break;
+    case 'shardedge':
+      // 碎晶刃：冰蓝带 + 白芯，沿路撒旋转的晶片
+      ribbon(1.4, color, 1);
+      core(0.45, 1.3);
+      for (let i = 1; i < n; i += 2) {
+        const q = at(i);
+        g.save();
+        g.translateCanvas(q.x, q.y);
+        g.rotateCanvas(now / 200 + i);
+        g.fillStyle(0xe8fbff, Math.min(1, pts[i].a * 1.3));
+        g.fillTriangle(0, -4, 2.6, 2.6, -2.6, 2.6);
+        g.restore();
       }
       break;
-    }
-    case 'voidcut': {
-      arcAt(reach, 12 + 10 * hot, 0x1a0b2e, 0.4 + 0.3 * hot);
-      arcAt(reach, 3 + 3 * hot, color, 0.5 + 0.4 * hot);
-      arcAt(reach + 6, 2, 0xffffff, 0.3 + 0.3 * hot);
+    case 'drabreath': {
+      // 龙息：紫金双层 + 沿路星子，拍头处一团龙炎
+      ribbon(2.2, 0x241d45, 0.85);
+      ribbon(1.2, color, 1);
+      ribbon(0.5, 0xffd45c, 1);
+      for (let i = 2; i < n; i += 2) dot(i, 2 + 2 * hot, 0xfff2b0, 1.6);
+      const h = pts[n - 1];
+      g.fillStyle(0x9f7bff, Math.min(1, h.a * 1.4));
+      g.fillCircle(h.x, h.y, 6 + 8 * hot);
+      g.fillStyle(0xffd45c, Math.min(1, h.a * 1.2));
+      g.fillCircle(h.x, h.y, 3 + 4 * hot);
       break;
     }
+    case 'voidcut':
+      // 虚空斩：深紫底 + 亮芯
+      ribbon(2.3, 0x1a0b2e, 0.85);
+      ribbon(0.8, color, 1);
+      core(0.3, 1.1);
+      break;
   }
+
+  // 拍头那一点始终最亮：这是「正在挥拍」的视觉锚点
+  g.fillStyle(0xffffff, Math.min(1, 0.2 + 0.5 * hot));
+  g.fillCircle(pts[n - 1].x, pts[n - 1].y, 2.5 + 3.5 * hot);
 }

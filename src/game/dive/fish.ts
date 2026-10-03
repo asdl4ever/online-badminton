@@ -33,7 +33,14 @@ export interface Species {
   bottom?: boolean;
 }
 
-/** 鱼种表：按深度排开，浅 → 深 = 便宜 → 贵 */
+/**
+ * 鱼种表：按深度排开，浅 → 深 = 便宜 → 贵。
+ *
+ * `band` 是**绝对水深（px，10px = 1m）**，海域整体加深后这里也跟着拉开了：
+ * 最浅的沙丁鱼只在 60m 以内，最深的两档（巨型石斑 / 深海龙王）压到 620m 上下，
+ * 所以「潜得越深 → 鱼越大越贵」这条线现在是贯穿整片海的（配合 `DiveScene`
+ * 的 `DEPTH_ZONES`：浅层只占 18% 的刷鱼量）。改 `ISLANDS[].floor` 时记得一起看这里。
+ */
 export const SPECIES: Species[] = [
   {
     id: 'sardine',
@@ -42,7 +49,7 @@ export const SPECIES: Species[] = [
     kg: [0.1, 0.35],
     perKg: 26,
     base: 4,
-    band: [40, 420],
+    band: [40, 600],
     weight: 26,
     speed: 150,
     flee: 0.95,
@@ -57,7 +64,7 @@ export const SPECIES: Species[] = [
     kg: [0.2, 0.7],
     perKg: 30,
     base: 6,
-    band: [60, 520],
+    band: [60, 900],
     weight: 20,
     speed: 120,
     flee: 0.8,
@@ -72,7 +79,7 @@ export const SPECIES: Species[] = [
     kg: [1, 3.5],
     perKg: 34,
     base: 18,
-    band: [260, 900],
+    band: [250, 1600],
     weight: 16,
     speed: 105,
     flee: 0.6,
@@ -87,7 +94,7 @@ export const SPECIES: Species[] = [
     kg: [1.5, 4],
     perKg: 42,
     base: 24,
-    band: [420, 1100],
+    band: [450, 2600],
     weight: 12,
     speed: 70,
     flee: 0.45,
@@ -103,7 +110,7 @@ export const SPECIES: Species[] = [
     kg: [0.8, 3],
     perKg: 60,
     base: 30,
-    band: [700, 2100],
+    band: [800, 4200],
     weight: 9,
     speed: 55,
     flee: 0.35,
@@ -119,7 +126,7 @@ export const SPECIES: Species[] = [
     kg: [3, 9],
     perKg: 44,
     base: 60,
-    band: [700, 1300],
+    band: [900, 3000],
     weight: 10,
     speed: 130,
     flee: 0.7,
@@ -134,7 +141,7 @@ export const SPECIES: Species[] = [
     kg: [8, 26],
     perKg: 52,
     base: 120,
-    band: [900, 2500],
+    band: [1200, 4600],
     weight: 7,
     speed: 170,
     flee: 0.75,
@@ -149,7 +156,7 @@ export const SPECIES: Species[] = [
     kg: [5, 16],
     perKg: 88,
     base: 180,
-    band: [1100, 2900],
+    band: [1500, 5600],
     weight: 5,
     speed: 60,
     flee: 0.3,
@@ -164,7 +171,7 @@ export const SPECIES: Species[] = [
     kg: [20, 60],
     perKg: 74,
     base: 260,
-    band: [1300, 3600],
+    band: [1800, 6200],
     weight: 3,
     speed: 48,
     flee: 0.2,
@@ -180,7 +187,7 @@ export const SPECIES: Species[] = [
     kg: [30, 95],
     perKg: 150,
     base: 600,
-    band: [1500, 3800],
+    band: [2400, 6300],
     weight: 1.4,
     speed: 90,
     flee: 0.5,
@@ -253,6 +260,13 @@ export interface Island {
   hazards: IslandHazards;
 }
 
+/**
+ * 四片海：`floor` 是海床深度（px，10px = 1m）。
+ *
+ * 海域整体加深过一轮（深水区才有大鱼），现在从 200m 一路排到 640m——
+ * 能不能潜到海床，取决于氧气罐等级与 `DiveScene` 的氧气曲线（越深越费气），
+ * 所以「浅滩随便潜 / 沉船湾要满级氧气罐才摸得到底」是设计好的。
+ */
 export const ISLANDS: Island[] = [
   {
     id: 'shore',
@@ -261,7 +275,7 @@ export const ISLANDS: Island[] = [
     cost: 0,
     gear: 1,
     palette: { shallow: 0x3fa9d8, deep: 0x0b2e4a, accent: 0x9fe8ff },
-    floor: 1900,
+    floor: 2000,
     fish: ['sardine', 'clown', 'bass', 'octopus'],
     hazards: { jelly: 3, shark: 0, current: 0 },
   },
@@ -273,7 +287,7 @@ export const ISLANDS: Island[] = [
     gear: 2,
     boat: true,
     palette: { shallow: 0x35c4c0, deep: 0x083b46, accent: 0xffe6a3 },
-    floor: 2600,
+    floor: 3200,
     fish: ['clown', 'bass', 'octopus', 'lobster', 'amberjack'],
     hazards: { jelly: 7, shark: 0, current: 1 },
   },
@@ -285,7 +299,7 @@ export const ISLANDS: Island[] = [
     gear: 3,
     boat: true,
     palette: { shallow: 0x1f6f9e, deep: 0x061b33, accent: 0x8fd8ff },
-    floor: 3300,
+    floor: 5000,
     fish: ['amberjack', 'tuna', 'angler', 'grouper'],
     hazards: { jelly: 4, shark: 1, current: 2 },
   },
@@ -297,7 +311,7 @@ export const ISLANDS: Island[] = [
     gear: 4,
     boat: true,
     palette: { shallow: 0x2d7f8f, deep: 0x04101f, accent: 0x7fe0c0 },
-    floor: 4000,
+    floor: 6400,
     fish: ['tuna', 'grouper', 'oarfish', 'lobster'],
     hazards: { jelly: 6, shark: 2, current: 3 },
   },
@@ -309,18 +323,25 @@ export function islandById(id: string): Island {
 
 // ---- 升级 -----------------------------------------------------------------
 
-export const MAX_LEVEL = 5;
+/**
+ * 三条线的最高等级。海域加深到 640m 之后，氧气罐要能撑到「下一趟深海」才够用，
+ * 所以从 5 级放宽到 8 级（背包与渔具跟着一起放开，不然只有氧气能升会很怪）。
+ */
+export const MAX_LEVEL = 8;
 
-/** 升到下一级的价格：三件装备一个曲线 */
-export const UPGRADE_COSTS = [0, 300, 700, 1400, 2400];
+/** 升到下一级的价格：三件装备一个曲线（下标 = 当前等级，即「从 i 级升到 i+1 级」） */
+export const UPGRADE_COSTS = [0, 300, 700, 1400, 2400, 4200, 7000, 11000];
 
 export function upgradeCost(level: number): number {
   return UPGRADE_COSTS[Math.min(level, UPGRADE_COSTS.length - 1)];
 }
 
-/** 氧气上限（秒）：海变深了，氧气曲线也放宽一档 */
+/**
+ * 氧气上限（秒）。深海一趟动辄一两分钟，所以曲线比原来陡：
+ * Lv1 36s → Lv8 232s（配合 `DiveScene` 的平方消耗曲线，见那边的 `OXYGEN_DEEP2`）。
+ */
 export function oxygenMax(level: number): number {
-  return 32 + (level - 1) * 10;
+  return 36 + (level - 1) * 28;
 }
 
 /** 背包容量：条数 / 总重量（kg） */

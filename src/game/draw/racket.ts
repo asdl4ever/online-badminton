@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { RACKET_SKIN_COLORS, type RacketSkinId } from '../cosmetics';
 import { P } from '../theme';
+import { drawThemeRacketFrame, drawThemeRacketTrim } from './themeart';
 
 /** the skin's own colour, falling back to the player's racket tint */
 export function racketFrameColor(skin: RacketSkinId, tint: number): number {
@@ -23,13 +24,18 @@ export function drawRacketHead(
 ): void {
   g.lineStyle(6, P.grip, 0.95);
   g.lineBetween(-12, 0, -2, 0);
+  // 软光晕（任何非默认皮肤都有，给新外形当背光）
   if (skin !== 'default') {
     const glow = skin === 'flame' ? 0.22 + 0.16 * Math.sin(now / 60) : 0.3;
     g.lineStyle(12, frameColor, glow);
     g.strokeEllipse(9, 0, 34, 28);
   }
-  g.lineStyle(3, frameColor, 0.95);
-  g.strokeEllipse(9, 0, 34, 28);
+  // 拍框外形：主题皮肤 + 老皮肤都可以整个换掉（扇面 / 水滴 / 盾牌 / 月牙…）；
+  // 有外形就画外形，没有才画常规椭圆。
+  if (!drawThemeRacketFrame(g, now, skin, frameColor)) {
+    g.lineStyle(3, frameColor, 0.95);
+    g.strokeEllipse(9, 0, 34, 28);
+  }
   drawRacketTrim(g, now, skin, frameColor);
 }
 
@@ -39,6 +45,8 @@ export function drawRacketTrim(
   skin: RacketSkinId,
   color: number,
 ): void {
+  // 新主题宝箱的球拍皮肤：走 themeart 的通用装饰
+  if (drawThemeRacketTrim(g, now, skin, color)) return;
   switch (skin) {
     case 'circuit': {
       g.lineStyle(1.6, color, 0.9);
@@ -586,6 +594,28 @@ export function drawRacketTrim(
       }
       g.fillStyle(color, 0.9);
       g.fillCircle(9, 0, 2.5);
+      break;
+    }
+    case 'meteorite': {
+      // 陨石球拍：坑洼的岩面 + 边缘烧红、星尘往外飘
+      g.fillStyle(0x4a4f58, 0.92);
+      g.fillCircle(9, 0, 15);
+      g.fillStyle(0x2e3238, 0.95);
+      for (let k = 0; k < 7; k++) {
+        const ang = k * 2.399;
+        g.fillCircle(9 + Math.cos(ang) * 9, Math.sin(ang) * 7.5, 2.6);
+      }
+      g.lineStyle(2, 0xffa04a, 0.45 + 0.35 * Math.sin(now / 200));
+      g.strokeEllipse(9, 0, 34, 28);
+      g.fillStyle(0xffd45c, 0.9);
+      for (let k = 0; k < 4; k++) {
+        const ph = (now / 900 + k / 4) % 1;
+        g.fillCircle(
+          9 + Math.cos(k * 1.7) * (10 + ph * 10),
+          Math.sin(k * 1.7) * (8 + ph * 8),
+          1.8 * (1 - ph),
+        );
+      }
       break;
     }
     default:
