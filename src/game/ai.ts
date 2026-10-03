@@ -1,8 +1,10 @@
 import { NET_TOP, NET_X, PLAYER_H } from './constants';
-import { clamp, simulateTrajectory } from './physics';
+import { clamp, minReleaseFor, simulateTrajectory } from './physics';
 import { homeX, shoulderPoint } from './simulation';
 import type { PlayerInput, World } from './types';
-import type { PlayerStats } from './players';
+import type { WorldConfig } from './config';
+import type { PlayerAttrs } from './attrs';
+import { attrsFromStats, type PlayerStats } from './players';
 
 /**
  * 人机的**唯一数据源是四维**（技术 / 速度 / 进攻 / 防守）。
@@ -102,6 +104,10 @@ interface Behavior {
   loft: number;
   /** 站位前后偏移（正数更靠网） */
   approach: number;
+  /** 接杀：来球越快提前越远出手（防守越好读得越早） */
+  blockEarly: number;
+  /** 接杀回球的仰角（防守越好挡得越高，给自己挣回位时间） */
+  blockLift: number;
 }
 
 /**
@@ -132,6 +138,9 @@ export function behaviorFromStats(s: PlayerStats): Behavior {
     approach: lerp(-150, 130, s.attack),
     // 防守型出球更高更稳
     loft: lerp(0.78, 1.4, s.defense),
+    // 防守 → 接杀：会防守的人读得早（提前出手）、挡得高（平抽接杀容易撞网）
+    blockEarly: lerp(0.05, 0.22, s.defense),
+    blockLift: lerp(0.55, 1.12, s.defense),
   };
 }
 
@@ -152,6 +161,8 @@ function readyInput(facing: 1 | -1): PlayerInput {
 export class AIController {
   /** 由四维算好的行为参数（构造 / setStats 时算一次） */
   private beh: Behavior;
+  /** 由四维算好的物理属性（力量 / 技术）：预判「这一板出球会不会下网」要用 */
+  private attrs: PlayerAttrs;
   private errorTimer = 0;
   private errorOffset = 0;
   private reactionTimer = 0;
@@ -168,11 +179,56 @@ export class AIController {
 
   constructor(stats: PlayerStats = NEUTRAL_STATS, side: 0 | 1 = 1) {
     this.beh = behaviorFromStats(stats);
+    this.attrs = attrsFromStats(stats);
     this.targetX = homeX(side);
   }
 
   setStats(stats: PlayerStats): void {
     this.beh = behaviorFromStats(stats);
+    this.attrs = attrsFromStats(stats);
+  }
+
+  /**
+   * 【出球规划】把「理想仰角 / 力度」（已含执行波动）从**预计接触点**验证整条弹道：
+   * 过不了网就依次换组合 —— 压平仰角 × 加大力度（高远球要又平又快才够得着网）、
+   * 再不行就抬高仰角改成挑球。返回**最终要打**的角度与力度，
+   * 所以人机不会再打出「低球也杀 / 后场高抛挂网 / 发球直接扣」这种球。
+   */
+  private planShot(
+    shuttle: { x: number; y: number; vx: number; vy: number },
+    px: number,
+    dir: 1 | -1,
+    wc: WorldConfig,
+    elev: number,
+    speed: number,
+  ): { elevation: number; speed: number } {
+    // 预计接触点：球飞到人身边那一刻（它一路在下坠，到跟前往往已经低了不少）
+    const tHit = clamp(Math.abs(px - shuttle.x) / Math.max(80, Math.abs(shuttle.vx)), 0, 0.45);
+    const cx = shuttle.x + shuttle.vx * tHit;
+    const cy = shuttle.y + Math.max(0, shuttle.vy) * tHit;
+    const test = (e: number, s: number) => {
+      const sp = clamp(
+        s * wc.shotSpeedGain * this.attrs.power,
+        wc.shotSpeedMin * this.attrs.skill,
+        wc.shotSpeedMax * this.attrs.power,
+      );
+      return simulateTrajectory(cx, cy, dir * sp * Math.cos(e), -sp * Math.sin(e), dir, wc);
+    };
+    // 顺序：理想值 → 压平（×0.8）→ 常用高远角 → 更平更快 → 抬高成挑球
+    const eList = [elev, elev * 0.8, 0.62, 0.5, 0.4, 0.32, Math.max(0.28, elev * 1.15)];
+    const sList = [speed, speed * 1.2, speed * 1.45, speed * 0.85];
+    let fallback: { elevation: number; speed: number } | null = null;
+    for (const e of eList) {
+      const ee = clamp(e, wc.aimMin, wc.aimMax);
+      for (const s of sList) {
+        const t = test(ee, s);
+        // 过网要有 10px 余量（接触点估计有误差，擦网顶的不算稳）
+        const clear = t.netY != null && t.netY < NET_TOP - 10;
+        if (clear && !t.out) return { elevation: ee, speed: s };
+        if (!fallback && t.netY != null) fallback = { elevation: ee, speed: s };
+      }
+    }
+    return fallback ?? { elevation: clamp(elev, wc.aimMin, wc.aimMax), speed };
   }
 
   update(world: World, me: 0 | 1, dt: number): PlayerInput {
@@ -275,6 +331,9 @@ export class AIController {
       }
 
       const incoming = mySide < 0 ? shuttle.x < NET_X : shuttle.x > NET_X;
+      // 来球速度：接杀要用（杀球又快又低，出手要早、回球要往高里挡）
+      const fast = Math.hypot(shuttle.vx, shuttle.vy);
+      const incomingFast = incoming && fast > 1600;
 
       if (this.swingTimer > 0 && this.swing) {
         this.swingTimer -= dt;
@@ -318,22 +377,46 @@ export class AIController {
       input.rvx = dir * (110 + Math.sin(this.t * 3.1) * 50);
       input.rvy = -70 + Math.cos(this.t * 2.4) * 40;
 
-      if (incoming && dist > 1 && dist < 150) {
-        // 扣杀门槛：球要高过网一定余量，技术低的人余量要求更大（于是不会一路扣到网上）
-        const highEnough = shuttle.y < NET_TOP - beh.smashMargin;
+      // 球越快越要早出手；防守好的球员读球早（提前量更大）。
+      // 慢球维持原来的 150px，所以这条只对「接杀」起作用。
+      const trigger = 150 + clamp(fast - 1100, 0, 2600) * beh.blockEarly;
+
+      if (incoming && dist > 1 && dist < trigger) {
+        // 【杀球门槛】杀球是**往下**打的：球从击球点飞到网前会一路下坠，
+        // 所以离网越远、球就要越高，否则必然撞网。过去只判「球是否高过网」，
+        // 结果后场杀球 / 低球杀球全都往网里砸。
+        const dxNet = Math.max(24, Math.abs(shuttle.x - NET_X));
+        const dropRate = Math.tan(Math.max(0.08, -beh.smashAngle)); // 每前进 1px 掉多少
+        const fall = Math.max(0, shuttle.vy) * 0.12; // 挥拍这 0.1 秒球还在掉
+        // 余量吃「技术」：技术越好要求越低（敢扣），技术差的要求更高（少扣不失误）
+        const need = dxNet * dropRate + beh.smashMargin * 0.35 + fall;
+        const highEnough = shuttle.y < NET_TOP - need;
         // 进攻型把「网前」范围放大，但不再无脑放大到全场地
         const nearNet = Math.abs(p.x - NET_X) < 340 * (0.7 + 0.45 * beh.aggression);
         const aboveNet = shuttle.y < NET_TOP - 30;
+
+        // 这一板的执行波动**先掷好**：仰角抖动 / 力度抖动 / 偶尔手一抖（技术差的人抖得厉害）
+        const blunder = Math.random() < beh.blunder;
+        const jitterE =
+          (Math.random() * 2 - 1) * beh.aimError + (blunder ? (Math.random() * 2 - 1) * 0.22 : 0);
+        const speedJ = 1 + (Math.random() * 2 - 1) * beh.control - (blunder ? 0.38 : 0);
+
         let elevation: number;
         let speed: number;
+        let jumpFirst = false;
         if (highEnough && nearNet && beh.aggression > 1.1) {
-          // 扣杀：还站在地上就先跳起来，在空中完成
-          if (p.onGround) input.jump = true;
+          // 扣杀：还站在地上就先跳起来，在空中完成（规划完确实能杀才跳）
+          jumpFirst = p.onGround;
           elevation = beh.smashAngle;
           speed = 1950;
+        } else if (incomingFast) {
+          // 【接杀】来球又快又低：往高里挡出去，别平抽（平抽从低点出发容易撞网）。
+          // 防守越好挡得越高，回球又高又远，正好给自己挣回位时间。
+          elevation = Math.max(minReleaseFor(shuttle.x, shuttle.y, wc), beh.blockLift);
+          speed = 1180;
         } else if (!aboveHead && nearNet && Math.random() < beh.drop) {
           // 技术型：球不高、人在网前 → 轻吊网前小球
-          elevation = 0.32;
+          elevation = Math.max(minReleaseFor(shuttle.x, shuttle.y, wc), 0.32);
           speed = 900;
         } else if (aboveNet) {
           elevation = 0.62 * beh.loft;
@@ -345,15 +428,14 @@ export class AIController {
           elevation = 0.22 * beh.loft;
           speed = 1320;
         }
-        elevation += (Math.random() * 2 - 1) * beh.aimError;
-        // 力度波动由「技术」控制：技术高 → 出球质量稳定
-        speed *= 1 + (Math.random() * 2 - 1) * beh.control;
-        // 偶尔手一抖：球变软、角度变偏 —— 再强的球员也留出被反击的机会
-        if (Math.random() < beh.blunder) {
-          speed *= 0.62;
-          elevation += (Math.random() * 2 - 1) * 0.22;
-        }
-        elevation = clamp(elevation, wc.aimMin, wc.aimMax);
+
+        // 【出球规划】加上执行波动后验证整条弹道：过不了网就自动换组合
+        const planned = this.planShot(shuttle, p.x, dir, wc, elevation + jitterE, speed * speedJ);
+        elevation = planned.elevation;
+        speed = planned.speed;
+        // 规划完发现杀不成（过不了网）就不跳了，那一路会改成稳妥的回球
+        if (jumpFirst && elevation >= 0) jumpFirst = false;
+        if (jumpFirst) input.jump = true;
 
         const reach = Math.min(dist, wc.racketMax);
         const err = beh.contactError;

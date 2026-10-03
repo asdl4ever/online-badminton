@@ -359,6 +359,7 @@ function onEvent(e: SimEvent): void {
         :stats="selectedEntrant.stats"
         :cosmetic="selectedEntrant.cosmetic"
         :is-me="selectedEntrant.isMe"
+        :roster="progress.aiNames"
       >
         <Button variant="quiet" block @click="closeEntrant">关闭</Button>
       </PlayerProfile>

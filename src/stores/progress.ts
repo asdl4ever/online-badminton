@@ -66,8 +66,7 @@ import {
   type PlayerStats,
 } from '../game/players';
 import {
-  MATCH_KEY,
-  worldEdition,
+  cupMatchKey,
   worldState,
   type WorldArenaState,
 } from '../game/world-arena';
@@ -687,6 +686,9 @@ export const useProgressStore = defineStore('progress', () => {
   /** 玩家自己在单机 / 晋级赛里的胜负记录（排行榜里和自己对比用） */
   const playerRecord = useLocalStorage('bmt-player-record', { wins: 0, losses: 0 });
 
+  /** 名人堂球员的名字：球员履历里挑「负于谁」用（见 `game/career.ts`） */
+  const aiNames = computed(() => aiPlayers.value.map((p) => p.name));
+
   /** 赛季（YYYY-MM）：积分每月 1 号清零，按赛季最高段位发金币 */
   const seasonId = useLocalStorage('bmt-season', '');
   const seasonPeak = useLocalStorage<TierId>('bmt-season-peak', 'bronze');
@@ -1036,40 +1038,50 @@ export const useProgressStore = defineStore('progress', () => {
 
   // ---- 🌍 世界赛（观战台的数据源）-------------------------------------------
 
-  /** 只存「玩家真看过 / 快进过」的那几场；届一换就清空（联赛自己往前滚） */
-  const worldArena = useLocalStorage<{ edition: number; overrides: Record<string, string> }>(
-    'bmt-world-arena',
-    { edition: -1, overrides: {} },
-  );
-
-  /** 翻届：届号一变就把「看过的那几场」清掉（联赛自己往前滚）。视图每秒调一次 */
-  function ensureWorldEdition(now = Date.now()): number {
-    const ed = worldEdition(now);
-    if (worldArena.value.edition !== ed) worldArena.value = { edition: ed, overrides: {} };
-    return ed;
-  }
+  /**
+   * 只存「玩家真看过 / 快进过」的那几场。键里带着杯 + 届（见 `cupMatchKey`），
+   * 所以不同杯、不同届不会串；条目太多就按插入顺序丢掉最老的（联赛自己往前滚）。
+   */
+  const worldArena = useLocalStorage<{ overrides: Record<string, string> }>('bmt-world-arena', {
+    overrides: {},
+  });
+  /** overrides 最多留这么多条（4 个杯每 10 分钟一届，够翻好几十届） */
+  const WORLD_OVERRIDE_CAP = 600;
 
   /**
-   * 当前这一届世界赛"到此刻为止"的样子——**纯读**（不在 computed 里写状态）。
-   * 届号还没翻（视图没来得及调 `ensureWorldEdition`）时，按"没有任何 override"算。
+   * 当前这些杯"到此刻为止"的样子——**纯读**（不在 computed 里写状态）。
+   * `overrides` 里过期的键不影响结果（每届的键都带届号，对不上就是没记过）。
    */
   function worldArenaState(now = Date.now()): WorldArenaState {
-    const ed = worldEdition(now);
-    const overrides = worldArena.value.edition === ed ? worldArena.value.overrides : {};
-    return worldState(aiPlayers.value, ed, now, overrides);
+    return worldState(aiPlayers.value, now, worldArena.value.overrides);
   }
 
-  /** 正在打的那一场（没有就 null） */
-  function worldLiveMatch(
+  /** 现在正在直播的所有场次（跨杯，可能同时好几场）——观战台的大屏用 */
+  function worldLiveMatches(
     now = Date.now(),
-  ): { round: number; index: number; a: ArenaEntrant; b: ArenaEntrant } | null {
+  ): { cup: number; season: number; round: number; index: number; a: ArenaEntrant; b: ArenaEntrant }[] {
     const st = worldArenaState(now);
-    if (!st.live) return null;
-    const m = st.rounds[st.live.round]?.[st.live.index];
-    if (!m) return null;
-    const a = st.entrants.find((e) => e.id === m.a);
-    const b = st.entrants.find((e) => e.id === m.b);
-    return a && b ? { round: st.live.round, index: st.live.index, a, b } : null;
+    const out: ReturnType<typeof worldLiveMatches> = [];
+    for (const l of st.liveMatches) {
+      const cup = st.cups[l.cup];
+      if (!cup) continue;
+      const m = cup.rounds[l.round]?.[l.index];
+      if (!m) continue;
+      const a = cup.entrants.find((e) => e.id === m.a);
+      const b = cup.entrants.find((e) => e.id === m.b);
+      if (a && b) {
+        out.push({ cup: l.cup, season: cup.season, round: l.round, index: l.index, a, b });
+      }
+    }
+    return out;
+  }
+
+  /** 某位球员正在打的那一场（名人堂给他一个「观战」入口） */
+  function worldLiveMatchOf(
+    id: string,
+    now = Date.now(),
+  ): { cup: number; season: number; round: number; index: number; a: ArenaEntrant; b: ArenaEntrant } | null {
+    return worldLiveMatches(now).find((l) => l.a.id === id || l.b.id === id) ?? null;
   }
 
   /**
@@ -1077,18 +1089,28 @@ export const useProgressStore = defineStore('progress', () => {
    * 写进 `overrides`（刷新也认这个结果），并把两位 AI 的战绩一起更新——
    * 所以"看比赛"是真的在改变名人堂的名次。
    */
-  function recordWorldMatch(round: number, index: number, winnerId: string): boolean {
-    const ed = ensureWorldEdition();
-    const key = MATCH_KEY(round, index);
+  function recordWorldMatch(
+    cup: number,
+    season: number,
+    round: number,
+    index: number,
+    winnerId: string,
+  ): boolean {
+    const key = cupMatchKey(cup, season, round, index);
     if (worldArena.value.overrides[key]) return false; // 已经记过，别重复记战绩
-    const st = worldState(aiPlayers.value, ed, Date.now(), worldArena.value.overrides);
-    const m = st.rounds[round]?.[index];
+    const st = worldState(aiPlayers.value, Date.now(), worldArena.value.overrides);
+    const stCup = st.cups[cup];
+    // 届号对不上（这一届已经打完翻篇了）就不记
+    if (!stCup || stCup.season !== season) return false;
+    const m = stCup.rounds[round]?.[index];
     if (!m || (winnerId !== m.a && winnerId !== m.b)) return false;
     const loserId = winnerId === m.a ? m.b : m.a;
-    worldArena.value = {
-      edition: ed,
-      overrides: { ...worldArena.value.overrides, [key]: winnerId },
-    };
+    const nextOv = { ...worldArena.value.overrides, [key]: winnerId };
+    const keys = Object.keys(nextOv);
+    if (keys.length > WORLD_OVERRIDE_CAP) {
+      for (const k of keys.slice(0, keys.length - WORLD_OVERRIDE_CAP)) delete nextOv[k];
+    }
+    worldArena.value = { overrides: nextOv };
     const wi = aiPlayers.value.findIndex((p) => p.id === winnerId);
     const li = aiPlayers.value.findIndex((p) => p.id === loserId);
     if (wi >= 0 && li >= 0 && wi !== li) {
@@ -1102,19 +1124,25 @@ export const useProgressStore = defineStore('progress', () => {
   }
 
   /** 快进：不看这一场，直接按五维算结果并写回赛程 */
-  function fastForwardWorldMatch(round: number, index: number): boolean {
-    const ed = ensureWorldEdition();
-    const st = worldState(aiPlayers.value, ed, Date.now(), worldArena.value.overrides);
-    const m = st.rounds[round]?.[index];
+  function fastForwardWorldMatch(
+    cup: number,
+    season: number,
+    round: number,
+    index: number,
+  ): boolean {
+    const st = worldState(aiPlayers.value, Date.now(), worldArena.value.overrides);
+    const stCup = st.cups[cup];
+    if (!stCup || stCup.season !== season) return false;
+    const m = stCup.rounds[round]?.[index];
     if (!m || !m.a || !m.b) return false;
     let winner = m.winner;
     if (!winner) {
-      const a = st.entrants.find((e) => e.id === m.a);
-      const b = st.entrants.find((e) => e.id === m.b);
+      const a = stCup.entrants.find((e) => e.id === m.a);
+      const b = stCup.entrants.find((e) => e.id === m.b);
       if (!a || !b) return false;
       winner = simulateArenaMatch(a, b);
     }
-    return recordWorldMatch(round, index, winner);
+    return recordWorldMatch(cup, season, round, index, winner);
   }
 
   /** 段位奖励：每档 3 把宝箱钥匙（宝箱钥匙的来源之一） */
@@ -1765,6 +1793,7 @@ export const useProgressStore = defineStore('progress', () => {
     arenaFinishMatch,
     arenaQuit,
     aiPlayers,
+    aiNames,
     ensureLegend,
     honor,
     playerRecord,
@@ -1773,9 +1802,9 @@ export const useProgressStore = defineStore('progress', () => {
     updateAiPlayer,
     setAiRetired,
     removeAiPlayer,
-    ensureWorldEdition,
     worldArenaState,
-    worldLiveMatch,
+    worldLiveMatches,
+    worldLiveMatchOf,
     recordWorldMatch,
     fastForwardWorldMatch,
     seasonId,

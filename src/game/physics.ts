@@ -42,6 +42,13 @@ export function simulateTrajectory(
     cvx -= cvx * drag * SUB_DT;
     cvy -= cvy * drag * SUB_DT;
     cvy += cfg.shuttleGravity * SUB_DT;
+    // 与真实积分（stepShuttleSlice）保持一致：超过上限会被压速。
+    // 不然预测里「杀球又快又平」，真实飞行却被限速压慢、掉得更快 —— 预测就全偏了。
+    const sp = Math.hypot(cvx, cvy);
+    if (sp > cfg.shuttleMaxSpeed) {
+      cvx = (cvx / sp) * cfg.shuttleMaxSpeed;
+      cvy = (cvy / sp) * cfg.shuttleMaxSpeed;
+    }
     x += cvx * SUB_DT;
     y += cvy * SUB_DT;
     t += SUB_DT;

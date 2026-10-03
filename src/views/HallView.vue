@@ -45,9 +45,7 @@ let timer: number | undefined;
 onMounted(() => {
   // 兜底校验一次：老存档、或「更新前就开着」的游戏，也要把传奇球员补进名录
   progress.ensureLegend();
-  progress.ensureWorldEdition();
   timer = window.setInterval(() => {
-    progress.ensureWorldEdition();
     nowTick.value = Date.now();
   }, 1000);
 });
@@ -55,19 +53,20 @@ onBeforeUnmount(() => {
   if (timer) window.clearInterval(timer);
 });
 
-const liveNow = computed(() => progress.worldLiveMatch(nowTick.value));
+/** 现在所有正在直播的比赛（可能同时好几场、跨好几个杯） */
+const liveAll = computed(() => progress.worldLiveMatches(nowTick.value));
 
 /** 正在比赛的那两位 → 他们各自对应同一场（列表里显示 🔴、观战按钮可点） */
 const liveMap = computed(() => {
   const m = new Map<string, LiveMatch>();
-  const l = liveNow.value;
-  if (!l) return m;
-  const a = progress.aiPlayers.find((p) => p.id === l.a.id);
-  const b = progress.aiPlayers.find((p) => p.id === l.b.id);
-  if (a && b) {
-    const pair: LiveMatch = { a, b };
-    m.set(a.id, pair);
-    m.set(b.id, pair);
+  for (const l of liveAll.value) {
+    const a = progress.aiPlayers.find((p) => p.id === l.a.id);
+    const b = progress.aiPlayers.find((p) => p.id === l.b.id);
+    if (a && b && !m.has(a.id)) {
+      const pair: LiveMatch = { a, b };
+      m.set(a.id, pair);
+      m.set(b.id, pair);
+    }
   }
   return m;
 });
@@ -273,16 +272,30 @@ const canvasKey = computed(() => {
 });
 
 /** 正在看的那一场在世界赛里的位置（结束时要写回赛程 + 记战绩） */
-const watchCtx = ref<{ round: number; index: number; aId: string; bId: string } | null>(null);
+const watchCtx = ref<{
+  cup: number;
+  season: number;
+  round: number;
+  index: number;
+  aId: string;
+  bId: string;
+} | null>(null);
 
 function spectateMatch(m: LiveMatch): void {
-  const l = liveNow.value;
+  const l = liveAll.value.find((x) => x.a.id === m.a.id && x.b.id === m.b.id);
   if (!l) {
     toastWarn('这一场刚好结束了，去赛事中心看看下一场');
     return;
   }
   sfx.click();
-  watchCtx.value = { round: l.round, index: l.index, aId: m.a.id, bId: m.b.id };
+  watchCtx.value = {
+    cup: l.cup,
+    season: l.season,
+    round: l.round,
+    index: l.index,
+    aId: m.a.id,
+    bId: m.b.id,
+  };
   watch.value = { left: opponentOf(m.a), right: opponentOf(m.b) };
 }
 
@@ -335,7 +348,7 @@ function onEvent(e: SimEvent): void {
     if (watch.value && watchCtx.value) {
       const ctx = watchCtx.value;
       const winnerId = e.scorer === 0 ? ctx.aId : ctx.bId;
-      const ok = progress.recordWorldMatch(ctx.round, ctx.index, winnerId);
+      const ok = progress.recordWorldMatch(ctx.cup, ctx.season, ctx.round, ctx.index, winnerId);
       const nm = progress.aiPlayers.find((p) => p.id === winnerId)?.name ?? '—';
       toast(
         `${ARENA_ROUNDS[ctx.round] ?? ''}：${nm} 胜出${ok ? '，战绩已记入名人堂' : ''}`,
@@ -390,6 +403,7 @@ function onEvent(e: SimEvent): void {
               :losses="selected.losses"
               :stats="ensureStats(selected)"
               :cosmetic="selected.cosmetic"
+              :roster="progress.aiNames"
             >
               <div class="detail-live" :class="{ 'is-live': !!selectedMatch }">
                 <template v-if="selectedMatch">

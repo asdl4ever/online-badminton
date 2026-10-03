@@ -169,6 +169,8 @@ npm run serve      # = build && start
 │  │  ├─ audio.ts                Web Audio 合成音效（无音频素材）
 │  │  ├─ world/zones.ts          ★ 大地图区域表：位置 / 图标 / 名称 / 进哪个玩法
 │  │  ├─ world/npcs.ts           ★ 大地图 NPC：位置 / 台词 / 抽鞭概率 / 谁是收购商（农场主）
+│  │  ├─ world/spectators.ts     ★ 影院看台：系统随机生成的观众（名字/外观）+ 进出流动（Crowd）
+│  │  ├─ career.ts               ★ 球员履历：四张数据卡（胜率/能力值/冠军/最高排名）+ 生涯成绩单
 │  │  ├─ draw/                   ★ 角色与球拍的绘制原语（所有玩法 + 网页共用）
 │  │  │  ├─ character.ts         角色各部位绘制：光环/披风/翅膀/头饰/宠物/坐骑/各皮肤形态 + drawCharacter 组合
 │  │  │  ├─ racket.ts            球拍头（局部空间）+ 各皮肤的装饰层
@@ -461,14 +463,33 @@ AI 球员排行榜（rating 排序，**传奇 AI 皮泽恩恒定榜首**：五�
 - 面板里可以「🏳️ **退役**」：人留在名录、战绩与履历保留，但**不再上榜单、也不再参加世界赛**；只对自己新增的球员开放「🗑 除名」；
 - 头部「**退役名录 N**」切到退役名单，每行可以「**复出**」把人请回来。
 
-### 赛事中心 · 观战台（大地图 👁，`/watch`）
-一块「看比赛」的地方：**🌍 世界赛** + **🏆 我的赛事**。
+### 球员主页（`components/PlayerProfile.vue`，名人堂 / 晋级赛 / 赛事中心共用同一份）
+角色预览（与游戏同一份绘制）+ 名字与风格 + **四张数据卡** + 四维雷达图与数值条：
 
-- **🌍 世界赛**（`src/game/world-arena.ts`）：名人堂球员**持续打下去**的 16 人单败淘汰赛。**每 30 分钟一届**、一届 15 场比赛**一场接一场**（2 分钟一场），届号 = 时间片、参赛者与首轮对阵用 `hash(届号)` 定死——所以「现在有没有比赛 / 是第几场 / 还有多久开下一场」全都是算出来的，**不需要服务器、刷新也不变**。参赛者 = **rating 前 10 保送 + 其余随机补足**（留出"黑马"的位置），退役的人不参加。
-- **树状图**（复用 `ArenaBracket.vue`，加了每场的状态角标与「👁 观看」）：四列 16 强 → 决赛，**随时间往下长**；点球员名看主页，「🔴 进行中」的那一场可以**真的进去看**——双 AI 跑一局完整对局（玩家不参与、「再来一局」与 `R` 键都关掉），打完把**结果写回赛程**（胜者晋级，两位球员各记一笔战绩、rating 互有升降）——所以看比赛是**真的在改变名人堂名次**；不想等就点「⏭ 直接出结果」按五维算（快进）。
-- 唯一需要持久化的是**玩家真看过 / 快进过的那几场**（`bmt-world-arena`），没看过的到点用 `simulateArenaMatch` 按五维算、不写库。
+- **🧮 四张卡**：**总胜率**（红绿圆环，绿=胜率；数据来自球员真实战绩 `wins/losses`，没有战绩就按积分估）、**能力值**（五维平均折成 1.0~5.0 的六边形）、**冠军 ×N**（紫缎带金牌，数字 = 履历里的冠军数）、**最高排名**（月桂 + 数字，1 最好）。
+- **🏅 生涯履历（点「冠军」那张奖牌卡展开）**：一行一届，**年月在左**，比如 `2026-10 超神杯 🥇冠军`、`2026-09 疾风杯 🥉4 强 · 止步 4 强 · 负于 疾风侠`（冠军那行写「全胜夺冠 · 赢下 4 场」）。配色按名次：冠军金 / 亚军银 / 4 强铜。
+- 履历由 `game/career.ts` 的 `careerOf()` 算出来：**名字当种子**（所以同一球员在主页 / 名人堂 / 赛事中心看到的完全一致、刷新不变，也不需要存档），**实力（rating）只影响概率**——越强杯赛级别越高（段位杯 新芽杯…传奇杯 → 世界赛事名 世界巡回赛 / 山海公开赛…）、名次越好、冠军越多、最高排名越靠前（传奇球员皮泽恩就是冠军一堆 + 最高排名 #1）。年月是真实日历（最近一届落在近日，往前一路推到跨年）。
+- 想加一档名次或改概率曲线：`career.ts` 的 `Placing` / `PLACING_*` / `rollPlacing()` / `pickCup()` / `abilityScore()` / `winRateOf()`。
+
+### 赛事中心 · 观战台（大地图 👁，`/watch`）
+**进去是一间电影院**：房间里可以自由走动（手机左摇杆 / 桌面 WASD，相机跟随），墙上挂着一块 **1040×585 的大屏幕**（**正好 16:9**），下面三排共 18 个座位，座位上的观众**由系统自己生成、而且一直在流动**。
+
+- **📺 大屏只播直播**：屏幕上**永远是正在进行的对局**（玩家不参与、「再来一局」与 `R` 键都关掉，见 `GameCanvas :spectate :no-rematch`）。之所以能把 1280×720 的对局投得**满屏不留黑边**，是因为屏幕本身做成了 16:9：Phaser 用 `Scale.FIT` 等比缩放，同样比例就是严丝合缝，投上去比分 52px、名字牌 12px，看得清。屏幕上方的跑马灯写着「哪个杯 · 第几届 · 哪一轮 · 谁对谁 + 🔴直播中」，屏里的比分牌、选手名、「X 获胜」都是对局自己画的。
+- **📺 选杯 = 选频道（杯按段位分级）**：右下角「📺 选杯」打开弹窗，**上面一排是段位杯**——👑超神杯 / 🥇黄金杯 / 🥈白银杯 / 🥉青铜杯（按名人堂排名切档，**一位选手只打自己段位的杯**，rating 涨了升杯、掉了降杯；所以绝不会有人同时打两个杯）。每张卡：段位名 / 第几届 / 参赛人数 / 打到哪轮 / 🔴直播几场 或 ⏳还要多久，点谁大屏就播谁；还有一个「🔊 自动」档自动跟有直播的杯。**下面是选中那个杯的树状图**：同一轮的几场**全部标成 🔴（它们确实同时在打）**，正在直播的场次旁边有 **「👁 观看」** 按钮（点谁大屏就切到谁，大屏正在播的那场标「📺 正在播」）；**没开打的场次显示倒计时**（⏳ mm:ss 后开打），人数不满的签位显示「轮空 · 直接晋级」。
+- **坐下**：走到空座位旁边（空位的座垫发蓝光），**右下角出现「🪑 坐」按钮**（手机直接点；桌面也可以按 `E`）。**坐下后镜头会平滑地对准大屏**（像真的在看电影；屏幕比视口高时优先保住上面那条比分行），手机竖屏也能看清画面中央。站起来会挪到旁边的过道上，不会卡进邻排座位；你坐着的位子观众不会来抢，站起来让出后又会被别人坐。座位是实心的，但两块座位之间留了一条窄缝，可以像真电影院那样侧身挤进去坐外侧的位子。
+- **观众（系统自己的，不是你的名人堂名单）**：名字 / 外观 / 风格全部由系统随机造（见 `game/world/spectators.ts` 的 `makeSpectator`），和名人堂、自建球员完全无关。**他们一直在进出**：左右两个门口**每 8~15 秒**安排一次「有人进场 / 有人离场」——进门的从门口走到过道、顺着过道走到自己那排、侧身进座位坐下；坐 70 秒~3.5 分钟就起身，沿原路走到门口消失（`Crowd`）。**永远留 ≥2 个空位给你**（`minFree`），刷新页面看到的也是另一批人。
+  - **结伴进场**：约 30% 的进场是一对朋友（`pairChance`）——同一个门、一前一后错开半步走进来，坐**同一排相邻**的两个位子。
+  - **上座率跟着场次走**：座位填到「座位数 × 档位」就基本不再进人（`Crowd.setLevel`）。档位由**现在播的这场是第几轮**决定（`crowdLevel`）——首轮约 0.5、越往后越满，**决赛坐到只剩 2 个空位**。
+  - **鼓掌 / 惊呼**：观众会一片一片地反应（`cheer()` → 头顶飘 👏 / 😮 / 🤩，错开几百毫秒，像一片人而不是整排机器）。直播里**得分**触发鼓掌或惊呼、**扣杀**喊一声，**打完**全场起立式欢呼；待机画面则每隔十几秒来一片气氛掌声。
+- **待机画面（这一轮的间隙 / 本届结束）**：屏幕上没有直播时不放比赛——一块亮着灯的空场馆 + 底部倒计时字幕（「下一轮 X 后开始」）。
+
+弹窗里的 **🌍 世界赛** + **🏆 我的赛事**：
+
+- **🌍 世界赛（4 个杯同时打，`src/game/world-arena.ts`）**：名人堂球员的 16 人单败淘汰赛，**同时有 `CUP_COUNT`（4）个杯在跑**，每个杯 4 轮（`ARENA_ROUNDS`）、每轮 `CUP_ROUND_MS`（150 秒）；**同一轮的所有比赛同时开打、同时进行**（16 强赛就是 8 场一起打）。4 个杯错开一届 ÷ 4（150 秒）起步，所以**任何时刻都有一两个杯在打、常常好几场同时直播**（峰值 15 场：8+4+2+1）。参赛者与对阵用 `hash(杯+届)` 定死——**纯计算、不需要服务器、刷新也不变**；各杯的名单与对阵都不同（rating 前 6 保送 + 随机补足，退役的人不参加）。
+- **结果怎么定**：到点没被看过的场次用 `simulateArenaMatch` 按五维自动算（**只显示直播**，所以你看到的每一场都是真的在打）；你**真看完的那场**以真实对局结果为准，写回赛程（胜者晋级，两位球员各记一笔战绩、rating 互有升降）——所以看直播是**真的在改变名人堂名次**。想跳过就「⏭ 这一轮直接出结果」。
+- 唯一需要持久化的是**玩家真看过 / 快进过的那几场**（`bmt-world-arena`，键里带杯 + 届，最多留 600 条），没看过的到点按五维算、不写库。
 - **🏆 我的赛事**：玩家自己在晋级赛馆报名的那一届（`bmt-arena-run`）的对阵树也列在这里，想看自己那届的全貌就来这儿。
-- **👥 谁在打哪个赛事**：本届 16 位参赛者的进程列表（🔴 正在打谁 / ⏳ 几点开打 / ✅ 击败谁晋级 / 🚪 被谁淘汰）。
+- **👥 谁在打哪个赛事**：按**当前选中的杯**列出 16 位参赛者的进程（🔴 正在打谁 / ⏳ 几点开打 / ✅ 击败谁晋级 / 🚪 被谁淘汰）。
 
 ### 小黄龙联名（大地图 🐲，`/nailong`）
 挑战小黄龙（趣味模式：先到 5 分、果冻身子软弹）：**每天 3 张挑战门票，开一场扣一张（输赢都扣）**，赢下这一场才拿 1 张转盘券；转盘 8 格里有「**宝箱钥匙 ×2** / 金币 / 荣誉点」与三件联名限定（小黄龙头套 / 小黄龙宝宝 / 小黄龙滚滚），连续未出限定有保底。
@@ -579,15 +600,20 @@ Boss 战：哥斯拉站右边（**血条在右上**），朝玩家**直线吐火
 | 大厅状态广播（谁在玩什么） | `server/lobby.mjs` 的 `SCENES` / `state` / `presence-batch`；客户端 `net/lobby.ts` 的 `setState()`、`stores/lobby.ts` 的 `states` / `room` / `following` |
 | **成就（板块 / 条目 / 目标值 / 奖励物品）** | `src/game/achievements.ts`（`ACH_SECTIONS`、`ACHIEVEMENTS`）；发奖逻辑在 `stores/progress.ts` 的 `syncAchievements()` |
 | **积分组别 / 杯赛（新芽杯…传奇杯）** | `src/game/ranks.ts`（`GROUPS`）；报名费与奖励在 `src/game/arena.ts`；赛程结算在 `stores/progress.ts`（`enterArena / arenaWin / arenaLose / checkSeason`） |
-| **🌍 世界赛（观战台）的节奏** | `src/game/world-arena.ts`：`WORLD_PERIOD_MS`（一届 30 分钟）/ `WORLD_SLOT_MS`（一场 2 分钟，一届 15 场铺满）/ `WORLD_MATCH_MS`（"正在进行"的观战窗口 110s）/ `WORLD_CUPS`（赛事名池）；参赛者选法与首轮对阵在 `worldEntrants()`（前 10 保送 + 其余随机）；树与时间片在 `worldState()` / `matchPhase()` |
-| **名人堂球员的增删改** | `stores/progress.ts` 的 `addAiPlayer / updateAiPlayer / setAiRetired / removeAiPlayer`（+ `worldArenaState / worldLiveMatch / recordWorldMatch / fastForwardWorldMatch`）；随机造人与 rating 反推在 `src/game/players.ts` 的 `makeRandomPlayer / ratingFromStats`；界面对应的 UI 在 `views/HallView.vue` |
+| **🌍 世界赛（4 个段位杯并行）的节奏** | `src/game/world-arena.ts`：**杯 = 段位**（`CUP_TIERS`：👑超神 / 🥇黄金 / 🥈白银 / 🥉青铜），`CUP_COUNT`（4 个杯同时打）；`worldEntrants(roster, cup, season)` 按名人堂**排名切档**（`floor(i/total*CUP_COUNT)`）→ 各档互不重叠，**一人只会出现在一个杯里**；`bracketSizeOf()`（≤4 人打 4 强、≤8 人打 8 强、再多 16 强）+ `buildTierBracket()`（人数不满留**轮空**，轮空在结算时自动晋级）+ `roundNames()`（轮次名随杯型截取）；`CUP_ROUND_MS`（一轮 150s，**同一轮的比赛同时进行**）/ `CUP_MATCH_MS`（一场直播窗口 110s）/ `CUP_MS`·`CUP_STAGGER_MS`（几杯错开起步）；树与直播窗口在 `worldState()` / `roundWindow()` / `entrantSituation()` / `liveMatchOfId()`；持久化键 `cupMatchKey()` |
+| **电影院的房间 / 座位 / 大屏幕** | `src/views/WatchView.vue`：房间 `ROOM_W/ROOM_H`（1440×1180）、后墙高 `WALL_H`、屏幕 `SCR`（**1040×585 = 正好 16:9，投对局才满屏**）、座位 `SEAT_COLS/SEAT_ROWS`（列距 120 特意留出侧身缝）与 `seatZ/rigZ/frontZ`（走动观众的层级按 `depthRow(y)` 取）、可坐半径 `SIT_RANGE`、座位挡路半径 `SEAT_BLOCK`、过道 `AISLES`、门口 `DOORS`、出生点 `SPAWN`；坐下后镜头对准大屏的逻辑在 `updateCamera()` |
+| **大屏直播（选杯 → 只播正在进行的对局）** | `src/views/WatchView.vue`：`watchCup`（'auto' = 跟有直播的杯）→ `cupId` / `cup` / `cupLive`；大屏播的那场是 `broadcast`（喂给 `GameCanvas` 的 `screenOpps`，换场重挂的 key 是 `screenKey`）；比赛结果在 `onSim` 的 `gameover` 分支里 `recordWorldMatch(cup, season, round, index, winner)`；面板 = `cupChips`（选杯）+ `ArenaBracket`（树状图，`phaseMap` 把同一轮的几场全标 🔴）+ `whoRows`（按杯列谁在打）；「⏭ 这一轮直接出结果」是 `fastForwardRound()`；待机画面（没有直播时）在 `paintScreen()` |
+| **影院的系统观众（怎么生成 / 怎么流动 / 上座率 / 鼓掌）** | `src/game/world/spectators.ts`：`makeSpectator()`（名字池 姓×名 + 绰号，外观用 `rerollCosmetic`）与 `Crowd` 类。节奏全在构造参数：`eventMs`（门口每 8~15 秒一次「进 / 出」）、`dwellMs`（坐下停留 70s~3.5min）、`minFree`（永远留几个空位给玩家）、`walkSpeed`、`pairChance`（结伴概率）。`Crowd.step(dt, now)` 每帧推一次、返回是否有人进出（界面据此重建 DOM）；`prefill(now, n)` 开场先坐好 n 位；玩家的位子用 `reserve()/release()` 占；**上座率**用 `setLevel(0~1)`（界面按轮次给，见 `crowdLevel`）。**停留时长 ÷ 进出间隔 ≈ 场内常驻人数**；观众的鼓掌 / 惊呼在 `WatchView.vue` 的 `cheer()` / `reactions` / `stepAmbience()`（🎉 飘一下的动画是 `.cheer` + `@keyframes cheer-pop`）|
+| **名人堂球员的增删改** | `stores/progress.ts` 的 `addAiPlayer / updateAiPlayer / setAiRetired / removeAiPlayer`（+ `worldArenaState / worldLiveMatches / worldLiveMatchOf / recordWorldMatch / fastForwardWorldMatch`）；随机造人与 rating 反推在 `src/game/players.ts` 的 `makeRandomPlayer / ratingFromStats`；界面对应的 UI 在 `views/HallView.vue` |
+| **球员主页的四张卡与生涯履历** | `src/game/career.ts`（`careerOf()`：种子 = 球员名字，实力只改概率；`abilityScore()` 五维 → 1.0~5.0；`winRateOf()`；`Placing` / `PLACING_LABEL` / `PLACING_TONE` / `PLACING_MEDAL`；杯名池引用 `ranks.ts` 的 `GROUPS` 与 `world-arena.ts` 的 `WORLD_CUPS`）+ 界面 `components/PlayerProfile.vue`（`.cards` 四张卡、总胜率圆环 `.donut__*`、六边形 `.hex__*`、金牌 `.medal__*`、月桂 `.laurel__*`、履历列表 `.career__*`；名人堂名录由 `progress.aiNames` 给，只用来挑「负于谁」）|
 | 大地图走动速度 / 进区半径 / 摇杆死区 | `WorldView.vue` 的 `MOVED_SPEED`、`zones.ts` 的 `ZONE_RADIUS`、`Joystick.vue` 的 `deadZone` |
 | 大地图角色大小 / 持拍姿势 / 留白 | `WorldView.vue` 的 `AVATAR_SCALE`、`draw/canvas2d.ts` 的 `REST_RACKET` 与 `PAD_*` |
 | 大地图右摇杆：球拍能推多远 / 跟手快慢 | `WorldView.vue` 的 `RACKET_RANGE` 与 `stepRacket()` 里的 `dt * 12` |
 | 大地图联机：位姿频率 / 对方插值速度 | `src/composables/useMapSession.ts` 的 `POSE_HZ` / `PEER_SMOOTH` |
 | 邀请能送到哪些页面 | `src/net/lobby.ts` 的 `INVITE_KINDS` + `server/lobby.mjs` 的同名白名单 + `App.vue` 的 `INVITE_LANDING` |
 | 网络频率、延迟补偿上限 | `src/game/constants.ts` 的 `NET_*` / `LAG_COMP_*` |
-| AI 难度 | `src/game/ai.ts` 的 `TUNING` |
+| **AI 行为（四维 → 打法）与出球规划** | `src/game/ai.ts`：`behaviorFromStats()` 把四维折成行为参数（`aggression` 扣杀倾向 / `smashMargin` 扣杀余量 / `smashAngle` 扣杀仰角 / `contactError`·`reaction`·`posError` 接杀与预判 / `loft` 抬高球 / `blockEarly`·`blockLift` 接杀提前量与挡球高度）；**`planShot()` 是出球的最终关口**——把「理想仰角+力度+执行波动」从预计接触点整条弹道验证一遍（`simulateTrajectory`，含空气阻力与 `shuttleMaxSpeed` 限速），过不了网就依次换成更平更快 / 挑高球的组合。要调 AI 手感：改 `behaviorFromStats` 的映射、`planShot` 的候选档位与 10px 过网余量 |
+| **杀球 / 接杀的历史坑** | 杀球是**往下打**的：以前只判「球是否高过网」，后场杀球 / 低球杀球一路下坠全撞网；后场高抛（`loft`）太陡太慢也够不着网。都靠 `planShot()` 的弹道验证兜底；`physics.simulateTrajectory` 必须与真实积分一致（要套 `shuttleMaxSpeed` 限速），改飞行参数时两边要同步 |
 | **摇杆外观（半径比例 / 留白 / 金色 / 描边 / 按下亮度）** | `src/game/draw/joystick.ts` 的 `JOY` + `joyMetrics()`（DOM 与画布共用） |
 | 摇杆死区 / 跳跃区角度与深度 | `src/game/touch.ts` 顶部 |
 | **攀爬手感：手臂力度 / 伸缩范围 / 行走 / 身体尺寸** | `src/game/climb/ClimbScene.ts` 顶部 |

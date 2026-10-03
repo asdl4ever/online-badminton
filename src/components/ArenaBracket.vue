@@ -3,8 +3,10 @@ import { computed } from 'vue';
 import { ARENA_ROUNDS, type ArenaBracket, type ArenaEntrant } from '../game/arena';
 
 /**
- * 晋级赛对阵树：从左到右四列（16 强 → 8 强 → 4 强 → 决赛）。
+ * 晋级赛对阵树：从左到右按轮次分列（列名可用 `roundNames` 覆盖，杯型不同列数不同）。
  * 每场显示两位参赛者，胜者高亮、败者划线；玩家所在的那一场会特别标出来。
+ * 世界赛还会传：`matchNote`（轮空 / 未开赛倒计时）、`liveKeys`（正在直播、可点「👁 观看」）
+ * 与 `activeKey`（大屏正在播的那场，标「📺 正在播」）。
  */
 const props = defineProps<{
   rounds: ArenaBracket;
@@ -16,21 +18,39 @@ const props = defineProps<{
    * 不传就完全不显示状态角标——晋级赛页面维持原样。
    */
   matchPhase?: Record<string, 'upcoming' | 'live' | 'ended'>;
-  /** 现在可以点进去真看的那一场（键同 `matchPhase`） */
+  /** 现在可以点进去真看的那一场（键同 `matchPhase`，单场版） */
   liveKey?: string;
+  /** 正在直播的那些场次（可点「👁 观看」切台） */
+  liveKeys?: readonly string[];
+  /** 大屏正在播的那一场（标「📺 正在播」） */
+  activeKey?: string;
+  /** 每场的补充说明（轮空 / 倒计时），有就替代状态文字 */
+  matchNote?: Record<string, string>;
+  /** 轮次名（杯型不是 16 强时用） */
+  roundNames?: readonly string[];
 }>();
 
 const emit = defineEmits<{ select: [id: string]; watch: [round: number, index: number] }>();
 
 const keyOf = (r: number, i: number): string => `${r}:${i}`;
 
+const colTitle = (ri: number): string => props.roundNames?.[ri] ?? ARENA_ROUNDS[ri] ?? '';
+
 function phaseOf(r: number, i: number): 'upcoming' | 'live' | 'ended' {
   return props.matchPhase?.[keyOf(r, i)] ?? 'upcoming';
 }
 
 function phaseText(r: number, i: number): string {
+  const note = props.matchNote?.[keyOf(r, i)];
+  if (note) return note;
   const p = phaseOf(r, i);
   return p === 'live' ? '🔴 进行中' : p === 'ended' ? '已结束' : '未开始';
+}
+
+/** 正在直播（可点「👁 观看」） */
+function isLive(r: number, i: number): boolean {
+  const k = keyOf(r, i);
+  return props.liveKey === k || (props.liveKeys?.includes(k) ?? false);
 }
 
 const meId = computed(() => props.entrants.find((e) => e.isMe)?.id ?? '__me__');
@@ -61,7 +81,7 @@ function isMine(a: string, b: string): boolean {
   <div class="bracket">
     <div v-for="(round, ri) in rounds" :key="ri" class="bracket-col">
       <div class="bracket-col__title" :class="{ 'is-now': ri === currentRound }">
-        {{ ARENA_ROUNDS[ri] }}
+        {{ colTitle(ri) }}
       </div>
       <div class="bracket-col__matches">
         <div
@@ -95,8 +115,9 @@ function isMine(a: string, b: string): boolean {
             <span class="match__badge" :class="`is-${phaseOf(ri, mi)}`">
               {{ phaseText(ri, mi) }}
             </span>
+            <span v-if="activeKey === keyOf(ri, mi)" class="match__onair num">📺 正在播</span>
             <button
-              v-if="keyOf(ri, mi) === liveKey"
+              v-else-if="isLive(ri, mi)"
               class="match__watch"
               type="button"
               @click="emit('watch', ri, mi)"
@@ -246,5 +267,12 @@ function isMine(a: string, b: string): boolean {
 
 .match__watch:hover {
   background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.match__onair {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ff6a72;
 }
 </style>
