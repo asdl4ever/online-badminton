@@ -17,11 +17,29 @@ export const router = createRouter({
       name: 'single',
       component: () => import('../views/SingleView.vue'),
     },
+    // 训练场 = 单机练习的俯视房间（房间里有球台 / 发球机）；老链接直接重定向
+    {
+      path: '/training',
+      redirect: '/single',
+    },
+    // 健身房：挥拍砸沙袋练「进攻」
+    {
+      path: '/gym',
+      name: 'gym',
+      component: () => import('../views/GymView.vue'),
+    },
+    // 操场：跑步练「速度 / 体力」
+    {
+      path: '/track',
+      name: 'track',
+      component: () => import('../views/TrackView.vue'),
+    },
     {
       path: '/online',
       name: 'online',
       component: () => import('../views/OnlineView.vue'),
     },
+
     {
       path: '/climb',
       name: 'climb',

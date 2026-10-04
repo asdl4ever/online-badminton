@@ -115,7 +115,7 @@ export function monthOf(ts: number): string {
 
 /** 能力值：五维平均折成 1.0~5.0（主页那张六边形卡片上的数） */
 export function abilityScore(stats: PlayerStats): number {
-  const v = [stats.technique, stats.speed, stats.attack, stats.defense, stats.jump];
+  const v = [stats.technique, stats.speed, stats.attack, stats.defense, stats.stamina];
   const avg = v.reduce((a, b) => a + b, 0) / v.length;
   return Math.round((avg / 20) * 10) / 10;
 }

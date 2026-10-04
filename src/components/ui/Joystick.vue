@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useJoystickPrefs } from '../../composables/useJoystick';
+import { pinchActive } from '../../composables/useZoom';
 import { JOY, hexColor, joyMetrics, ringRadius } from '../../game/draw/joystick';
 
 /**
@@ -104,6 +105,8 @@ function onUp(): void {
 // ---- 自由模式 ---------------------------------------------------------------
 
 function onZoneDown(e: PointerEvent): void {
+  // 已经在捏合（第二根手指在缩放的）——这一下不该再冒一颗摇杆出来
+  if (pinchActive.value) return;
   pointerId = e.pointerId;
   (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -120,6 +123,13 @@ function onZoneUp(): void {
   onUp();
   live.value = false;
 }
+
+// 两指捏合一起手，自由摇杆就让位（收起来 + 归零），缩放不该被摇杆抢手指
+watch(pinchActive, (on) => {
+  if (!on) return;
+  pointerId = null;
+  if (live.value) onZoneUp();
+});
 </script>
 
 <template>

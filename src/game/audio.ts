@@ -118,6 +118,24 @@ class Sfx {
     this.unlock();
     this.tone(520, 0.05, 'square', 0.1);
   }
+
+  /**
+   * 手机铃声（预约的赛事到点时响）：「叮铃叮铃」两短一停，
+   * 由调用方按几秒一次的节奏重复，直到玩家点掉提示。
+   */
+  ring(): void {
+    this.unlock();
+    const burst = (at: number): void => {
+      const chime = (): void => {
+        this.tone(1046, 0.16, 'sine', 0.26);
+        this.tone(1318, 0.16, 'sine', 0.2);
+      };
+      window.setTimeout(chime, at);
+      window.setTimeout(chime, at + 190);
+    };
+    burst(0);
+    burst(540);
+  }
 }
 
 export const sfx = new Sfx();

@@ -17,8 +17,14 @@ import { attrsFromStats, type PlayerStats } from './players';
 /** 显示用难度档（由四维派生，不驱动行为） */
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
-/** AI 的战术风格（由四维派生，不再单独存） */
-export type AiStyle = 'attack' | 'defense' | 'balanced' | 'speed' | 'legend';
+/**
+ * AI 的战术风格（由四维派生，不再单独存）。
+ *
+ * `technique`（技巧型）是个例外：`styleFromStats()` 永远不会返回它（技术最高的人本身
+ * 也还是「均衡」），它只由**晋级赛的赛事身份**显式指定——老将组那一批人不靠身体，
+ * 靠球路与失误率吃饭，所以单独给一个标签。
+ */
+export type AiStyle = 'attack' | 'defense' | 'balanced' | 'speed' | 'technique' | 'legend';
 
 /** 中性五维（60 出头 ≈ 普通业余水平） */
 export const NEUTRAL_STATS: PlayerStats = {
@@ -26,7 +32,7 @@ export const NEUTRAL_STATS: PlayerStats = {
   speed: 62,
   attack: 62,
   defense: 62,
-  jump: 62,
+  stamina: 62,
 };
 
 export const STAT_KEYS: (keyof PlayerStats)[] = [
@@ -34,7 +40,7 @@ export const STAT_KEYS: (keyof PlayerStats)[] = [
   'speed',
   'attack',
   'defense',
-  'jump',
+  'stamina',
 ];
 
 export const STYLE_META: Record<AiStyle, { label: string; desc: string; color: string }> = {
@@ -42,6 +48,7 @@ export const STYLE_META: Record<AiStyle, { label: string; desc: string; color: s
   defense: { label: '稳守反击', desc: '高远球为主，失误低', color: '#3d8bfd' },
   balanced: { label: '均衡', desc: '攻守兼备', color: '#8b97a8' },
   speed: { label: '速度型', desc: '跑动快，力量稍弱', color: '#39d0a0' },
+  technique: { label: '技巧型', desc: '跑动不快，但球路刁、失误极少', color: '#9b8cf0' },
   // 传奇：五维全线拉满，高远球（loft）与压网扣杀（aggression）同时拉满
   legend: { label: '传奇', desc: '高远球压底线，逮到机会就扣杀', color: '#ffd45c' },
 };
@@ -58,8 +65,8 @@ export function styleFromStats(s: PlayerStats): AiStyle {
   if (leaders.length === 1) {
     if (leaders[0] === 'attack') return 'attack';
     if (leaders[0] === 'defense') return 'defense';
-    // 弹跳型也算速度型（都靠身体）
-    if (leaders[0] === 'speed' || leaders[0] === 'jump') return 'speed';
+    // 体力型也算速度型（都靠身体）
+    if (leaders[0] === 'speed' || leaders[0] === 'stamina') return 'speed';
   }
   return 'balanced';
 }
@@ -96,7 +103,7 @@ interface Behavior {
   smashAngle: number;
   /** 网前小球（轻吊）倾向 —— 技术好的手感细腻、爱搓小球 */
   drop: number;
-  /** 起跳意愿（弹跳 + 进攻）——球高了敢跳起来扣 */
+  /** 起跳意愿（体力 + 进攻）——球高了敢跳起来扣 */
   jumpiness: number;
   /** 压网强攻（扣杀）倾向，同时放大「网前」判定范围 */
   aggression: number;
@@ -127,8 +134,8 @@ export function behaviorFromStats(s: PlayerStats): Behavior {
     smashMargin: lerp(130, 30, s.technique),
     smashAngle: lerp(-0.03, -0.2, s.technique),
     drop: lerp(0.15, 0.85, s.technique),
-    // 弹跳 + 进攻 → 起跳意愿（弹跳占大头）
-    jumpiness: lerp(0.2, 0.95, s.jump * 0.6 + s.attack * 0.4),
+    // 体力 + 进攻 → 起跳意愿（体力足才跳得动，进攻强才想跳）
+    jumpiness: lerp(0.2, 0.95, s.stamina * 0.6 + s.attack * 0.4),
     // 防守 → 命中率 + 反应 + 预判（精度上限：再准也有 12px 的误差兜底）
     contactError: Math.max(12, lerp(95, 4, s.defense)),
     reaction: lerp(0.28, 0.06, s.defense),
@@ -324,7 +331,7 @@ export class AIController {
       const sdy = shuttle.y - sh.y;
       const dist = Math.hypot(sdx, sdy);
 
-      // 球明显高过头顶 → 跳起来（弹跳 + 进攻 决定跳的频率）
+      // 球明显高过头顶 → 跳起来（体力 + 进攻 决定跳的频率）
       const aboveHead = shuttle.y < p.y - PLAYER_H * 0.85;
       if (p.onGround && aboveHead && dist < 200 && Math.random() < beh.jumpiness) {
         input.jump = true;

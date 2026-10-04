@@ -125,12 +125,9 @@ function back(): void {
           :cosmetic="customize.cosmetic"
           :local-name="lobby.playerName"
           :local-rank="progress.tier.id"
-          :theme="customize.theme"
-          :auto-cycle-theme="customize.autoCycle"
           :party="false"
           no-rematch
           @sim="onEvent"
-          @themechange="customize.theme = $event"
         />
 
         <!-- 联名主页：小黄龙 + 转盘 -->

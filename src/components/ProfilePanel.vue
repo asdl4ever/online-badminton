@@ -9,7 +9,13 @@ import { useCustomizeStore } from '../stores/customize';
 import { ITEMS, PETS } from '../game/items';
 import { titleForPoints } from '../game/ranks';
 import { toHex } from '../game/cosmetics';
-import { ATTR_KEYS, ATTR_META, ATTR_PER_POINT, type AttrKey } from '../game/attrs';
+import {
+  TRAIN_KEYS,
+  TRAIN_META,
+  TRAIN_MAX_LEVEL,
+  trainProgress,
+  type TrainKey,
+} from '../game/training';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 
@@ -62,29 +68,9 @@ const stats = computed(() => [
   { label: '兑换码', value: `${progress.redeemed.length} 个` },
 ]);
 
-/* --- 属性点 ---------------------------------------------------------------- */
-const attrUsed = computed(() =>
-  ATTR_KEYS.reduce((s, k) => s + (progress.attrEffective[k] ?? 0), 0),
-);
-const attrPct = (n: number): string => `+${Math.round(n * ATTR_PER_POINT * 100)}%`;
-
-function addAttr(key: AttrKey): void {
-  if (!progress.addAttr(key)) {
-    toastWarn('没有可用的属性点了，升到新组别再来');
-    return;
-  }
-  sfx.click();
-}
-
-function removeAttr(key: AttrKey): void {
-  if (progress.removeAttr(key)) sfx.click();
-}
-
-function doResetAttrs(): void {
-  progress.resetAttrs();
-  sfx.click();
-  toastGood('属性点已重置');
-}
+/* --- 锻炼（属性点改成去场地练出来） ---------------------------------------- */
+const trainPct = (k: TrainKey): number =>
+  Math.round(trainProgress(progress.trainLevels[k] ?? 0, progress.trainXp[k] ?? 0) * 100);
 </script>
 
 <template>
@@ -144,47 +130,36 @@ function doResetAttrs(): void {
 
     <div class="pf__attrs">
       <div class="pf__attrs-head">
-        <span class="pf__attrs-title">属性点</span>
-        <span class="muted pf__attrs-sum">已分配 {{ attrUsed }} / {{ progress.attrPoints }} 点</span>
-        <Button v-if="progress.attrSpent > 0" size="sm" variant="quiet" @click="doResetAttrs">
-          重置
-        </Button>
+        <span class="pf__attrs-title">锻炼</span>
+        <span class="muted pf__attrs-sum">
+          练哪一维就长哪一维，经验满了自动 +1 级（最高 Lv.{{ TRAIN_MAX_LEVEL }}）
+        </span>
       </div>
 
-      <div v-for="k in ATTR_KEYS" :key="k" class="pf__attr">
-        <span class="pf__attr-name" :style="{ color: ATTR_META[k].color }">
-          {{ ATTR_META[k].label }}
+      <div v-for="k in TRAIN_KEYS" :key="k" class="pf__attr">
+        <span class="pf__attr-name" :style="{ color: TRAIN_META[k].color }">
+          {{ TRAIN_META[k].label }}
         </span>
-        <span class="muted pf__attr-desc">{{ ATTR_META[k].desc }}</span>
-        <span class="num pf__attr-val">{{ attrPct(progress.attrEffective[k]) }}</span>
-        <div class="pf__attr-btns">
-          <button
-            class="pf__attr-btn"
-            type="button"
-            :disabled="progress.attrEffective[k] <= 0"
-            @click="removeAttr(k)"
-          >
-            −
-          </button>
-          <span class="num pf__attr-pts">{{ progress.attrAlloc[k] }}</span>
-          <button
-            class="pf__attr-btn"
-            type="button"
-            :disabled="progress.attrSpent >= progress.attrPoints"
-            @click="addAttr(k)"
-          >
-            ＋
-          </button>
+        <span class="muted pf__attr-desc">{{ TRAIN_META[k].desc }} · {{ TRAIN_META[k].where }}</span>
+        <span class="num pf__attr-val">
+          {{ progress.trainLevels[k] }}/{{ TRAIN_MAX_LEVEL }}
+        </span>
+        <div class="pf__attr-bar">
+          <span
+            class="pf__attr-fill"
+            :style="{ width: `${trainPct(k)}%`, background: TRAIN_META[k].color }"
+          />
         </div>
       </div>
 
       <p class="muted pf__attrs-note">
-        初始 1 点，之后每晋升一个新组别再得 1 点；积分掉回低组别会暂时失去多余的点，升回去自动恢复。
+        属性点不再随积分发放：去大世界的 🏋️ 健身房举重练「进攻」、🏃 操场跑步练「速度 / 体力」、
+        单机的 🏸 发球机练「技术 / 防守」。练满自动升级，不能自由分配、也不能重置。
       </p>
     </div>
 
     <p class="muted pf__hint">
-      积分从对局与杯赛结算里来（单机 / 联机各算一档），荣誉奖励在「积分」里领；外观在「背包」里换。
+      积分从对局与杯赛结算里来（单机 / 联机各算一档），只决定段位与杯赛门槛；荣誉奖励在「积分」里领；外观在「背包」里换。
     </p>
   </div>
 </template>
@@ -359,41 +334,27 @@ function doResetAttrs(): void {
 
 .pf__attr-val {
   flex: none;
-  width: 52px;
+  width: 56px;
   text-align: right;
   color: var(--text);
   font-weight: 700;
 }
 
-.pf__attr-btns {
+/* 经验条：这一维离下一级还差多少 */
+.pf__attr-bar {
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  width: 96px;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
 }
 
-.pf__attr-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.pf__attr-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.pf__attr-pts {
-  width: 20px;
-  text-align: center;
-  font-weight: 700;
-  color: var(--text);
+.pf__attr-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 220ms var(--ease);
 }
 
 .pf__attrs-note {

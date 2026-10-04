@@ -175,7 +175,7 @@ function stepPlayer(
   input: PlayerInput,
   dt: number,
   cfg: WorldConfig,
-  /** 该玩家的属性点倍率（速度加成让移动更快） */
+  /** 该玩家的属性倍率（速度加成让移动更快、体力加成让体力条更耐用） */
   attrs: PlayerAttrs = NEUTRAL_ATTRS,
   /** extra distance from the net the player is not allowed to cross */
   netMargin = 0,
@@ -185,6 +185,8 @@ function stepPlayer(
   const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   // 体力越低跑得越慢（最低六五折）：长回合追不到本来追得到的球
   const stam = useStamina ? clamp(p.stamina / STAMINA_MAX, 0, 1) : 1;
+  // 「体力」属性：练得越高，同样的跑动 / 挥拍掉得越慢、回得越快
+  const stamMul = useStamina ? Math.max(0.4, attrs.stamina) : 1;
   const speedFactor = STAMINA_SPEED_FLOOR + (1 - STAMINA_SPEED_FLOOR) * stam;
   const targetVx = dir * cfg.playerSpeed * attrs.speed * speedFactor;
   // 加速度同倍率放大，加速到顶速的时间不变，只是整体更快
@@ -203,20 +205,20 @@ function stepPlayer(
   }
 
   if (input.jump && p.onGround) {
-    // 「弹跳」点把起跳初速放大
-    p.vy = cfg.playerJumpV * attrs.jump;
+    // 起跳高度固定（原来的「弹跳」维已换成体力，不再影响起跳）
+    p.vy = cfg.playerJumpV;
     p.onGround = false;
-    if (useStamina) p.stamina = Math.max(0, p.stamina - STAMINA_JUMP_DRAIN);
+    if (useStamina) p.stamina = Math.max(0, p.stamina - STAMINA_JUMP_DRAIN / stamMul);
   }
 
   // 体力结算：跑动消耗（按实际速度占比），不跑/慢走时缓缓恢复
   if (useStamina) {
     const runRatio = Math.min(1, Math.abs(p.vx) / Math.max(1, cfg.playerSpeed * attrs.speed));
     if (runRatio > 0.08) {
-      p.stamina -= runRatio * STAMINA_RUN_DRAIN * dt;
-      p.stamina += STAMINA_REGEN_STILL * STAMINA_REGEN_MOVING * dt;
+      p.stamina -= ((runRatio * STAMINA_RUN_DRAIN) / stamMul) * dt;
+      p.stamina += STAMINA_REGEN_STILL * stamMul * STAMINA_REGEN_MOVING * dt;
     } else {
-      p.stamina += STAMINA_REGEN_STILL * dt;
+      p.stamina += STAMINA_REGEN_STILL * stamMul * dt;
     }
     p.stamina = clamp(p.stamina, 0, STAMINA_MAX);
   }
@@ -346,7 +348,9 @@ function releaseShuttle(world: World, index: 0 | 1): void {
     cfg.shotSpeedMin * attrs.skill,
     cfg.shotSpeedMax * attrs.power * powerFactor,
   );
-  if (world.mode === 'match') p.stamina = Math.max(0, p.stamina - STAMINA_HIT_DRAIN);
+  if (world.mode === 'match') {
+    p.stamina = Math.max(0, p.stamina - STAMINA_HIT_DRAIN / Math.max(0.4, attrs.stamina));
+  }
 
   shuttle.vx = p.facing * speed * Math.cos(elevation);
   shuttle.vy = -speed * Math.sin(elevation);
@@ -432,7 +436,11 @@ function startServe(world: World): void {
   resetPlayer(world, 0);
   resetPlayer(world, 1);
   // 每分之间小回一口气：体力像「本局的预算」，长回合多了全场一起累
-  for (const p of world.players) p.stamina = Math.min(STAMINA_MAX, p.stamina + STAMINA_POINT_RECOVER);
+  // （回的多少同样看各自的「体力」属性）
+  world.players.forEach((p, i) => {
+    const mul = Math.max(0.4, world.attrs[i]?.stamina ?? 1);
+    p.stamina = Math.min(STAMINA_MAX, p.stamina + STAMINA_POINT_RECOVER * mul);
+  });
   world.shuttle.live = false;
   world.shuttle.vx = 0;
   world.shuttle.vy = 0;

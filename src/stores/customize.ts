@@ -17,7 +17,6 @@ import {
   type TrailId,
   type WingId,
 } from '../game/cosmetics';
-import type { ThemeId } from '../game/theme';
 import { useProgressStore } from './progress';
 
 /**
@@ -43,9 +42,6 @@ export const useCustomizeStore = defineStore('customize', () => {
   const swingTrail = useLocalStorage<SwingTrailId>('bmt-swing-trail', 'none');
   /** 坐骑（荣誉商店兑换，纯装饰） */
   const mount = useLocalStorage<MountId>('bmt-mount', 'none');
-  const theme = useLocalStorage<ThemeId>('bmt-theme', 'day');
-  /** rotate the court theme automatically once a match is over */
-  const autoCycle = useLocalStorage('bmt-theme-auto', true);
 
   const cosmetic = computed<Cosmetic>(() => ({
     characterSkin: characterSkin.value,
@@ -82,8 +78,6 @@ export const useCustomizeStore = defineStore('customize', () => {
     trailStyle,
     swingTrail,
     mount,
-    theme,
-    autoCycle,
     cosmetic,
   };
 });

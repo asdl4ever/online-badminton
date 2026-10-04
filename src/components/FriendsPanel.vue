@@ -138,6 +138,15 @@ function join(id: string, route: string): void {
   toastGood('正在加入…');
   if (route) void router.push(route);
 }
+
+/**
+ * 点好友整行 = 直接邀请（和「邀请」按钮等价）：没房间就自动建房再发邀请，
+ * 所以不用先手动创建房间。
+ */
+function inviteRow(id: string, online: boolean): void {
+  if (!online || !(props.canInvite || props.ensureRoom)) return;
+  void invite(id);
+}
 </script>
 
 <template>
@@ -202,7 +211,14 @@ function join(id: string, route: string): void {
 
       <!-- 好友列表：状态（在哪个模式 / 离线）+ 一键「加入」（不能加入时置灰并写出原因）+「邀请」 -->
       <ul v-auto-animate="{ duration: 220 }" class="fp__list">
-        <li v-for="r in rows" :key="r.friend.id" class="fp__friend">
+        <li
+          v-for="r in rows"
+          :key="r.friend.id"
+          class="fp__friend"
+          :class="{ 'is-invitable': (canInvite || ensureRoom) && r.online }"
+          :title="(canInvite || ensureRoom) && r.online ? `点一下直接邀请 ${r.friend.name}` : ''"
+          @click="inviteRow(r.friend.id, r.online)"
+        >
           <span class="fp__avatar">
             <CharacterPreview :cosmetic="r.friend.cosmetic ?? DEFAULT_COSMETIC" />
             <span class="fp__dot fp__dot--badge" :class="{ 'fp__dot--on': r.online }" aria-hidden="true" />
@@ -220,7 +236,7 @@ function join(id: string, route: string): void {
             variant="primary"
             :disabled="!r.join.can"
             :title="r.join.can ? `加入 ${r.friend.name} 的房间` : r.join.reason"
-            @click="join(r.friend.id, r.route)"
+            @click.stop="join(r.friend.id, r.route)"
           >
             加入
           </Button>
@@ -229,7 +245,7 @@ function join(id: string, route: string): void {
             size="sm"
             :disabled="!r.online || inviting"
             :title="r.online ? '发邀请给他（还没建房就自动建）' : '离线'"
-            @click="invite(r.friend.id)"
+            @click.stop="invite(r.friend.id)"
           >
             {{ inviting ? '建房中…' : '邀请' }}
           </Button>
@@ -237,7 +253,7 @@ function join(id: string, route: string): void {
             v-if="variant === 'manage'"
             size="sm"
             variant="quiet"
-            @click="store.removeFriend(r.friend.id)"
+            @click.stop="store.removeFriend(r.friend.id)"
           >
             删
           </Button>
@@ -369,6 +385,16 @@ function join(id: string, route: string): void {
   border-radius: var(--r-md);
   border: 1px solid var(--line);
   background: var(--surface-2);
+}
+
+/* 在线好友：点整行 = 直接邀请他到当前场景 */
+.fp__friend.is-invitable {
+  cursor: pointer;
+}
+
+.fp__friend.is-invitable:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
 }
 
 /* 角色小头像：游戏同一份绘制；在线状态点压在右上角 */

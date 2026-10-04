@@ -41,7 +41,7 @@ export const GROUPS: Group[] = [
     id: 'silver',
     label: '青竹组',
     cup: '青竹杯',
-    points: 80,
+    points: 200,
     color: 0xa9b4c2,
     glyph: 'II',
     reward: '头饰「鸭舌帽」',
@@ -50,7 +50,7 @@ export const GROUPS: Group[] = [
     id: 'gold',
     label: '曙光组',
     cup: '曙光杯',
-    points: 160,
+    points: 420,
     color: 0xd8a534,
     glyph: 'III',
     reward: '球拍皮肤「鎏金」',
@@ -59,7 +59,7 @@ export const GROUPS: Group[] = [
     id: 'platinum',
     label: '疾风组',
     cup: '疾风杯',
-    points: 280,
+    points: 720,
     color: 0x7fd4c4,
     glyph: 'IV',
     reward: '头饰「水母冠」',
@@ -68,7 +68,7 @@ export const GROUPS: Group[] = [
     id: 'diamond',
     label: '磐石组',
     cup: '磐石杯',
-    points: 440,
+    points: 1120,
     color: 0x6fe3ff,
     glyph: 'V',
     reward: '球拍皮肤「蓝宝石」',
@@ -77,7 +77,7 @@ export const GROUPS: Group[] = [
     id: 'master',
     label: '烈焰组',
     cup: '烈焰杯',
-    points: 640,
+    points: 1600,
     color: 0x7c5cff,
     glyph: 'VI',
     reward: '球拍皮肤「烈焰」',
@@ -86,7 +86,7 @@ export const GROUPS: Group[] = [
     id: 'king',
     label: '苍穹组',
     cup: '苍穹杯',
-    points: 960,
+    points: 2200,
     color: 0xffb020,
     glyph: 'VII',
     reward: '光环「王者」+ 披风「王袍」',
@@ -95,7 +95,7 @@ export const GROUPS: Group[] = [
     id: 'god',
     label: '传奇组',
     cup: '传奇杯',
-    points: 1440,
+    points: 3000,
     color: 0xff5a5a,
     glyph: 'VIII',
     reward: '翅膀「圣光」+ 头饰「天使光环」',
@@ -106,10 +106,15 @@ export const GROUPS: Group[] = [
 export const TIERS = GROUPS;
 export type Tier = Group;
 
-/** how many points a finished match is worth */
+/**
+ * how many points a finished match is worth
+ *
+ * 段位门槛整体抬高、单局给分下调——积分只当作「段位 / 杯赛门槛」的进度条，
+ * 属性成长改由锻炼负责（见 training.ts），所以不需要靠积分快速堆上去。
+ */
 export const POINT_RULES = {
-  online: { win: 30, lose: 8 },
-  single: { win: 10, lose: 2 },
+  online: { win: 25, lose: 6 },
+  single: { win: 8, lose: 1 },
 } as const;
 
 export type PlayMode = keyof typeof POINT_RULES;

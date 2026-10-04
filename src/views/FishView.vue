@@ -3,9 +3,7 @@ import Phaser from 'phaser';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
 import Button from '../components/ui/Button.vue';
-import StatusChip from '../components/ui/StatusChip.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import { DiveScene, type DiveBagState, type DiveSceneData } from '../game/dive/DiveScene';
 import {
@@ -20,13 +18,15 @@ import {
   upgradeCost,
 } from '../game/dive/fish';
 import { VIEW_H, VIEW_W } from '../game/constants';
+import { sceneScaleConfig } from '../game/zoom';
+import GameSticks from '../components/ui/GameSticks.vue';
 import { ITEMS } from '../game/items';
-import { applyTheme } from '../game/theme';
+import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
-import { hostOpen, joinMatch } from '../net/connect';
+import { hostOpen } from '../net/connect';
 import { waitForRoomCode } from '../composables/useInviteRoom';
-import { normaliseCode, type NetLink } from '../net/link';
+import { type NetLink } from '../net/link';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
@@ -52,7 +52,6 @@ const bag = ref<DiveBagState>({ count: 0, kg: 0, value: 0, items: [] });
 const sessionCaught = ref(0);
 /** 鱼仓里这一批的总价值（农场主按条收购，界面用来提示「能换多少」） */
 const boxValue = computed(() => progress.fishBox.reduce((s, f) => s + f.value, 0));
-const joinCode = ref('');
 const roomCode = ref('');
 const waiting = ref(false);
 const phase = ref('');
@@ -277,7 +276,7 @@ function boot(session: NetLink | null) {
     backgroundColor: '#0b2e4a',
     banner: false,
     audio: { noAudio: true },
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scale: sceneScaleConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('DiveScene', DiveScene, true, data),
@@ -406,31 +405,9 @@ function host() {
     });
 }
 
-function join() {
-  const code = normaliseCode(joinCode.value);
-  if (code.length < 4) {
-    toastWarn('请输入 4~6 位房号');
-    return;
-  }
-  sfx.click();
-  waiting.value = true;
-  phase.value = '正在加入…';
-  joinMatch(code, { onPhase: (p) => (phase.value = p) })
-    .then((m) => {
-      link = m.link;
-      lobby.setRoom(code, 'guest');
-      phase.value = '已汇合！';
-      waiting.value = false;
-      boot(link);
-    })
-    .catch((e: Error) => {
-      toastWarn(e.message);
-      waiting.value = false;
-    });
-}
 
 onMounted(() => {
-  applyTheme(customize.theme);
+  applyTheme(DEFAULT_THEME);
   boot(null);
 });
 
@@ -457,37 +434,11 @@ onBeforeUnmount(() => {
       <template #icons>
       </template>
 
-      <template #dock>
-        <SideDock>
-          <StatusChip :tone="roomCode ? 'ok' : 'idle'">
-            {{ roomCode ? `房间 ${roomCode}` : '单机下潜' }}
-          </StatusChip>
-
-          <template v-if="!roomCode">
-            <input
-              v-model="joinCode"
-              class="ui-input"
-              maxlength="6"
-              placeholder="房号"
-              @keyup.enter="join"
-            />
-            <div class="dive-pair">
-              <Button size="sm" :disabled="waiting" @click="host">建房</Button>
-              <Button size="sm" :disabled="waiting" @click="join">加入</Button>
-            </div>
-          </template>
-          <span v-if="phase" class="dock-note">{{ phase }}</span>
-          <p class="dock-note">
-            左摇杆游动（上推上浮）· 右摇杆把拍头指到鱼身上勾住，之后朝鱼的方向收杆。
-            <b>鱼走上岸就进鱼仓</b>（买船 / 出海 / 图鉴在栈桥边那条船的卡片里），
-            要换钱得回大世界左下角赚钱区<b>交给农场主</b>；升级装备去岸上的装备店。
-            氧气没了会被冲回岸上，<b>这一趟的鱼和宝箱收获全丢</b>。
-          </p>
-        </SideDock>
-      </template>
 
       <template #stage>
-        <div ref="container" class="fish-canvas" />
+        <div ref="container" class="fish-canvas">
+          <GameSticks />
+        </div>
       </template>
 
       <template #overlay>

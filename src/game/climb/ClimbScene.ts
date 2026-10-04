@@ -5,6 +5,7 @@ import { sanitizeCosmetic, type Cosmetic } from '../cosmetics';
 import { drawCharacter } from '../draw/character';
 import { drawRacketHead, racketFrameColor } from '../draw/racket';
 import { GROUND_Y, LEVEL_TOP, ROCKS, SPAWN, SUMMIT, WALL_L, WALL_R, type Rock } from './level';
+import { applySceneZoom, onSceneResize, pinScreen } from '../zoom';
 
 /**
  * Getting Over It, with a badminton racket.
@@ -107,6 +108,8 @@ export class ClimbScene extends Phaser.Scene {
   private fg!: Phaser.GameObjects.Graphics;
   private info!: Phaser.GameObjects.Text;
   private banner!: Phaser.GameObjects.Text;
+  /** 右上角那行操作提示（贴屏幕右上角） */
+  private tip!: Phaser.GameObjects.Text;
   /** the character's emoji face lives in a Text, like on the court */
   private face!: Phaser.GameObjects.Text;
   private cos: Cosmetic = sanitizeCosmetic(undefined);
@@ -167,7 +170,7 @@ export class ClimbScene extends Phaser.Scene {
       .setDepth(21)
       .setVisible(false);
 
-    this.add
+    this.tip = this.add
       .text(VIEW_W - 20, 18, '移动鼠标转动球拍 · R 重来', {
         fontFamily: FONT_UI,
         fontSize: '16px',
@@ -176,6 +179,18 @@ export class ClimbScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(20);
+
+    // 铺满 + 视距：等比放大到铺满容器（多出来的一圈是天空色，不做拉伸）；
+    // 三处 HUD 都是 scrollFactor=0 的，靠 pinScreen 钉在屏幕角上（尺寸 1:1 像素）
+    const fitCam = () => {
+      applySceneZoom(this);
+      const cam = this.cameras.main;
+      pinScreen(this.info, 10, 10);
+      pinScreen(this.banner, cam.width / 2, cam.height / 2);
+      pinScreen(this.tip, cam.width - 20, 18);
+    };
+    fitCam();
+    onSceneResize(this, fitCam);
 
     this.input.on('pointermove', this.onPointer, this);
     const kb = this.input.keyboard!;

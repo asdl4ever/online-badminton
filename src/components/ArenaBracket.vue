@@ -28,6 +28,11 @@ const props = defineProps<{
   matchNote?: Record<string, string>;
   /** 轮次名（杯型不是 16 强时用） */
   roundNames?: readonly string[];
+  /**
+   * 显示每位参赛者脸上的表情（晋级赛开启：同一路人的对手共用一套表情，
+   * 所以一眼能看出「这一届是快攻营还是防守派」）。世界赛 / 观战台不开。
+   */
+  decorated?: boolean;
 }>();
 
 const emit = defineEmits<{ select: [id: string]; watch: [round: number, index: number] }>();
@@ -61,9 +66,20 @@ const nameById = computed(() => {
   return m;
 });
 
+/** 每位参赛者的脸（`decorated` 时显示在名字前面） */
+const faceById = computed(() => {
+  const m = new Map<string, string>();
+  for (const e of props.entrants) m.set(e.id, e.cosmetic?.emoji ?? '');
+  return m;
+});
+
 function nameOf(id: string): string {
   if (!id) return '—';
   return nameById.value.get(id) ?? '—';
+}
+
+function faceOf(id: string): string {
+  return id && props.decorated ? (faceById.value.get(id) ?? '') : '';
 }
 
 function slotClass(winner: string | null, id: string): string {
@@ -100,6 +116,7 @@ function isMine(a: string, b: string): boolean {
             :disabled="!m.a"
             @click="m.a && emit('select', m.a)"
           >
+            <span v-if="faceOf(m.a)" class="match__face">{{ faceOf(m.a) }}</span>
             {{ nameOf(m.a) }}
           </button>
           <button
@@ -109,6 +126,7 @@ function isMine(a: string, b: string): boolean {
             :disabled="!m.b"
             @click="m.b && emit('select', m.b)"
           >
+            <span v-if="faceOf(m.b)" class="match__face">{{ faceOf(m.b) }}</span>
             {{ nameOf(m.b) }}
           </button>
           <div v-if="matchPhase" class="match__meta">
@@ -215,6 +233,12 @@ function isMine(a: string, b: string): boolean {
 
 .match__slot.is-empty {
   color: var(--text-dim);
+}
+
+.match__face {
+  margin-right: 4px;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .match__slot.is-winner {

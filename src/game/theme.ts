@@ -4,7 +4,11 @@
  * `P` is the *live* palette: the court is drawn once per scene, so switching a
  * theme just means re-assigning `P` and redrawing. `BASE` is the default set;
  * each theme only overrides the keys it cares about so adding one stays small.
+ *
+ * 晋级赛的六套「赛事专属」主题来自 `arena-themes.ts`：它们在这里注册，但玩家在界面上
+ * 选不到（主题选择器与自动轮换已经下线），只有赛事对局会用到。
  */
+import { ARENA_THEMES, type ArenaThemeId } from './arena-themes';
 
 export const BASE = {
   // --- court ------------------------------------------------------------
@@ -98,7 +102,8 @@ export type Palette = typeof BASE;
 /** the live palette — mutate through applyTheme(), read directly */
 export const P: Palette = { ...BASE };
 
-export type ThemeId = 'day' | 'sunset' | 'mint' | 'night';
+/** 通用主题（玩家不出现在任何选择器里）+ 晋级赛的赛事专属主题 */
+export type ThemeId = 'day' | 'sunset' | 'mint' | 'night' | ArenaThemeId;
 
 export interface ThemeDef {
   id: ThemeId;
@@ -199,9 +204,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       debugText: '#cfe0f5',
     },
   },
+  // 晋级赛的六套赛事专属主题（只注册，玩家选不到）
+  ...ARENA_THEMES,
 };
 
-export const THEME_IDS: ThemeId[] = ['day', 'sunset', 'mint', 'night'];
+/** 默认球场主题：不指定主题的玩法（单机 / 联机 / 潜水 / 采矿…）都用它 */
+export const DEFAULT_THEME: ThemeId = 'day';
 
 export function applyTheme(id: ThemeId): void {
   Object.assign(P, BASE);

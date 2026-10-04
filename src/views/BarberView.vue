@@ -27,8 +27,6 @@ let snap: {
   emoji: string;
   racketHex: string;
   trailHex: string;
-  theme: typeof customize.theme;
-  autoCycle: boolean;
 } | null = null;
 
 const canAfford = (): boolean => progress.coins >= BARBER_COST;
@@ -38,8 +36,6 @@ onMounted(() => {
     emoji: customize.emoji,
     racketHex: customize.racketHex,
     trailHex: customize.trailHex,
-    theme: customize.theme,
-    autoCycle: customize.autoCycle,
   };
 });
 
@@ -49,8 +45,6 @@ function restore(): void {
   customize.emoji = snap.emoji;
   customize.racketHex = snap.racketHex;
   customize.trailHex = snap.trailHex;
-  customize.theme = snap.theme;
-  customize.autoCycle = snap.autoCycle;
   snap = null;
 }
 
@@ -90,8 +84,8 @@ onBeforeUnmount(restore);
 
         <p class="muted bb__hint">
           随便试——<b>确认修改才收费</b>（¥{{ BARBER_COST }}）；不确认直接离开，装扮会还原成进店时的样子。
-          表情、球拍与拖尾配色、球场主题都在这里改，只影响画面不影响判定。头饰 / 翅膀 / 披风 /
-          光环 / 宠物 / 球拍皮肤 / 特效请在「背包」里装备。
+          表情、球拍与拖尾配色都在这里改，只影响画面不影响判定。球场场地由玩法与赛事决定，
+          头饰 / 翅膀 / 披风 / 光环 / 宠物 / 球拍皮肤 / 特效请在「背包」里装备。
         </p>
 
         <CustomizePanel />

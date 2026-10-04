@@ -256,6 +256,25 @@ export interface AvatarPaintOptions {
    * 不传就是地图上的默认姿势 `REST_RACKET`；大世界的右摇杆就在动它。
    */
   racket?: { rx: number; ry: number };
+  /** 不画球拍（健身房这类「手上不拿拍」的场合），手臂姿势仍由 `racket` 决定 */
+  noRacket?: boolean;
+  /** 在手上画一副哑铃（举重） */
+  dumbbell?: boolean;
+}
+
+/** 哑铃：一根横杆 + 两端配重片（举重时画在手上） */
+function drawDumbbell(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#3a4048';
+  ctx.fillRect(-17, -3, 34, 6);
+  for (const dx of [-20, 12]) {
+    ctx.fillStyle = '#e0a13a';
+    ctx.fillRect(dx, -11, 8, 22);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillRect(dx + 1, -9, 2, 18);
+  }
+  ctx.restore();
 }
 
 /**
@@ -291,7 +310,7 @@ export function paintAvatar(
   const facing = opts.facing ?? 1;
   const face = new CanvasFace(ctx);
   const racket = opts.racket ?? REST_RACKET;
-  drawRigGraphics(
+  const hand = drawRigGraphics(
     asGraphics(ctx),
     now,
     cos,
@@ -301,5 +320,10 @@ export function paintAvatar(
     0,
     0,
     face,
+    null,
+    undefined,
+    opts.noRacket,
   );
+  // 举重：哑铃画在刚才那只手的位置上
+  if (opts.dumbbell) drawDumbbell(ctx, hand.head.x, hand.head.y);
 }

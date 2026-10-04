@@ -25,7 +25,7 @@ import { ensureStats, type AiPlayer } from './players';
  *   没看过的到点用 `simulateArenaMatch` 按五维算结果，看过的那场以**真实对局结果**为准。
  */
 
-/** 同时进行的杯数 = 赛事档数（50赛 → 1000赛） */
+/** 同时进行的杯数 = 赛事档数（100赛 → 1000赛，见 `arena.ts` 的 `ARENA_TIERS`） */
 export const CUP_COUNT = ARENA_TIERS.length;
 /** 一轮占多久（同一轮的比赛同时开打、同时进行） */
 export const CUP_ROUND_MS = 150_000;
@@ -48,7 +48,7 @@ export const WORLD_ROUNDS = ARENA_ROUNDS.length;
 export interface CupTier {
   /** 组别 id（与晋级赛共用） */
   id: string;
-  /** 级别名：50赛 / 100赛… */
+  /** 级别名：100赛 / 200赛… */
   tag: string;
   fee: number;
   glyph: string;
@@ -81,8 +81,9 @@ export function roundNames(rounds: number): readonly string[] {
   return ARENA_ROUNDS.slice(Math.max(0, ARENA_ROUNDS.length - rounds));
 }
 
-/** 参赛人数 → 杯型大小（2 的幂）：4 人打 4 强、5~8 人打 8 强、再多打 16 强 */
+/** 参赛人数 → 杯型大小（2 的幂）：2 人打决赛、3~4 人打 4 强、5~8 人打 8 强、再多打 16 强 */
 export function bracketSizeOf(count: number): number {
+  if (count <= 2) return 2;
   if (count <= 4) return 4;
   if (count <= 8) return 8;
   return 16;
@@ -170,16 +171,40 @@ export const MATCH_KEY = (round: number, index: number): string => `${round}:${i
 // ---- 参赛者与对阵树 ---------------------------------------------------------
 
 /**
- * 某个段位杯这一届的参赛者：**按名人堂排名切档**（排名前 1/4 打超神杯……最后 1/4 打青铜杯），
- * 档内整体洗牌定首轮对阵，人数凑不满杯型就留轮空。已退役的不参加。
- * 因为各档**互不重叠**，所以一位选手同一时刻只会出现在一个杯里。
+ * **按名人堂排名切档**：rating 降序，`floor(名次/总人数 × 档数)` = 档号。
+ * **不足 2 人的档整体并进低一档**（比如总决赛只有皮泽恩一人 → 并进 900 赛打 4 强），
+ * 保证没有「一个人自己打决赛」的空转杯，也依然**一人最多出现在一个杯里**。
  */
-export function worldEntrants(roster: readonly AiPlayer[], cup: number, season: number): ArenaEntrant[] {
+export function tierPools(roster: readonly AiPlayer[]): AiPlayer[][] {
+  const pools: AiPlayer[][] = ARENA_TIERS.map(() => []);
   const pool = roster.filter((p) => !p.retired);
-  if (pool.length < 2) return [];
+  if (pool.length < 2) return pools;
   const byRating = [...pool].sort((a, b) => b.rating - a.rating || b.wins - a.wins);
   const total = byRating.length;
-  const tierPlayers = byRating.filter((_, i) => Math.floor((i / total) * CUP_COUNT) === cup);
+  byRating.forEach((p, i) => {
+    // 第 0 名打最高档（表末尾的总决赛），第 0 档（100赛）留给排名最末的
+    const rank = Math.min(CUP_COUNT - 1, Math.floor((i / total) * CUP_COUNT));
+    pools[CUP_COUNT - 1 - rank].push(p);
+  });
+  // 从最高档往下并：孤档的球员下放到低一档（低一档人变多没关系，杯型会自动变大）
+  for (let c = CUP_COUNT - 1; c > 0; c--) {
+    if (pools[c].length < 2) {
+      pools[c - 1].push(...pools[c]);
+      pools[c] = [];
+    }
+  }
+  // 最底档剩一个人没法再往下并：并上高一位的档，别把人晾在场外
+  if (pools[0].length === 1 && CUP_COUNT > 1) {
+    pools[1].push(...pools[0]);
+    pools[0] = [];
+  }
+  return pools;
+}
+
+/** 某档这一届的参赛者：档内洗牌定首轮对阵，人数超杯型就截断（留轮空的同款逻辑在 `buildTierBracket`） */
+export function worldEntrants(roster: readonly AiPlayer[], cup: number, season: number): ArenaEntrant[] {
+  const tierPlayers = tierPools(roster)[cup] ?? [];
+  if (tierPlayers.length < 2) return [];
   const size = bracketSizeOf(tierPlayers.length);
   const rng = mulberry32(hashStr(`world-c${cup}-s${season}`));
   const arr = [...tierPlayers];
@@ -270,7 +295,9 @@ export function worldState(
     const startAt = cupStart(c, season);
     const entrants = worldEntrants(roster, c, season);
     const byId = new Map(entrants.map((e) => [e.id, e]));
-    const rounds = buildTierBracket(entrants, bracketSizeOf(entrants.length));
+    // 不足 2 人（都并去低一档了）：这一档这一届「报名不足」，不开赛（树为空）
+    const rounds =
+      entrants.length >= 2 ? buildTierBracket(entrants, bracketSizeOf(entrants.length)) : [];
     // 第一个「还没打完」的轮就是当前轮；全打完了 round = 轮数
     let round = rounds.length;
     let done = 0;

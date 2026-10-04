@@ -8,6 +8,7 @@ import GameCanvas from '../components/GameCanvas.vue';
 import ArenaBracket from '../components/ArenaBracket.vue';
 import PlayerProfile from '../components/PlayerProfile.vue';
 import AppModal from '../components/ui/AppModal.vue';
+import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import { ARENA_ROUNDS } from '../game/arena';
 import {
@@ -964,11 +965,8 @@ function back(): void {
                 :cosmetic="customize.cosmetic"
                 :local-name="lobby.playerName"
                 :local-rank="progress.tier.id"
-                :theme="customize.theme"
-                :auto-cycle-theme="customize.autoCycle"
                 :party="false"
                 @sim="onSim"
-                @themechange="customize.theme = $event"
               />
               <template v-else>
                 <canvas ref="screenFx" class="scr__fx" :width="SCR.w" :height="SCR.h" />
@@ -1069,6 +1067,7 @@ function back(): void {
 
           <!-- 手机/桌面：左摇杆走动 -->
           <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
+          <ZoomControl />
 
           <div class="room__hint num">
             {{
@@ -1132,13 +1131,21 @@ function back(): void {
               type="button"
               @click="pickCup(c.id)"
             >
-              <span class="cup-chip__name">{{ c.glyph }} {{ c.name }}</span>
-              <span class="cup-chip__meta num">
-                第 {{ c.season % 1000 + 1 }} 届 · {{ c.entrants }} 人 ·
+              <span class="cup-chip__name">{{ c.glyph }} {{ c.tag }}</span>
+              <span class="cup-chip__meta">
+                {{ c.name }} · 第 {{ c.season % 1000 + 1 }} 届 · {{ c.entrants }} 人 ·
                 {{ c.roundNames?.[Math.min(c.round, c.roundNames.length - 1)] ?? '' }}
               </span>
               <span class="cup-chip__st">
-                {{ c.live ? `🔴 直播 ${c.liveCount} 场` : c.round >= c.roundNames.length ? '✅ 已结束' : `⏳ ${c.wait}` }}
+                {{
+                  c.entrants < 2
+                    ? '👥 报名不足 · 本档休息'
+                    : c.live
+                      ? `🔴 直播 ${c.liveCount} 场`
+                      : c.round >= c.roundNames.length
+                        ? '✅ 已结束'
+                        : `⏳ ${c.wait}`
+                }}
               </span>
             </button>
           </div>
@@ -1148,7 +1155,7 @@ function back(): void {
         <Panel v-if="cup" class="watch-tree">
           <div class="watch-tree__head">
             <b :style="{ color: cup.tier.color }">
-              {{ cup.tier.glyph }} {{ cup.name }}({{ cup.tier.tag }}) · 第 {{ cup.season % 1000 + 1 }} 届
+              {{ cup.tier.glyph }} {{ cup.tier.tag }} · {{ cup.name }} · 第 {{ cup.season % 1000 + 1 }} 届
             </b>
             <span class="muted">
               {{ cup.live ? `🔴 ${cupLive.length} 场同时在打 · 点「👁 观看」切台` : `本轮间隙 · 下一轮 ${cupWait ?? ''}` }}
@@ -1193,7 +1200,7 @@ function back(): void {
         <Panel v-if="cup" class="watch-who">
           <div class="watch-who__head">
             <b>👥 谁在打哪个赛事</b>
-            <span class="muted">{{ cup.name }}({{ cup.tier.tag }}) 这一届 {{ cup.entrants.length }} 位参赛球员的进程</span>
+            <span class="muted">{{ cup.tier.tag }} · {{ cup.name }} 这一届 {{ cup.entrants.length }} 位参赛球员的进程</span>
           </div>
           <div class="who-list">
             <button

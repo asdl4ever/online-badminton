@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useClipboard, useIntervalFn } from '@vueuse/core';
 import { VProgressCircular, VTextField } from 'vuetify/components';
@@ -7,19 +7,12 @@ import GameCanvas from '../components/GameCanvas.vue';
 import PartyOverlay from '../components/PartyOverlay.vue';
 import TopBar from '../components/ui/TopBar.vue';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
-import StatusChip from '../components/ui/StatusChip.vue';
 import EmotePicker from '../components/ui/EmotePicker.vue';
 import FriendsPanel from '../components/FriendsPanel.vue';
-import { NET_P2P_ONLY, NET_UNAVAILABLE, netAvailable, relayAvailable } from '../net/relay';
 
-/** 连直连都不行（罕见）：整页没法用 */
-const netBlocked = !netAvailable();
-/** App 里没配中继服务器：只剩直连通道，给个温和提醒 */
-const p2pOnly = netAvailable() && !relayAvailable();
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
@@ -68,18 +61,6 @@ const waitClock = useIntervalFn(() => (waited.value += 1), 1000, { immediate: fa
 const playing = computed(() => store.connState === 'connected');
 const busy = computed(() => store.connState === 'creating' || store.connState === 'connecting');
 const waiting = computed(() => store.connState === 'waiting');
-const onRelay = computed(() => playing.value && store.transport === '中继');
-const chipTone = computed(() => {
-  if (onRelay.value) return 'warn';
-  if (playing.value) return 'ok';
-  return busy.value || waiting.value ? 'warn' : 'idle';
-});
-const chipLabel = computed(() => {
-  if (store.transport && playing.value) return store.transport;
-  if (store.role === 'host') return store.roomCode ? `房间 ${store.roomCode}` : '未连接';
-  if (store.role === 'guest') return store.roomCode ? `已加入 ${store.roomCode}` : '未连接';
-  return '未连接';
-});
 
 watch(waiting, (on) => {
   if (on) {
@@ -89,6 +70,22 @@ watch(waiting, (on) => {
     waitClock.pause();
   }
 });
+
+/**
+ * 从球馆「邀请好友参赛」进来的（`/online?court=N&invite=1`）：
+ * 等房间建好（`waiting`）就把「邀请好友」面板弹出来，直接点「邀请」好友就进这个场地。
+ */
+const inviteOnEnter = route.query.invite === '1';
+let inviteOpened = false;
+watch(
+  waiting,
+  (on) => {
+    if (!inviteOnEnter || inviteOpened || !on) return;
+    inviteOpened = true;
+    friendsOpen.value = true;
+  },
+  { immediate: true },
+);
 
 const hooks = {
   onStatus: (s: Parameters<NonNullable<NetLink['onStatus']>>[0]) => {
@@ -120,7 +117,7 @@ async function ensureInviteRoom(): Promise<string> {
   return waitForRoomCode(() => store.roomCode);
 }
 
-async function createRoom() {
+async function createRoom(wantCode = '') {
   sfx.unlock();
   sfx.click();
   store.reset();
@@ -129,7 +126,7 @@ async function createRoom() {
   store.role = 'host';
   store.connState = 'creating';
   try {
-    const room = await hostOpen(hooks, lobby.room);
+    const room = await hostOpen(hooks, wantCode || lobby.room);
     store.roomCode = room.code;
     lobby.setRoom(room.code, 'host');
     store.connState = 'waiting';
@@ -145,10 +142,10 @@ async function createRoom() {
   }
 }
 
-async function joinRoom() {
+async function joinRoom(codeIn?: string) {
   sfx.unlock();
   sfx.click();
-  const code = normaliseCode(joinCode.value);
+  const code = normaliseCode(codeIn ?? joinCode.value);
   if (!code) {
     store.connState = 'error';
     store.netError = '请输入房间号';
@@ -185,6 +182,33 @@ watch(
   },
   { immediate: true },
 );
+
+/*
+ * 球场进来的：`/online?court=2`。
+ * 场地号就是房间号（COURT2）——有好友已经在这个场地等着就连他，否则自己开这个场。
+ */
+const courtNo = computed(() => {
+  const n = Number(route.query.court ?? 0);
+  return Number.isInteger(n) && n >= 1 && n <= 6 ? n : 0;
+});
+
+async function enterCourt(n: number): Promise<void> {
+  const code = `COURT${n}`;
+  // 已经在这个场地里了（连着 / 正等着）就别重来
+  if (store.roomCode === code && (playing.value || waiting.value || busy.value)) return;
+  const camper = Object.values(lobby.states).find(
+    (s) => s.room === code && s.allowJoin !== false,
+  );
+  if (camper) await joinRoom(code);
+  else await createRoom(code);
+}
+
+onMounted(() => {
+  if (!courtNo.value) return;
+  // 邀请 / 一键加入已经接手了（正在连/已在等），就不再按场地号重开一个房
+  if (store.connState !== 'idle' && store.connState !== 'error') return;
+  void enterCourt(courtNo.value);
+});
 
 function handlePeerLeft(reason = '对手已离开对局') {
   if (leaving.value) return;
@@ -246,6 +270,7 @@ onBeforeUnmount(() => {
       v-if="playing"
       title="联机对战"
       back
+      :icons="false"
       friends-kind="match"
       :friends-code="store.roomCode"
       :friends-can-invite="!!store.roomCode"
@@ -263,16 +288,6 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
-      <template #dock>
-        <SideDock>
-          <p v-if="netBlocked" class="dock-warn">⚠️ {{ NET_UNAVAILABLE }}</p>
-          <p v-else-if="p2pOnly" class="dock-warn">ℹ️ {{ NET_P2P_ONLY }}</p>
-          <StatusChip :tone="chipTone">{{ chipLabel }}</StatusChip>
-          <!-- 右上角那排图标可以整体收起，所以这里再给一个入口；表情面板本身挂在图标行上 -->
-          <Button size="sm" block @click="emoteOpen = !emoteOpen">表情</Button>
-          <Button size="sm" block @click="friendsOpen = true">邀请好友</Button>
-        </SideDock>
-      </template>
 
       <template #stage>
         <GameCanvas
@@ -284,14 +299,11 @@ onBeforeUnmount(() => {
           :local-name="lobby.playerName"
           :local-rank="progress.tier.id"
           :local-code="lobby.playerId"
-          :theme="customize.theme"
-          :auto-cycle-theme="customize.autoCycle"
           :party="partyMode"
           @hud="onHud"
           @sim="onEvent"
           @metrics="onMetrics"
           @disconnect="onDisconnect"
-          @themechange="customize.theme = $event"
           @party="partyState = $event"
         />
         <PartyOverlay
@@ -308,7 +320,7 @@ onBeforeUnmount(() => {
     <!-- 大厅：非对局时是居中卡片（不进外壳，页面可滚动） -->
     <div v-else class="shell">
       <TopBar @back="back">
-        <template #title>联机对战</template>
+        <template #title>{{ courtNo ? `球场 · 场地 ${courtNo}` : '联机对战' }}</template>
       </TopBar>
 
       <div v-if="partyMode" class="muted party-hint">
@@ -318,9 +330,15 @@ onBeforeUnmount(() => {
       <!-- 注意：这里不要用裸 `<template>` 当包裹层——它会被编译成原生 <template> 元素，
            浏览器不会渲染它的内容，整个大厅卡片就会「存在但看不见」。直接平铺兄弟节点。 -->
       <Panel v-if="waiting" style="text-align: center">
-        <p class="muted">把下面这串房间号发给你的对手</p>
+        <p class="muted">
+          {{
+            courtNo
+              ? `场地 ${courtNo} · 等好友接受邀请（右上「邀请好友」）`
+              : '把下面这串房间号发给你的对手'
+          }}
+        </p>
 
-        <div class="code">
+        <div v-if="!courtNo" class="code">
           <span class="code__value num">{{ store.roomCode }}</span>
           <Button variant="primary" :disabled="!clipboardSupported" @click="copyCode">
             {{ copied ? '已复制' : '复制' }}
@@ -354,7 +372,7 @@ onBeforeUnmount(() => {
           <div class="lobby__col">
             <h3>创建房间</h3>
             <p class="muted">生成一个房间号，等对手加入。</p>
-            <Button variant="primary" :disabled="busy" @click="createRoom">创建房间</Button>
+            <Button variant="primary" :disabled="busy" @click="createRoom()">创建房间</Button>
           </div>
 
           <div class="lobby__rule" />
@@ -370,7 +388,7 @@ onBeforeUnmount(() => {
                 maxlength="8"
                 @keyup.enter="joinRoom"
               />
-              <Button :disabled="busy" @click="joinRoom">加入</Button>
+              <Button :disabled="busy" @click="joinRoom()">加入</Button>
             </div>
           </div>
         </div>

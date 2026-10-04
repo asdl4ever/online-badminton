@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import ArenaBracket from '../components/ArenaBracket.vue';
 import PlayerProfile from '../components/PlayerProfile.vue';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
 import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import AppModal from '../components/ui/AppModal.vue';
+import ArenaSignup from '../components/ArenaSignup.vue';
 import type { HudState, MatchOpponent } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import { STYLE_META, tierFromStats } from '../game/ai';
 import {
   ARENA_ROUNDS,
-  ARENA_TIERS,
   PLACE_LABEL,
   arenaByTier,
-  goldForPlace,
-  honorForPlace,
   type ArenaEntrant,
   type ArenaPlace,
 } from '../game/arena';
+import { arenaEventOf } from '../game/arena-events';
+import { THEMES } from '../game/theme';
+import { toHex } from '../game/cosmetics';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
@@ -31,9 +31,10 @@ import { useLobbyStore } from '../stores/lobby';
 import { useGameStore } from '../stores/game';
 
 /**
- * 晋级赛馆：滑动卡片选杯 → 树状赛程 → 逐场开打。
+ * 晋级赛馆：报名（`ArenaSignup`，两步选级别 → 选赛事）→ 树状赛程 → 逐场开打。
  * 一届 16 人单败（16强/8强/4强/决赛），每场一局定胜负；打完一届该杯赛冷却 5 分钟。
  * 报名后没开打就返回 = 直接走人，本届保留，下次进来继续。
+ * 报名界面本身是独立组件（大地图上的平板也复用它）。
  */
 const router = useRouter();
 const progress = useProgressStore();
@@ -46,6 +47,27 @@ const hud = ref<HudState | null>(null);
 const quitOpen = ref(false);
 const resultOpen = ref(false);
 const lastPlace = ref<ArenaPlace | null>(null);
+/** 刚打完的那一届的身份与赛事名（结算海报用——结算时 arenaRun 已经被清掉了） */
+const lastEvent = ref<ReturnType<typeof arenaEventOf> | null>(null);
+const lastCupName = ref('');
+
+/** 名次徽章 */
+const placeMedal = computed(() => {
+  switch (lastPlace.value) {
+    case 'champion':
+      return '🏆';
+    case 'runner':
+      return '🥈';
+    case 'third':
+      return '🥉';
+    case 'fourth':
+      return '🎖';
+    case 'qf':
+      return '🎗';
+    default:
+      return '🏸';
+  }
+});
 
 const run = computed(() => progress.arenaRun);
 const cup = computed(() => (run.value ? arenaByTier(run.value.tier) : null));
@@ -107,34 +129,23 @@ const canvasKey = computed(() =>
   run.value ? `arena-${run.value.round}-${run.value.wins}` : 'none',
 );
 
-/* --- 冷却倒计时（每秒刷新） ------------------------------------------------ */
-const nowTick = ref(Date.now());
-let timer: number | undefined;
+/* --- 一旦有进行中的一届就进赛程；预约到点自动开赛也跟过去 ---------------- */
 onMounted(() => {
-  timer = window.setInterval(() => (nowTick.value = Date.now()), 1000);
   if (run.value) phase.value = 'bracket';
 });
-onBeforeUnmount(() => {
-  if (timer) window.clearInterval(timer);
-});
+watch(
+  () => progress.arenaAutoStartedAt,
+  (at) => {
+    if (at && run.value) phase.value = 'bracket';
+  },
+);
 
-function cooldownLeft(tier: string): number {
-  return Math.max(0, (progress.arenaCooldown[tier] ?? 0) - nowTick.value);
-}
-function fmtCd(ms: number): string {
-  const s = Math.ceil(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
+/** 本届赛事的身份（场馆 / 主题 / 阵容），对局场地与赛程页头部都用它 */
+const ev = computed(() => (run.value ? arenaEventOf(run.value.tier, run.value.cupName) : null));
+const evThemeLabel = computed(() => (ev.value ? THEMES[ev.value.theme].label : ''));
 
-/* --- 操作 ------------------------------------------------------------------ */
-function signup(tier: (typeof ARENA_TIERS)[number]['tier']): void {
-  sfx.click();
-  const r = progress.enterArena(tier, lobby.playerName);
-  if (!r.ok) {
-    toastWarn(r.message);
-    return;
-  }
-  toastGood(r.message);
+/** 报名成功（报名界面 emit）→ 直接进本届赛程 */
+function onSigned(): void {
   phase.value = 'bracket';
 }
 
@@ -186,11 +197,17 @@ function onEvent(e: SimEvent): void {
   else if (e.type === 'point') sfx.point();
   else if (e.type === 'gameover') {
     const win = e.scorer === 0;
+    // 结算会把 arenaRun 清掉，所以先把本届的身份与赛事名留下来给结算海报用
+    const before = run.value;
+    const evBefore = before ? arenaEventOf(before.tier, before.cupName) : null;
+    const nameBefore = before?.cupName ?? '';
     const res = progress.arenaFinishMatch(win);
     if (win) sfx.win();
     else sfx.lose();
     if (res.finished) {
       lastPlace.value = res.place ?? null;
+      lastEvent.value = evBefore;
+      lastCupName.value = nameBefore;
       if (win) celebrate(3, ['#ffd45c', '#3d8bfd', '#f2e7c9']);
       resultOpen.value = true;
       phase.value = 'lobby';
@@ -204,16 +221,6 @@ function onEvent(e: SimEvent): void {
 <template>
   <div class="page page--playing">
     <PageShell title="晋级赛馆" back @back="back">
-      <template #dock>
-        <SideDock>
-          <span class="dock-coins">🪙 {{ progress.coins }}</span>
-          <div class="dock-pts num">积分 {{ progress.points }}</div>
-          <div v-if="run && cup" class="dock-run">{{ run.cupName }} · {{ roundName }}</div>
-          <p class="dock-note">
-            16 人单败，每场一局定胜负。打完一届该杯赛冷却 5 分钟，赛季每月清零。
-          </p>
-        </SideDock>
-      </template>
 
       <template #stage>
         <!-- 正在打：羽毛球场景铺满 -->
@@ -227,13 +234,11 @@ function onEvent(e: SimEvent): void {
           :cosmetic="customize.cosmetic"
           :attrs="progress.attrs"
           :local-name="lobby.playerName"
-          :local-rank="run.tier"
-          :theme="customize.theme"
-          :auto-cycle-theme="customize.autoCycle"
+          :local-rank="progress.tier.id"
+          :theme="ev?.theme"
           :party="false"
           @hud="onHud"
           @sim="onEvent"
-          @themechange="customize.theme = $event"
         />
 
         <!-- 树状赛程 -->
@@ -245,6 +250,14 @@ function onEvent(e: SimEvent): void {
                 <div class="muted arena-head__sub">
                   {{ cup.label }} · 16 人单败 · 当前 {{ roundName }}（第 {{ run.round + 1 }} / 4 轮）
                 </div>
+                <div v-if="ev" class="arena-head__venue">
+                  <span class="arena-venue__dot" :style="{ background: toHex(ev.art[0]) }" />
+                  <span>{{ ev.venue }}</span>
+                  <span class="arena-venue__chip" :style="{ borderColor: toHex(ev.art[0]) }">
+                    {{ ev.label }}
+                  </span>
+                  <span class="muted">球场主题 · {{ evThemeLabel }}</span>
+                </div>
               </div>
               <span class="arena-season">赛季 {{ progress.seasonId }}</span>
             </div>
@@ -253,6 +266,7 @@ function onEvent(e: SimEvent): void {
               :rounds="run.rounds"
               :entrants="run.entrants"
               :current-round="run.round"
+              decorated
               @select="openEntrant"
             />
 
@@ -268,6 +282,7 @@ function onEvent(e: SimEvent): void {
                 <template v-if="myOpponent">
                   · 难度 {{ opponentTierLabel }} · 积分 {{ myOpponent.rating }}
                 </template>
+                <template v-if="ev"> · 本场是{{ ev.label }}（{{ ev.venue }}）</template>
               </div>
               <Button variant="primary" block @click="startMatch">开始比赛</Button>
               <p class="muted next-match__hint">返回不会放弃本届，下次进来继续。</p>
@@ -279,55 +294,9 @@ function onEvent(e: SimEvent): void {
           </Panel>
         </div>
 
-        <!-- 选杯：左右滑动的卡片 -->
+        <!-- 报名：两步走（先选级别，再选该级别下的赛事），复用独立的报名组件 -->
         <div v-else class="arena-stage">
-          <div class="lobby-wrap">
-            <div class="lobby-head">
-              <div class="lobby-head__title">🏆 报名杯赛</div>
-              <div class="muted lobby-head__sub">
-                积分 {{ progress.points }} · 左右滑动选杯赛，按积分逐档解锁，打完冷却 5 分钟
-              </div>
-            </div>
-
-            <div class="cup-scroller">
-              <div
-                v-for="c in ARENA_TIERS"
-                :key="c.tier"
-                class="cup-card"
-                :class="{ 'is-locked': progress.points < c.req }"
-              >
-                <div class="cup-card__cup">{{ c.glyph }} {{ c.cup }}</div>
-                <div class="muted cup-card__group">
-                  {{ c.label }} · {{ c.names.length }} 个赛事名每届轮换
-                </div>
-
-                <div class="cup-card__meta">
-                  <div>门槛 <b class="num">{{ c.req }}</b> 分</div>
-                  <div>报名 <b class="num">🪙{{ c.fee }}</b></div>
-                  <div>冠军 <b class="num">🪙{{ goldForPlace(c, 'champion', 4) }}</b></div>
-                  <div>冠军积分 <b class="num">+{{ c.points }}</b></div>
-                  <div>冠军荣誉 <b class="num">🏅{{ honorForPlace(c.tier, 'champion') }}</b></div>
-                </div>
-
-                <div class="cup-card__foot">
-                  <span v-if="cooldownLeft(c.tier) > 0" class="cup-card__cd num">
-                    冷却中 {{ fmtCd(cooldownLeft(c.tier)) }}
-                  </span>
-                  <span v-else-if="progress.points < c.req" class="cup-card__cd">
-                    🔒 还差 {{ c.req - progress.points }} 分
-                  </span>
-                  <Button
-                    v-else
-                    variant="primary"
-                    block
-                    @click="signup(c.tier)"
-                  >
-                    报名 · 🪙{{ c.fee }}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ArenaSignup @signed="onSigned" />
         </div>
       </template>
     </PageShell>
@@ -341,11 +310,27 @@ function onEvent(e: SimEvent): void {
       </div>
     </AppModal>
 
-    <!-- 本届结算 -->
+    <!-- 本届结算：一张赛事海报 -->
     <AppModal v-model="resultOpen" title="本届结束" max-width="400px">
+      <div
+        class="poster"
+        :style="{
+          background: lastEvent
+            ? `linear-gradient(135deg, ${toHex(lastEvent.art[0])}, ${toHex(lastEvent.art[1])})`
+            : undefined,
+        }"
+      >
+        <div class="poster__cup">{{ lastCupName }}</div>
+        <div class="poster__venue">{{ lastEvent?.venue ?? '' }}</div>
+      </div>
+
       <p class="result-line">
-        <template v-if="lastPlace === 'champion'">🏆 夺冠！</template>
+        <span class="result-line__medal">{{ placeMedal }}</span>
+        <template v-if="lastPlace === 'champion'">夺冠！</template>
         <template v-else>被淘汰 · {{ lastPlace ? PLACE_LABEL[lastPlace] : '' }}</template>
+      </p>
+      <p v-if="lastEvent" class="muted quit-note">
+        {{ lastEvent.label }} · {{ lastEvent.blurb }}
       </p>
       <p class="muted quit-note">奖励已结算，详情看画面上方的提示。该杯赛冷却 5 分钟。</p>
       <Button variant="primary" block @click="closeResult">回到选杯</Button>
@@ -455,90 +440,6 @@ function onEvent(e: SimEvent): void {
   margin-top: var(--s3);
 }
 
-/* --- 选杯卡片 --- */
-.lobby-wrap {
-  width: min(760px, 100%);
-  margin: auto 0;
-}
-
-.lobby-head {
-  margin-bottom: var(--s3);
-  text-align: center;
-}
-
-.lobby-head__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.lobby-head__sub {
-  margin-top: 2px;
-  font-size: 12px;
-}
-
-.cup-scroller {
-  display: flex;
-  gap: var(--s3);
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding: var(--s1) var(--s1) var(--s3);
-}
-
-.cup-card {
-  flex: none;
-  width: 224px;
-  scroll-snap-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-  padding: var(--s3);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  box-shadow: var(--e2);
-}
-
-.cup-card.is-locked {
-  opacity: 0.62;
-}
-
-.cup-card__cup {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.cup-card__group {
-  font-size: 11px;
-}
-
-.cup-card__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
-.cup-card__meta b {
-  color: var(--text);
-}
-
-.cup-card__foot {
-  margin-top: auto;
-  padding-top: var(--s2);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cup-card__cd {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
 /* --- 弹窗 --- */
 .quit-note {
   margin: 0 0 var(--s3);
@@ -581,5 +482,69 @@ function onEvent(e: SimEvent): void {
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-dim);
+}
+
+/* --- 赛程页头部：场馆 + 阵容 + 主题 ---------------------------------------- */
+.arena-head__venue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.arena-venue__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.arena-venue__chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* --- 结算海报 --------------------------------------------------------------- */
+.poster {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  height: 120px;
+  padding: var(--s3) var(--s4);
+  margin-bottom: var(--s3);
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.poster__cup {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.poster__venue {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.result-line {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.result-line__medal {
+  font-size: 22px;
+  line-height: 1;
 }
 </style>

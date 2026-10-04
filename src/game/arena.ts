@@ -1,13 +1,12 @@
-import { type GroupId } from './ranks';
 import type { AiStyle, Difficulty } from './ai';
 import type { Cosmetic } from './cosmetics';
 import { statPower, type PlayerStats } from './players';
 
 /**
- * 晋级赛（七档赛事 50~1000，16 人单败淘汰 vs AI）的经济、赛程与积分配置。
+ * 晋级赛（十一档赛事 100~1000 + 总决赛，16 人单败淘汰 vs AI）的经济、赛程与积分配置。
  *
  * 设计原则（数值来自配平表）：
- * - **赛事等级 = 报名费**（50 / 100 / 200 / 400 / 600 / 800 / 1000），与积分门槛逐档对应
+ * - **赛事等级 = 报名费**（100 / 200 / … / 1000，总决赛 🪙2000），与积分门槛逐档对应
  * - 冠军金币 = 报名费 × 5；亚军 60% / 4强 40% / 8强 20% / 16强退一半报名费
  * - 全胜夺冠（4-0）额外 +10% 金币
  * - 积分按名次结算：冠军拿满、亚军 60%、4强 40%、8强 20%、16强 5%
@@ -16,21 +15,21 @@ import { statPower, type PlayerStats } from './players';
  */
 
 export interface ArenaTier {
-  /** 组别 id（杯赛归组；存档与冷却按它记，旧档无缝迁移） */
-  tier: GroupId;
-  /** 级别名（「50赛」「100赛」…）——赛事等级就是报名费 */
+  /** 档位 id（晋级赛 / 世界赛共用；存档与冷却按它记，旧档位 id 在 `arenaByTier` 迁移） */
+  tier: string;
+  /** 级别名（「100赛」「200赛」…「总决赛」）——普通赛事的级别就是报名费 */
   label: string;
   /** 档位图标 */
   glyph: string;
   /** 档位色（0xRRGGBB） */
   color: number;
-  /** 赛事主名（名字池第一个），如「新芽杯」 */
+  /** 赛事主名（名字池第一个），如「小白赛」 */
   cup: string;
-  /** 这一档的赛事名池：每届随机取一个（如 50 赛有 新芽杯 / 小白公开赛 / 菜鸟杯…） */
+  /** 这一档的赛事名池：每届随机取一个（如 100 赛有 小白赛 / 萌芽杯 / 新星杯…） */
   names: string[];
   /** 报名需要的积分门槛 */
   req: number;
-  /** 报名费（金币）＝ 级别 */
+  /** 报名费（金币）＝ 级别（总决赛例外） */
   fee: number;
   /** 夺冠获得的积分（其余名次按比例折算） */
   points: number;
@@ -39,58 +38,94 @@ export interface ArenaTier {
 }
 
 /**
- * 七档赛事：**50 / 100 / 200 / 400 / 600 / 800 / 1000**（报名费即级别），
- * 晋级赛馆和世界赛用同一套（同步）。每档有自己的赛事名池，每届换着叫。
+ * **十一档赛事：100 / 200 / … / 900 / 1000 赛 + 总决赛**（普通赛事的报名费 = 级别），
+ * 晋级赛馆和世界赛用同一套（同步）。每档有自己的赛事名池，每届换着叫；
+ * 门槛逐档抬升，冠军金币 = 报名费 × 5（总决赛 ×5 = 🪙10000）。
  */
 export const ARENA_TIERS: ArenaTier[] = [
   {
-    tier: 'bronze', label: '50赛', glyph: '🌱', cup: '新芽杯', fee: 50, req: 0,
+    tier: 'l100', label: '100赛', glyph: '🌱', cup: '小白赛', fee: 100, req: 0,
     color: 0xb0724a,
-    names: ['新芽杯', '小白公开赛', '菜鸟杯', '社区热身赛', '新苗挑战赛'],
-    points: 25, championGold: 250,
+    names: ['小白赛', '萌芽杯', '新星杯', '社区赛', '校园赛', '新手公开赛'],
+    points: 25, championGold: 500,
   },
   {
-    tier: 'silver', label: '100赛', glyph: '🎋', cup: '青竹杯', fee: 100, req: 60,
-    color: 0xa9b4c2,
-    names: ['青竹杯', '晨风公开赛', '进步杯', '小城挑战赛'],
-    points: 50, championGold: 500,
+    tier: 'l200', label: '200赛', glyph: '🎋', cup: '青苗赛', fee: 200, req: 30,
+    color: 0x8fae62,
+    names: ['青苗赛', '进阶杯', '城市公开赛', '青年赛', '挑战杯', '业余大师赛'],
+    points: 50, championGold: 1000,
   },
   {
-    tier: 'gold', label: '200赛', glyph: '🌅', cup: '曙光杯', fee: 200, req: 150,
+    tier: 'l300', label: '300赛', glyph: '🌅', cup: '市级赛', fee: 300, req: 80,
     color: 0xd8a534,
-    names: ['曙光杯', '破晓赛', '晨曦邀请赛', '新星公开赛'],
-    points: 100, championGold: 1000,
+    names: ['市级赛', '精英杯', '公开赛', '区域赛', '俱乐部杯', '城市大师赛'],
+    points: 75, championGold: 1500,
   },
   {
-    tier: 'platinum', label: '400赛', glyph: '💨', cup: '疾风杯', fee: 400, req: 280,
+    tier: 'l400', label: '400赛', glyph: '💨', cup: '大区赛', fee: 400, req: 140,
     color: 0x7fd4c4,
-    names: ['疾风杯', '逐风公开赛', '劲风杯', '旋风精英赛'],
-    points: 180, championGold: 2000,
+    names: ['大区赛', '职业入门赛', '全国业余赛', '公开赛', '积分赛', '选拔杯'],
+    points: 100, championGold: 2000,
   },
   {
-    tier: 'diamond', label: '600赛', glyph: '🪨', cup: '磐石杯', fee: 600, req: 440,
+    tier: 'l500', label: '500赛', glyph: '🪨', cup: '省级赛', fee: 500, req: 210,
     color: 0x6fe3ff,
-    names: ['磐石杯', '坚城大师赛', '山岳公开赛', '不动挑战赛'],
-    points: 260, championGold: 3000,
+    names: ['省级赛', '全国挑战赛', '大师赛', '公开赛', '职业资格赛', '全国杯'],
+    points: 125, championGold: 2500,
   },
   {
-    tier: 'master', label: '800赛', glyph: '🔥', cup: '烈焰杯', fee: 800, req: 660,
+    tier: 'l600', label: '600赛', glyph: '🔥', cup: '高级公开赛', fee: 600, req: 290,
+    color: 0x5aa8ff,
+    names: ['高级公开赛', '职业挑战赛', '精英赛', '巡回赛', '邀请赛', '积分大师赛'],
+    points: 150, championGold: 3000,
+  },
+  {
+    tier: 'l700', label: '700赛', glyph: '⚡', cup: '全国赛', fee: 700, req: 380,
     color: 0x7c5cff,
-    names: ['烈焰杯', '焚天公开赛', '炎上大师赛', '燎原精英赛'],
-    points: 360, championGold: 4000,
+    names: ['全国赛', '国际邀请赛', '超级挑战赛', '洲际杯', '职业公开赛', '大师邀请赛'],
+    points: 175, championGold: 3500,
   },
   {
-    tier: 'god', label: '1000赛', glyph: '👑', cup: '传奇杯', fee: 1000, req: 920,
-    color: 0xff5a5a,
-    names: ['传奇杯', '封神赛', '超神杯', '无双大师赛'],
-    points: 500, championGold: 5000,
+    tier: 'l800', label: '800赛', glyph: '🌊', cup: '国际大师赛', fee: 800, req: 480,
+    color: 0xb44dff,
+    names: ['国际大师赛', '超级公开赛', '洲际挑战赛', '职业巡回赛', '世界杯预选赛', '精英公开赛'],
+    points: 200, championGold: 4000,
+  },
+  {
+    tier: 'l900', label: '900赛', glyph: '🌟', cup: '世界挑战赛', fee: 900, req: 600,
+    color: 0xff5a8c,
+    names: ['世界挑战赛', '国际超级赛', '全球公开赛', '职业大师赛', '世界巡回赛', '冠军邀请赛'],
+    points: 225, championGold: 4500,
+  },
+  {
+    tier: 'l1000', label: '1000赛', glyph: '👑', cup: '世界公开赛', fee: 1000, req: 750,
+    color: 0xff4d4d,
+    names: ['世界公开赛', '国际大师赛', '超级公开赛', '全球挑战赛', '世界杯', '职业巡回赛'],
+    points: 250, championGold: 5000,
+  },
+  {
+    tier: 'final', label: '总决赛', glyph: '🏆', cup: '年度总决赛', fee: 2000, req: 920,
+    color: 0xffd23e,
+    names: ['年度总决赛', '冠军杯', '巅峰赛', '赛季决赛', '世界精英赛'],
+    points: 500, championGold: 10000,
   },
 ];
 
-export function arenaByTier(id: GroupId): ArenaTier {
-  // 旧存档可能停在已并入「1000赛」的苍穹组：归到最高档
-  const hit = ARENA_TIERS.find((a) => a.tier === id) ?? (id === 'king' ? ARENA_TIERS[ARENA_TIERS.length - 1] : undefined);
-  return hit ?? ARENA_TIERS[0];
+/** 旧档位 id → 新档位（老存档进行中的一届 / 冷却键还能找到家） */
+const LEGACY_TIER: Record<string, string> = {
+  bronze: 'l100',
+  silver: 'l200',
+  gold: 'l300',
+  platinum: 'l400',
+  diamond: 'l500',
+  master: 'l600',
+  god: 'l800',
+  king: 'l1000',
+};
+
+export function arenaByTier(id: string): ArenaTier {
+  const key = LEGACY_TIER[id] ?? id;
+  return ARENA_TIERS.find((a) => a.tier === key) ?? ARENA_TIERS[0];
 }
 
 // ---- 赛制 -------------------------------------------------------------------
@@ -105,13 +140,13 @@ export const ARENA_WINS_NEEDED = ARENA_ROUNDS.length;
 export const ARENA_COOLDOWN_MS = 5 * 60 * 1000;
 
 /**
- * 前几档杯赛用「临时弱对手」。
+ * 前几档赛事用「临时弱对手」。
  *
  * 名人堂里最弱的球员 rating 也在 900 上下、还可能穿着传说装饰，对 0 积分的新号
- * 依然太强，所以新芽 / 青竹 / 曙光这三档直接在报名时**现场生成一批路人**：
- * 四维逐档递进（28→38 → 34→44 → 40→50），并且只穿普通 / 稀有的低星装备。
+ * 依然太强，所以 100~400 赛这四档直接在报名时**现场生成一批路人**：
+ * 四维逐档递进（28→34→40→46），并且只穿普通 / 稀有的低星装备。
  */
-export const ROOKIE_TIERS = 3;
+export const ROOKIE_TIERS = 4;
 
 /** 各名次的金币比例：冠军 / 亚军 / 4强 / 8强（16强只有半价退款） */
 export const PLACE_GOLD = [1, 0.6, 0.4, 0.2] as const;
@@ -163,29 +198,30 @@ export const PLACE_HONOR: Record<ArenaPlace, number> = {
   qf: 0,
 };
 
-/** 荣誉点的杯赛档位倍率：最低档 ×1，最高档 ×3（所以打高级赛事才划算） */
-export function honorTierScale(tier: GroupId): number {
+/** 荣誉点的档位倍率：最低档 ×1，最高档 ×3（所以打高级赛事才划算） */
+export function honorTierScale(tier: string): number {
   const idx = Math.max(0, ARENA_TIERS.findIndex((t) => t.tier === tier));
   const max = Math.max(1, ARENA_TIERS.length - 1);
   return 1 + (idx * 2) / max;
 }
 
-/** 这个杯赛里拿到这个名次，能得多少荣誉点 */
-export function honorForPlace(tier: GroupId, place: ArenaPlace): number {
+/** 这个赛事里拿到这个名次，能得多少荣誉点 */
+export function honorForPlace(tier: string, place: ArenaPlace): number {
   const base = PLACE_HONOR[place];
   return base ? Math.round(base * honorTierScale(tier)) : 0;
 }
 
 // ---- 赛事名池 ---------------------------------------------------------------
 
-/** 报名时从该档的名字池里随机取一个（池在 `ARENA_TIERS[i].names`，高段位的名字更响亮） */
-export function pickCupName(tier: GroupId, rng: () => number = Math.random): string {
+/** 报名时从该档的名字池里随机取一个（池在 `ARENA_TIERS[i].names`，高级别的名字更响亮） */
+export function pickCupName(tier: string, rng: () => number = Math.random): string {
   const a = arenaByTier(tier);
   return a.names[Math.floor(rng() * a.names.length)] ?? a.cup;
 }
 
-/** 履历/战报里的一届赛事全名：如「2026-50 新芽杯(50赛)」 */
+/** 履历/战报里的一届赛事全名：如「2026-100 小白赛(100赛)」；总决赛没有级别后缀 */
 export function cupTitle(year: number, fee: number, cupName: string): string {
+  if (fee >= 2000) return `${year}-${fee} ${cupName}`;
   return `${year}-${fee} ${cupName}(${fee}赛)`;
 }
 

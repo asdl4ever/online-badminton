@@ -70,15 +70,21 @@ import {
   worldState,
   type WorldArenaState,
 } from '../game/world-arena';
-import { DEFAULT_COSMETIC, type Cosmetic } from '../game/cosmetics';
 import {
-  effectiveAlloc,
-  emptyAlloc,
-  spentPoints,
-  totalAttrPoints,
-  type AttrAlloc,
-  type AttrKey,
-} from '../game/attrs';
+  DEFAULT_COSMETIC,
+  replacesHead,
+  type Cosmetic,
+  type HatId,
+} from '../game/cosmetics';
+import {
+  addTrainXp,
+  emptyLevels,
+  emptyXp,
+  trainQuotaMul,
+  type TrainKey,
+  type TrainLevels,
+  type TrainXp,
+} from '../game/training';
 import { ACHIEVEMENTS, type AchMetric, type Achievement } from '../game/achievements';
 import {
   NAILONG_DAILY_MAX,
@@ -120,16 +126,16 @@ import {
   type ArenaEntrant,
   type ArenaPlace,
 } from '../game/arena';
+import {
+  arenaEventIndexOf,
+  arenaEventOf,
+  arenaRookieNames,
+  type ArenaEvent,
+} from '../game/arena-events';
+import { fmtDelay, phaseOf, slotOf, type EventSlot } from '../game/arena-schedule';
 
 /** 晋级赛对阵树里代表「玩家自己」的参赛者 id */
 const ME_ID = '__me__';
-
-/** 低档杯赛的临时弱手名字池（15 位对手从这里抽，不重复） */
-const ROOKIE_NAMES = [
-  '小张同学', '隔壁老王', '球场阿呆', '新手小美', '临时工', '手抖小王',
-  '菜鸟阿飞', '慢半拍', '热身选手', '陪练小刘', '挥空大王', '三分钟热度',
-  '刚学会发球', '今天刚来', '球拍借的', '业余爱好', '打了两次', '重在参与',
-];
 
 /** Fisher-Yates 洗牌（原地） */
 function shuffleList<T>(arr: T[]): T[] {
@@ -518,39 +524,63 @@ export const useProgressStore = defineStore('progress', () => {
     TIERS.filter((t) => points.value >= t.points && !claimed.value.includes(t.id)),
   );
 
-  // ---- 属性点（速度 / 力量 / 容错） -------------------------------------------
+  // ---- 锻炼（属性不再由积分发放，改成去场地练出来） --------------------------
   /**
-   * 分配意图；实际生效会被当前段位额度裁剪——掉段自动缩水、升段自动恢复，
-   * 所以玩家不用手动重分配。
+   * 每个维度各自的**锻炼等级 / 经验**：去哪儿练就长哪一维（见 training.ts）。
+   * 满了自动 +1 级，不能自由分配、也不能重置。
    */
-  const attrAlloc = useLocalStorage<AttrAlloc>('bmt-attr-alloc', emptyAlloc());
-  /** 当前段位给的总点数（随积分实时增减） */
-  const attrPoints = computed(() => totalAttrPoints(points.value));
-  /** 原始分配合计 */
-  const attrSpent = computed(() => spentPoints(attrAlloc.value));
-  /** 实际生效的分配（超出额度时按 速度→力量→容错 裁剪） */
-  const attrEffective = computed(() => effectiveAlloc(attrAlloc.value, attrPoints.value));
+  const trainLevels = useLocalStorage<TrainLevels>('bmt-train-levels', emptyLevels());
+  const trainXp = useLocalStorage<TrainXp>('bmt-train-xp', emptyXp());
+
   /**
-   * 写进对局的属性倍率。**由四维派生**——四维是唯一的加成来源，
-   * 玩家（属性点 → 四维）和 AI（名录里的四维）走的是同一条换算。
+   * 给若干维加锻炼经验（健身房 / 操场 / 练球机打完一次调它）。
+   * 返回这次练升了级的维度，页面据此弹提示。
    */
-  const attrs = computed(() => attrsFromStats(playerStats(points.value, attrEffective.value)));
-
-  function addAttr(key: AttrKey): boolean {
-    if (attrSpent.value >= attrPoints.value) return false;
-    attrAlloc.value = { ...attrAlloc.value, [key]: (attrAlloc.value[key] ?? 0) + 1 };
-    return true;
+  function train(gains: Partial<Record<TrainKey, number>>): TrainKey[] {
+    const res = addTrainXp(trainLevels.value, trainXp.value, gains);
+    trainLevels.value = res.levels;
+    trainXp.value = res.xp;
+    return res.up;
   }
 
-  function removeAttr(key: AttrKey): boolean {
-    if ((attrAlloc.value[key] ?? 0) <= 0) return false;
-    attrAlloc.value = { ...attrAlloc.value, [key]: attrAlloc.value[key] - 1 };
-    return true;
+  /**
+   * **每日训练额度**：每项今天各练了几组（跨天自动清零）。
+   * 满额 `TRAIN_DAILY_SETS` 组，之后是零头，再多不给——见 `training.ts`。
+   */
+  const trainDay = useLocalStorage('bmt-train-day', '');
+  const trainSets = useLocalStorage<TrainLevels>('bmt-train-sets', emptyLevels());
+
+  /** 今天这一项已经练了几组（跨天算 0） */
+  function trainSetsToday(key: TrainKey): number {
+    return trainDay.value === todayKey() ? (trainSets.value[key] ?? 0) : 0;
   }
 
-  function resetAttrs(): void {
-    attrAlloc.value = emptyAlloc();
+  /**
+   * 练完一组：先按「今天第几组」算额度系数，再发对应量的经验，最后记一组。
+   * `baseXp` 是这一组的基础经验（评级倍率已算好）；返回本次结算（额度系数 / 实得经验 / 升级项）。
+   */
+  function finishTrainSet(
+    key: TrainKey,
+    baseXp: number,
+  ): { mul: number; xp: number; up: TrainKey[]; setsToday: number } {
+    const today = todayKey();
+    if (trainDay.value !== today) {
+      trainDay.value = today;
+      trainSets.value = emptyLevels();
+    }
+    const setsToday = trainSets.value[key] ?? 0;
+    const mul = trainQuotaMul(setsToday);
+    const xp = Math.round(baseXp * mul);
+    const up = xp > 0 ? train({ [key]: xp } as Partial<Record<TrainKey, number>>) : [];
+    trainSets.value = { ...emptyLevels(), ...trainSets.value, [key]: setsToday + 1 };
+    return { mul, xp, up, setsToday: setsToday + 1 };
   }
+
+  /**
+   * 写进对局的属性倍率。**由五维派生**——五维是唯一的加成来源，
+   * 玩家（锻炼等级 → 五维）和 AI（名录里的五维）走的是同一条换算。
+   */
+  const attrs = computed(() => attrsFromStats(playerStats(points.value, trainLevels.value)));
 
   function isClaimed(id: TierId): boolean {
     return claimed.value.includes(id);
@@ -626,8 +656,8 @@ export const useProgressStore = defineStore('progress', () => {
 
   /** 当前进行中的一届晋级赛（null = 没报名） */
   const arenaRun = useLocalStorage<null | {
-    tier: TierId;
-    /** 本届赛事名（从该段位的名池里抽的，每届不同） */
+    tier: string;
+    /** 本届赛事名（从该档的名字池里抽的，每届不同） */
     cupName: string;
     /** 当前轮次：0 = 16强，1 = 8强，2 = 4强，3 = 决赛 */
     round: number;
@@ -642,12 +672,25 @@ export const useProgressStore = defineStore('progress', () => {
   /** 每个杯赛的冷却到期时间戳（打完一届后 5 分钟不能重报） */
   const arenaCooldown = useLocalStorage<Record<string, number>>('bmt-arena-cooldown', {});
 
+  /**
+   * 「预约」：同一档最多一条，记下届别、赛事名与该场开赛时刻。
+   * **不预扣报名费、也不预建对阵树**——等待期间玩家照样能报名别的档，
+   * 到点由 `tickArenaBooking()` 真正走一遍 `enterArena()`。
+   */
+  const arenaBooking = useLocalStorage<Record<string, { cupName: string; startAt: number }>>(
+    'bmt-arena-booking',
+    {},
+  );
+
+  /** 到点自动开赛成功后置一次（页面用它把玩家带进本届赛程） */
+  const arenaAutoStartedAt = ref(0);
+
   // 老存档迁移：旧赛制（8 人、没有完整对阵树 / 四维）的那一届直接作废，避免读半截数据
   if (
     arenaRun.value &&
     (!arenaRun.value.entrants ||
       !arenaRun.value.rounds ||
-      arenaRun.value.entrants.some((e) => !e.stats || !Number.isFinite(e.stats.jump)))
+      arenaRun.value.entrants.some((e) => !e.stats || !Number.isFinite(e.stats.stamina)))
   ) {
     arenaRun.value = null;
   }
@@ -661,7 +704,7 @@ export const useProgressStore = defineStore('progress', () => {
     const needs = aiPlayers.value.some(
       (p) =>
         !p.stats ||
-        !Number.isFinite(p.stats.jump) ||
+        !Number.isFinite(p.stats.stamina) ||
         p.style !== styleFromStats(p.stats) ||
         p.difficulty !== tierFromStats(p.stats),
     );
@@ -727,25 +770,53 @@ export const useProgressStore = defineStore('progress', () => {
     {},
   );
 
-  /** 报名一届杯赛：积分门槛、报名费、冷却三关都过才能报 */
-  function enterArena(cupId: TierId, meName = '你'): { ok: boolean; message: string } {
+  /** 这档、这场赛事此刻的场次（开赛 / 截止 / 下一场） */
+  function arenaSlot(cupId: string, cupName: string, now = Date.now()): EventSlot {
+    return slotOf(cupId, arenaEventIndexOf(cupId, cupName), now);
+  }
+
+  /**
+   * 报名一届杯赛：积分门槛、赛事正在开赛窗口、报名费、冷却四关都过才能报。
+   * `eventName` 指定打哪场（不在本档名字池里就随机取一个）。
+   *
+   * **已经进行中的一届（`arenaRun` 非空）随时可以继续**，不再做窗口校验 ——
+   * 开打之后窗口关闭不影响这一届打完。
+   */
+  function enterArena(
+    cupId: string,
+    meName = '你',
+    eventName?: string,
+  ): { ok: boolean; message: string } {
     if (arenaRun.value) {
       if (arenaRun.value.tier === cupId) return { ok: true, message: '继续这一届' };
       return { ok: false, message: '还有一届没打完，先去打完它' };
     }
     const a = arenaByTier(cupId);
     if (points.value < a.req) {
-      return { ok: false, message: `还差 ${a.req - points.value} 积分解锁「${a.cup}」` };
+      return { ok: false, message: `还差 ${a.req - points.value} 积分解锁「${a.label}」` };
+    }
+    // 玩家点名的赛事必须是这一档名池里的，否则随机取一个（先定赛事，后面用它生成对手）
+    const cupName = eventName && a.names.includes(eventName) ? eventName : pickCupName(a.tier);
+    const slot = arenaSlot(a.tier, cupName);
+    const now = Date.now();
+    if (phaseOf(slot, now) !== 'open') {
+      const ev = arenaEventOf(a.tier, cupName);
+      return {
+        ok: false,
+        message:
+          now < slot.startAt
+            ? `「${cupName}」${fmtDelay(slot.startAt - now)}后开赛，可以先预约`
+            : `「${cupName}」本场已结束，下一场 ${fmtDelay(slot.nextStartAt - now)}后 · ${ev.venue}`,
+      };
     }
     const cd = arenaCooldown.value[cupId] ?? 0;
-    if (cd > Date.now()) {
-      return { ok: false, message: `${a.cup}刚打完，${Math.ceil((cd - Date.now()) / 1000)} 秒后可再报名` };
+    if (cd > now) {
+      return { ok: false, message: `${a.label}刚打完，${Math.ceil((cd - now) / 1000)} 秒后可再报名` };
     }
     if (coins.value < a.fee) return { ok: false, message: `报名费不够，还差 🪙${a.fee - coins.value}` };
     coins.value -= a.fee;
 
-    const entrants = buildEntrants(cupId, meName);
-    const cupName = pickCupName(a.tier);
+    const entrants = buildEntrants(cupId, meName, cupName);
     arenaRun.value = {
       tier: a.tier,
       cupName,
@@ -754,14 +825,77 @@ export const useProgressStore = defineStore('progress', () => {
       entrants,
       rounds: buildBracket(entrants),
     };
-    return { ok: true, message: `「${cupName}」报名成功！-${a.fee} 金币，祝好运` };
+    const ev = arenaEventOf(a.tier, cupName);
+    return {
+      ok: true,
+      message: `「${cupName}(${a.label})」${ev.venue}报名成功！-${a.fee} 金币，祝好运`,
+    };
+  }
+
+  /**
+   * 预约一场还没开赛的赛事（同一档只留一条，新预约覆盖旧的）。
+   * 只记「档位 + 赛事名 + 开赛时刻」，不花钱也不建对阵树。
+   */
+  function bookArena(cupId: string, eventName: string): { ok: boolean; message: string } {
+    const a = arenaByTier(cupId);
+    if (arenaRun.value) return { ok: false, message: '还有一届没打完，先去打完它' };
+    if (!a.names.includes(eventName)) return { ok: false, message: '没有这场赛事' };
+    const slot = arenaSlot(a.tier, eventName);
+    const now = Date.now();
+    const phase = phaseOf(slot, now);
+    if (phase === 'open') return { ok: false, message: `「${eventName}」已经在报名了，直接报名即可` };
+    if (phase === 'closed') return { ok: false, message: `「${eventName}」本场已过，预约下一场吧` };
+    if (points.value < a.req) {
+      return { ok: false, message: `还差 ${a.req - points.value} 积分解锁「${a.label}」` };
+    }
+    arenaBooking.value = {
+      ...arenaBooking.value,
+      [a.tier]: { cupName: eventName, startAt: slot.startAt },
+    };
+    return { ok: true, message: `已预约「${eventName}」· ${fmtDelay(slot.startAt - now)}后自动开赛` };
+  }
+
+  /** 取消某一档的预约 */
+  function cancelBooking(cupId: string): boolean {
+    if (!arenaBooking.value[cupId]) return false;
+    const next = { ...arenaBooking.value };
+    delete next[cupId];
+    arenaBooking.value = next;
+    return true;
+  }
+
+  /**
+   * 到点自动开赛：给每个到点的预约真正走一遍 `enterArena()`。
+   * 由 `App.vue` 的低频心跳调用（页面不在前台时不保证准时，回到前台会补一次）；
+   * `meName` 是玩家昵称（App 从大厅 store 取），不传就和手动报名一样兜底成「你」。
+   * 返回这一批里成功开赛的赛事名（页面用它决定要不要把玩家带进赛程）。
+   */
+  function tickArenaBooking(now = Date.now(), meName?: string): string[] {
+    const started: string[] = [];
+    for (const [tier, b] of Object.entries(arenaBooking.value)) {
+      if (now < b.startAt) continue;
+      // 只在这场比赛自己的报名窗口内自动开赛：关了一夜再回来不会「迟到扣费」
+      const r = enterArena(tier, meName, b.cupName);
+      cancelBooking(tier);
+      if (r.ok) {
+        started.push(b.cupName);
+        arenaAutoStartedAt.value = now;
+        pushNotice(`🏆「${b.cupName}」开赛！已自动为你报名`);
+      } else {
+        pushNotice(`「${b.cupName}」开赛了，但没能报名：${r.message}`);
+      }
+    }
+    return started;
   }
 
   /**
    * 临时弱手的装扮：只从**普通 / 稀有**里挑帽子、球拍皮肤、击球拖尾，
    * 其余部位一律不穿——看上去就是个没见过世面的新手，不会一身传说。
+   *
+   * 赛事身份带 `gear: 'mixed'` 时（防守派 / 老将组 / 综合赛）再补翅膀与披风，
+   * 同样是低星货，所以「装备齐但不高星」——看一眼就知道这批人不一样。
    */
-  function rookieCosmetic(): Cosmetic {
+  function rookieCosmetic(ev: ArenaEvent): Cosmetic {
     const pickLow = (slot: ItemSlot): string => {
       const pool = ITEMS.filter(
         (i) =>
@@ -773,10 +907,36 @@ export const useProgressStore = defineStore('progress', () => {
       return pool.length ? pool[Math.floor(Math.random() * pool.length)].ref : 'none';
     };
     const c = { ...DEFAULT_COSMETIC };
+    // 这一路人的「队服脸」：不戴全罩头套，保证那副表情（😡 / 🛡️ / ⚡ …）始终露着
+    c.emoji = ev.emojis[Math.floor(Math.random() * ev.emojis.length)] ?? c.emoji;
     c.hat = pickLow('hat') as Cosmetic['hat'];
+    if (replacesHead(c.hat as HatId)) c.hat = 'none';
     c.racketSkin = pickLow('racketSkin') as Cosmetic['racketSkin'];
     c.trailStyle = pickLow('trail') as Cosmetic['trailStyle'];
+    if (ev.gear === 'mixed' || ev.gear === 'full') {
+      c.wings = pickLow('wings') as Cosmetic['wings'];
+      c.cape = pickLow('cape') as Cosmetic['cape'];
+    }
+    if (ev.gear === 'full') {
+      c.aura = pickLow('aura') as Cosmetic['aura'];
+      c.ring = pickLow('ring') as Cosmetic['ring'];
+      c.pet = pickLow('pet') as Cosmetic['pet'];
+      c.petStar = 1;
+    }
     return c;
+  }
+
+  /** 把身份偏移叠到一份四维上（夹在 1~100），不改动传进来的对象 */
+  function biasedStats(stats: PlayerStats, ev: ArenaEvent): PlayerStats {
+    const at = (k: keyof PlayerStats): number =>
+      Math.max(1, Math.min(100, Math.round(stats[k] + (ev.bias[k] ?? 0))));
+    return {
+      technique: at('technique'),
+      speed: at('speed'),
+      attack: at('attack'),
+      defense: at('defense'),
+      stamina: at('stamina'),
+    };
   }
 
   /**
@@ -784,46 +944,84 @@ export const useProgressStore = defineStore('progress', () => {
    *
    * 四维按档位递进：第 1 档 28~38、第 2 档 34~44、第 3 档 40~50 ——
    * 比 0 积分新号的 52 明显低，所以新手也能稳稳打赢。
-   * 风格与难度照旧由四维派生，rating 只是个用来在对阵树上显示强弱的数字。
+   * 再叠加**赛事身份的四维偏移**（快攻营扣杀 20、防守派防守 20、老将组技术 20…），
+   * 偏移够大，所以 `styleFromStats()` 会稳定给出该路人的风格，打起来也真的不一样。
+   * 风格统一取身份声明的那一个（保证赛程树里 15 个人标签一致）。
    */
-  function makeRookie(tierIdx: number, name: string): ArenaEntrant {
+  function makeRookie(tierIdx: number, name: string, ev: ArenaEvent): ArenaEntrant {
     const base = 28 + tierIdx * 6;
-    const roll = (): number => Math.round(base + Math.random() * 10);
-    const stats: PlayerStats = {
-      technique: roll(),
-      speed: roll(),
-      attack: roll(),
-      defense: roll(),
-      jump: roll(),
-    };
+    const jitter = (): number => Math.round(Math.random() * 10);
+    const stats = biasedStats(
+      {
+        technique: base + jitter(),
+        speed: base + jitter(),
+        attack: base + jitter(),
+        defense: base + jitter(),
+        stamina: base + jitter(),
+      },
+      ev,
+    );
     return {
       id: `rookie-${tierIdx}-${name}-${Math.random().toString(36).slice(2, 6)}`,
       name,
       isMe: false,
       rating: 400 + tierIdx * 130 + Math.round(Math.random() * 80),
-      style: styleFromStats(stats),
+      style: ev.style,
       difficulty: tierFromStats(stats),
-      cosmetic: rookieCosmetic(),
+      cosmetic: rookieCosmetic(ev),
       stats,
     };
+  }
+
+  /** 名人堂候选的「优先顺序」：按身份把更符合这一路打法的人排到前面（稳定排序） */
+  function preferByEvent(players: AiPlayer[], ev: ArenaEvent): AiPlayer[] {
+    if (players.length < 2) return players;
+    if (ev.pool === 'rookie' || ev.pool === 'open') return players;
+    const fit = (p: AiPlayer): number => {
+      const s = biasedStats(ensureStats(p), ev);
+      switch (ev.pool) {
+        case 'attack':
+          return s.attack + s.stamina * 0.5;
+        case 'defense':
+          return s.defense + s.technique * 0.5;
+        case 'speed':
+          return s.speed + s.stamina * 0.5;
+        // 老将 = 手上最细 + 名单里最资深的那批
+        default:
+          return s.technique + p.rating * 0.1;
+      }
+    };
+    return players
+      .map((p, i) => ({ p, i, f: fit(p) }))
+      .sort((a, b) => b.f - a.f || a.i - b.i)
+      .map((x) => x.p);
   }
 
   /**
    * 生成 16 位参赛者：自己 + 15 位对手。
    *
-   * - **前 3 档杯赛**（新芽 / 青竹 / 曙光）：现场生成临时弱手，完全不碰名人堂。
-   * - **其余杯赛**：从名人堂名录里抽（杯赛越高抽到的一档越强），最后两档必定拉上皮泽恩。
+   * - **低档杯赛**（`ROOKIE_TIERS` 之内）：现场生成一路临时弱手，完全不碰名人堂；
+   *   名字是这一路人的外号（重炮老张 / 铁壁小李…）、表情共用一套（😡 / 🛡️ / ⚡…）、
+   *   四维按身份偏移、装扮按档次。
+   * - **其余杯赛**：从名人堂名录里抽（杯赛越高抽到的一档越强），最后两档必定拉上皮泽恩；
+   *   选出候选后按身份排一遍（谁更像这一路就先上）。
+   *   对手的 `stats` / `style` 是**叠加了本场偏移的副本** —— 同一批人打不同赛事会带着
+   *   这一场的战术倾向（扣杀营里人人更爱扣），但**名人堂存档里他们的四维与风格一行不改**，
+   *   世界赛、排行榜、球员主页读到的仍是他们自己的数据。
    */
-  function buildEntrants(tier: TierId, meName: string): ArenaEntrant[] {
+  function buildEntrants(tier: string, meName: string, cupName?: string): ArenaEntrant[] {
     const tierIdx = ARENA_TIERS.findIndex((t) => t.tier === tier);
     const idx = tierIdx < 0 ? ARENA_TIERS.length - 1 : tierIdx;
     const want = 2 ** ARENA_ROUNDS.length - 1; // 16 人 → 15 位 AI
+    const ev = arenaEventOf(tier, cupName);
 
     let opponents: ArenaEntrant[];
     if (idx < ROOKIE_TIERS) {
-      // 低档杯赛：当场生成一批路人弱手（名字池洗牌后取 15 个，不重复）
-      const names = shuffleList([...ROOKIE_NAMES]);
-      opponents = Array.from({ length: want }, (_, i) => makeRookie(idx, names[i % names.length]));
+      // 低档杯赛：一路人当场生成（这一路的外号洗牌后取 15 个，不重复）
+      const names = shuffleList([...arenaRookieNames(ev)]);
+      opponents = Array.from({ length: want }, (_, i) =>
+        makeRookie(idx, names[i % names.length], ev),
+      );
     } else {
       const sorted = [...aiPlayers.value].sort((a, b) => b.rating - a.rating);
       const span = Math.max(0, sorted.length - want);
@@ -838,16 +1036,33 @@ export const useProgressStore = defineStore('progress', () => {
       while (chosen.length < want && sorted.length) {
         chosen.push(sorted[chosen.length % sorted.length]);
       }
-      opponents = chosen.map((p) => ({
-        id: p.id,
-        name: p.name,
-        isMe: false,
-        rating: p.rating,
-        style: p.style,
-        difficulty: p.difficulty,
-        cosmetic: p.cosmetic,
-        stats: ensureStats(p),
-      }));
+      opponents = preferByEvent(chosen, ev).map((p) => {
+        // 传奇球员不参与「这一场的偏移」：他来哪一届都是他自己那一套
+        if (p.id === LEGEND_ID) {
+          const own = ensureStats(p);
+          return {
+            id: p.id,
+            name: p.name,
+            isMe: false,
+            rating: p.rating,
+            style: p.style,
+            difficulty: p.difficulty,
+            cosmetic: p.cosmetic,
+            stats: own,
+          };
+        }
+        const stats = biasedStats(ensureStats(p), ev);
+        return {
+          id: p.id,
+          name: p.name,
+          isMe: false,
+          rating: p.rating,
+          style: ev.style,
+          difficulty: tierFromStats(stats),
+          cosmetic: p.cosmetic,
+          stats,
+        };
+      });
     }
 
     const me: ArenaEntrant = {
@@ -857,7 +1072,7 @@ export const useProgressStore = defineStore('progress', () => {
       rating: 1000 + points.value,
       style: 'balanced',
       difficulty: 'normal',
-      stats: playerStats(points.value, attrEffective.value),
+      stats: playerStats(points.value, trainLevels.value),
     };
     // 洗牌，让自己落在随机位置
     return shuffleList([me, ...opponents]);
@@ -1708,14 +1923,12 @@ export const useProgressStore = defineStore('progress', () => {
     progress,
     claimable,
     isClaimed,
-    attrAlloc,
-    attrPoints,
-    attrSpent,
-    attrEffective,
+    trainLevels,
+    trainXp,
+    train,
+    trainSetsToday,
+    finishTrainSet,
     attrs,
-    addAttr,
-    removeAttr,
-    resetAttrs,
     isOwned,
     milestones,
     machineBest,
@@ -1790,6 +2003,12 @@ export const useProgressStore = defineStore('progress', () => {
     pullTen,
     arenaRun,
     arenaCooldown,
+    arenaBooking,
+    arenaAutoStartedAt,
+    arenaSlot,
+    bookArena,
+    cancelBooking,
+    tickArenaBooking,
     trophies,
     enterArena,
     arenaFinishMatch,

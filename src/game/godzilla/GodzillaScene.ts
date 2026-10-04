@@ -12,6 +12,7 @@ import {
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { SCENE_BG_PAD, fitFixedView, onSceneResize } from '../zoom';
 import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
@@ -145,7 +146,12 @@ export class GodzillaScene extends Phaser.Scene {
     // 多点触控：走 + 挥拍同时进行
     this.input.addPointer(3);
     this.touchControls =
-      isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
+      isTouchDevice() || joystickAlwaysOn() ? new TouchControls() : null;
+
+    // 画面铺满：等比放大到铺满容器并居中（多余的一圈露的是背景，不做拉伸）
+    const fit = () => fitFixedView(this);
+    fit();
+    onSceneResize(this, fit);
 
     this.cameras.main.fadeIn(250, 0, 0, 0);
   }
@@ -456,9 +462,12 @@ export class GodzillaScene extends Phaser.Scene {
 
   private drawBackdrop(): void {
     const g = this.g;
+    // 多画一圈（pad）：手机横屏比 16:9 更宽时，两侧露的是夜空与地面而不是黑边
+    const pad = SCENE_BG_PAD;
+    const w = VIEW_W + pad * 2;
     // 夜空 + 远山
     g.fillStyle(0x0a1220, 1);
-    g.fillRect(0, 0, VIEW_W, VIEW_H);
+    g.fillRect(-pad, -pad, w, VIEW_H + pad * 2);
     g.fillStyle(0x101c2c, 1);
     g.fillTriangle(160, GROUND_Y, 420, GROUND_Y - 220, 680, GROUND_Y);
     g.fillTriangle(520, GROUND_Y, 820, GROUND_Y - 160, 1120, GROUND_Y);
@@ -469,9 +478,9 @@ export class GodzillaScene extends Phaser.Scene {
     g.fillCircle(198, 108, 40);
     // 地面
     g.fillStyle(0x1c2836, 1);
-    g.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
+    g.fillRect(-pad, GROUND_Y, w, VIEW_H - GROUND_Y + pad);
     g.lineStyle(2, 0x2c3e50, 1);
-    g.lineBetween(0, GROUND_Y, VIEW_W, GROUND_Y);
+    g.lineBetween(-pad, GROUND_Y, VIEW_W + pad, GROUND_Y);
   }
 
   private drawGz(): void {

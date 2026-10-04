@@ -22,7 +22,7 @@ export const NAILONG_STATS: PlayerStats = {
   speed: 44,
   attack: 40,
   defense: 42,
-  jump: 40,
+  stamina: 40,
 };
 
 /** 每天最多挑战小黄龙几次（= 每天的挑战门票数），每挑战一次扣一张 */

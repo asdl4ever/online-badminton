@@ -71,6 +71,15 @@ export const WORLD_DISTRICTS: WorldDistrict[] = [
     w: 820,
     h: 550,
   },
+  {
+    id: 'train',
+    name: '锻炼区',
+    meta: '健身房举重 · 操场跑步',
+    x: 1010,
+    y: 830,
+    w: 860,
+    h: 550,
+  },
 ];
 
 export const WORLD_ZONES: WorldZone[] = [
@@ -80,19 +89,9 @@ export const WORLD_ZONES: WorldZone[] = [
     x: 330,
     y: 230,
     sign: '🏸',
-    name: '训练场',
-    meta: '对战 AI · 发球机',
+    name: '大熊球馆',
+    meta: '6 张空场地 · 挑战人机 / 邀请好友 · 发球机',
     route: '/single',
-  },
-  {
-    id: 'court',
-    x: 330,
-    y: 530,
-    sign: '🌐',
-    name: '联机球场',
-    meta: '建房 / 加入房间',
-    route: '/online',
-    badge: '可邀请',
   },
   {
     id: 'cliff',
@@ -194,5 +193,26 @@ export const WORLD_ZONES: WorldZone[] = [
     meta: '棉花地 · 拍下棉花材料',
     route: '/farm',
     badge: '新玩法',
+  },
+  // ---- 锻炼区（右下地块）：属性点靠在这里练出来 ----
+  {
+    id: 'gym',
+    x: 1200,
+    y: 1080,
+    sign: '🏋️',
+    name: '健身房',
+    meta: '举重练「进攻」',
+    route: '/gym',
+    badge: '练属性',
+  },
+  {
+    id: 'track',
+    x: 1560,
+    y: 1080,
+    sign: '🏃',
+    name: '操场',
+    meta: '跑步练「速度 / 体力」',
+    route: '/track',
+    badge: '练属性',
   },
 ];

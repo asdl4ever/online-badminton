@@ -3,6 +3,7 @@ import { PLAYER_H, VIEW_H, VIEW_W } from '../constants';
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { anchorHud, applySceneZoom, onSceneResize, pinScreen } from '../zoom';
 import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
@@ -428,7 +429,7 @@ export class DiveScene extends Phaser.Scene {
     }
     this.input.addPointer(3);
     // 触屏必开；桌面端开了「摇杆常显」也开
-    this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
+    this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls() : null;
 
     // 岸边那条船：点一下就能交互（买船 / 出海）；海里的宝箱也一样；
     // 装备店小屋同样可以点（手机上没有 E 键）
@@ -471,6 +472,11 @@ export class DiveScene extends Phaser.Scene {
         this.pop('好友已上船', 0x8b97a8);
       };
     }
+
+    // 铺满 + 视距：等比放大到铺满容器（多出来的一圈露的是海 / 天，不做拉伸）
+    const fitCam = () => applySceneZoom(this);
+    fitCam();
+    onSceneResize(this, fitCam);
 
     this.cameras.main.fadeIn(300, 0, 0, 0);
     this.pushBag();
@@ -1210,10 +1216,12 @@ export class DiveScene extends Phaser.Scene {
     this.charG.clear();
     this.charOverG.clear();
     const cam = this.cameras.main;
-    const left = cam.scrollX;
-    const top = cam.scrollY;
-    const w = cam.width;
-    const h = cam.height;
+    // 视野矩形：midPoint 才是相机中心，scrollX 在 zoom ≠ 1 时**不等于**左边缘
+    const z = cam.zoom || 1;
+    const w = cam.width / z;
+    const h = cam.height / z;
+    const left = cam.midPoint.x - w / 2;
+    const top = cam.midPoint.y - h / 2;
     const { shallow, deep } = this.island.palette;
 
     // 天空（镜头抬到水面以上才看得见）
@@ -1681,6 +1689,11 @@ export class DiveScene extends Phaser.Scene {
   private drawHud(): void {
     const g = this.hudG;
     g.clear();
+    const cam = this.cameras.main;
+    // HUD 全部贴屏幕：先给整块图形定一个「屏幕底部居中」的锚点（内部照旧按设计坐标画），
+    // 再把右缘那条深度条按**实际屏幕宽**摆到右边去。
+    anchorHud(g, VIEW_W / 2, VIEW_H - 46, cam.width / 2, cam.height - 46);
+    const ox = cam.width / 2 - VIEW_W / 2; // 锚点在屏幕坐标系里额外偏移的横向距离
     const max = oxygenMax(this.cfg.oxygenLv);
     const frac = Phaser.Math.Clamp(this.oxygen / max, 0, 1);
     const w = 320;
@@ -1692,10 +1705,10 @@ export class DiveScene extends Phaser.Scene {
     g.fillStyle(frac < 0.25 ? 0xff6b6b : 0x54d6ff, 1);
     g.fillRoundedRect(x, y, w * frac, 8, 4);
 
-    // 右侧潜水深度进度条：当前深度 / 本岛海床
-    const barX = VIEW_W - 36;
+    // 右侧潜水深度进度条：当前深度 / 本岛海床（贴屏幕右缘、下沿留 150px）
+    const barX = cam.width - 36 - ox;
     const barTop = 96;
-    const barBot = VIEW_H - 150;
+    const barBot = cam.height - 150;
     const track = barBot - barTop;
     const df = Phaser.Math.Clamp(this.me.y / this.island.floor, 0, 1);
     g.fillStyle(0x04101f, 0.5);
@@ -1739,6 +1752,10 @@ export class DiveScene extends Phaser.Scene {
                 ? '收杆中：把鱼竿朝向鱼'
                 : '左摇杆游动 / 上推上浮 · 右摇杆把拍头指到鱼身上勾住',
     );
+
+    // 两行文字也钉在屏幕底部居中（1:1 像素，任意视距都不会被放大或跑位）
+    pinScreen(this.hudText, cam.width / 2, cam.height - 58);
+    pinScreen(this.hintText, cam.width / 2, cam.height - 84);
   }
 
   // ---- 联机 ----------------------------------------------------------------

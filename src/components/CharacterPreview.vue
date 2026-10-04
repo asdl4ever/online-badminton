@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useCustomizeStore } from '../stores/customize';
 import { avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
-import { THEMES } from '../game/theme';
+import { DEFAULT_THEME, THEMES, type ThemeId } from '../game/theme';
 import { toHex, type Cosmetic } from '../game/cosmetics';
 
 /**
@@ -13,8 +13,11 @@ import { toHex, type Cosmetic } from '../game/cosmetics';
  *
  * 每帧重绘是刻意的：光环 / 披风 / 翅膀 / 宠物都靠时间驱动摆动，换装扮也会立刻反映。
  */
-/** 传了 cosmetic 就预览那个人（比如名人堂 / 晋级赛里的 AI 对手），否则预览自己 */
-const props = defineProps<{ cosmetic?: Cosmetic }>();
+/**
+ * 传了 cosmetic 就预览那个人（比如名人堂 / 晋级赛里的 AI 对手），否则预览自己。
+ * 传了 theme 就用那套球场配色当底（晋级赛的赛事海报会传），否则用默认主题。
+ */
+const props = defineProps<{ cosmetic?: Cosmetic; theme?: ThemeId }>();
 
 const store = useCustomizeStore();
 const canvas = ref<HTMLCanvasElement | null>(null);
@@ -25,8 +28,11 @@ const cos = computed(() => props.cosmetic ?? store.cosmetic);
 const box = avatarBoxSize(1);
 const boxRatio = `${box.w} / ${box.h}`;
 
+/** 预览底：指定了主题就用它，否则默认主题 */
+const themeDef = computed(() => THEMES[props.theme ?? DEFAULT_THEME]);
+
 const previewBg = computed(() => {
-  const [sky, floor] = THEMES[store.theme].swatch;
+  const [sky, floor] = themeDef.value.swatch;
   return {
     background: `linear-gradient(180deg, ${toHex(sky)} 0 58%, ${toHex(floor)} 58% 100%)`,
   };
@@ -52,7 +58,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="pc" :style="previewBg">
     <canvas ref="canvas" class="pc__rig" :style="{ aspectRatio: boxRatio }" />
-    <span class="pc__badge">{{ THEMES[store.theme].label }}</span>
+    <span v-if="theme" class="pc__badge">{{ themeDef.label }}</span>
   </div>
 </template>
 

@@ -3,16 +3,13 @@ import Phaser from 'phaser';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
 import Button from '../components/ui/Button.vue';
-import StatusChip from '../components/ui/StatusChip.vue';
 import { FarmScene, type FarmSceneData } from '../game/farm/FarmScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { FARM_MAX_LEVEL, FARM_UPGRADE_COST, MATERIALS, TRACTOR_COST } from '../game/items';
-
-/** 农场主的棉花收购价（显示在提示里，价格本身在 `game/items.ts` 的 `MATERIALS`） */
-const COTTON_PRICE = MATERIALS.cotton.price;
-import { applyTheme } from '../game/theme';
+import { sceneScaleConfig } from '../game/zoom';
+import GameSticks from '../components/ui/GameSticks.vue';
+import { FARM_MAX_LEVEL, FARM_UPGRADE_COST, TRACTOR_COST } from '../game/items';
+import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { useCustomizeStore } from '../stores/customize';
@@ -70,7 +67,7 @@ function boot(): void {
     backgroundColor: '#cfe9f7',
     banner: false,
     audio: { noAudio: true },
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scale: sceneScaleConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('FarmScene', FarmScene, true, data),
@@ -110,7 +107,7 @@ function harvestAll(): void {
 }
 
 onMounted(() => {
-  applyTheme(customize.theme);
+  applyTheme(DEFAULT_THEME);
   boot();
   timer = window.setInterval(() => {
     remaining.value = scene()?.remaining() ?? 0;
@@ -129,46 +126,35 @@ onBeforeUnmount(() => {
     <PageShell title="农场" back @back="back">
       <template #icons>
         <span class="icon-btn ui-num farm-earn" title="本场摘了多少棉花">
-          🧵 本场 {{ sessionTotal }} · 仓 {{ progress.cotton }}
+          🧵 本场 {{ sessionTotal }} · 仓 {{ progress.cotton }} · 地 {{ remaining }}
         </span>
-      </template>
-
-      <template #dock>
-        <SideDock>
-          <StatusChip tone="idle">单机</StatusChip>
-          <span class="ui-num farm-earn">🧵 本场 {{ sessionTotal }} · 仓 {{ progress.cotton }}</span>
-          <span class="dock-note">地里还有 {{ remaining }} 朵棉花</span>
-
-          <Button v-if="!maxed" size="sm" block :disabled="progress.coins < upgradeCost" @click="upgrade">
-            升级采摘（¥{{ upgradeCost }}）· 一次摘 {{ progress.farmLevel + 1 }} 朵
-          </Button>
-          <span v-else class="dock-note">采摘等级已满（一次摘 {{ FARM_MAX_LEVEL }} 朵）</span>
-
-          <Button v-if="!progress.tractor" size="sm" block :disabled="progress.coins < TRACTOR_COST" @click="buyTractor">
-            买拖拉机（¥{{ TRACTOR_COST }}）
-          </Button>
-          <Button v-else size="sm" block @click="harvestAll">🚜 一键收全地</Button>
-
-          <p class="dock-note">
-            把球拍挥到棉花上就能摘（一朵 = 一个 🧵 棉花材料），买断拖拉机后可以一键把整片地收完。
-            <b>棉花不直接换钱</b>：拉去左下角赚钱区交给<b>农场主</b>，他按 ¥{{ COTTON_PRICE }}/朵 收购。
-          </p>
-        </SideDock>
+        <!-- 原来挂在「模式设置」面板里的农场操作，直接放进这一排 -->
+        <Button v-if="!maxed" size="sm" :disabled="progress.coins < upgradeCost" @click="upgrade">
+          升级采摘 ¥{{ upgradeCost }}
+        </Button>
+        <span v-else class="icon-btn ui-num">采摘满级</span>
+        <Button
+          v-if="!progress.tractor"
+          size="sm"
+          :disabled="progress.coins < TRACTOR_COST"
+          @click="buyTractor"
+        >
+          买拖拉机 ¥{{ TRACTOR_COST }}
+        </Button>
+        <Button v-else size="sm" @click="harvestAll">🚜 一键收全地</Button>
       </template>
 
       <template #stage>
-        <div ref="container" class="farm-canvas" />
+        <!-- 容器走公共的 phaser-stage（桌面 16:9、手机铺满整屏） -->
+        <div ref="container" class="phaser-stage">
+          <GameSticks />
+        </div>
       </template>
     </PageShell>
   </div>
 </template>
 
 <style scoped>
-.farm-canvas {
-  position: absolute;
-  inset: 0;
-}
-
 .farm-earn {
   font-weight: 700;
   color: var(--accent-2);

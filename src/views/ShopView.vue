@@ -2,13 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
+import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import ChestPanel from '../components/ChestPanel.vue';
 import CoinShopPanel from '../components/CoinShopPanel.vue';
 import HonorShopPanel from '../components/HonorShopPanel.vue';
-import { useProgressStore } from '../stores/progress';
 import { useWalk } from '../composables/useWalk';
 import { isTouchDevice } from '../game/device';
 import { useJoystickPrefs } from '../composables/useJoystick';
@@ -23,7 +22,6 @@ import { sfx } from '../game/audio';
  */
 const router = useRouter();
 const route = useRoute();
-const progress = useProgressStore();
 const customize = useCustomizeStore();
 
 const ROOM_W = 1200;
@@ -189,16 +187,6 @@ const countdown = computed(() => {
 <template>
   <div class="page page--playing">
     <PageShell title="商店" back @back="back">
-      <template #dock>
-        <SideDock>
-          <span class="dock-coins">🪙 {{ progress.coins }}</span>
-          <span class="dock-honor">🏅 {{ progress.honor }}</span>
-          <span class="dock-keys">🔑 {{ progress.chestKeys }}</span>
-          <p class="dock-note">
-            {{ touch ? '拖动摇杆走动，点按柜台查看。' : '摇杆 / WASD 走动，走到柜台前按 E。' }}
-          </p>
-        </SideDock>
-      </template>
 
       <template #stage>
         <div ref="stage" class="room">
@@ -247,6 +235,7 @@ const countdown = computed(() => {
           <div class="room__hint">{{ walkHint }}</div>
 
           <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
+          <ZoomControl />
         </div>
       </template>
     </PageShell>

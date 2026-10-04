@@ -476,7 +476,8 @@ button {
   .page--playing .stage .game-canvas,
   .page--playing .stage .climb-canvas,
   .page--playing .stage .fish-canvas,
-  .page--playing .stage .mine-canvas {
+  .page--playing .stage .mine-canvas,
+  .page--playing .stage .phaser-stage {
     aspect-ratio: 16 / 9;
     width: auto;
     height: 100%;
@@ -492,7 +493,8 @@ button {
   .page--playing .stage .game-canvas,
   .page--playing .stage .fish-canvas,
   .page--playing .stage .mine-canvas,
-  .page--playing .stage .climb-canvas {
+  .page--playing .stage .climb-canvas,
+  .page--playing .stage .phaser-stage {
     aspect-ratio: auto;
     width: 100%;
     height: 100%;
@@ -647,7 +649,7 @@ h3 {
   font-weight: 700;
 }
 
-/* --- 玻璃表面：所有“面”统一 ------------------------------------------------- */
+/* --- 玻璃表面：所有"面"统一 ------------------------------------------------- */
 .surface,
 .panel-surface,
 .am-modal,
@@ -869,31 +871,62 @@ h3 {
   background: color-mix(in srgb, var(--accent) 30%, var(--glass-bg));
 }
 
+/* 大世界左上角的人物头像：圆圈里裁出角色的头（和游戏同一份绘制） */
+.hud-avatar {
+  position: relative;
+  flex: none;
+  width: var(--ui-top-h);
+  height: var(--ui-top-h);
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+}
+
+.hud-avatar__rig {
+  position: absolute;
+  left: -45px;
+  top: -47px;
+  width: 123px;
+  height: 134px;
+  pointer-events: none;
+}
+
 /* 模式设置面板展开时，左边那块玩家面板先让位（两者都在左上角） */
 .shell-ui.is-dock-open .presence {
   opacity: 0;
   pointer-events: none;
 }
 
-/* 画面区：默认按 16:9 等比居中（桌面）；手机端在下面铺满 */
+/* 画面区：手机 / 桌面都铺满整块内容区。
+   比例由 Phaser 自己处理（Scale.RESIZE + 等比铺满相机，多出来的地方露背景），
+   所以这里**不做 16:9 留白、也不用 CSS 拉伸画面**——人物不会被压扁。 */
 .page--playing .shell-ui__main {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* 三层选择器是为了压过组件里的 scoped 样式（scoped 注入在后） */
+/* 三层选择器是为了压过组件里的 scoped 样式（scoped 注入在后）。
+   `position: absolute; inset: 0` 保证画布容器**正好等于**内容区尺寸，
+   这样 Phaser 量到的大小就是真实可用区域（也顺手给摇杆覆盖层当了定位基准）。 */
 .page--playing .shell-ui__main .stage,
 .page--playing .shell-ui__main .game-canvas,
 .page--playing .shell-ui__main .climb-canvas,
 .page--playing .shell-ui__main .fish-canvas,
-.page--playing .shell-ui__main .mine-canvas {
-  /* flex: none —— 否则作为 flex item 会被压缩，画布容器可能塌成 0 宽 */
-  flex: none;
+.page--playing .shell-ui__main .mine-canvas,
+.page--playing .shell-ui__main .phaser-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  width: auto;
-  max-width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: auto;
+  max-width: none;
   border-radius: 0;
   box-shadow: none;
   /* the court is a game surface, not a scrollable page */
@@ -903,23 +936,11 @@ h3 {
 .page--playing .shell-ui__main .game-canvas canvas,
 .page--playing .shell-ui__main .climb-canvas canvas,
 .page--playing .shell-ui__main .fish-canvas canvas,
-.page--playing .shell-ui__main .mine-canvas canvas {
+.page--playing .shell-ui__main .mine-canvas canvas,
+.page--playing .shell-ui__main .phaser-stage canvas {
+  display: block;
   width: 100% !important;
   height: 100% !important;
-}
-
-/* 手机：不做等比留白，画布直接铺满整个内容区（轻微拉伸换满屏） */
-@media (pointer: coarse) {
-  .page--playing .shell-ui__main .game-canvas,
-  .page--playing .shell-ui__main .climb-canvas,
-  .page--playing .shell-ui__main .fish-canvas,
-  .page--playing .shell-ui__main .mine-canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-  }
 }
 
 /* 右上角：一排**文字**按钮（个人主页 / 页面功能 / 设置），收起时只剩一个「收起」 */
@@ -1105,6 +1126,22 @@ h3 {
   overflow: hidden;
   background: #f0d296;
   touch-action: none;
+}
+
+/* 可以走动的房间（球场 / 训练场 / 商店 / 宠物店 / 影院）：
+   和大世界一样不吃浏览器手势——拖摇杆、双指捏合调视距时页面不会跟着滚动 / 缩放。
+   房间各自的 scoped 样式只管定位与配色，不动这条。 */
+.page--playing .room {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* 房间的平面图也用**左上角**当缩放原点（和 `.world__plane` 一致）。
+   镜头换算（`useWalk` / `WorldView`）是按 `(点 - 镜头) × 视距` 写的，
+   用默认的中心原点的话，视距一旦不是 100%，整个房间就会偏出去一大截
+   ——「缩放了人就不在正中」「上场后场地对不到屏幕中央」都是这个。 */
+.page--playing .room__plane {
+  transform-origin: 0 0;
 }
 
 .world__plane {
@@ -1348,3 +1385,55 @@ h3 {
   animation: rise-in 460ms var(--ease-jelly) both;
   animation-delay: calc(var(--i, 0) * 55ms);
 }
+
+/* ---------------------------------------------------------------------------
+   球馆里的「场地垫」：透明画布下面垫一层「看台 + 地板 + 收边」，让 hall 模式（只画
+   线 + 网）的场地看起来是一块**真场地**。百分比按画布几何算：看台 480/720、地胶
+   640/720、收边 706/720。
+   --------------------------------------------------------------------------- */
+.court-mat {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  pointer-events: none;
+  /* 整块场地垫：后墙 + 看台 + 地胶 + 收边（上部**不透明**，没挂画面的场地也不会是一块白板） */
+  background: linear-gradient(
+    180deg,
+    #eef3f7 0 46%,
+    #dde7f0 66.6%,
+    #ccd9ea 66.7% 88%,
+    #bfd0e2 88% 88.9%,
+    #bfd9cb 88.9% 92.2%,
+    #d3e6dc 92.2% 98%,
+    #b2cec0 98% 100%
+  );
+  box-shadow: inset 0 0 0 2px rgba(63, 85, 112, 0.16);
+}
+
+/* 场地上的两条线（垫在画布下面）：底线 + 球网 —— 万一某块场地还没挂上画面，
+   也照样看得出这是一块场地，而不是一块白板。位置和画布里的 `drawCourtLines` 对齐。 */
+.court-mat::before {
+  content: '';
+  position: absolute;
+  left: 1.1%;
+  right: 1.1%;
+  top: calc(88.9% - 1.5px);
+  height: 3px;
+  background: #3f5570;
+  opacity: 0.8;
+}
+
+.court-mat::after {
+  content: '';
+  position: absolute;
+  left: calc(50% - 8px);
+  top: 73.9%;
+  width: 16px;
+  height: 15%;
+  background: rgba(95, 119, 145, 0.45);
+  border-top: 3px solid #3f5570;
+  border-bottom: 3px solid #3f5570;
+  opacity: 0.85;
+}
+

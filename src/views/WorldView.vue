@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
-import { useLocalStorage } from '@vueuse/core';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
+import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
-import Button from '../components/ui/Button.vue';
-import StatusChip from '../components/ui/StatusChip.vue';
 import { isTouchDevice } from '../game/device';
 import { useJoystickPrefs } from '../composables/useJoystick';
+import { clampZoom, createPinchZoom, zoom } from '../composables/useZoom';
 import AppModal from '../components/ui/AppModal.vue';
 import ComboPanel from '../components/ComboPanel.vue';
 import TradePanel from '../components/TradePanel.vue';
+import TabletPanel from '../components/TabletPanel.vue';
 import {
   WORLD_DISTRICTS,
   WORLD_H,
@@ -193,7 +192,7 @@ function openCombo(): void {
   comboOpen.value = true;
 }
 
-/** 去看进度不如去练：跳到单机练习（在里面选发球机模式） */
+/** 去看进度不如去练：跳到单机练习（走到球台 / 发球机开打） */
 function goPractice(): void {
   comboOpen.value = false;
   sfx.click();
@@ -238,11 +237,31 @@ function paintMe(now: number): void {
   });
 }
 
+/* --- 角色右手边的平板：点它弹出来（报名 / 预约 / 赛事中心 / 名人堂） --------- */
+const tabletOpen = ref(false);
+/** 待开赛的预约数：有就挂个角标，平板里是「我的预约」 */
+const bookedCount = computed(() => Object.keys(progress.arenaBooking).length);
+/**
+ * 平板是地图上用 DOM 画的（不是画进 canvas），所以能直接点。
+ * 视距缩小时按 1/zoom 反向放大一点，保证在任何视距下都还有手掌大的点击区。
+ */
+const tabletScale = computed(() => Math.min(1.6, Math.max(1, 1 / clampZoom(zoom.value))));
+
+function openTablet(): void {
+  sfx.click();
+  tabletOpen.value = true;
+}
+
+/** 平板里报完名 → 直接去晋级赛馆打这一届 */
+function onTabletSigned(): void {
+  toastGood('已报名，去晋级赛馆打这一届');
+  void router.push('/arena');
+}
+
 /* --- 一起逛：好友被邀请进来后，就站在这张地图上 ------------------------- */
 const map = useMapSession();
 // 解构成顶层 ref，模板里才会自动解包
-const { code: mapCode, phase: mapPhase, waiting: mapWaiting, connState: mapConn, peer: mapPeer } = map;
-const mapJoinCode = ref('');
+const { code: mapCode, connState: mapConn, peer: mapPeer } = map;
 
 /** 客人第一次拿到房主的位置时，站到他旁边 */
 map.onFirstPeer = (x, y) => {
@@ -269,15 +288,10 @@ watch(
   () => {
     const code = lobby.consumeInvite('map');
     if (!code) return;
-    mapJoinCode.value = code;
     void map.join(code);
   },
   { immediate: true },
 );
-
-function joinMapByCode(): void {
-  void map.join(mapJoinCode.value);
-}
 
 /**
  * 好友面板点「邀请」时若无房间：自动走一遍建房，等房号出来再发邀请。
@@ -299,54 +313,16 @@ const held = new Set<string>();
 const MOVED_SPEED = 400; // px/s
 const cam = ref({ x: 0, y: 0 });
 
-/* --- 视距（zoom）：双指捏合或右侧按钮调，镜头始终以自己为中心 --------------- */
-const ZOOM_MIN = 0.55;
-const ZOOM_MAX = 1.4;
-/** 记在本机：下次进来还是这个视距 */
-const zoom = useLocalStorage('bmt-world-zoom', 1);
-const zoomPct = computed(() => Math.round(clampZoom(zoom.value) * 100));
-const clampZoom = (v: number): number => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v));
-function setZoom(v: number): void {
-  zoom.value = clampZoom(v);
-}
-function nudgeZoom(dir: 1 | -1): void {
-  sfx.click();
-  setZoom(zoom.value * (dir > 0 ? 1.15 : 1 / 1.15));
-}
-/** 双指捏合：两根手指都按在地图上时，按间距比例缩放 */
-const pinchPts = new Map<number, { x: number; y: number }>();
-let pinchDist = 0;
-function onWorldPointerDown(e: PointerEvent): void {
-  // 摇杆 / 视距按钮 / 进入按钮上的手指不参与捏合（走路时另一只手点地图不能误触缩放）
-  if ((e.target as HTMLElement | null)?.closest?.('.joy, .joy-zone, .zoomer, .world-enter')) return;
-  pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinchPts.size === 2) pinchDist = pinchSpread();
-}
-function onWorldPointerMove(e: PointerEvent): void {
-  const p = pinchPts.get(e.pointerId);
-  if (!p) return;
-  p.x = e.clientX;
-  p.y = e.clientY;
-  if (pinchPts.size === 2 && pinchDist > 0) {
-    const d = pinchSpread();
-    if (d > 0) setZoom(zoom.value * (d / pinchDist));
-    pinchDist = d;
-  }
-}
-function onWorldPointerUp(e: PointerEvent): void {
-  pinchPts.delete(e.pointerId);
-  pinchDist = 0;
-}
-function pinchSpread(): number {
-  const [a, b] = [...pinchPts.values()];
-  return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
-}
+/* --- 视距（zoom）：公共件（右缘滑块 + 双指捏合），大世界与各房间共用同一份 ----- */
+/** 双指捏合：固定摇杆 / 缩放条 / 进入按钮 / 平板上的手指不参与——`.joy-zone`
+ *  （自由摇杆热区）**故意留着**，捏合要能从它上面起手（摇杆靠 `pinchActive` 让位） */
+const pinch = createPinchZoom('.joy, .zoomer, .world-enter, .world__tablet');
+
 const nearZone = ref<WorldZone | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
 
-/** 段位/背包/宝箱(跳商店)/好友/成就都由 PageShell 内置，这里只留一个引用去调它的方法 */
-const shell = ref<{ openFriends: () => void } | null>(null);
+/* --- 段位/背包/宝箱(跳商店)/好友/成就都由 PageShell 内置 --- */
 
 /** 在线玩家列表已移除（左侧不再显示）；好友邀请走右上角好友面板 */
 
@@ -541,12 +517,11 @@ function updateCamera(): void {
   // 视口按缩放折算成「世界像素」；镜头在世界坐标系里跟着人走
   const viewW = (box?.width ?? 844) / z;
   const viewH = (box?.height ?? 390) / z;
-  const spanX = WORLD_W - viewW;
-  const spanY = WORLD_H - viewH;
+  // **人物永远钉在屏幕正中**：不管视距怎么调都以人为中心，不按世界边界夹镜头
+  // （视比世界大时，世界外面那一圈露的是底色，这是刻意的）
   cam.value = {
-    // 缩得太小、世界比视口还小时给负值（居中），否则夹在 [0, 跨度]
-    x: spanX <= 0 ? spanX / 2 : Math.max(0, Math.min(spanX, me.value.x - viewW / 2)),
-    y: spanY <= 0 ? spanY / 2 : Math.max(0, Math.min(spanY, me.value.y - viewH / 2)),
+    x: me.value.x - viewW / 2,
+    y: me.value.y - viewH / 2,
   };
   if (plane.value) {
     // 震屏：镜头整体抖几像素（衰减在 loop 里）
@@ -662,18 +637,6 @@ function onKeyUp(e: KeyboardEvent): void {
 }
 
 /* --- 坞里的功能 ----------------------------------------------------------- */
-function copyCode(): void {
-  const code = mapCode.value;
-  sfx.click();
-  if (!code) {
-    toastWarn('先建房才能分享房号');
-    return;
-  }
-  void navigator.clipboard?.writeText(code).then(
-    () => toastGood(`房号 ${code} 已复制，发给好友即可一起逛`),
-    () => toastWarn('复制失败，请手动记下房号'),
-  );
-}
 
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown);
@@ -681,12 +644,6 @@ onMounted(() => {
   updateCamera();
   raf = requestAnimationFrame(loop);
 });
-
-function leaveMap(): void {
-  sfx.click();
-  map.leave();
-  toastGood('已离开营地');
-}
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf);
@@ -700,7 +657,7 @@ onBeforeUnmount(() => {
   <!-- 整页固定高度、不滚动：地图平面靠外壳的主区域撑开 -->
   <div class="page page--playing">
     <PageShell
-      ref="shell"
+      avatar
       title="大世界 · 营地"
       back
       friends-kind="map"
@@ -709,50 +666,14 @@ onBeforeUnmount(() => {
       :friends-ensure-room="ensureInviteRoom"
       @back="router.push('/home')"
     >
-    <template #dock>
-      <SideDock>
-        <span class="presence__mode">🪙 {{ progress.coins }}</span>
-        <StatusChip :tone="mapConn === 'online' ? 'ok' : mapWaiting ? 'warn' : 'idle'">
-          {{ mapConn === 'online' ? '好友在营地' : mapCode ? `房间 ${mapCode}` : '一个人逛' }}
-        </StatusChip>
-
-        <!-- 房主：建房 → 邀请好友 -->
-        <Button v-if="!mapCode && mapConn === 'off'" size="sm" block :disabled="mapWaiting" @click="map.host()">
-          建房一起逛
-        </Button>
-        <Button size="sm" block @click="shell?.openFriends()">邀请好友</Button>
-
-        <!-- 客人：输房号直接进 -->
-        <template v-if="!mapCode && mapConn === 'off'">
-          <input
-            v-model="mapJoinCode"
-            class="world-code"
-            maxlength="6"
-            placeholder="房号"
-            @keyup.enter="joinMapByCode"
-          />
-          <Button size="sm" block :disabled="mapWaiting" @click="joinMapByCode">加入好友营地</Button>
-        </template>
-
-        <Button v-if="mapCode" size="sm" block @click="copyCode">复制房号</Button>
-        <Button v-if="mapConn === 'online'" size="sm" block @click="leaveMap">离开营地</Button>
-
-        <span v-if="mapPhase" class="dock-note">{{ mapPhase }}</span>
-        <Button size="sm" variant="quiet" block @click="router.push('/online')">去联机对战</Button>
-        <p class="dock-note">
-          摇杆 / WASD 走动，走进区域圈里按 E 进入；建房后邀请好友，他们会直接站到这张地图上。
-        </p>
-      </SideDock>
-    </template>
-
     <template #stage>
       <div
         ref="stage"
         class="world"
-        @pointerdown="onWorldPointerDown"
-        @pointermove="onWorldPointerMove"
-        @pointerup="onWorldPointerUp"
-        @pointercancel="onWorldPointerUp"
+        @pointerdown="pinch.onPointerDown"
+        @pointermove="pinch.onPointerMove"
+        @pointerup="pinch.onPointerUp"
+        @pointercancel="pinch.onPointerUp"
       >
         <div ref="plane" class="world__plane" :style="{ width: `${WORLD_W}px`, height: `${WORLD_H}px` }">
           <div class="world__path" style="left: 0; top: 620px; width: 2400px; height: 120px" />
@@ -905,6 +826,24 @@ onBeforeUnmount(() => {
             <div class="avatar__name">你</div>
           </div>
 
+          <!-- 角色右手边上那台平板：点一下就弹出来（报名 / 预约 / 赛事中心 / 名人堂） -->
+          <button
+            class="world__tablet"
+            type="button"
+            title="平板 · 赛事报名 / 我的预约"
+            :style="{
+              left: `${me.x + 30}px`,
+              top: `${me.y - 52}px`,
+              transform: `translate(-50%, -50%) scale(${tabletScale})`,
+            }"
+            @click.stop="openTablet"
+          >
+            <span class="world__tablet-frame">
+              <span class="world__tablet-screen">🏆</span>
+            </span>
+            <span v-if="bookedCount" class="world__tablet-dot num">{{ bookedCount }}</span>
+          </button>
+
           <!-- 好友：同样的绘制，用 2 号位颜色区分，位置来自 12Hz 同步 -->
           <div
             v-if="mapPeer"
@@ -948,19 +887,8 @@ onBeforeUnmount(() => {
         <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
         <Joystick v-if="showJoy" side="right" @move="(x, y) => (racketJoy = { x, y })" />
 
-        <!-- 视距：双指捏合之外，右缘也给一列按钮（缩小 / 比例 / 放大 / 复位） -->
-        <div class="zoomer num">
-          <button class="zoomer__btn" type="button" title="放大" @click="nudgeZoom(1)">＋</button>
-          <button
-            class="zoomer__pct"
-            type="button"
-            title="恢复默认视距"
-            @click="sfx.click(), (zoom = 1)"
-          >
-            {{ zoomPct }}%
-          </button>
-          <button class="zoomer__btn" type="button" title="缩小" @click="nudgeZoom(-1)">－</button>
-        </div>
+        <!-- 视距：公共件（右缘一根可拖动的滑块；也可以在地图上双指捏合） -->
+        <ZoomControl />
 
         <!-- 靠近区域 / 收购商：右下角出现「进入」按钮（层级压过摇杆热区，点它不会走人） -->
         <button v-if="enterHint" class="world-enter" type="button" @click="enterHint.go()">
@@ -1019,6 +947,9 @@ onBeforeUnmount(() => {
   <AppModal v-model="tradeOpen" title="💰 农场主收购站" max-width="520px">
     <TradePanel :line="tradeNpc?.tradeLine" />
   </AppModal>
+
+  <!-- 角色右手边那台平板点出来的界面（报名 / 预约 / 赛事中心 / 名人堂） -->
+  <TabletPanel v-model="tabletOpen" @signed="onTabletSigned" />
   </div>
 </template>
 
@@ -1030,50 +961,7 @@ onBeforeUnmount(() => {
   color: var(--text-dim);
 }
 
-/* --- 视距按钮（右缘中间，避开底部两颗摇杆和顶部一排图标） -------------------- */
-.zoomer {
-  position: absolute;
-  right: max(8px, env(safe-area-inset-right));
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 26;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
-}
-
-.zoomer__btn,
-.zoomer__pct {
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  color: var(--text);
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: var(--glass-shadow);
-}
-
-.zoomer__btn {
-  width: 38px;
-  height: 38px;
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.zoomer__pct {
-  min-width: 38px;
-  padding: 3px 4px;
-  font-size: 10px;
-  text-align: center;
-}
-
-.zoomer__btn:active,
-.zoomer__pct:active {
-  transform: scale(0.92);
-}
+/* 视距滑块是公共件 `components/ui/ZoomControl.vue`（样式跟着组件走） */
 
 /* --- 右下角「进入」按钮：靠近区域圈时出现 ----------------------------------- */
 .world-enter {
@@ -1283,12 +1171,85 @@ onBeforeUnmount(() => {
   left: 50%;
   transform: translateX(-50%);
 }
-/* --- 右侧的活动入口（点开是活动弹窗） --- */
+
+/* --- 角色右手边那台平板：点它弹出「ArenaOS」 ------------------------------- */
+.world__tablet {
+  position: absolute;
+  z-index: 14;
+  width: 40px;
+  height: 52px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  /* 稍微斜着举，像夹在手里 */
+  filter: drop-shadow(0 4px 6px rgba(30, 24, 12, 0.28));
+}
+
+.world__tablet::before {
+  /* 点击热区比画出来的机身再大一圈，缩得很小时也好点 */
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+.world__tablet-frame {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 7px;
+  padding: 3px;
+  background: linear-gradient(160deg, #4a505a, #171a20 65%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  transform: rotate(-8deg);
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.world__tablet-screen {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  background:
+    radial-gradient(120% 90% at 30% 10%, #fffbe9 0%, rgba(255, 251, 233, 0) 70%),
+    linear-gradient(160deg, #ffd88a, #eaa23c);
+}
+
+.world__tablet:hover .world__tablet-frame {
+  transform: rotate(-2deg) scale(1.06);
+}
+
+.world__tablet:active .world__tablet-frame {
+  transform: rotate(-8deg) scale(0.94);
+}
+
+/* 有预约待开赛：右上角挂个数字角标 */
+.world__tablet-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: #d64545;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+/* --- 活动入口：挂在右上角「收起」按钮下面（点开是活动弹窗） --- */
 .world__events {
   position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: max(var(--s2), env(safe-area-inset-right));
+  /* 让开右上角那一排工具栏（--ui-top-h） */
+  top: calc(env(safe-area-inset-top) + var(--s2) + var(--ui-top-h) + 10px);
   /* 抬到区域卡、角色（z-index 6）以及自由摇杆的热区（28）之上：
      自由摇杆模式下右半屏都被摇杆热区盖住，活动入口是唯一只能点的按钮，必须点得到 */
   z-index: 30;

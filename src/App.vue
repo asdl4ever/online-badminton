@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, watchEffect } from 'vue';
+import { onBeforeUnmount, ref, watch, watchEffect } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import { useMobileShell } from './composables/useMobileShell';
@@ -9,6 +9,7 @@ import { useProgressStore } from './stores/progress';
 import { SCENE_KIND, joinInfo, sceneFromPath, sceneMeta } from './game/scenes';
 import { toastWarn } from './composables/useToast';
 import type { InviteKind } from './net/lobby';
+import { sfx } from './game/audio';
 import Button from './components/ui/Button.vue';
 import AppToast from './components/ui/AppToast.vue';
 
@@ -71,6 +72,59 @@ watchEffect(() => {
   );
 });
 
+/* --- 晋级赛预约：低频心跳，到点自动开赛 ------------------------------------
+ * 15 秒一次（预约的精度在分钟级，不需要更密），并在页面重新可见时补判一次——
+ * 手机锁屏 / 切后台时定时器会被节流，回到前台必须立刻补上。
+ * 开赛成功就**响铃提醒**（铃声 + 震动 + 顶部那块提示条），没人看着也不会错过。
+ */
+const ringing = ref<string | null>(null);
+let ringTimer: number | undefined;
+let ringLeft = 0;
+
+function stopRing(): void {
+  ringing.value = null;
+  if (ringTimer) window.clearInterval(ringTimer);
+  ringTimer = undefined;
+}
+
+/** 手机响：先来一嗓子，之后每 5 秒再响一次，最多 4 次（点掉就停） */
+function startRing(cups: string): void {
+  ringing.value = cups;
+  ringLeft = 3;
+  sfx.ring();
+  navigator.vibrate?.([220, 120, 220]);
+  if (ringTimer) window.clearInterval(ringTimer);
+  ringTimer = window.setInterval(() => {
+    if (ringLeft-- <= 0) {
+      stopRing();
+      return;
+    }
+    sfx.ring();
+    navigator.vibrate?.([220, 120, 220]);
+  }, 5000);
+}
+
+function gotoCups(): void {
+  stopRing();
+  void router.push('/arena');
+}
+
+function checkBookings(): void {
+  const started = progress.tickArenaBooking(Date.now(), lobby.playerName);
+  if (started.length) startRing(started.join(' · '));
+}
+
+const bookingTimer = window.setInterval(checkBookings, 15_000);
+const onVisible = (): void => {
+  if (!document.hidden) checkBookings();
+};
+document.addEventListener('visibilitychange', onVisible);
+onBeforeUnmount(() => {
+  window.clearInterval(bookingTimer);
+  document.removeEventListener('visibilitychange', onVisible);
+  stopRing();
+});
+
 /* --- 跟随房主：他换界面我就跟过去（访客才有 following） ---------------- */
 watch(
   () => {
@@ -96,6 +150,21 @@ watch(
   <RouterView />
 
   <AppToast />
+
+  <!-- 预约到点：手机会响（铃声 + 震动 + 这块顶部提示条，点掉才停） -->
+  <Transition name="alarm">
+    <div v-if="ringing" class="alarm" role="alert">
+      <span class="alarm__icon">🔔</span>
+      <div class="alarm__body">
+        <p class="alarm__title">开赛了！{{ ringing }}</p>
+        <p class="alarm__sub">已自动为你报名，去晋级赛馆把这届打完</p>
+      </div>
+      <div class="alarm__actions">
+        <Button size="sm" variant="primary" @click="gotoCups">去看赛程</Button>
+        <Button size="sm" variant="quiet" @click="stopRing">知道了</Button>
+      </div>
+    </div>
+  </Transition>
 
   <div v-auto-animate="{ duration: 220 }" class="toasts">
     <div v-if="progress.notice" class="toast toast--accent">
@@ -203,5 +272,99 @@ watch(
   display: flex;
   gap: var(--s2);
   margin-top: var(--s3);
+}
+
+/* --- 预约开赛的响铃提示条（顶部居中，压在 toast 之上） ---------------------- */
+.alarm {
+  position: fixed;
+  top: max(var(--s4), env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  max-width: min(92vw, 560px);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent),
+    var(--e2, var(--e1));
+}
+
+.alarm__icon {
+  flex: none;
+  font-size: 26px;
+  line-height: 1;
+  animation: alarm-ring 1.2s ease-in-out infinite;
+}
+
+@keyframes alarm-ring {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+
+.alarm__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alarm__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.alarm__sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.alarm__actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.alarm-enter-active,
+.alarm-leave-active {
+  transition:
+    opacity var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease);
+}
+
+.alarm-enter-from,
+.alarm-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -14px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alarm__icon {
+    animation: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .alarm {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .alarm__actions {
+    flex-direction: row;
+    justify-content: center;
+  }
 }
 </style>

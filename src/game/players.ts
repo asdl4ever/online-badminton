@@ -9,16 +9,17 @@
 import { STAT_KEYS, styleFromStats, tierFromStats, type AiStyle, type Difficulty } from './ai';
 import { ITEMS, type ItemSlot } from './items';
 import { DEFAULT_COSMETIC, type Cosmetic } from './cosmetics';
-import type { AttrAlloc, PlayerAttrs } from './attrs';
+import type { PlayerAttrs } from './attrs';
+import { TRAIN_PER_LEVEL, type TrainKey, type TrainLevels } from './training';
 import { GROUPS, groupForPoints } from './ranks';
 
-/** 球员主页五维图：技术 / 速度 / 进攻 / 防守 / 弹跳（0–100） */
+/** 球员主页五维图：技术 / 速度 / 进攻 / 防守 / 体力（0–100） */
 export interface PlayerStats {
   technique: number;
   speed: number;
   attack: number;
   defense: number;
-  jump: number;
+  stamina: number;
 }
 
 export interface AiPlayer {
@@ -90,10 +91,10 @@ function rollStats(rating: number, rng: () => number): PlayerStats {
     speed: base + jit(),
     attack: base + jit(),
     defense: base + jit(),
-    jump: base + jit(),
+    stamina: base + jit(),
   };
   if (rng() < 0.85) {
-    const keys: (keyof PlayerStats)[] = ['technique', 'speed', 'attack', 'defense', 'jump'];
+    const keys: (keyof PlayerStats)[] = ['technique', 'speed', 'attack', 'defense', 'stamina'];
     s[keys[Math.floor(rng() * keys.length)]] += 14 + rng() * 10;
   }
   return {
@@ -101,12 +102,12 @@ function rollStats(rating: number, rng: () => number): PlayerStats {
     speed: clampStat(s.speed),
     attack: clampStat(s.attack),
     defense: clampStat(s.defense),
-    jump: clampStat(s.jump),
+    stamina: clampStat(s.stamina),
   };
 }
 
 /**
- * 老存档兼容：缺 stats（或维度不全，比如没有后加的「弹跳」）时，
+ * 老存档兼容：缺 stats（或维度不全，比如老存档里还是「弹跳」而不是「体力」）时，
  * 按 id/name 确定性重掷一份（同一位球员每次都一样）。
  */
 export function ensureStats(p: AiPlayer): PlayerStats {
@@ -128,7 +129,7 @@ export function syncDerived(p: AiPlayer): AiPlayer {
  * - 进攻 → 击球力度
  * - 防守 → 击球判定半径（够得到球）
  * - 技术 → 出球容错（挥拍不到位时球质也不崩，见 simulation 的 shotSpeedMin）
- * - 弹跳 → 起跳高度
+ * - 体力 → 体力上限更高、跑动挥拍消耗更慢
  */
 export function attrsFromStats(s: PlayerStats): PlayerAttrs {
   const mul = (v: number): number => 1 + ((v - 50) / 50) * 0.4;
@@ -137,10 +138,10 @@ export function attrsFromStats(s: PlayerStats): PlayerAttrs {
     power: mul(s.attack),
     // 判定半径归「防守」：防守高 = 够得到球
     reach: mul(s.defense),
-    // 起跳高度归「弹跳」
-    jump: mul(s.jump),
     // 技术高 → 出球下限更高（挥得轻也不会打太软）
     skill: mul(s.technique),
+    // 体力高 → 同样的跑动挥拍更省体力（体力条更长、掉得更慢）
+    stamina: mul(s.stamina),
   };
 }
 
@@ -150,19 +151,23 @@ export function statBonus(v: number): number {
 }
 
 /**
- * 玩家自己的四维。属性点与四维的对应关系要跟 `attrsFromStats` 一致：
- * 速度点 → 速度，力量点 → 进攻，**容错点 → 防守**（判定半径由防守决定）。
- * 技术维对玩家只是「手感」展示（玩家自己控制出球，不走 AI 的出球质量）。
+ * 玩家自己的五维：**基础分只看积分**（打得多了底子好一点），
+ * 在此之上叠加「锻炼等级」——练哪一维就长哪一维（见 training.ts）。
+ *
+ * 体力那一维的基础分故意比别的维低 16，所以角色**一上来体力比较弱**
+ * （跑动挥拍掉得快），得去操场跑到练满才追平。练出来的东西和 AI 走同一条
+ * attrsFromStats 换算。
  */
-export function playerStats(points: number, alloc: AttrAlloc): PlayerStats {
-  const base = 52 + Math.min(30, points / 50);
-  const per = 8;
+export function playerStats(points: number, levels: TrainLevels): PlayerStats {
+  // 积分只给一点点「打得多、底子好」的加成（最多 +20），成长的大头在锻炼等级
+  const base = 52 + Math.min(20, points / 90);
+  const lv = (k: TrainKey): number => (levels?.[k] ?? 0) * TRAIN_PER_LEVEL;
   return {
-    speed: clampStat(base + (alloc.speed ?? 0) * per),
-    attack: clampStat(base + (alloc.power ?? 0) * per),
-    defense: clampStat(base + (alloc.reach ?? 0) * per),
-    jump: clampStat(base + (alloc.jump ?? 0) * per),
-    technique: clampStat(base + Math.min(14, points / 130)),
+    speed: clampStat(base + lv('speed')),
+    attack: clampStat(base + lv('attack')),
+    defense: clampStat(base + lv('defense')),
+    stamina: clampStat(base - 16 + lv('stamina')),
+    technique: clampStat(base + lv('technique') + Math.min(12, points / 150)),
   };
 }
 
@@ -263,7 +268,7 @@ export function makeLegend(): AiPlayer {
     speed: 96,
     attack: 99,
     defense: 98,
-    jump: 95,
+    stamina: 95,
   };
   return {
     id: LEGEND_ID,
@@ -342,7 +347,7 @@ export function pickOpponent(
 
 /** 五维综合分（判定 AI 之间谁更强，见 arena.simulateArenaMatch） */
 export function statPower(s: PlayerStats): number {
-  return (s.technique + s.speed + s.attack + s.defense + s.jump) / 5;
+  return (s.technique + s.speed + s.attack + s.defense + s.stamina) / 5;
 }
 
 /** 玩家和某位 AI 打完一场：从 AI 视角记胜负并调整 rating */

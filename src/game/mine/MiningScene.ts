@@ -17,6 +17,7 @@ import {
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker, SwingPath } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { SCENE_BG_PAD, fitFixedView, onSceneResize } from '../zoom';
 import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
@@ -186,7 +187,7 @@ export class MiningScene extends Phaser.Scene {
     // multi-touch: the default single pointer cannot move and aim at once
     this.input.addPointer(3);
     // 触屏必开；桌面端开了「摇杆常显」也开
-    this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls(this) : null;
+    this.touchControls = isTouchDevice() || joystickAlwaysOn() ? new TouchControls() : null;
 
     const link = this.cfg.session;
     if (link) {
@@ -208,6 +209,11 @@ export class MiningScene extends Phaser.Scene {
         this.pop('对方已离开', 0x8b97a8);
       };
     }
+
+    // 画面铺满：等比放大到铺满容器并居中（多余的一圈露的是背景，不做拉伸）
+    const fit = () => fitFixedView(this);
+    fit();
+    onSceneResize(this, fit);
 
     this.cameras.main.fadeIn(250, 0, 0, 0);
   }
@@ -600,13 +606,15 @@ export class MiningScene extends Phaser.Scene {
     this.charG.clear();
     this.charOverG.clear();
 
-    // sky + ground
+    // sky + ground（多画一圈：手机横屏更宽时两侧露背景而不是黑边）
+    const pad = SCENE_BG_PAD;
+    const w = VIEW_W + pad * 2;
     g.fillStyle(0xc9c2ae, 1);
-    g.fillRect(0, 0, VIEW_W, GROUND_Y);
+    g.fillRect(-pad, -pad, w, GROUND_Y + pad);
     g.fillStyle(0x6f5b40, 1);
-    g.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
+    g.fillRect(-pad, GROUND_Y, w, VIEW_H - GROUND_Y + pad);
     g.fillStyle(0x5d4b34, 1);
-    g.fillRect(0, GROUND_Y, VIEW_W, 6);
+    g.fillRect(-pad, GROUND_Y, w, 6);
 
     // 矿石山：逐块画方块 + 矿脉 + 裂纹（裂纹随耐久加深）
     for (const b of this.blocks) {

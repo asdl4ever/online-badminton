@@ -113,7 +113,7 @@ export interface World {
    */
   skins: [CharacterSkin, CharacterSkin];
   /**
-   * 两名玩家的属性点倍率（速度 / 力量 / 容错）。这些会改变移动速度、击球力度与
+   * 两名玩家的属性倍率（速度 / 力量 / 容错 / 体力）。这些会改变移动速度、击球力度与
    * 判定半径，属于会影响轨迹的规则，所以和 `skins` 一样放在世界上，并由
    * 「自己 + 联机对方通过 hello 报来的属性」写进来（见 GameScene.syncSkins）。
    */

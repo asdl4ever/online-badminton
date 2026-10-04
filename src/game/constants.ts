@@ -24,19 +24,22 @@ export const PLAYER_GRAVITY = 2200;
 // ---- 体力（stamina）-------------------------------------------------------
 // 设计目标：终结超长稳定回合。跑动越多、击球越频繁 → 体力掉得越快；
 // 体力低了移动变慢、击球变软、AI 失误率上升 → 长回合被自然终结。
+//
+// **消耗再乘一层「体力」属性**（见 attrs.stamina）：角色一上来体力比较弱，
+// 跑动 / 挥拍掉得更快；去操场把体力练上去，同样的跑动才省得下来。
 export const STAMINA_MAX = 100;
-/** 每分之间（发球前）恢复的体力 */
-export const STAMINA_POINT_RECOVER = 20;
+/** 每分之间（发球前）恢复的体力（再乘本人的体力属性倍率） */
+export const STAMINA_POINT_RECOVER = 16;
 /** 站着不动的自然恢复（每秒）；跑动中恢复打折 */
-export const STAMINA_REGEN_STILL = 4.5;
+export const STAMINA_REGEN_STILL = 3.6;
 /** 跑动中的自然恢复系数（0~1，乘在 STAMINA_REGEN_STILL 上） */
 export const STAMINA_REGEN_MOVING = 0.15;
-/** 满速跑动每秒消耗的体力 */
-export const STAMINA_RUN_DRAIN = 9;
-/** 起跳一次的消耗 */
-export const STAMINA_JUMP_DRAIN = 3.5;
-/** 每次击球（挥拍触球）的消耗 */
-export const STAMINA_HIT_DRAIN = 5;
+/** 满速跑动每秒消耗的体力（再 ÷ 体力属性倍率） */
+export const STAMINA_RUN_DRAIN = 12.5;
+/** 起跳一次的消耗（再 ÷ 体力属性倍率） */
+export const STAMINA_JUMP_DRAIN = 4.5;
+/** 每次击球（挥拍触球）的消耗（再 ÷ 体力属性倍率） */
+export const STAMINA_HIT_DRAIN = 6.5;
 /** 空体力时的移动速度折扣（0.65 = 六五折） */
 export const STAMINA_SPEED_FLOOR = 0.65;
 /** 空体力时的击球力度折扣 */

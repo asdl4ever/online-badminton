@@ -51,14 +51,15 @@ import { attrsFromStats, type PlayerStats } from '../players';
 import { createControls, readControls, type ControlKeys } from '../input';
 import { RacketTracker, SwingPath } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
+import { SCENE_BG_PAD, fitFixedView, onSceneResize } from '../zoom';
 import { debugOverlayEnabled, joystickAlwaysOn } from '../device';
 import {
   applyTheme,
+  DEFAULT_THEME,
   FONT_EMOJI,
   FONT_NUM,
   FONT_UI,
   P,
-  THEME_IDS,
   type ThemeId,
 } from '../theme';
 import {
@@ -121,7 +122,7 @@ export interface MatchConfig {
   onMetrics?: (metrics: NetMetrics) => void;
   /** the local player's look (purely visual) */
   cosmetic?: Cosmetic;
-  /** 本地玩家的属性点倍率（速度 / 力量 / 容错，会改物理） */
+  /** 本地玩家的属性倍率（速度 / 力量 / 容错 / 体力，会改物理） */
   attrs?: PlayerAttrs;
   /** the local player's display name */
   localName?: string;
@@ -131,11 +132,8 @@ export interface MatchConfig {
   localCode?: string;
   /** 对方 hello（含好友码）到了：Vue 侧用它把好友装扮存进好友档案 */
   onPeerHello?: (code: string, cosmetic: Cosmetic, name: string) => void;
-  /** starting court theme */
+  /** starting court theme (defaults to the shared default court) */
   theme?: ThemeId;
-  /** rotate the court theme once a match finishes */
-  autoCycleTheme?: boolean;
-  onThemeChange?: (theme: ThemeId) => void;
   /** run the round-based fun mode (vote → play → scoreboard) */
   party?: boolean;
   /** fun-mode state, mirrored to the Vue overlay */
@@ -152,6 +150,15 @@ export interface MatchConfig {
    * 否则画面内重开会绕过门票与奖励结算。
    */
   noRematch?: boolean;
+  /**
+   * **球馆里挂的那些**：不画背景（天空 / 看台 / 木地板），场地线 + 网照画，
+   * 于是球场直接摆在球馆地板上（画布透明，露出球馆地板）。
+   */
+  hall?: boolean;
+  /** **空场地**（球馆里没人在打的那几张）：只画场地本身，不跑球、不画人 / 比分 */
+  idle?: boolean;
+  /** 强制用「触屏摇杆」输入（球馆里页面自己摆了一对常显摇杆：桌面端也能靠摇杆走） */
+  forceTouch?: boolean;
 }
 
 const FIXED_DT = 1 / 60;
@@ -206,7 +213,7 @@ export class GameScene extends Phaser.Scene {
   /** 属性点倍率：本地与联机对方（hello 收到），最终写进 world.attrs */
   private localAttrs: PlayerAttrs = { ...NEUTRAL_ATTRS };
   private remoteAttrs: PlayerAttrs = { ...NEUTRAL_ATTRS };
-  private currentTheme: ThemeId = 'day';
+  private currentTheme: ThemeId = DEFAULT_THEME;
   private bg!: Phaser.GameObjects.Graphics;
   /** 帽子/宠物层：在 emoji 头（depth 3）之上，与各场景统一 */
   private overG!: Phaser.GameObjects.Graphics;
@@ -347,7 +354,7 @@ export class GameScene extends Phaser.Scene {
     this.localRank = isTierId(this.cfg.localRank) ? this.cfg.localRank : 'bronze';
     this.remoteRank = 'bronze';
     this.gameoverSeen = false;
-    this.currentTheme = this.cfg.theme ?? 'day';
+    this.currentTheme = this.cfg.theme ?? DEFAULT_THEME;
   }
 
   create(): void {
@@ -366,7 +373,9 @@ export class GameScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
 
     this.bg = this.add.graphics();
-    this.drawCourt(this.bg);
+    // 球馆里挂的那些：背景透明，只画场地本身（线 + 网），露出球馆地板
+    if (this.cfg.hall) this.drawCourtLines(this.bg);
+    else this.drawCourt(this.bg);
 
     if (debugOverlayEnabled()) {
       this.debugText = this.add
@@ -474,10 +483,11 @@ export class GameScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown-R', () => this.requestRematch());
 
-    // 触屏设备必开摇杆；桌面端开了「摇杆常显」也开（观战不需要）
-    if ((isTouchDevice() || joystickAlwaysOn()) && !this.cfg.spectate) {
+    // 触屏设备必开摇杆；桌面端开了「摇杆常显」、或调用方强制（球馆里那对常显摇杆）也开
+    // （观战不需要）
+    if ((isTouchDevice() || joystickAlwaysOn() || this.cfg.forceTouch) && !this.cfg.spectate) {
       this.input.addPointer(3);
-      this.touchControls = new TouchControls(this);
+      this.touchControls = new TouchControls();
       this.events.once('shutdown', () => {
         this.touchControls?.destroy();
         this.touchControls = null;
@@ -487,6 +497,12 @@ export class GameScene extends Phaser.Scene {
     this.syncSkins();
 
     if (this.cfg.party) this.startParty();
+
+    // 画面铺满：等比放大到铺满容器并居中（多余的一圈露的是背景，不做拉伸）。
+    // 球馆里挂的那些（`hall`）外面已经有一层按视距缩放的 DOM 平面，这里不再乘视距。
+    const fit = () => fitFixedView(this, Boolean(this.cfg.hall));
+    fit();
+    onSceneResize(this, fit);
   }
 
   /**
@@ -1077,6 +1093,16 @@ export class GameScene extends Phaser.Scene {
     // the factor through their config so the steps stay deterministic
     const dt = rawDt * (this.world.config.timeScale || 1);
     this.frameDt = rawDt;
+    // 球馆里的**空场地**：只留场地本身（线 + 网在 create 时已经画好），
+    // 不跑球、不画人 / 比分 / 提示（每帧兜一下可见性，免得创建时默认可见）
+    if (this.cfg.idle) {
+      this.scoreLeft.setVisible(false);
+      this.scoreRight.setVisible(false);
+      this.infoLine.setVisible(false);
+      this.message.setVisible(false);
+      this.subMessage.setVisible(false);
+      return;
+    }
     const role = this.cfg.role;
 
     if (role === 'guest') {
@@ -1375,7 +1401,6 @@ export class GameScene extends Phaser.Scene {
       if (e.type === 'gameover') {
         if (this.gameoverSeen) continue;
         this.gameoverSeen = true;
-        this.maybeCycleTheme();
       }
       if (this.cfg.role === 'host' && this.netEvents.length < 16) this.netEvents.push(e);
       this.cfg.onEvent(e);
@@ -1471,26 +1496,6 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** after a match, roll to the next court theme (a purely local setting) */
-  private maybeCycleTheme(): void {
-    if (!this.cfg.autoCycleTheme) return;
-    const i = THEME_IDS.indexOf(this.currentTheme);
-    this.currentTheme = THEME_IDS[(i + 1) % THEME_IDS.length];
-    this.applyCurrentTheme();
-    this.cfg.onThemeChange?.(this.currentTheme);
-  }
-
-  private applyCurrentTheme(): void {
-    applyTheme(this.currentTheme);
-    this.bg.clear();
-    this.drawCourt(this.bg);
-    this.scoreLeft.setColor(P.score);
-    this.scoreRight.setColor(P.score);
-    this.subMessage.setColor(P.sub);
-    this.infoLine.setColor(P.sub);
-    this.debugText?.setColor(P.debugText);
-  }
-
   private publishHud(force: boolean): void {
     const w = this.world;
     const roomCode = this.cfg.session?.roomCode ?? '';
@@ -1575,9 +1580,16 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.scoreLeft.setText(String(w.score[0]));
-    this.scoreRight.setText(String(w.score[1]));
-    this.pointMsg.setVisible(false);
+    // 球馆里比分也交给「场地上方的计分板」，画面里这一份不画
+    if (this.cfg.hall) {
+      this.scoreLeft.setVisible(false);
+      this.scoreRight.setVisible(false);
+      this.pointMsg.setVisible(false);
+    } else {
+      this.scoreLeft.setText(String(w.score[0]));
+      this.scoreRight.setText(String(w.score[1]));
+      this.pointMsg.setVisible(false);
+    }
 
     // in fun mode the replay button would skip the party flow, so hide it
     if (this.party.active && w.phase === 'gameover') {
@@ -1637,30 +1649,45 @@ export class GameScene extends Phaser.Scene {
 
   // ---- rendering ---------------------------------------------------------
 
+  /** 一整块球场：背景 + 场地本身（正式对局页用） */
   private drawCourt(g: Phaser.GameObjects.Graphics): void {
+    this.drawBackground(g);
+    this.drawCourtLines(g);
+  }
+
+  /** 天空 / 看台 / 观众 / 木地板（球馆里**不画**：背景透明，露出球馆地板） */
+  private drawBackground(g: Phaser.GameObjects.Graphics): void {
+    // 背景多画一圈（PAD）：手机横屏比 16:9 更宽 / 视距拉远时，多出来的一圈
+    // 露的是天空与地板，而不是黑边
+    const pad = SCENE_BG_PAD;
+    const w = VIEW_W + pad * 2;
+
     g.fillStyle(P.skyTop, 1);
-    g.fillRect(0, 0, VIEW_W, VIEW_H);
+    g.fillRect(-pad, -pad, w, VIEW_H + pad * 2);
     g.fillGradientStyle(P.skyTop, P.skyTop, P.skyBottom, P.skyBottom, 1, 1, 1, 1);
-    g.fillRect(0, 0, VIEW_W, GROUND_Y);
+    g.fillRect(-pad, -pad, w, GROUND_Y + pad);
 
     g.fillStyle(P.stands, 1);
-    g.fillRect(0, GROUND_Y - 160, VIEW_W, 160);
-    for (let i = 0; i < 150; i++) {
-      const x = (i * 137) % VIEW_W;
+    g.fillRect(-pad, GROUND_Y - 160, w, 160);
+    for (let i = 0; i < 240; i++) {
+      const x = ((i * 137) % w) - pad;
       const y = GROUND_Y - 152 + ((i * 71) % 140);
       g.fillStyle(i % 4 === 0 ? P.crowdA : P.crowdB, 0.9);
       g.fillCircle(x, y, 4);
     }
     g.fillStyle(P.apron, 1);
-    g.fillRect(0, GROUND_Y - 6, VIEW_W, 6);
+    g.fillRect(-pad, GROUND_Y - 6, w, 6);
 
     g.fillStyle(P.floor, 1);
-    g.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
+    g.fillRect(-pad, GROUND_Y, w, VIEW_H - GROUND_Y + pad);
     g.fillStyle(P.floorStrip, 1);
     g.fillRect(COURT_LEFT, GROUND_Y, COURT_RIGHT - COURT_LEFT, 24);
     g.fillStyle(P.floorEdge, 1);
-    g.fillRect(0, VIEW_H - 14, VIEW_W, 14);
+    g.fillRect(-pad, VIEW_H - 14, w, 14);
+  }
 
+  /** 场地本身：底线 / 边线 / 球网（有没有背景都画） */
+  private drawCourtLines(g: Phaser.GameObjects.Graphics): void {
     g.lineStyle(4, P.line, 0.9);
     g.lineBetween(COURT_LEFT, GROUND_Y, COURT_LEFT, GROUND_Y - 70);
     g.lineBetween(COURT_RIGHT, GROUND_Y, COURT_RIGHT, GROUND_Y - 70);
@@ -1721,7 +1748,8 @@ export class GameScene extends Phaser.Scene {
     this.overG.clear();
     for (const f of this.faces) f.setVisible(false);
 
-    this.drawNamePlates(g);
+    // 球馆里名字牌不画在画面里（页面在场地上方摆了计分板）
+    if (!this.cfg.hall) this.drawNamePlates(g);
 
     if (this.cfg.role === 'guest' && !this.hasSnapshot) return;
 

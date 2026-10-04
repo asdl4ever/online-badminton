@@ -3,11 +3,10 @@ import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
-import Button from '../components/ui/Button.vue';
 import { ClimbScene } from '../game/climb/ClimbScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { applyTheme } from '../game/theme';
+import { sceneScaleConfig } from '../game/zoom';
+import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
 import { useCustomizeStore } from '../stores/customize';
 
@@ -27,7 +26,7 @@ function restart() {
 }
 
 onMounted(() => {
-  applyTheme(customize.theme);
+  applyTheme(DEFAULT_THEME);
 
   game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -37,10 +36,7 @@ onMounted(() => {
     backgroundColor: '#101a2c',
     banner: false,
     audio: { noAudio: true },
-    scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-    },
+    scale: sceneScaleConfig(),
     // the climb is the only mode that needs a real rigid-body solver
     physics: {
       default: 'matter',
@@ -76,14 +72,6 @@ onBeforeUnmount(() => {
         <button class="icon-btn jelly" type="button" title="重来一局" @click="restart">重来</button>
       </template>
 
-      <template #dock>
-        <SideDock>
-          <Button size="sm" block @click="restart">重来</Button>
-          <p class="climb-note">
-            用球拍撑住岩壁往上爬：鼠标决定球拍朝向，撑地、勾住凸起、再荡上去。A / D 行走，R 重来。
-          </p>
-        </SideDock>
-      </template>
 
       <template #stage>
         <div ref="container" class="climb-canvas" />

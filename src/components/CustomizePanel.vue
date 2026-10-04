@@ -3,7 +3,6 @@ import { VTextField } from 'vuetify/components';
 import CharacterPreview from './CharacterPreview.vue';
 import { useCustomizeStore } from '../stores/customize';
 import { COLOR_PRESETS, EMOJI_PRESETS, toHex } from '../game/cosmetics';
-import { THEMES, THEME_IDS } from '../game/theme';
 
 const store = useCustomizeStore();
 </script>
@@ -83,35 +82,6 @@ const store = useCustomizeStore();
         </div>
       </div>
 
-      <div class="cz__row">
-        <label class="cz__label">球场主题</label>
-        <div class="cz__control">
-          <button
-            v-for="id in THEME_IDS"
-            :key="id"
-            class="cz__theme"
-            :class="{ 'is-active': store.theme === id }"
-            type="button"
-            @click="store.theme = id"
-          >
-            <span
-              class="cz__theme-swatch"
-              :style="{
-                background: `linear-gradient(180deg, ${toHex(THEMES[id].swatch[0])} 55%, ${toHex(
-                  THEMES[id].swatch[1],
-                )} 55%)`,
-              }"
-            />
-            {{ THEMES[id].label }}
-          </button>
-        </div>
-      </div>
-
-      <label class="cz__toggle">
-        <input v-model="store.autoCycle" type="checkbox" />
-        <span>每局结束自动换一个球场主题</span>
-      </label>
-
       <p class="muted cz__note">
         外观只影响画面，不影响判定。头饰 / 翅膀 / 披风 / 光环 / 宠物 / 球拍皮肤 / 拖尾 / 特效请在「背包」里装备。
       </p>
@@ -181,8 +151,7 @@ const store = useCustomizeStore();
   cursor: pointer;
 }
 
-.cz__emoji-btn.is-active,
-.cz__theme.is-active {
+.cz__emoji-btn.is-active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
 }
@@ -208,36 +177,6 @@ const store = useCustomizeStore();
   height: 26px;
   border-radius: 8px;
   border: 1px solid var(--line-strong);
-  cursor: pointer;
-}
-
-.cz__theme {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.cz__theme-swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1px solid var(--line-strong);
-}
-
-.cz__toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  margin-top: var(--s3);
-  font-size: 13px;
-  color: var(--text-dim);
   cursor: pointer;
 }
 

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLocalStorage } from '@vueuse/core';
-import { dockOpen, toggleDock } from '../../composables/useDock';
+import { useCustomizeStore } from '../../stores/customize';
+import { paintAvatar } from '../../game/draw/canvas2d';
 import type { InviteKind } from '../../net/lobby';
 import AppModal from './AppModal.vue';
 import SettingsPanel from '../SettingsPanel.vue';
@@ -22,12 +23,19 @@ import AchievementsPanel from '../AchievementsPanel.vue';
  *
  * 尺寸全部走 `--ui-*` 固定像素（桌面/手机一致，不随屏幕缩放）。
  */
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /** 页面名，做成左上角的小标签（不是顶栏） */
     title?: string;
     /** 左上角是否显示退出按钮 */
     back?: boolean;
+    /**
+     * 大世界模式：左上角不再显示「模式设置」，改成一个**人物头像**，
+     * 点它直接打开人物主页（同时右上角的「个人主页」入口也会去掉）。
+     */
+    avatar?: boolean;
+    /** 是否显示右上角那一排工具栏（对战页传 false 让画面更干净） */
+    icons?: boolean;
     /**
      * 右上角那排「段位 / 背包 / 宝箱 / 宠物蛋 / 好友 / 成就」是外壳统一内置的，
      * 任何页面都和大世界一模一样。只有「好友」面板要看场景：邀请发出去该落在哪个页面。
@@ -39,10 +47,37 @@ withDefaults(
     /** 没房间时点邀请：页面提供的自动建房流程（点邀请 = 自动建房 + 发邀请） */
     friendsEnsureRoom?: () => Promise<string>;
   }>(),
-  { title: '', back: false, friendsKind: 'match', friendsCode: '', friendsCanInvite: false },
+  {
+    title: '',
+    back: false,
+    avatar: false,
+    icons: true,
+    friendsKind: 'match',
+    friendsCode: '',
+    friendsCanInvite: false,
+  },
 );
 
 const emit = defineEmits<{ back: [] }>();
+
+/** 头像：和游戏/地图同一份绘制，圆圈裁到头上 */
+const customize = useCustomizeStore();
+const avatarCanvas = ref<HTMLCanvasElement | null>(null);
+function paintAvatarBtn(): void {
+  if (avatarCanvas.value) {
+    paintAvatar(avatarCanvas.value, customize.cosmetic, performance.now(), { scale: 1 });
+  }
+}
+onMounted(() => {
+  if (props.avatar) paintAvatarBtn();
+});
+watch(
+  () => customize.cosmetic,
+  () => {
+    if (props.avatar) paintAvatarBtn();
+  },
+  { deep: true },
+);
 
 /** 抽卡归到大地图的商店：宝箱按钮直接带路过去（不再各页弹窗） */
 const shellRouter = useRouter();
@@ -71,7 +106,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="shell-ui" :class="{ 'is-dock-open': dockOpen }">
+  <div class="shell-ui">
     <div class="shell-ui__main">
       <!-- 左上角：退出 + 模式设置 -->
       <div class="hud-top">
@@ -95,29 +130,16 @@ defineExpose({
           </svg>
         </button>
 
+        <!-- 大世界：人物头像（点开人物主页） -->
         <button
-          class="dock-btn jelly"
-          :class="{ 'is-open': dockOpen }"
+          v-if="avatar"
+          class="hud-avatar jelly"
           type="button"
-          data-dock-toggle
-          aria-haspopup="true"
-          :aria-expanded="dockOpen"
-          :title="dockOpen ? '收起模式设置' : '展开模式设置'"
-          @click="toggleDock"
+          title="人物主页"
+          aria-label="人物主页"
+          @click="profileOpen = true"
         >
-          <svg class="dock-btn__icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path
-              d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h8M16 17h4"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-            <circle cx="16" cy="7" r="2.4" fill="currentColor" />
-            <circle cx="10" cy="12" r="2.4" fill="currentColor" />
-            <circle cx="14" cy="17" r="2.4" fill="currentColor" />
-          </svg>
-          <span>模式设置</span>
+          <canvas ref="avatarCanvas" class="hud-avatar__rig" />
         </button>
 
         <span v-if="title" class="hud-top__title">{{ title }}</span>
@@ -125,10 +147,11 @@ defineExpose({
 
       <slot name="stage" />
 
-      <!-- 右上角：一排横向小图标，收起时只留一个箭头 -->
-      <div class="hud-icons" :class="{ 'is-collapsed': !iconsOpen }">
+      <!-- 右上角：一排横向小图标，收起时只留一个箭头。对战页可整排隐藏 -->
+      <div v-if="icons" class="hud-icons" :class="{ 'is-collapsed': !iconsOpen }">
         <div class="hud-icons__row">
           <button
+            v-if="!avatar"
             class="icon-btn jelly"
             type="button"
             title="个人主页：角色 / 段位 / 收集进度"
@@ -171,7 +194,6 @@ defineExpose({
         </div>
       </div>
 
-      <slot name="dock" />
       <slot name="overlay" />
     </div>
 

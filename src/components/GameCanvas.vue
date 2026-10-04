@@ -3,12 +3,14 @@ import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { GameScene, type HudState, type MatchConfig, type MatchOpponent } from '../game/scenes/GameScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
+import { sceneScaleConfig } from '../game/zoom';
+import GameSticks from './ui/GameSticks.vue';
 import type { MatchRole, SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
 import type { NetLink } from '../net/link';
 import type { Cosmetic } from '../game/cosmetics';
 import type { PlayerAttrs } from '../game/attrs';
-import type { ThemeId } from '../game/theme';
+import { DEFAULT_THEME, type ThemeId } from '../game/theme';
 import type { TierId } from '../game/ranks';
 import type { PartyState } from '../game/config';
 import { useLobbyStore } from '../stores/lobby';
@@ -19,14 +21,14 @@ const props = defineProps<{
   role: MatchRole;
   session: NetLink | null;
   cosmetic: Cosmetic;
-  /** 本地玩家的属性点倍率（速度 / 力量 / 容错） */
+  /** 本地玩家的属性倍率（速度 / 力量 / 容错 / 体力） */
   attrs?: PlayerAttrs;
   localName: string;
   localRank: TierId;
   /** 本地玩家的好友码：随 hello 发给对方（对方记装扮用） */
   localCode?: string;
-  theme: ThemeId;
-  autoCycleTheme: boolean;
+  /** 球场主题：不传就用默认日间（晋级赛按赛事传入） */
+  theme?: ThemeId;
   /** run the round-based fun mode (vote → play → scoreboard) */
   party: boolean;
   /** world option to build the initial world from (e.g. a ball-machine preset) */
@@ -37,6 +39,16 @@ const props = defineProps<{
   spectate?: { left: MatchOpponent; right: MatchOpponent };
   /** 关掉画面内的「再来一局」（重开要扣门票的玩法用，交给页面自己的按钮） */
   noRematch?: boolean;
+  /** **球馆里挂的那些**：画布透明、不画背景（场地直接摆在球馆地板上） */
+  hall?: boolean;
+  /** **空场地**：只画场地本身（线 + 网），不跑球 / 不画人 / 不画比分 */
+  idle?: boolean;
+  /** 不要画布里的那颗 DOM 摇杆（球馆里由页面摆到屏幕角上） */
+  noSticks?: boolean;
+  /** 不要这一层体力条（球馆里由页面摆到屏幕顶部） */
+  noHud?: boolean;
+  /** 强制走「触屏摇杆」输入：球馆里页面自己摆了一对常显摇杆时用 */
+  forceTouch?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -44,7 +56,6 @@ const emit = defineEmits<{
   disconnect: [string];
   sim: [SimEvent];
   metrics: [NetMetrics];
-  themechange: [ThemeId];
   party: [PartyState];
 }>();
 
@@ -97,15 +108,16 @@ onMounted(async () => {
     localCode: props.localCode,
     // 对方（若是好友）的装扮到了就存进好友档案，好友列表能画出他的角色
     onPeerHello: (code, cosmetic) => lobby.rememberCosmetic(code, cosmetic),
-    theme: props.theme,
-    autoCycleTheme: props.autoCycleTheme,
-    onThemeChange: (t) => emit('themechange', t),
+    theme: props.theme ?? DEFAULT_THEME,
     party: props.party,
     onParty: (s) => emit('party', s),
     optionId: props.optionId,
     opponent: props.opponent,
     spectate: props.spectate,
     noRematch: props.noRematch,
+    hall: props.hall,
+    idle: props.idle,
+    forceTouch: props.forceTouch,
   };
 
   game = new Phaser.Game({
@@ -113,13 +125,12 @@ onMounted(async () => {
     parent: container.value ?? undefined,
     width: VIEW_W,
     height: VIEW_H,
-    backgroundColor: '#0b1a2b',
+    // 球馆里挂的那些：画布透明（背景不画，直接露出球馆地板）
+    backgroundColor: props.hall ? 'rgba(0,0,0,0)' : '#0b1a2b',
+    ...(props.hall ? { transparent: true } : {}),
     banner: false,
     audio: { noAudio: true },
-    scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-    },
+    scale: sceneScaleConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => {
@@ -140,9 +151,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="container" class="game-canvas">
+  <div ref="container" class="game-canvas" :class="{ 'is-hall': hall }">
+    <!-- 虚拟摇杆：和大地图同一颗 DOM 摇杆（观战 / 球馆里由页面摆时不显示） -->
+    <GameSticks v-if="!spectate && !noSticks" />
     <!-- 双方体力条：跑动/击球扣体力，低了跑得慢、击球软、AI 更容易失误 -->
-    <div v-if="hud" class="stam-row">
+    <div v-if="hud && !noHud" class="stam-row">
       <div class="stam" :class="{ 'is-me': hud.localIndex === 0 }">
         <i
           :class="{ 'is-low': hud.stamina[0] < 30 }"
@@ -160,10 +173,18 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 球馆里挂的那些：画布透明 —— 球场直接摆在球馆地板上（没有天空 / 看台 / 木地板） */
+.game-canvas.is-hall {
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+
 .game-canvas {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   background: var(--surface);
   border-radius: var(--r-lg);
   overflow: hidden;

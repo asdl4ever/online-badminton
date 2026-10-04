@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
+import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import Button from '../components/ui/Button.vue';
@@ -140,15 +140,6 @@ function back(): void {
 <template>
   <div class="page page--playing">
     <PageShell title="宠物店" back @back="back">
-      <template #dock>
-        <SideDock>
-          <span class="dock-coins">🪙 {{ progress.coins }}</span>
-          <p class="dock-note">
-            {{ touch ? '拖动摇杆走动，点按展示柜看宠物。' : '摇杆 / WASD 走动，走到展示柜前按 E 看宠物。' }}
-            每小时整点补货，稀有宠物可遇不可求。
-          </p>
-        </SideDock>
-      </template>
 
       <template #stage>
         <div ref="stage" class="room">
@@ -206,6 +197,7 @@ function back(): void {
           <div class="room__hint">{{ walkHint }}</div>
 
           <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
+          <ZoomControl />
         </div>
       </template>
     </PageShell>

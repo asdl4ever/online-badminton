@@ -20,6 +20,7 @@ export const SCENE_META: Record<SceneId, SceneMeta> = {
   off: { label: '不在线', icon: '💤', route: '' },
   home: { label: '在主界面', icon: '🏠', route: '/home' },
   map: { label: '在大世界', icon: '🧭', route: '/', kind: 'map' },
+  // 对局统一落在联机页：好友「加入 / 跟着房主」都去这里，页面自己按房号入房
   match: { label: '在联机对局', icon: '🏸', route: '/online', kind: 'match' },
   fish: { label: '在海湾潜水', icon: '🤿', route: '/fish', kind: 'fish' },
   mine: { label: '在矿洞', icon: '⛏️', route: '/mine', kind: 'mine' },

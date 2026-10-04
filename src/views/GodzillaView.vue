@@ -15,6 +15,8 @@ import {
   type GzDifficulty,
 } from '../game/godzilla';
 import { GodzillaScene, type GodzillaSceneCfg } from '../game/godzilla/GodzillaScene';
+import { sceneScaleConfig } from '../game/zoom';
+import GameSticks from '../components/ui/GameSticks.vue';
 import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
 import { toastBad, toastGood } from '../composables/useToast';
@@ -94,7 +96,7 @@ function bootScene(): void {
     transparent: true,
     banner: false,
     audio: { noAudio: true },
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scale: sceneScaleConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('GodzillaScene', GodzillaScene, true, data),
@@ -161,8 +163,10 @@ onBeforeUnmount(destroyGame);
       </template>
 
       <template #stage>
-        <!-- 战斗画面 -->
-        <div v-show="playing" ref="host" class="gz-stage" />
+        <!-- 战斗画面：容器走公共的 phaser-stage（桌面 16:9、手机铺满整屏） -->
+        <div v-show="playing" ref="host" class="phaser-stage">
+          <GameSticks />
+        </div>
 
         <!-- 活动主页：哥斯拉 + 难度选择 -->
         <div v-if="!playing" class="gz-home">
@@ -239,19 +243,6 @@ onBeforeUnmount(destroyGame);
 </template>
 
 <style scoped>
-.gz-stage {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gz-stage :deep(canvas) {
-  max-width: 100%;
-  max-height: 100%;
-}
-
 .gz-home {
   position: absolute;
   inset: 0;

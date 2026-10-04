@@ -50,6 +50,8 @@ export interface PlayerRig {
     over?: Phaser.GameObjects.Graphics | null,
     /** 挥拍轨迹采样（`SwingPath.pts`） */
     path?: readonly SwingSample[],
+    /** 不画球拍（举重这类「手上拿别的东西」的场合，改成画哑铃） */
+    noRacket?: boolean,
   ): { shoulder: { x: number; y: number }; head: { x: number; y: number }; ang: number };
 }
 
@@ -65,8 +67,8 @@ export function createPlayerRig(scene: Phaser.Scene): PlayerRig {
 
   return {
     face,
-    draw: (g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0, over = null, path) =>
-      drawRigGraphics(g, now, cos, pose, rx, ry, swingSpeed, contactR, face, over, path),
+    draw: (g, now, cos, pose, rx, ry, swingSpeed = 0, contactR = 0, over = null, path, noRacket) =>
+      drawRigGraphics(g, now, cos, pose, rx, ry, swingSpeed, contactR, face, over, path, noRacket),
   };
 }
 
@@ -88,6 +90,7 @@ export function drawRigGraphics(
   face: FaceSink | null = null,
   over: Phaser.GameObjects.Graphics | null = null,
   path?: readonly SwingSample[],
+  noRacket = false,
 ): { shoulder: { x: number; y: number }; head: { x: number; y: number }; ang: number } {
   const shoulder = {
     x: pose.x + pose.facing * SHOULDER_DX,
@@ -117,11 +120,14 @@ export function drawRigGraphics(
 
   const skin = cos.racketSkin;
   const frameColor = racketFrameColor(skin, cos.racket);
-  g.save();
-  g.translateCanvas(head.x, head.y);
-  g.rotateCanvas(ang);
-  drawRacketHead(g, now, skin, frameColor);
-  g.restore();
+  // noRacket：手上拿的是别的东西（健身房的哑铃），球拍交给调用方换成别的画法
+  if (!noRacket) {
+    g.save();
+    g.translateCanvas(head.x, head.y);
+    g.rotateCanvas(ang);
+    drawRacketHead(g, now, skin, frameColor);
+    g.restore();
+  }
 
   if (contactR > 0 && hot > 0.15) {
     g.lineStyle(2, frameColor, 0.12 + 0.28 * hot);

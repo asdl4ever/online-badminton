@@ -3,17 +3,16 @@ import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import SideDock from '../components/ui/SideDock.vue';
-import Button from '../components/ui/Button.vue';
-import StatusChip from '../components/ui/StatusChip.vue';
 import { MiningScene, type MiningSceneData } from '../game/mine/MiningScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { applyTheme } from '../game/theme';
+import { sceneScaleConfig } from '../game/zoom';
+import GameSticks from '../components/ui/GameSticks.vue';
+import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
 import { toastWarn } from '../composables/useToast';
-import { hostOpen, joinMatch } from '../net/connect';
+import { hostOpen } from '../net/connect';
 import { waitForRoomCode } from '../composables/useInviteRoom';
-import { normaliseCode, type NetLink } from '../net/link';
+import { type NetLink } from '../net/link';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
@@ -26,7 +25,6 @@ const container = ref<HTMLDivElement | null>(null);
 let game: Phaser.Game | null = null;
 
 const sessionTotal = ref(0);
-const joinCode = ref('');
 const roomCode = ref('');
 const waiting = ref(false);
 const phase = ref('');
@@ -64,7 +62,7 @@ function boot(session: NetLink | null) {
     backgroundColor: '#c9c2ae',
     banner: false,
     audio: { noAudio: true },
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scale: sceneScaleConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('MiningScene', MiningScene, true, data),
@@ -108,31 +106,9 @@ function host() {
     });
 }
 
-function join() {
-  const code = normaliseCode(joinCode.value);
-  if (code.length < 4) {
-    toastWarn('请输入 4~6 位房号');
-    return;
-  }
-  sfx.click();
-  waiting.value = true;
-  phase.value = '正在加入…';
-  joinMatch(code, { onPhase: (p) => (phase.value = p) })
-    .then((m) => {
-      link = m.link;
-      lobby.setRoom(code, 'guest');
-      phase.value = '已加入！';
-      waiting.value = false;
-      boot(link);
-    })
-    .catch((e: Error) => {
-      toastWarn(e.message);
-      waiting.value = false;
-    });
-}
 
 onMounted(() => {
-  applyTheme(customize.theme);
+  applyTheme(DEFAULT_THEME);
   boot(null);
 });
 
@@ -160,29 +136,11 @@ onBeforeUnmount(() => {
         </span>
       </template>
 
-      <template #dock>
-        <SideDock>
-          <StatusChip :tone="roomCode ? 'ok' : 'idle'">
-            {{ roomCode ? `房间 ${roomCode}` : '单机' }}
-          </StatusChip>
-          <span class="ui-num mine-earn">🪨 本场 {{ sessionTotal }} · 仓 {{ progress.ore }}</span>
-          <span v-if="phase" class="dock-note">{{ phase }}</span>
-          <template v-if="!roomCode">
-            <input
-              v-model="joinCode"
-              class="ui-input"
-              maxlength="6"
-              placeholder="房号"
-              @keyup.enter="join"
-            />
-            <Button size="sm" block :disabled="waiting" @click="host">建房</Button>
-            <Button size="sm" block :disabled="waiting" @click="join">加入</Button>
-          </template>
-        </SideDock>
-      </template>
 
       <template #stage>
-        <div ref="container" class="mine-canvas" />
+        <div ref="container" class="mine-canvas">
+          <GameSticks />
+        </div>
       </template>
     </PageShell>
   </div>

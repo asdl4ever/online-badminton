@@ -90,7 +90,7 @@ const STAT_AXES: { key: keyof PlayerStats; label: string; effect: string }[] = [
   { key: 'speed', label: '速度', effect: '跑动' },
   { key: 'attack', label: '进攻', effect: '力量' },
   { key: 'defense', label: '防守', effect: '命中/反应' },
-  { key: 'jump', label: '弹跳', effect: '起跳' },
+  { key: 'stamina', label: '体力', effect: '跑动续航' },
 ];
 
 const RADAR_C = 84;

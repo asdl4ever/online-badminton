@@ -68,6 +68,7 @@ function goOnline(query?: Record<string, string>) {
   }
   sfx.unlock();
   sfx.click();
+  // 联机统一进联机大厅（建房 / 输房号 / 从球馆邀请好友都是同一间房）；乐趣模式多带个标记
   void router.push({ path: '/online', query });
 }
 
@@ -346,7 +347,7 @@ function open(
               </template>
               <span v-else class="trophy__big is-dim">🏆</span>
             </div>
-            <div class="trophy__name">{{ c.cup }}</div>
+            <div class="trophy__name">{{ c.glyph }} {{ c.label }}</div>
             <div v-if="progress.trophies[c.tier]" class="trophy__count num">
               <span v-if="progress.trophies[c.tier].champion">冠×{{ progress.trophies[c.tier].champion }}</span>
               <span v-if="progress.trophies[c.tier].runner">亚×{{ progress.trophies[c.tier].runner }}</span>

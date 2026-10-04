@@ -7,6 +7,8 @@ import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import ItemIcon from '../components/ItemIcon.vue';
 import { AlienScene, type AlienSceneCfg } from '../game/alien/AlienScene';
+import { sceneScaleConfig } from '../game/zoom';
+import GameSticks from '../components/ui/GameSticks.vue';
 import {
   ALIEN_DAILY_MAX,
   ALIEN_DURATION,
@@ -81,7 +83,7 @@ function bootScene(): void {
     transparent: true,
     banner: false,
     audio: { noAudio: true },
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scale: sceneScaleConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('AlienScene', AlienScene, true, data),
@@ -137,8 +139,10 @@ onBeforeUnmount(destroyGame);
       </template>
 
       <template #stage>
-        <!-- 战斗画面 -->
-        <div v-show="playing" ref="host" class="az-stage" />
+        <!-- 战斗画面：容器走公共的 phaser-stage（桌面 16:9、手机铺满整屏） -->
+        <div v-show="playing" ref="host" class="phaser-stage">
+          <GameSticks />
+        </div>
 
         <!-- 活动主页：说明 + 里程碑 + 开打 -->
         <div v-if="!playing" class="az-home">
@@ -215,19 +219,6 @@ onBeforeUnmount(destroyGame);
 </template>
 
 <style scoped>
-.az-stage {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.az-stage :deep(canvas) {
-  max-width: 100%;
-  max-height: 100%;
-}
-
 .az-home {
   position: absolute;
   inset: 0;

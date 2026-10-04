@@ -126,7 +126,7 @@ const editStats = reactive<PlayerStats>({
   speed: 50,
   attack: 50,
   defense: 50,
-  jump: 50,
+  stamina: 50,
 });
 
 const STAT_LABELS: { key: keyof PlayerStats; label: string }[] = [
@@ -134,13 +134,13 @@ const STAT_LABELS: { key: keyof PlayerStats; label: string }[] = [
   { key: 'speed', label: '速度' },
   { key: 'attack', label: '进攻' },
   { key: 'defense', label: '防守' },
-  { key: 'jump', label: '弹跳' },
+  { key: 'stamina', label: '体力' },
 ];
 
 /** 编辑里改任意一维之后，rating 会按五维重算（面板上实时预览） */
 const editRatingPreview = computed(() => {
   const s = editStats;
-  const v = (s.technique + s.speed + s.attack + s.defense + s.jump) / 5;
+  const v = (s.technique + s.speed + s.attack + s.defense + s.stamina) / 5;
   return Math.round(Math.max(400, Math.min(2800, 900 + ((v - 45) / 52) * 1500)));
 });
 
@@ -385,11 +385,8 @@ function onEvent(e: SimEvent): void {
           :cosmetic="customize.cosmetic"
           :local-name="lobby.playerName"
           :local-rank="progress.tier.id"
-          :theme="customize.theme"
-          :auto-cycle-theme="customize.autoCycle"
           :party="false"
           @sim="onEvent"
-          @themechange="customize.theme = $event"
         />
 
         <!-- 球员主页（复用 PlayerProfile，和晋级赛赛程树里看到的一样） -->
