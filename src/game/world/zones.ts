@@ -56,7 +56,7 @@ export const WORLD_DISTRICTS: WorldDistrict[] = [
   {
     id: 'mall',
     name: '活动和商场区',
-    meta: '商店 · 宝箱 / 宠物店 / 理发店',
+    meta: '商城（皮肤 / 宝箱 / 背包）· 理发店',
     x: 1330,
     y: 70,
     w: 1000,
@@ -132,25 +132,16 @@ export const WORLD_ZONES: WorldZone[] = [
     route: '/mine',
   },
   // ---- 活动和商场区（右上角地块，接着理发店排）----
+  // 商城把原来的商店 + 宠物店合成了一家：皮肤（金币 / 荣誉 / 宠物 / 碎片）· 宝箱 · 背包
   {
     id: 'shop',
-    x: 1990,
-    y: 240,
+    x: 1900,
+    y: 330,
     sign: '🏪',
-    name: '商店',
-    meta: '活动 · 开宝箱',
+    name: '商城',
+    meta: '皮肤 · 宝箱 · 背包',
     route: '/shop',
-    badge: '活动',
-  },
-  {
-    id: 'petshop',
-    x: 1795,
-    y: 520,
-    sign: '🐾',
-    name: '宠物店',
-    meta: '每小时换一批新宠物',
-    route: '/petshop',
-    badge: '买宠物',
+    badge: '商城',
   },
   // ---- 比赛训练区（左上角地块，接着两家球场排）----
   {

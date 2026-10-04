@@ -8,6 +8,7 @@
  * Equipping writes the item's `ref` into the cosmetic store.
  */
 import type { TierId } from './ranks';
+import type { Cosmetic } from './cosmetics';
 // ⚠️ 从 `plusMeta` 引（纯数据），**不要**从 `effects/plus` 引 ——
 // 那边顶部是运行时 `import Phaser from 'phaser'`，会让整个 Phaser 被拖进入口 chunk
 import { PLUS_META } from './effects/plusMeta';
@@ -95,6 +96,34 @@ export const SLOT_LABELS: Record<ItemSlot, string> = {
   mount: '坐骑',
   effect: '命中特效',
 };
+
+/**
+ * 物品部位 → `Cosmetic`（装扮）里的字段名。
+ * 两边不完全同名（`skin` → `characterSkin`、`trail` → `trailStyle`…），
+ * 所以集中在这里一份，试穿 / 装备都查它。
+ */
+export const SLOT_COSMETIC_KEY: Record<ItemSlot, keyof Cosmetic> = {
+  skin: 'characterSkin',
+  hat: 'hat',
+  wings: 'wings',
+  cape: 'cape',
+  aura: 'aura',
+  ring: 'ring',
+  pet: 'pet',
+  racketSkin: 'racketSkin',
+  trail: 'trailStyle',
+  swingTrail: 'swingTrail',
+  mount: 'mount',
+  effect: 'effect',
+};
+
+/**
+ * **试穿**：把一件物品套进一份装扮，返回新的 `Cosmetic`（不改存档、不动 store）。
+ * 用在「点物品看一眼穿在身上什么样」这种预览里。
+ */
+export function wearItem(cos: Cosmetic, item: Item): Cosmetic {
+  return { ...cos, [SLOT_COSMETIC_KEY[item.slot]]: item.ref } as Cosmetic;
+}
 
 export const RARITY_META: Record<
   Rarity,

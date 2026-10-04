@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { useJoystickPrefs } from '../../composables/useJoystick';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { joyHolding, useJoystickPrefs } from '../../composables/useJoystick';
 import { pinchActive } from '../../composables/useZoom';
 import { JOY, hexColor, joyMetrics, ringRadius } from '../../game/draw/joystick';
 
@@ -80,11 +80,35 @@ function apply(px: number, py: number): void {
   else emit('move', ux * push, uy * push);
 }
 
+// ---- 手指归属（两颗摇杆同时用的关键，见 composables/useJoystick.ts） ---------
+
+/** 另一半是不是已经被另一颗摇杆按住了 */
+function otherSideHolding(): boolean {
+  return joyHolding[isRight.value ? 'left' : 'right'] !== null;
+}
+
+/** 认领这根手指（跨实例登记，供另一半判断「双摇杆」还是「捏合」） */
+function claim(id: number): void {
+  pointerId = id;
+  joyHolding[props.side] = id;
+}
+
+/** 松开这根手指 */
+function release(): void {
+  if (pointerId !== null && joyHolding[props.side] === pointerId) joyHolding[props.side] = null;
+  pointerId = null;
+}
+
+// 带着手指离开页面（换页 / 弹窗拆掉组件）时把登记表清掉，别让另一半永远以为有人
+onBeforeUnmount(release);
+
 // ---- 固定模式 ---------------------------------------------------------------
 
 function onDown(e: PointerEvent): void {
-  pointerId = e.pointerId;
+  // 另一半已经握着 → 这是「一边走一边挥拍」，别让这一下冒到捏合检测那里
+  if (otherSideHolding()) e.stopPropagation();
   (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  claim(e.pointerId);
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   cx = rect.left + rect.width / 2;
   cy = rect.top + rect.height / 2;
@@ -97,7 +121,7 @@ function onMove(e: PointerEvent): void {
 }
 
 function onUp(): void {
-  pointerId = null;
+  release();
   if (knob.value) knob.value.style.transform = '';
   emit('move', 0, 0);
 }
@@ -107,8 +131,11 @@ function onUp(): void {
 function onZoneDown(e: PointerEvent): void {
   // 已经在捏合（第二根手指在缩放的）——这一下不该再冒一颗摇杆出来
   if (pinchActive.value) return;
-  pointerId = e.pointerId;
+  // 另一半已经被另一颗摇杆按住 → 拦下这一下，别让捏合检测把它当第二根手指
+  // （否则 pinchActive 一响，两颗摇杆一起让位，「一边走一边挥拍」就废了）
+  if (otherSideHolding()) e.stopPropagation();
   (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  claim(e.pointerId);
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const a = clampAnchor(e.clientX, e.clientY, rect);
   cx = a.x;
@@ -127,8 +154,12 @@ function onZoneUp(): void {
 // 两指捏合一起手，自由摇杆就让位（收起来 + 归零），缩放不该被摇杆抢手指
 watch(pinchActive, (on) => {
   if (!on) return;
-  pointerId = null;
-  if (live.value) onZoneUp();
+  release();
+  if (live.value) {
+    live.value = false;
+    if (knob.value) knob.value.style.transform = '';
+    emit('move', 0, 0);
+  }
 });
 </script>
 

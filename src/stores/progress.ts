@@ -40,7 +40,7 @@ import {
   type Item,
   type ItemSlot,
 } from '../game/items';
-import { pickChestPool } from '../game/chest';
+import { pickChestPool, type ChestSlot } from '../game/chest';
 import {
   BOAT_COST,
   FISH_TASKS,
@@ -67,7 +67,10 @@ import {
   type PlayerStats,
 } from '../game/players';
 import {
+  CUP_COUNT,
+  CUP_TIERS,
   cupMatchKey,
+  cupSeason,
   worldState,
   type WorldArenaState,
 } from '../game/world-arena';
@@ -104,6 +107,7 @@ import {
 } from '../game/nailong';
 import {
   GZ_DIFFS,
+  GZ_DIFF_ORDER,
   GZ_DROPS,
   GZ_DAILY_MAX,
   GZ_REWARD_ODDS,
@@ -248,6 +252,18 @@ export const useProgressStore = defineStore('progress', () => {
   const gzDay = useLocalStorage('bmt-gz-day', '');
   /** 累计击杀哥斯拉的次数（刷战绩用） */
   const gzKills = useLocalStorage('bmt-gz-kills', 0);
+  /** 已经**打赢过**的难度档：三档逐级解锁（简单 → 普通 → 地狱）靠它判定 */
+  const gzCleared = useLocalStorage<GzDifficulty[]>('bmt-gz-cleared', []);
+
+  /**
+   * 这一档难度是否已解锁：**简单档永远能打**，之后每一档都要先打赢前一档。
+   * （只是解锁门槛，不限制重复挑战——已经打通的档随时能再打。）
+   */
+  function gzUnlocked(d: GzDifficulty): boolean {
+    const i = GZ_DIFF_ORDER.indexOf(d);
+    if (i <= 0) return true;
+    return gzCleared.value.includes(GZ_DIFF_ORDER[i - 1]);
+  }
 
   /** 今天还剩几次哥斯拉挑战 */
   const gzLeftToday = computed(() =>
@@ -296,6 +312,10 @@ export const useProgressStore = defineStore('progress', () => {
     const cfg = GZ_DIFFS[difficulty];
     honor.value += cfg.honor;
     gzKills.value += 1;
+    // 记一笔「这一档已经打赢过」：下一档难度据此解锁（逐级解锁，见 gzUnlocked）
+    if (!gzCleared.value.includes(difficulty)) {
+      gzCleared.value = [...gzCleared.value, difficulty];
+    }
 
     const missing = GZ_DROPS[difficulty].ids.filter((id) => !owned.value.includes(id));
     const roll = Math.random();
@@ -576,8 +596,13 @@ export const useProgressStore = defineStore('progress', () => {
    * 现在是 **600 满额 / 1200 封顶**（900~1800 那版给的还是偏多：按每场几十点算，
    * 一天能打满的量差不多是一晚上打完不至于「练满一维」的尺度）。
    */
-  const MATCH_XP_DAILY = 600;
-  const MATCH_XP_LEAN = 1200;
+  /**
+   * 每日比赛经验额度：超过就只给 25%，再超过就不给。
+   * ⚠️ 单位是「经验点」，而 2026-10 起**一场只给 12~16 点**（原来是 150 上下），
+   * 所以这两个数也跟着从 600 / 1200 收到 60 / 120（约等于「一天 4 场满额、8 场封顶」）。
+   */
+  const MATCH_XP_DAILY = 60;
+  const MATCH_XP_LEAN = 120;
   const matchXpDay = useLocalStorage<{ day: string; xp: number }>('bmt-match-xp-day', {
     day: '',
     xp: 0,
@@ -591,8 +616,9 @@ export const useProgressStore = defineStore('progress', () => {
   /**
    * 一场比赛打完 → 换五维经验（那张「干了什么 → 长哪一维」的表在 `game/match-xp.ts`）。
    *
-   * 系数 = **基准（0.7）× 对手强度 × 比赛质量 × 同对手递减 × 每日额度**；返回这一场
-   * 涨了什么，页面拿去弹结算提示。机器（发球机）不走这条，它有自己的「接到一颗给一点」。
+   * 系数 = **基准（`MATCH_XP_SCALE`，0.06）× 对手强度 × 比赛质量 × 同对手递减 × 每日额度**；
+   * 返回这一场涨了什么，页面拿去弹结算提示。机器（发球机）不走这条，它有自己的
+   * 「接到一颗给一点」（`TRAIN_XP_PER.machineReturn`）。
    */
   function gainMatchXp(input: {
     tally: MatchTally;
@@ -1378,6 +1404,13 @@ export const useProgressStore = defineStore('progress', () => {
    * 跟着 15 秒心跳调（`App.vue`），没出炉 / 这一届记过就直接返回。
    */
   function scanWorldNews(now: number = Date.now()): void {
+    // 先做一次**便宜**的判断：`worldArenaState()` 会把 11 个杯的对阵树整个重建一遍，
+    // 而它跟着 `App.vue` 的 15 秒心跳跑——不先挡一下，**对局中每 15 秒就白算一次**
+    // （一堆数组 / 对象分配），表现就是「打着打着突然卡一下」。
+    // 最高档还没换届时，下面那些判断一定会 return，所以这里直接短路是等价的。
+    if ((newsChamps.value[CUP_TIERS[CUP_COUNT - 1].id] ?? -1) >= cupSeason(CUP_COUNT - 1, now)) {
+      return;
+    }
     const st = worldArenaState(now);
     const top = st.cups[st.cups.length - 1];
     if (!top || !top.champion) return;
@@ -1932,7 +1965,7 @@ export const useProgressStore = defineStore('progress', () => {
    * 碎片——「每抽必出物品」会让几百件装扮一起变廉价，这个占位把「抽到装扮」
    * 重新变成一件值得高兴的事。
    */
-  function rollOne(banner?: Item[]): PullResult {
+  function rollOne(slot?: ChestSlot): PullResult {
     if (Math.random() < BAG_CHANCE) {
       if (Math.random() < BAG_COIN_SHARE) {
         const amount = COIN_BAG_MIN + Math.floor(Math.random() * COIN_BAG_RANGE);
@@ -1944,9 +1977,10 @@ export const useProgressStore = defineStore('progress', () => {
       return { kind: 'bag', bag: 'shards', amount };
     }
 
-    // 传了池子就按它抽（显式指定）；没传就先**摇类别**——
-    // 普通宝箱概率最高、本期的主题宝箱次高、高级宝箱最低（`game/chest.ts` 的 CHEST_ODDS）
-    const item = banner ? rollFrom(banner) : rollFrom(pickChestPool());
+    // 先**摇类别**：普通宝箱概率最高、选中的主题宝箱次高、高级宝箱最低
+    // （`game/chest.ts` 的 CHEST_ODDS）。`slot` 就是玩家在「奖池切换」里选的那个池，
+    // 不传就用当期主题。
+    const item = rollFrom(pickChestPool(Date.now(), slot));
 
     let duplicate = false;
     let refund = 0;
@@ -1963,12 +1997,13 @@ export const useProgressStore = defineStore('progress', () => {
 
   /**
    * 开一次宝箱：花 1 把钥匙（金币只用于商店买东西）。
-   * `banner` 是**当期主题宝箱**的那 12 件（见 `game/chest.ts`），不传就是标准大池。
+   * `slot` 是玩家在「奖池切换」里选中的池子（见 `game/chest.ts` 的 `activeChestSlots`），
+   * 不传就用当期主题。
    */
-  function pull(banner?: Item[]): PullResult | null {
+  function pull(slot?: ChestSlot): PullResult | null {
     if (chestKeys.value < CHEST_KEYS) return null;
     chestKeys.value -= CHEST_KEYS;
-    return rollOne(banner);
+    return rollOne(slot);
   }
 
   /**
@@ -2009,9 +2044,9 @@ export const useProgressStore = defineStore('progress', () => {
 
   /**
    * 十连：10 把钥匙（`useTicket` 则消耗一张免费十连券）。
-   * `banner` 同 `pull`：传当期宝箱的 12 件，不传就是标准大池。
+   * `slot` 同 `pull`：玩家选中的奖池，不传就是当期主题。
    */
-  function pullTen(useTicket = false, banner?: Item[]): PullResult[] | null {
+  function pullTen(useTicket = false, slot?: ChestSlot): PullResult[] | null {
     if (useTicket) {
       if (tenTickets.value <= 0) return null;
       tenTickets.value -= 1;
@@ -2021,7 +2056,7 @@ export const useProgressStore = defineStore('progress', () => {
     }
 
     const out: PullResult[] = [];
-    for (let i = 0; i < 10; i++) out.push(rollOne(banner));
+    for (let i = 0; i < 10; i++) out.push(rollOne(slot));
     return out;
   }
 
@@ -2099,6 +2134,8 @@ export const useProgressStore = defineStore('progress', () => {
     useGodzillaAttempt,
     grantGodzillaKill,
     gzKills,
+    gzCleared,
+    gzUnlocked,
     alienLeftToday,
     useAlienAttempt,
     grantAlienRun,

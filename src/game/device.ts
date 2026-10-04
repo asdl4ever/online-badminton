@@ -34,6 +34,37 @@ export function debugOverlayEnabled(): boolean {
   }
 }
 
+// ---- 低配设备探测（帧率优化用） ---------------------------------------------
+
+let lowSpecCache: boolean | null = null;
+
+/**
+ * 是否按「低配设备」降级。
+ *
+ * 目前只影响一件事：画布后备缓冲的像素倍率（`zoom.ts` 的 `canvasDpr()` 给它
+ * 从 2 收到 1.5）。像素量与 GPU 负担成正比，这是低端安卓 / WebView 上最立竿见影
+ * 的一档。判据刻意保守——**明确**报告 ≤4 核 或 ≤4GB 内存才降级，免得误伤中端机；
+ * 网页与 App 都能用 URL 参数覆盖：`?perf=low` 强制降级、`?perf=high` 强制满血。
+ *
+ * 只读 `navigator`，零依赖（不能引 Vue / Phaser）。
+ */
+export function lowSpecDevice(): boolean {
+  if (lowSpecCache != null) return lowSpecCache;
+  let forced: string | null = null;
+  try {
+    forced = new URLSearchParams(window.location.search).get('perf');
+  } catch {
+    /* ignore */
+  }
+  if (forced === 'low') return (lowSpecCache = true);
+  if (forced === 'high') return (lowSpecCache = false);
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const cores = nav.hardwareConcurrency || 0;
+  const mem = nav.deviceMemory ?? 0;
+  lowSpecCache = (cores > 0 && cores <= 4) || (mem > 0 && mem <= 4);
+  return lowSpecCache;
+}
+
 // ---- 摇杆常显开关 -----------------------------------------------------------
 
 const JOY_ALWAYS_KEY = 'bmt-joystick-always';

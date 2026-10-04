@@ -6,7 +6,7 @@ import PageShell from '../components/ui/PageShell.vue';
 import Button from '../components/ui/Button.vue';
 import { FarmScene, type FarmSceneData } from '../game/farm/FarmScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import { FARM_MAX_LEVEL, FARM_UPGRADE_COST, TRACTOR_COST } from '../game/items';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
@@ -68,6 +68,7 @@ function boot(): void {
     banner: false,
     audio: { noAudio: true },
     scale: sceneScaleConfig(),
+    ...renderConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('FarmScene', FarmScene, true, data),

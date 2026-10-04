@@ -75,7 +75,7 @@ import { NEUTRAL_ATTRS, sanitizeAttrs, type PlayerAttrs } from '../attrs';
 import { drawCharacter } from '../draw/character';
 import { drawSwingTrail } from '../draw/rig';
 import { drawRacketHead, racketFrameColor } from '../draw/racket';
-import { THEME_TRAILS, drawThemeTrail } from '../draw/themeart';
+import { drawShuttleTrail } from '../draw/trails';
 import { isTierId, tierById, type TierId } from '../ranks';
 import { EMOTE_BY_ID, EMOTE_COOLDOWN_MS, EMOTE_LIFE_S } from '../emotes';
 import { EFFECT_PAINTERS, EFFECT_SPAN, paintDefault, type HitFlash } from '../effects';
@@ -179,6 +179,21 @@ const TRAIL_MS = 190;
 const PING_INTERVAL = 0.5;
 const METRICS_INTERVAL = 0.5;
 const MAX_ACCUM = 0.25;
+/**
+ * 体力条的推送间隔（ms）。体力是每帧都在变的连续量，若每帧都推给 Vue 就会
+ * 每帧触发一次组件更新；体力条本身有 0.18s 的 CSS 过渡，10Hz 推一次肉眼看不出。
+ * 比分 / 阶段 / 胜负这类「结构字段」变了一律立刻推，不受这个限制。
+ */
+const HUD_STAMINA_MS = 100;
+/**
+ * 飘字（「扣杀！」/「弹！」）的**对象池大小**。
+ *
+ * 原来每次 `this.add.text()` 新建、tween 完 `destroy()`：一次扣杀就是一次 canvas
+ * 分配 + GPU 纹理创建 / 删除，打着打着球（频繁扣杀）就会「突然卡一下」。改成固定
+ * 几个对象循环用——只改文字 / 字号 / 位置，Phaser 在**同一张 canvas** 上重画、
+ * 只做一次纹理更新，不再有分配与释放。
+ */
+const POP_POOL_SIZE = 3;
 
 export class GameScene extends Phaser.Scene {
   private cfg!: MatchConfig;
@@ -209,6 +224,9 @@ export class GameScene extends Phaser.Scene {
   private remoteInput: PlayerInput = { ...EMPTY_INPUT };
   private hasSnapshot = false;
   private lastHud = '';
+  /** 体力条单独限频：上次推的体力值 + 上次推送时刻 */
+  private hudStamKey = '';
+  private hudPushedAt = -1e9;
   private trail: { x: number; y: number; t: number }[] = [];
   private flashes: HitFlash[] = [];
   private tmp = new Phaser.Math.Vector2();
@@ -323,6 +341,8 @@ export class GameScene extends Phaser.Scene {
     this.specLeftInput = { ...EMPTY_INPUT };
     this.specRightInput = { ...EMPTY_INPUT };
     this.lastHud = '';
+    this.hudStamKey = '';
+    this.hudPushedAt = -1e9;
     this.netNotice = '';
     this.infoNotice = false;
     this.trail = [];
@@ -367,6 +387,36 @@ export class GameScene extends Phaser.Scene {
     this.remoteRank = 'bronze';
     this.gameoverSeen = false;
     this.currentTheme = this.cfg.theme ?? DEFAULT_THEME;
+
+    /* ---- 场景自建对象 / 每次开局的临时状态：**必须在重启时清空** ---------------
+     * `scene.restart()`（球馆里「上场 / 离开场地」走的就是它，见
+     * `components/GameCanvas.vue` 的 `restartScene()`）会让 Phaser 把本场景的
+     * GameObject **全部 destroy**，但这些字段是**类字段**（只在构造时初始化一次）。
+     * 不清空就会留着**已销毁对象**的引用，之后一碰到就抛异常、整个 `update()` 挂掉
+     * —— 表现是「打着打着卡住」，而且因为球馆那边不再重挂实例，同一块画布永远是
+     * 死的（再进去「什么都没有」，换一张场地才好）。
+     * 所以凡是「装 GameObjects 的集合」或「每局要归零的游标」都在这里重置一遍。
+     */
+    this.popPool = [];
+    this.popIdx = 0;
+    this.pointShown = '';
+    this.msgColor = '';
+    this.emotes = [];
+    this.lastEmoteAt = 0;
+    this.faces = [];
+    this.nameTexts = [];
+    this.avatarTexts = [];
+    this.debugText = null;
+    this.swingPath = [new SwingPath(), new SwingPath()];
+    this.trailT = [0, 0];
+    this.belly = [0, 0];
+    this.bellyVel = [0, 0];
+    this.trailEmitAcc = 0;
+    this.infoAccum = 0;
+    this.replayShown = false;
+    this.plateCy = 72;
+    this.party = emptyPartyState();
+    this.partyRoundScored = false;
   }
 
   create(): void {
@@ -462,6 +512,17 @@ export class GameScene extends Phaser.Scene {
         color: P.sub,
       })
       .setOrigin(0.5);
+
+    // 飘字池（扣杀 / 弹！）：先建好几个反复用，见 popLabel()
+    for (let i = 0; i < POP_POOL_SIZE; i++) {
+      this.popPool.push(
+        this.add
+          .text(0, 0, '', { fontFamily: FONT_UI, fontSize: '26px', fontStyle: 'bold' })
+          .setOrigin(0.5)
+          .setDepth(50)
+          .setVisible(false),
+      );
+    }
 
     this.buildReplayButton();
 
@@ -876,123 +937,14 @@ export class GameScene extends Phaser.Scene {
     return lh === 0 || lh === 1 ? this.cosmeticFor(lh).trail : P.trail;
   }
 
-  /** the shuttle trail; the last hitter's trail style decides how it looks */
+  /**
+   * the shuttle trail; the last hitter's trail style decides how it looks.
+   * 画法本身在 `game/draw/trails.ts`（试穿预览也用它，一处改两处生效）。
+   */
   private drawTrail(g: Phaser.GameObjects.Graphics, fade: number): void {
-    const n = this.trail.length;
-    const head = this.trail[n - 1];
     const lh = this.world.lastHitter;
     const style: TrailId = lh === 0 || lh === 1 ? this.cosmeticFor(lh).trailStyle : 'classic';
-    if (style === 'none') return;
-    const now = performance.now();
-    const base = this.trailColor();
-    const colorAt = (f: number): number =>
-      style === 'rainbow'
-        ? Phaser.Display.Color.HSVToRGB((f + now / 4000) % 1, 0.85, 1).color
-        : base;
-
-    // 新主题宝箱的击球拖尾：走 themeart 的通用画法
-    const themeTrail = THEME_TRAILS[style];
-    if (themeTrail) {
-      drawThemeTrail(g, themeTrail, this.trail, fade, now, base);
-      g.fillStyle(base, 0.45 * fade);
-      g.fillCircle(head.x, head.y, 5);
-      return;
-    }
-
-    for (let i = 1; i < n; i++) {
-      const p0 = this.trail[i - 1];
-      const p1 = this.trail[i];
-      const f = i / (n - 1);
-      const wdt = 1 + f * 7;
-      const a = (0.04 + f * 0.42) * fade;
-      const color = colorAt(i * 0.02);
-      switch (style) {
-        case 'fire': {
-          g.fillStyle(color, a * 1.15);
-          g.fillCircle(p1.x + Math.sin(now / 90 + i) * 2, p1.y - f * 3, wdt * 0.7);
-          if (i % 3 === 0) {
-            g.fillStyle(0xffd07a, a * 0.7);
-            g.fillCircle(p1.x, p1.y - 4, wdt * 0.4);
-          }
-          break;
-        }
-        case 'ice': {
-          g.lineStyle(wdt, color, a);
-          g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-          if (i % 4 === 0) {
-            g.fillStyle(0xffffff, a * 0.8);
-            g.fillTriangle(p1.x, p1.y - 4, p1.x - 3, p1.y + 3, p1.x + 3, p1.y + 3);
-          }
-          break;
-        }
-        case 'electric': {
-          const jx = Math.sin(now / 60 + i * 1.7) * 3;
-          const jy = Math.cos(now / 50 + i * 2.1) * 3;
-          g.lineStyle(2 + f * 4, color, a * 1.3);
-          g.lineBetween(p0.x, p0.y, p1.x + jx, p1.y + jy);
-          break;
-        }
-        case 'leaf': {
-          g.fillStyle(color, a * 1.3);
-          g.fillEllipse(p1.x, p1.y, wdt * 1.8, wdt * 0.9);
-          break;
-        }
-        case 'void': {
-          g.fillStyle(0x120a20, a * 0.9);
-          g.fillCircle(p1.x, p1.y, wdt * 0.7);
-          g.fillStyle(color, a * 0.7);
-          g.fillCircle(p1.x, p1.y, wdt * 0.35);
-          break;
-        }
-        case 'gold': {
-          g.fillStyle(color, a * 1.2);
-          g.fillCircle(p1.x, p1.y, wdt * 0.55);
-          if (i % 5 === 0) {
-            g.lineStyle(1.5, 0xffffff, a);
-            g.lineBetween(p1.x - 3, p1.y, p1.x + 3, p1.y);
-            g.lineBetween(p1.x, p1.y - 3, p1.x, p1.y + 3);
-          }
-          break;
-        }
-        case 'stardust': {
-          // 星尘拖尾：拖尾上缀着一路碎星，边上泛冷光
-          g.lineStyle(2 + f * 5, color, a * 1.15);
-          g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-          if (i % 2 === 0) {
-            g.fillStyle(0xffffff, a * 0.85);
-            g.fillCircle(p1.x, p1.y, wdt * 0.28);
-            g.fillStyle(0x8fe0ff, a * 0.6);
-            g.fillCircle(p1.x + (i % 4 ? 2 : -2), p1.y - 2, wdt * 0.18);
-          }
-          break;
-        }
-        case 'neon': {
-          // 荧光训练球：亮绿彗尾 + 间隔的白色闪点，像训练房的荧光标记
-          g.lineStyle(2 + f * 5, color, a * 1.35);
-          g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-          if (i % 3 === 0) {
-            g.fillStyle(0xf4ffb0, a);
-            g.fillCircle(p1.x, p1.y, wdt * 0.32);
-          }
-          break;
-        }
-        case 'pixel': {
-          const sq = Math.max(3, wdt * 0.9);
-          g.fillStyle(color, a * 1.25);
-          g.fillRect(p1.x - sq / 2, p1.y - sq / 2, sq, sq);
-          break;
-        }
-        default: {
-          g.fillStyle(color, a);
-          g.fillCircle(p1.x, p1.y, wdt * 0.5);
-          g.lineStyle(wdt, color, a);
-          g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-          break;
-        }
-      }
-    }
-    g.fillStyle(colorAt(n * 0.02), 0.45 * fade);
-    g.fillCircle(head.x, head.y, 5);
+    drawShuttleTrail(g, style, this.trail, fade, performance.now(), this.trailColor());
   }
 
 
@@ -1101,7 +1053,33 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
+  /**
+   * ⚠️ **一帧里抛出任何异常都不该把这块场地打死**。
+   *
+   * Phaser 的循环不接异常：`update()` 里抛出去 → rAF 停在这一帧 → 画面永远静止
+   * （就是「打着打着卡住」的表现），而且一旦卡死只能换一块场地。这里兜一层：
+   * 吞掉、限频打到控制台（`chrome://inspect` 能看到），并把 `accum` 归零——
+   * 不归零的话下一次会连着补跑一堆固定步，变成越卡越卡。
+   */
   update(_time: number, deltaMs: number): void {
+    try {
+      this.stepFrame(_time, deltaMs);
+    } catch (err) {
+      this.accum = 0;
+      this.reportFrameError(err);
+    }
+  }
+
+  /** 限频打错误日志（同一处连续抛错只打一次，2 秒一条） */
+  private lastErrorAt = 0;
+  private reportFrameError(err: unknown): void {
+    const now = performance.now();
+    if (now - this.lastErrorAt < 2000) return;
+    this.lastErrorAt = now;
+    console.error('[GameScene] 帧内异常（已吞掉，避免整块场地卡死）', err);
+  }
+
+  private stepFrame(_time: number, deltaMs: number): void {
     const rawDt = Math.min(deltaMs / 1000, 0.05);
     // fun-mode "slow motion" scales the whole simulation; both sides agree on
     // the factor through their config so the steps stay deterministic
@@ -1454,56 +1432,85 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(80 + 190 * strength, 0.004 + 0.011 * strength);
   }
 
+  /** 飘字对象池（见 `POP_POOL_SIZE`）：建一次、反复用，不再每次 new / destroy */
+  private popPool: Phaser.GameObjects.Text[] = [];
+  private popIdx = 0;
+
+  /**
+   * 冒一个往上飘再淡出的字。**复用池里的对象**：`setStyle` / `setText` 只让 Phaser
+   * 在它自己的 canvas 上重画一次（一次纹理更新），比每次新建 Text 便宜得多。
+   */
+  private popLabel(
+    text: string,
+    x: number,
+    y: number,
+    style: Phaser.Types.GameObjects.Text.TextStyle,
+    rise: number,
+    delay: number,
+    scale: number,
+  ): void {
+    const label = this.popPool[this.popIdx++ % this.popPool.length];
+    // 这一颗可能还在上一次的淡出里 —— 先把旧 tween 掐掉（killTweensOf 不会触发 onComplete）
+    this.tweens.killTweensOf(label);
+    label
+      .setStyle(style)
+      .setText(text)
+      .setPosition(x, y)
+      .setScale(1)
+      .setAlpha(1)
+      .setVisible(true);
+    this.tweens.add({
+      targets: label,
+      y: y - rise,
+      scale,
+      alpha: 0,
+      delay,
+      duration: 520,
+      ease: 'Cubic.Out',
+      onComplete: () => label.setVisible(false),
+    });
+  }
+
   /** U熊把球弹开时冒一个「弹！」 */
   private bellyText(i: 0 | 1): void {
     const p = this.world.players[i];
-    const label = this.add
-      .text(p.x, p.y - PLAYER_H * 0.55, '弹！', {
+    this.popLabel(
+      '弹！',
+      p.x,
+      p.y - PLAYER_H * 0.55,
+      {
         fontFamily: FONT_UI,
         fontSize: '26px',
         color: '#ffb02a',
         stroke: '#3a2c18',
         strokeThickness: 5,
         fontStyle: 'bold',
-      })
-      .setOrigin(0.5)
-      .setDepth(50);
-    this.tweens.add({
-      targets: label,
-      y: label.y - 40,
-      scale: 1.15,
-      alpha: 0,
-      delay: 120,
-      duration: 520,
-      ease: 'Cubic.Out',
-      onComplete: () => label.destroy(),
-    });
+      },
+      40,
+      120,
+      1.15,
+    );
   }
 
   /** the smash gets its name on screen, bigger the harder it was swung */
   private smashText(power: number): void {
     const s = this.world.shuttle;
-    const label = this.add
-      .text(s.x, s.y - 34, power > 0.72 ? '扣杀！！' : '扣杀！', {
+    this.popLabel(
+      power > 0.72 ? '扣杀！！' : '扣杀！',
+      s.x,
+      s.y - 34,
+      {
         fontFamily: 'inherit',
         fontSize: `${Math.round(24 + 18 * power)}px`,
         color: '#ffb02a',
         stroke: '#1b2740',
         strokeThickness: 5,
         fontStyle: 'bold',
-      })
-      .setOrigin(0.5)
-      .setDepth(50);
-    this.tweens.add({
-      targets: label,
-      y: label.y - 46,
-      scale: 1.12,
-      alpha: 0,
-      delay: 160,
-      duration: 520,
-      ease: 'Cubic.Out',
-      onComplete: () => label.destroy(),
-    });
+      },
+      46,
+      160,
+      1.12,
+    );
   }
 
   private spawnHitEffect(player: 0 | 1, kind?: ShotKind): void {
@@ -1549,11 +1556,19 @@ export class GameScene extends Phaser.Scene {
       Math.round(w.players[0].stamina),
       Math.round(w.players[1].stamina),
     ];
+    // 结构字段（比分 / 阶段 / 胜负 / 机器计数…）变了立刻推；体力是连续量，限频到
+    // HUD_STAMINA_MS 一次——省掉每秒 60 次的 Vue 重渲染（体力条自带 CSS 过渡）。
     const key = `${w.score[0]}:${w.score[1]}:${w.phase}:${w.winner}:${w.server}:${roomCode}:${opponentConnected}:${
       machine ? `${m.streak}:${m.best}:${m.misses}` : ''
-    }:${stamina[0]}:${stamina[1]}:${this.tally.value.points}`;
-    if (!force && key === this.lastHud) return;
+    }:${this.tally.value.points}`;
+    const structural = force || key !== this.lastHud;
+    const staminaKey = `${stamina[0]}:${stamina[1]}`;
+    const now = this.time.now;
+    const staminaDue = staminaKey !== this.hudStamKey && now - this.hudPushedAt >= HUD_STAMINA_MS;
+    if (!structural && !staminaDue) return;
     this.lastHud = key;
+    this.hudStamKey = staminaKey;
+    this.hudPushedAt = now;
     this.cfg.onHud({
       score: [w.score[0], w.score[1]],
       phase: w.phase,
@@ -1582,6 +1597,8 @@ export class GameScene extends Phaser.Scene {
 
   private refreshMessages(): void {
     const w = this.world;
+    // 离开「得分」阶段就把这条记录清掉：下一分（哪怕还是同一方得分）要能重新弹出来
+    if (w.phase !== 'point') this.pointShown = '';
     const local = this.localIndex();
 
     // the keepy-uppy challenge reuses the big score digits for its hit counts
@@ -1683,23 +1700,186 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** the "point!" label, parked beside the scorer's score */
+  /**
+   * 上一次已经画过的「得分！」（记的是得分方）。
+   *
+   * ⚠️ 别把这个判断交给 `pointMsg.visible`：别的分支每帧都会 `setVisible(false)`，
+   * 那样等于每帧都判定为「没画过」。
+   */
+  private pointShown = '';
+
+  /**
+   * the "point!" label, parked beside the scorer's score.
+   *
+   * **只在「进入得分阶段」那一帧画一次**。`refreshMessages` 是每帧跑的，而
+   * `phase === 'point'` 会持续一秒左右——原来的写法每帧都 `.setText().setColor()`，
+   * 而 `Text.setColor` 会**无条件重画整张文字纹理并上传 GPU**，于是每次得分后
+   * 整整一秒里每秒重绘 + 上传 60 次，就是「打着打着突然卡一下」的来源。
+   */
   private showPointMessage(scorer: number): void {
-    const left = scorer === 0;
-    const accent = left ? P.player0 : P.player1;
-    this.pointMsg
-      .setText('得分！')
-      .setColor(`#${(accent & 0xffffff).toString(16).padStart(6, '0')}`)
-      .setPosition(left ? VIEW_W / 2 - 180 : VIEW_W / 2 + 180, this.scoreLeft.y + 34)
-      .setVisible(true);
+    const sig = `p${scorer}`;
+    if (this.pointShown !== sig) {
+      this.pointShown = sig;
+      const left = scorer === 0;
+      const accent = left ? P.player0 : P.player1;
+      this.pointMsg
+        .setText('得分！')
+        .setColor(`#${(accent & 0xffffff).toString(16).padStart(6, '0')}`)
+        .setPosition(left ? VIEW_W / 2 - 180 : VIEW_W / 2 + 180, this.scoreLeft.y + 34);
+    }
+    // 可见性每帧都要兜一下：上面那段（比分 / 观战那块）**每帧**都会先把它隐藏，
+    // 只画一次就会被吃掉。`setVisible` 只是赋个值，便宜。
+    this.pointMsg.setVisible(true);
   }
 
   // ---- rendering ---------------------------------------------------------
 
   /** 一整块球场：背景 + 场地本身（正式对局页用） */
   private drawCourt(g: Phaser.GameObjects.Graphics): void {
-    this.drawBackground(g);
+    // 小黄龙联名那场有自己的一整套背景（云海 / 祥云 / 灯笼 / 金色地胶）
+    if (this.currentTheme === 'nailong') this.drawNailongCourt(g);
+    else this.drawBackground(g);
     this.drawCourtLines(g);
+  }
+
+  /**
+   * 🐲 小黄龙联名专属球场：暖黄云海天空 + 三层云山 + 天上的祥云与两轮日晕 +
+   * 一串串灯笼 + 云台看台（观众也是小云朵）+ 金色地胶上的云纹与联名徽记。
+   * 只有 `theme === 'nailong'` 的这一场会走这里，通用球场完全不受影响。
+   */
+  private drawNailongCourt(g: Phaser.GameObjects.Graphics): void {
+    const pad = SCENE_BG_PAD;
+    const w = VIEW_W + pad * 2;
+    const x0 = -pad;
+
+    // ---- 云海天空：奶黄 → 琥珀 ----
+    g.fillStyle(P.skyTop, 1);
+    g.fillRect(x0, -pad, w, VIEW_H + pad * 2);
+    g.fillGradientStyle(P.skyTop, P.skyTop, P.skyBottom, P.skyBottom, 1, 1, 1, 1);
+    g.fillRect(x0, -pad, w, GROUND_Y + pad);
+
+    // ---- 两轮日晕（大留白，衬出仙气）----
+    const sun = (cx: number, cy: number, r: number): void => {
+      for (let k = 4; k >= 1; k--) {
+        g.fillStyle(0xfff6d8, 0.06 * k);
+        g.fillCircle(cx, cy, r + k * 26);
+      }
+      g.fillStyle(0xfffbe8, 0.85);
+      g.fillCircle(cx, cy, r);
+    };
+    sun(250, 152, 92);
+    sun(VIEW_W - 190, 196, 68);
+
+    // ---- 三层云山：越远越淡、越低越暖 ----
+    for (let layer = 0; layer < 3; layer++) {
+      const baseY = GROUND_Y - 250 + layer * 60;
+      const amp = 150 - layer * 30;
+      g.fillStyle([0xfff0cd, 0xffe3ae, 0xffd68e][layer], layer === 2 ? 1 : 0.92);
+      g.beginPath();
+      g.moveTo(x0, GROUND_Y);
+      g.lineTo(x0, baseY);
+      for (let i = 0; i <= 22; i++) {
+        const t = i / 22;
+        const bump = Math.sin(t * Math.PI * 5 + layer) * 0.5 + 0.5;
+        g.lineTo(x0 + t * w, baseY - amp * (0.35 + 0.65 * bump));
+      }
+      g.lineTo(x0 + w, GROUND_Y);
+      g.closePath();
+      g.fillPath();
+    }
+
+    // ---- 天上的祥云：一朵 = 三个圆 + 一条卷纹 ----
+    const puffy = (cx: number, cy: number, s: number): void => {
+      g.fillStyle(0xfffdf4, 0.92);
+      g.fillCircle(cx - 30 * s, cy + 6 * s, 26 * s);
+      g.fillCircle(cx + 28 * s, cy + 8 * s, 22 * s);
+      g.fillCircle(cx, cy - 12 * s, 30 * s);
+      g.fillEllipse(cx, cy + 14 * s, 96 * s, 26 * s);
+      g.lineStyle(3 * s, 0xffd894, 0.75);
+      g.beginPath();
+      g.arc(cx, cy + 6 * s, 16 * s, Math.PI * 0.15, Math.PI * 1.5);
+      g.strokePath();
+    };
+    for (let i = 0; i < 6; i++) {
+      puffy(x0 + ((i * 373) % w) + 60, 62 + ((i * 149) % 190), 0.5 + (i % 3) * 0.18);
+    }
+
+    // ---- 看台：一整条云台 + 一排云朵包边 ----
+    g.fillStyle(P.stands, 1);
+    g.fillRect(x0, GROUND_Y - 160, w, 160);
+    for (let i = 0; i < 44; i++) {
+      const cx = x0 + i * 72;
+      g.fillStyle(i % 2 ? 0xfff4d6 : 0xffe7b6, 1);
+      g.fillCircle(cx, GROUND_Y - 160, 34);
+      g.fillCircle(cx + 34, GROUND_Y - 174, 26);
+    }
+    // 观众 = 一朵朵小云（稀疏一些，别铺成一堵点阵墙）
+    for (let i = 0; i < 72; i++) {
+      const cx = x0 + i * 24 + ((i * 31) % 13);
+      const cy = GROUND_Y - 126 + ((i * 71) % 104);
+      const s = 0.5 + ((i * 37) % 10) / 30;
+      g.fillStyle(i % 4 === 0 ? P.crowdA : P.crowdB, 0.95);
+      g.fillCircle(cx, cy, 6 * s);
+      g.fillCircle(cx - 6 * s, cy + 2 * s, 4.6 * s);
+      g.fillCircle(cx + 6 * s, cy + 2 * s, 4.6 * s);
+      g.fillCircle(cx, cy - 4 * s, 4.4 * s);
+    }
+    g.fillStyle(P.apron, 1);
+    g.fillRect(x0, GROUND_Y - 6, w, 6);
+
+    // ---- 地胶：金色底 + 云纹圈 ----
+    g.fillStyle(P.floor, 1);
+    g.fillRect(x0, GROUND_Y, w, VIEW_H - GROUND_Y + pad);
+    g.fillStyle(P.floorStrip, 1);
+    g.fillRect(COURT_LEFT, GROUND_Y, COURT_RIGHT - COURT_LEFT, 26);
+    g.fillStyle(P.floorEdge, 1);
+    g.fillRect(x0, VIEW_H - 16, w, 16);
+    g.lineStyle(3, 0xe0a63c, 0.45);
+    for (let i = 0; i < 14; i++) {
+      const cx = x0 + ((i * 173) % w);
+      const cy = GROUND_Y + 40 + ((i * 53) % 46);
+      const r = 14 + (i % 3) * 6;
+      g.strokeCircle(cx, cy, r);
+      g.strokeCircle(cx, cy, r * 0.5);
+    }
+    // 场地中央的联名徽记
+    const mx = (COURT_LEFT + COURT_RIGHT) / 2;
+    g.fillStyle(0xfffbe8, 0.8);
+    g.fillCircle(mx, GROUND_Y + 42, 44);
+    g.lineStyle(3, 0xe0a63c, 0.85);
+    g.strokeCircle(mx, GROUND_Y + 42, 44);
+    g.strokeCircle(mx, GROUND_Y + 42, 32);
+    g.fillStyle(0xe0a63c, 0.9);
+    g.fillCircle(mx, GROUND_Y + 42, 9);
+
+    // ---- 两条横跨天空的灯笼串 ----
+    const lanternRow = (y: number, color: number, sag: number): void => {
+      g.lineStyle(2, 0xd8a03c, 0.6);
+      g.beginPath();
+      g.moveTo(x0, y);
+      for (let i = 0; i <= 20; i++) {
+        const t = i / 20;
+        g.lineTo(x0 + t * w, y + sag * Math.sin(t * Math.PI));
+      }
+      g.strokePath();
+      for (let i = 0; i < 18; i++) {
+        const t = (i + 0.5) / 18;
+        const lx = x0 + t * w;
+        const ly = y + sag * Math.sin(t * Math.PI) + 16;
+        g.fillStyle(0xd8a03c, 0.8);
+        g.fillRect(lx - 1, ly - 18, 2, 8);
+        g.fillStyle(color, 0.95);
+        g.fillEllipse(lx, ly + 2, 22, 26);
+        g.fillStyle(0xfff0c0, 0.85);
+        g.fillEllipse(lx, ly - 2, 20, 12);
+        g.fillStyle(color, 0.95);
+        g.fillRect(lx - 11, ly - 8, 22, 3);
+        g.lineStyle(2, 0xf6d27a, 0.8);
+        g.lineBetween(lx, ly + 15, lx, ly + 24);
+      }
+    };
+    lanternRow(96, 0xd84a3a, 26);
+    lanternRow(212, 0xe0802c, 20);
   }
 
   /** 天空 / 看台 / 观众 / 木地板（球馆里**不画**：背景透明，露出球馆地板） */

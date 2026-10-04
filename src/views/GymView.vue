@@ -46,6 +46,8 @@ const EXIT_RADIUS = 175;
 const stage = ref<HTMLElement | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const meCanvas = ref<HTMLCanvasElement | null>(null);
+/** 角色那块 DOM：位置每帧直写 style（不绑 `me`，否则走动时整页每帧重渲染） */
+const meBox = ref<HTMLElement | null>(null);
 const AVATAR_SCALE = 0.8;
 const avatarBox = avatarBoxSize(AVATAR_SCALE);
 const avatarFeetPad = Math.round(AVATAR_FEET_PAD * AVATAR_SCALE);
@@ -118,6 +120,18 @@ function gain(key: TrainKey, amount: number): void {
 /** 朝向：跟着走动方向翻面；frameLast 给跑步机算 dt */
 let facing: 1 | -1 = 1;
 let frameLast = performance.now();
+
+/** 角色 DOM 的位置（直写 style，跳过响应式） */
+function syncMe(): void {
+  const el = meBox.value;
+  if (!el) return;
+  el.style.left = `${me.value.x}px`;
+  el.style.top = `${me.value.y}px`;
+}
+
+/** 站在门口：右下角出现「出门」。**不是 computed**（依赖每帧在动的坐标），
+ *  在 onFrame 里按变化才写，避免走动时整页每帧重渲染。 */
+const nearDoor = ref(false);
 
 function paintMe(now: number): void {
   const c = meCanvas.value;
@@ -198,6 +212,10 @@ const walk = useWalk({
       else stepLift(now);
     }
     paintMe(now);
+    // 走动替身：位置直写 DOM、门口提示按变化才写（都不走模板绑定）
+    syncMe();
+    const nd = Math.hypot(me.value.x - DOOR.x, me.value.y - DOOR.y) < EXIT_RADIUS;
+    if (nearDoor.value !== nd) nearDoor.value = nd;
   },
 });
 const { me, joy, nearId, tryEnter } = walk;
@@ -275,11 +293,6 @@ const action = computed(() => {
 function onAction(): void {
   toggleAction(mode.value !== 'idle' ? mode.value : (nearId.value ?? ''));
 }
-
-/** 站在门口：右下角出现「出门」 */
-const nearDoor = computed(
-  () => Math.hypot(me.value.x - DOOR.x, me.value.y - DOOR.y) < EXIT_RADIUS,
-);
 
 /** 当前这台器械练哪一维（站着时默认显示举重那一项） */
 const HEAD_KEY: Record<'idle' | 'lift' | 'bag' | 'tread', TrainKey> = {
@@ -405,10 +418,9 @@ watch(nearId, (v) => {
 
             <!-- 角色：和地图同一份绘制 -->
             <div
+              ref="meBox"
               class="avatar is-me"
               :style="{
-                left: `${me.x}px`,
-                top: `${me.y}px`,
                 width: `${avatarBox.w}px`,
                 height: `${avatarBox.h}px`,
                 transform: `translate(-50%, calc(-100% + ${avatarFeetPad}px))`,

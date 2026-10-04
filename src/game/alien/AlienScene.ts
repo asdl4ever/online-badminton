@@ -111,6 +111,13 @@ const INVULN_S = 1.2;
 export class AlienScene extends Phaser.Scene {
   private cfg!: AlienSceneCfg;
 
+  /** 静态背景（深空 / 星云 / 行星 / 星环 / 远山 / 异星地貌 / 地面）：create 时画一次 */
+  private skyG!: Phaser.GameObjects.Graphics;
+  private bg!: Phaser.GameObjects.Graphics;
+  /** 会眨的星星 + 偶尔划过的流星：独立一层（压在夜空之上、地形之下），每帧只重画这些 */
+  private starG!: Phaser.GameObjects.Graphics;
+  /** 氛围层（极光 / 飘尘 / 地面辉光的呼吸）：垫在地形之上、角色之下 */
+  private ambG!: Phaser.GameObjects.Graphics;
   private g!: Phaser.GameObjects.Graphics;
   private charG!: Phaser.GameObjects.Graphics;
   private charOverG!: Phaser.GameObjects.Graphics;
@@ -182,6 +189,12 @@ export class AlienScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 背景四层（负 depth，垫在动态层下面）：深空 → 星星 → 地形 → 氛围
+    this.skyG = this.add.graphics().setDepth(-4);
+    this.bg = this.add.graphics().setDepth(-2);
+    this.starG = this.add.graphics().setDepth(-3);
+    this.ambG = this.add.graphics().setDepth(-1);
+    this.drawBackdrop();
     this.g = this.add.graphics().setDepth(1);
     this.charG = this.add.graphics().setDepth(2);
     this.charOverG = this.add.graphics().setDepth(4);
@@ -605,7 +618,10 @@ export class AlienScene extends Phaser.Scene {
     this.charG.clear();
     this.charOverG.clear();
 
-    this.drawBackdrop();
+    this.starG.clear();
+    this.drawStars();
+    this.ambG.clear();
+    this.drawAmbient();
     this.drawUfo();
     this.drawMeteors();
     this.drawGoblins();
@@ -628,32 +644,216 @@ export class AlienScene extends Phaser.Scene {
     this.touchControls?.draw();
   }
 
+  /**
+   * 静态背景：深空渐变 → 星云 → 银河 → 邻星（带环行星）→ 星环 → 三层异星山脉 →
+   * 发光植物与晶簇 → 陨石坑与能量地缝 → 飞船降落场。create 时画一次。
+   */
   private drawBackdrop(): void {
-    const g = this.g;
     // 多画一圈（pad）：手机横屏比 16:9 更宽时，两侧露的是夜空与地面而不是黑边
     const pad = SCENE_BG_PAD;
     const w = VIEW_W + pad * 2;
-    // 夜空 + 星
-    g.fillStyle(0x080f22, 1);
-    g.fillRect(-pad, -pad, w, VIEW_H + pad * 2);
-    for (let k = 0; k < 40; k++) {
+    const h = VIEW_H + pad * 2;
+    const x0 = -pad;
+    const y0 = -pad;
+
+    // ---- 深空：近黑的靛 → 地平线的紫红（异星大气）----
+    const sky = this.skyG;
+    sky.fillStyle(0x04060f, 1);
+    sky.fillRect(x0, y0, w, h);
+    sky.fillGradientStyle(0x04060f, 0x04060f, 0x261b42, 0x261b42, 1, 1, 1, 1);
+    sky.fillRect(x0, y0, w, GROUND_Y + pad);
+    sky.fillGradientStyle(0x261b42, 0x261b42, 0x6b2a5c, 0x6b2a5c, 0, 0, 0.8, 0.8);
+    sky.fillRect(x0, GROUND_Y - 240, w, 240);
+
+    // ---- 星云：每团都用几层同心椭圆摊开，边缘才不会看出一个个圆边 ----
+    const nebula = (cx: number, cy: number, rx: number, ry: number, color: number, a: number): void => {
+      for (let k = 4; k >= 1; k--) {
+        sky.fillStyle(color, a * (k === 1 ? 0.5 : 0.22));
+        sky.fillEllipse(cx, cy, rx * (1 + (k - 1) * 0.3), ry * (1 + (k - 1) * 0.3));
+      }
+    };
+    nebula(x0 + w * 0.2, 200, 620, 260, 0x3a2560, 0.3);
+    nebula(x0 + w * 0.72, 260, 700, 300, 0x1f4a6b, 0.24);
+    nebula(x0 + w * 0.46, 130, 520, 200, 0x4a2d6b, 0.2);
+    nebula(x0 + w * 0.9, 100, 420, 180, 0x6b3a72, 0.16);
+
+    // ---- 银河：沿一条斜线排一串椭圆，叠成一条淡淡的带 ----
+    for (let i = 0; i < 32; i++) {
+      const t = i / 31;
+      sky.fillStyle(0xcdd8ff, 0.04 + Math.sin(t * Math.PI) * 0.06);
+      sky.fillEllipse(x0 + t * w, 600 - t * 440 + Math.sin(t * 9) * 18, 190, 46);
+    }
+
+    // ---- 邻星：左上角一颗带环的巨行星（按视口定位，不会被飞碟挡住）----
+    const px = VIEW_W * 0.2;
+    const py = 178;
+    // 环（外面那道淡环 + 里面那道亮环）
+    sky.lineStyle(22, 0x8fa6e0, 0.1);
+    sky.strokeEllipse(px, py, 520, 330);
+    sky.lineStyle(9, 0xbfd0ff, 0.3);
+    sky.strokeEllipse(px, py, 470, 296);
+    // 星体：深靛的球 + 亮面 + 暗面 + 边缘光
+    sky.fillStyle(0x1d2a55, 1);
+    sky.fillCircle(px, py, 104);
+    sky.fillStyle(0x40589f, 1);
+    sky.fillEllipse(px - 20, py - 16, 168, 168);
+    sky.fillStyle(0x131b36, 0.85);
+    sky.fillEllipse(px + 30, py + 26, 148, 148);
+    // 表面云带与高光
+    sky.fillStyle(0x8fa8e0, 0.35);
+    sky.fillEllipse(px - 30, py - 46, 92, 24);
+    sky.fillEllipse(px - 14, py + 20, 104, 20);
+    sky.fillStyle(0xdce8ff, 0.45);
+    sky.fillEllipse(px - 54, py - 52, 44, 28);
+    sky.lineStyle(4, 0x9fd8ff, 0.55);
+    sky.beginPath();
+    sky.arc(px, py, 102, Math.PI * 0.9, Math.PI * 1.7);
+    sky.strokePath();
+
+    // ---- 地形层 ----
+    const g = this.bg;
+    // 天上的那条巨大星环（异星夜空的招牌）
+    for (let k = 0; k < 3; k++) {
+      g.lineStyle(10 - k * 3, k === 0 ? 0x3a4a7a : 0x5f76b8, 0.28 - k * 0.06);
+      g.strokeEllipse(VIEW_W / 2, 300 + k * 10, 1000 + k * 70, 130 + k * 14);
+    }
+    // 三层山脉：越远越淡、越近越黑，山脊是随机锯齿
+    ridge(g, x0, w, GROUND_Y - 170, 220, 0x28345e, 3);
+    ridge(g, x0, w, GROUND_Y - 96, 156, 0x223060, 7);
+    ridge(g, x0, w, GROUND_Y - 26, 92, 0x15203c, 11);
+
+    // ---- 地面：陨石坑 + 能量地缝 + 虚线圈起来的降落场 ----
+    g.fillStyle(0x121b33, 1);
+    g.fillRect(x0, GROUND_Y, w, VIEW_H - GROUND_Y + pad);
+    g.fillGradientStyle(0x3a2a52, 0x3a2a52, 0x121b33, 0x121b33, 0.6, 0.6, 1, 1);
+    g.fillRect(x0, GROUND_Y, w, 40);
+    g.fillStyle(0x2c3e60, 1);
+    g.fillRect(x0, GROUND_Y, w, 3);
+    for (let i = 0; i < 14; i++) {
+      const cx0 = x0 + rnd(i, 61) * w;
+      const cy0 = GROUND_Y + 16 + rnd(i, 62) * 58;
+      const r = 14 + rnd(i, 63) * 26;
+      g.fillStyle(0x0a1124, 0.9);
+      g.fillEllipse(cx0, cy0, r * 2.2, r * 0.8);
+      g.lineStyle(2, 0x2c3e60, 0.45);
+      g.strokeEllipse(cx0, cy0, r * 2.2, r * 0.8);
+    }
+    // 地缝里透出的能量（青色折线）
+    g.lineStyle(2, 0x6fe09a, 0.3);
+    for (let i = 0; i < 10; i++) {
+      let cx0 = x0 + rnd(i, 71) * w;
+      let cy0 = GROUND_Y + 10 + rnd(i, 72) * 60;
+      g.beginPath();
+      g.moveTo(cx0, cy0);
+      for (let k = 0; k < 3; k++) {
+        cx0 += (rnd(i * 5 + k, 73) - 0.5) * 90;
+        cy0 += (rnd(i * 5 + k, 74) - 0.5) * 18;
+        g.lineTo(cx0, cy0);
+      }
+      g.strokePath();
+    }
+    // 飞船的降落场：一圈虚线 + 中心十字
+    g.lineStyle(3, 0x9fd8e8, 0.3);
+    for (let a = 0; a < 22; a++) {
+      g.beginPath();
+      g.arc(VIEW_W / 2, GROUND_Y + 34, 270, (a / 22) * Math.PI * 2, (a / 22) * Math.PI * 2 + 0.16);
+      g.strokePath();
+    }
+    g.lineBetween(VIEW_W / 2 - 40, GROUND_Y + 34, VIEW_W / 2 + 40, GROUND_Y + 34);
+    g.lineBetween(VIEW_W / 2, GROUND_Y + 6, VIEW_W / 2, GROUND_Y + 62);
+
+    // ---- 近景：发光晶簇与异星植物（压在地面之上、角色之下）----
+    for (let i = 0; i < 9; i++) {
+      const fx = x0 + rnd(i, 41) * w;
+      const hgt = 56 + rnd(i, 42) * 96;
+      g.fillStyle(0x0d1730, 1);
+      g.fillTriangle(fx - 13, GROUND_Y + 6, fx, GROUND_Y - hgt, fx + 13, GROUND_Y + 6);
+      g.fillStyle(0x6fe09a, 0.45);
+      g.fillCircle(fx, GROUND_Y - hgt, 4);
+    }
+    for (let i = 0; i < 6; i++) {
+      const cx0 = x0 + rnd(i, 51) * w;
+      const ch = 44 + rnd(i, 52) * 62;
+      g.fillStyle(0x27395f, 1);
+      g.fillTriangle(cx0 - 17, GROUND_Y + 6, cx0, GROUND_Y - ch, cx0 + 17, GROUND_Y + 6);
+      g.fillStyle(0x8fe0ff, 0.3);
+      g.fillTriangle(cx0 - 7, GROUND_Y + 2, cx0, GROUND_Y - ch * 0.82, cx0 + 4, GROUND_Y + 2);
+    }
+  }
+
+  /**
+   * 氛围层：两条缓慢起伏的极光带、往上飘的孢子、地面晶簇的呼吸辉光。
+   * 每帧重画（都是低透明度的大色块，开销很小）。
+   */
+  private drawAmbient(): void {
+    const g = this.ambG;
+    const pad = SCENE_BG_PAD;
+    const w = VIEW_W + pad * 2;
+    const now = this.time.now;
+
+    // ---- 极光：一条青、一条蓝紫；做成上下两条边合成的**飘带**（整条一起填充，
+    //      比堆一串椭圆干净，也不会看出一个个圆边）----
+    for (let b = 0; b < 2; b++) {
+      const baseY = 120 + b * 76;
+      const color = b === 0 ? 0x6fe0c0 : 0x6f9ce0;
+      const band = (halfW: number, alpha: number): void => {
+        g.fillStyle(color, alpha);
+        g.beginPath();
+        g.moveTo(-pad, baseY);
+        for (let i = 0; i <= 32; i++) {
+          const t = i / 32;
+          g.lineTo(-pad + t * w, baseY + Math.sin(t * 6 + now / 2200 + b * 1.6) * 34 - halfW);
+        }
+        for (let i = 32; i >= 0; i--) {
+          const t = i / 32;
+          g.lineTo(-pad + t * w, baseY + Math.sin(t * 6 + now / 2200 + b * 1.6) * 34 + halfW);
+        }
+        g.closePath();
+        g.fillPath();
+      };
+      band(56, 0.07);
+      band(20, 0.09);
+    }
+
+    // ---- 孢子：从地面慢慢往上飘，越高越淡 ----
+    for (let i = 0; i < 24; i++) {
+      const phase = (now / 1000 / 4 + i * 0.131) % 1;
+      const sx = 40 + ((i * 191) % (VIEW_W + pad * 2)) - pad + Math.sin(now / 900 + i) * 20;
+      const sy = GROUND_Y + 20 - phase * 380;
+      g.fillStyle(0x9ceeb8, (1 - phase) * 0.45);
+      g.fillCircle(sx, sy, 1.2 + (1 - phase) * 1.5);
+    }
+
+    // ---- 晶簇与飞船的呼吸辉光 ----
+    for (let i = 0; i < 5; i++) {
+      const cx0 = 60 + ((i * 277) % (VIEW_W + pad * 2)) - pad;
+      const pulse = 0.18 + 0.16 * Math.abs(Math.sin(now / 1100 + i));
+      g.fillStyle(0x8fe0ff, pulse);
+      g.fillEllipse(cx0, GROUND_Y + 10, 120, 30);
+    }
+  }
+
+  /** 会眨的星星 + 偶尔划过的流星：每帧只重画这些（独立成层，不用重画整片背景） */
+  private drawStars(): void {
+    const g = this.starG;
+    for (let k = 0; k < 46; k++) {
       const sx = ((k * 137) % VIEW_W) + ((k * 53) % 7);
       const sy = ((k * 89) % (GROUND_Y - 40)) + 12;
-      const tw = 0.35 + 0.45 * Math.abs(Math.sin(this.time.now / 900 + k));
-      g.fillStyle(0xdfe9ff, tw);
+      const tw = 0.3 + 0.5 * Math.abs(Math.sin(this.time.now / 900 + k));
+      g.fillStyle(k % 7 === 0 ? 0xbfe4ff : 0xdfe9ff, tw);
       g.fillCircle(sx, sy, k % 5 === 0 ? 1.8 : 1.1);
     }
-    // 远处的星环（异星地貌）
-    g.fillStyle(0x1a2340, 1);
-    g.fillTriangle(120, GROUND_Y, 440, GROUND_Y - 210, 760, GROUND_Y);
-    g.fillTriangle(620, GROUND_Y, 940, GROUND_Y - 150, 1260, GROUND_Y);
-    g.lineStyle(3, 0x3a4a7a, 0.55);
-    g.strokeEllipse(VIEW_W / 2, 300, 900, 120);
-    // 地面
-    g.fillStyle(0x16203a, 1);
-    g.fillRect(-pad, GROUND_Y, w, VIEW_H - GROUND_Y + pad);
-    g.lineStyle(2, 0x2c3e60, 1);
-    g.lineBetween(-pad, GROUND_Y, VIEW_W + pad, GROUND_Y);
+    // 流星：每 5.2 秒一颗，从左上斜划到右下
+    const cyc = this.time.now % 5200;
+    if (cyc < 900) {
+      const t = cyc / 900;
+      const sx = 260 + t * 780;
+      const sy = 110 + t * 270;
+      for (let k = 0; k < 9; k++) {
+        g.fillStyle(0xdfe9ff, (1 - k / 9) * (1 - t) * 0.7);
+        g.fillCircle(sx - k * 17, sy - k * 6, 2.6 - k * 0.22);
+      }
+    }
   }
 
   private drawUfo(): void {
@@ -791,4 +991,42 @@ export class AlienScene extends Phaser.Scene {
     g.fillRoundedRect(VIEW_W - 150, 56, 126, 40, 10);
     this.killsText.setText(`🛸 ${this.kills}`);
   }
+}
+
+// ---- 背景用的确定性工具（背景是静态层：每次画出来必须一模一样，不能每帧乱跳）----
+
+/** 确定性伪随机（0~1）：同一个 `i` / `seed` 永远得到同一个值 */
+function rnd(i: number, seed = 1): number {
+  const v = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+/**
+ * 一道山脉剪影：山脊按确定性随机上下起伏，谷底一直落到地面。
+ * `baseY` 是山脊线的平均高度，`amp` 是起伏幅度（越远的山给越大的值）。
+ */
+function ridge(
+  g: Phaser.GameObjects.Graphics,
+  x0: number,
+  w: number,
+  baseY: number,
+  amp: number,
+  color: number,
+  seed: number,
+): void {
+  g.fillStyle(color, 1);
+  g.beginPath();
+  g.moveTo(x0, GROUND_Y);
+  g.lineTo(x0, baseY);
+  // 两道正弦叠加 + 一点噪声：既有起伏又不会抖成一排锯齿
+  const steps = 48;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const wave = Math.sin(t * 9 + seed) * 0.5 + Math.sin(t * 21 + seed * 2) * 0.3;
+    const noise = (rnd(i + seed, seed) - 0.5) * 0.3;
+    g.lineTo(x0 + t * w, baseY - amp * (0.45 + 0.35 * wave + noise));
+  }
+  g.lineTo(x0 + w, GROUND_Y);
+  g.closePath();
+  g.fillPath();
 }

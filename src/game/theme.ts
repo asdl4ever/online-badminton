@@ -10,6 +10,35 @@
  */
 import { ARENA_THEMES, type ArenaThemeId } from './arena-themes';
 
+/** 小黄龙联名球场（`nailong`）专用色：暖黄云海 + 金色地胶，玩家不能选 */
+export const NAILONG_THEME = {
+  skyTop: 0xfff6dd,
+  skyBottom: 0xffe2ab,
+  stands: 0xffe1a4,
+  crowdA: 0xfff0cd,
+  crowdB: 0xffd489,
+  apron: 0xf2b64a,
+  floor: 0xfff2cf,
+  floorStrip: 0xffe09c,
+  floorEdge: 0xe8b455,
+  line: 0x8a5a1e,
+  post: 0x8a5a1e,
+  netMesh: 0xbb8b46,
+  netTape: 0x8a5a1e,
+  shuttle: 0x4a3418,
+  shuttleFeather: 0xb08a4a,
+  shuttleHalo: 0x4a3418,
+  trail: 0xf2a33c,
+  shadow: 0x8a5a1e,
+  localMark: 0xd98418,
+  serveHint: 0xb4560f,
+  flash: 0xf2a33c,
+  msgWin: '#7a4a10',
+  msgLose: '#b03216',
+  sub: '#8a6430',
+  score: '#5a3a12',
+} as const;
+
 export const BASE = {
   // --- court ------------------------------------------------------------
   skyTop: 0xe9f1fa,
@@ -102,8 +131,8 @@ export type Palette = typeof BASE;
 /** the live palette — mutate through applyTheme(), read directly */
 export const P: Palette = { ...BASE };
 
-/** 通用主题（玩家不出现在任何选择器里）+ 晋级赛的赛事专属主题 */
-export type ThemeId = 'day' | 'sunset' | 'mint' | 'night' | ArenaThemeId;
+/** 通用主题（玩家不出现在任何选择器里）+ 晋级赛的赛事专属主题 + 小黄龙联名球场 */
+export type ThemeId = 'day' | 'sunset' | 'mint' | 'night' | 'nailong' | ArenaThemeId;
 
 export interface ThemeDef {
   id: ThemeId;
@@ -203,6 +232,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       debugBg: 'rgba(10, 18, 30, 0.85)',
       debugText: '#cfe0f5',
     },
+  },
+  nailong: {
+    id: 'nailong',
+    label: '小黄龙联名',
+    swatch: [0xfff6dd, 0xfff2cf],
+    colors: { ...NAILONG_THEME },
   },
   // 晋级赛的六套赛事专属主题（只注册，玩家选不到）
   ...ARENA_THEMES,

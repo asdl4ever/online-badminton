@@ -8,10 +8,12 @@ import { usePresenceStore } from './stores/presence';
 import { useProgressStore } from './stores/progress';
 import { SCENE_KIND, joinInfo, sceneFromPath, sceneMeta } from './game/scenes';
 import { toastWarn } from './composables/useToast';
+import { usePerfHudPref } from './composables/usePerfHud';
 import type { InviteKind } from './net/lobby';
 import { sfx } from './game/audio';
 import Button from './components/ui/Button.vue';
 import AppToast from './components/ui/AppToast.vue';
+import PerfHud from './components/PerfHud.vue';
 
 // requests fullscreen + landscape lock on the first tap (touch devices only)
 useMobileShell();
@@ -21,6 +23,8 @@ const route = useRoute();
 const lobby = useLobbyStore();
 const presence = usePresenceStore();
 const progress = useProgressStore();
+/** 性能诊断面板（设置里打开，全站角落常显） */
+const { enabled: perfHud } = usePerfHudPref();
 
 /** 邀请是哪个场景发出来的，接受后就去哪个页面（页面自己再取房间号入房） */
 const INVITE_LANDING: Record<InviteKind, { path: string; label: string }> = {
@@ -154,6 +158,9 @@ watch(
   <RouterView />
 
   <AppToast />
+
+  <!-- 性能诊断（设置 → 性能诊断）：全站角落的小面板，看不到就不挂 -->
+  <PerfHud v-if="perfHud" />
 
   <!-- 预约到点：手机会响（铃声 + 震动 + 这块顶部提示条，点掉才停） -->
   <Transition name="alarm">

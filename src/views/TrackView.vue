@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import Joystick from '../components/ui/Joystick.vue';
@@ -12,7 +12,7 @@ import { isTouchDevice } from '../game/device';
 import { useJoystickPrefs } from '../composables/useJoystick';
 import { zoom as worldZoom } from '../composables/useZoom';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
-import { TRAIN_META, TRAIN_MAX_LEVEL, trainProgress, trainXpFor } from '../game/training';
+import { TRAIN_META, TRAIN_MAX_LEVEL, TRAIN_XP_PER, trainProgress, trainXpFor } from '../game/training';
 import { ITEMS, RUN_KM_STEP, RUN_MILESTONES } from '../game/items';
 import { sfx } from '../game/audio';
 import { toastGood } from '../composables/useToast';
@@ -59,10 +59,12 @@ const START_LINE = { x: 900, y1: TRACK.y + (TRACK.ry - INFIELD_INSET), y2: TRACK
 const LAP_OPTIONS = [1, 3, 5, 10];
 /** 一圈大约多少米（显示预估用；真实里程按实际跑的路径算） */
 const LAP_APPROX_M = 100;
-/** 每 100m 给多少「速度」经验 */
-const XP_PER_100M = 2;
-/** 一圈给多少经验（≈100m → 2 点） */
-const XP_PER_LAP = (LAP_APPROX_M / 100) * XP_PER_100M;
+/**
+ * 一圈给多少「速度」经验。
+ * **读 `game/training.ts` 那张统一表**——以前这里是自己写的一个 `XP_PER_100M = 2`，
+ * 和 `TRAIN_XP_PER.lap` 各说各话（后者还写着 8，没人用），改一处对不上另一处。
+ */
+const XP_PER_LAP = TRAIN_XP_PER.lap;
 
 /** 选的按钮（0 = 没在跑）：目标圈数 / 已跑圈数 / 本次跑的路径长度（px） */
 const runTarget = ref(0);
@@ -144,6 +146,9 @@ function clearCam(): void {
 const stage = ref<HTMLElement | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const meCanvas = ref<HTMLCanvasElement | null>(null);
+/** 角色与「手里的球」这两块 DOM：位置每帧直写 style（不绑 `me`，否则走动时整页每帧重渲染） */
+const meBox = ref<HTMLElement | null>(null);
+const heldBall = ref<HTMLElement | null>(null);
 const AVATAR_SCALE = 0.8;
 const avatarBox = avatarBoxSize(AVATAR_SCALE);
 const avatarFeetPad = Math.round(AVATAR_FEET_PAD * AVATAR_SCALE);
@@ -245,7 +250,7 @@ function finishRun(): void {
   prevTheta = null;
   if (meters <= 0) return;
   sessionMeters.value += meters;
-  // 经验按「跑完的圈数」算（一圈约 100m → 2 点），不因为贴内道跑短了而少给
+  // 经验按「跑完的圈数」算（一圈一点，见 XP_PER_LAP），不因为贴内道跑短了而少给
   const xp = Math.round(laps * XP_PER_LAP);
   if (xp > 0) {
     earned.value.speed += xp;
@@ -300,6 +305,22 @@ function paintMe(now: number): void {
   if (!c) return;
   paintAvatar(c, customize.cosmetic, now, { scale: AVATAR_SCALE, facing });
 }
+
+/** 角色（+ 手里的球）摆位：直写 style，跳过响应式 */
+function syncMe(): void {
+  const el = meBox.value;
+  if (el) {
+    el.style.left = `${me.value.x}px`;
+    el.style.top = `${me.value.y}px`;
+  }
+  const b = heldBall.value;
+  if (b) {
+    b.style.left = `${me.value.x + facing * 34}px`;
+    b.style.top = `${me.value.y - 66}px`;
+  }
+}
+
+
 
 /* --- 拿球 / 投掷 ----------------------------------------------------------- */
 function takeBall(): void {
@@ -422,6 +443,10 @@ function stepToSpot(dt: number): void {
   me.value = { x: me.value.x + (dx / d) * step, y: me.value.y + (dy / d) * step };
 }
 
+/** 站在门口：右下角出现「出门」。**不是 computed**（依赖每帧在动的坐标），
+ *  在 onFrame 里按变化才写，避免走动时整页每帧重渲染。 */
+const nearDoor = ref(false);
+
 const walk = useWalk({
   stage,
   plane,
@@ -438,6 +463,14 @@ const walk = useWalk({
   onFrame: (now) => {
     const dt = Math.min((now - frameLast) / 1000, 0.05);
     frameLast = now;
+
+    // 角色 / 手里的球摆位 + 门口提示：都直写 DOM，不走模板绑定
+    syncMe();
+    const nd =
+      phase.value === 'idle' &&
+      !(runTarget.value > 0) &&
+      Math.hypot(me.value.x - DOOR.x, me.value.y - DOOR.y) < EXIT_RADIUS;
+    if (nearDoor.value !== nd) nearDoor.value = nd;
 
     if (phase.value !== 'idle') {
       joy.value = { x: 0, y: 0 };
@@ -532,6 +565,11 @@ function clickPile(): void {
 
 const holding = computed(() => phase.value === 'hold');
 const running = computed(() => runTarget.value > 0);
+
+/** 手里刚多出一颗球时那块 DOM 才插进来 —— 立刻补一次位置，免得闪一下左上角 */
+watch(holding, () => {
+  if (holding.value) void nextTick(syncMe);
+});
 /** 右下角按钮：靠近球堆（且空手、没在跑步） */
 const canTake = computed(
   () => phase.value === 'idle' && !running.value && nearId.value === 'pile',
@@ -540,14 +578,6 @@ const canTake = computed(
 const touch = isTouchDevice();
 const { always: joyAlways } = useJoystickPrefs();
 const showJoy = computed(() => touch || joyAlways.value);
-
-/** 站在门口：右下角出现「出门」 */
-const nearDoor = computed(
-  () =>
-    phase.value === 'idle' &&
-    !running.value &&
-    Math.hypot(me.value.x - DOOR.x, me.value.y - DOOR.y) < EXIT_RADIUS,
-);
 
 /** 直道上的 5m 刻度 */
 const marks = Array.from({ length: 10 }, (_, i) => (i + 1) * 5);
@@ -662,21 +692,16 @@ function back(): void {
               class="ball is-fly"
               :style="{ left: `${ball.x}px`, top: `${ball.y}px` }"
             />
-            <div
-              v-else-if="holding"
-              class="ball is-held"
-              :style="{ left: `${me.x + facing * 34}px`, top: `${me.y - 66}px` }"
-            />
+            <div v-else-if="holding" ref="heldBall" class="ball is-held" />
 
             <!-- 门口 -->
             <div class="room__door" :style="{ left: `${DOOR.x}px`, top: `${DOOR.y}px` }" />
 
             <!-- 角色：和地图同一份绘制 -->
             <div
+              ref="meBox"
               class="avatar is-me"
               :style="{
-                left: `${me.x}px`,
-                top: `${me.y}px`,
                 width: `${avatarBox.w}px`,
                 height: `${avatarBox.h}px`,
                 transform: `translate(-50%, calc(-100% + ${avatarFeetPad}px))`,

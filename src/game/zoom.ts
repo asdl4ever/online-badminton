@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { VIEW_H, VIEW_W } from './constants';
+import { lowSpecDevice } from './device';
 
 /**
  * 画面缩放（视距）+ **画布铺满**——游戏内那一半。
@@ -62,10 +63,35 @@ export function sceneZoom(scene: Phaser.Scene): number {
  */
 export const MAX_CANVAS_DPR = 2;
 
-/** 本机画布该用的像素倍率（≥1，封顶 `MAX_CANVAS_DPR`） */
+/**
+ * 低配设备上的像素倍率上限：像素量与 GPU 负担成正比，从 2 收到 1.5 相当于
+ * 少画 **约 44%** 的像素（4.0 → 2.25 倍），是低端安卓 / WebView 上最划算的一档
+ * （判据见 `device.ts` 的 `lowSpecDevice()`；`?perf=high` 可手动拉满）。
+ */
+export const LOW_SPEC_CANVAS_DPR = 1.5;
+
+/** 本机画布该用的像素倍率（≥1，封顶 `MAX_CANVAS_DPR`；低配设备收到 1.5） */
 export function canvasDpr(): number {
   const d = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
-  return Math.max(1, Math.min(MAX_CANVAS_DPR, d));
+  const cap = lowSpecDevice() ? LOW_SPEC_CANVAS_DPR : MAX_CANVAS_DPR;
+  return Math.max(1, Math.min(cap, d));
+}
+
+/**
+ * 所有 Phaser 页面共用的渲染器片段：
+ * - `powerPreference: 'high-performance'`：尽量让浏览器选独显 / 高性能 GPU
+ *   （桌面双显卡笔记本上能明显少掉帧，移动端多数忽略，无副作用）。
+ *
+ * 用法：`new Phaser.Game({ ..., ...renderConfig() })`。
+ */
+export function renderConfig(): Phaser.Types.Core.RenderConfig {
+  return {
+    powerPreference: 'high-performance',
+    // 低配设备**关抗锯齿**：少一层 MSAA 缓冲，WebGL 上下文 / 管线的初始化更快
+    //（诊断面板上「新建一个实例」那种几百毫秒到两秒的长任务主要就在这儿），每帧也更省。
+    // 代价是边缘略糙——只对低配设备生效，普通设备观感不变（判据见 `device.ts`）。
+    ...(lowSpecDevice() ? { antialias: false } : {}),
+  };
 }
 
 /**
@@ -168,7 +194,10 @@ export function applySceneZoom(scene: Phaser.Scene): void {
  */
 export function fitFixedView(scene: Phaser.Scene, hall = false): void {
   const cam = scene.cameras.main;
-  const z = hall ? fitZoom(scene) : sceneZoom(scene);
+  // 固定视口（球场 / 哥斯拉 / 外星人 / 矿洞 / 农场）只允许视距**放大**：
+  // 大地图上调低的视距（<100%）不能乘进来，否则画面缩成一小块，
+  // 而且超宽屏上露出的背景会超出 `SCENE_BG_PAD` 的余量、四周露出页面底色。
+  const z = hall ? fitZoom(scene) : fitZoom(scene) * Math.max(1, readZoom());
   cam.setZoom(z);
   cam.centerOn(VIEW_W / 2, VIEW_H - cam.height / z / 2);
 }

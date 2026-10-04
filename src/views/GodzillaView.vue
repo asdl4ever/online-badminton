@@ -15,7 +15,7 @@ import {
   type GzDifficulty,
 } from '../game/godzilla';
 import { GodzillaScene, type GodzillaSceneCfg } from '../game/godzilla/GodzillaScene';
-import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import { useProgressStore } from '../stores/progress';
 import { useCustomizeStore } from '../stores/customize';
@@ -36,12 +36,43 @@ const customize = useCustomizeStore();
 const host = ref<HTMLElement | null>(null);
 let game: Phaser.Game | null = null;
 const playing = ref(false);
-const difficulty = ref<GzDifficulty>('easy');
+
+/**
+ * 三档难度**逐级解锁**（简单 → 普通 → 地狱）：默认选中「第一个还没打通的已解锁档」，
+ * 全通了就停在最后一档（地狱）方便重复刷。
+ */
+function defaultDifficulty(): GzDifficulty {
+  const next = GZ_DIFF_ORDER.find((d) => progress.gzUnlocked(d) && !progress.gzCleared.includes(d));
+  return next ?? GZ_DIFF_ORDER[GZ_DIFF_ORDER.length - 1];
+}
+
+const difficulty = ref<GzDifficulty>(defaultDifficulty());
 const result = ref<'win' | 'lose' | null>(null);
 const resultText = ref('');
 const loot = ref<{ label: string; color: string }[]>([]);
 
 const attemptsLeft = computed(() => progress.gzLeftToday);
+
+/** 这一档解锁了吗（没解锁的卡片点不动，并写明靠谁解锁） */
+function unlocked(d: GzDifficulty): boolean {
+  return progress.gzUnlocked(d);
+}
+
+/** 解锁这一档需要先打赢哪一档（已解锁返回空串） */
+function unlockHint(d: GzDifficulty): string {
+  const i = GZ_DIFF_ORDER.indexOf(d);
+  if (i <= 0 || unlocked(d)) return '';
+  return `击败「${GZ_DIFFS[GZ_DIFF_ORDER[i - 1]].label}」解锁`;
+}
+
+function pickDiff(d: GzDifficulty): void {
+  if (!unlocked(d)) {
+    toastBad(`🔒 ${unlockHint(d)}`);
+    return;
+  }
+  sfx.click();
+  difficulty.value = d;
+}
 
 /** 三选一摇奖的三个概率（给说明文案用，改 `GZ_REWARD_ODDS` 这里自动跟着变） */
 const odds = computed(() => ({
@@ -63,6 +94,10 @@ const setInfo = computed(
 
 async function start(): Promise<void> {
   if (playing.value) return;
+  if (!unlocked(difficulty.value)) {
+    toastBad(`🔒 ${unlockHint(difficulty.value)}`);
+    return;
+  }
   const r = progress.useGodzillaAttempt();
   if (!r.ok) {
     toastBad(r.message);
@@ -97,6 +132,7 @@ function bootScene(): void {
     banner: false,
     audio: { noAudio: true },
     scale: sceneScaleConfig(),
+    ...renderConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('GodzillaScene', GodzillaScene, true, data),
@@ -117,7 +153,10 @@ function onEnd(win: boolean): void {
   }
 
   // 战利品是**三选一摇出来的**（50% 金币 / 20% 该档限定 / 30% 钥匙），荣誉点固定给
-  const r = progress.grantGodzillaKill(difficulty.value);
+  const beaten = difficulty.value;
+  const r = progress.grantGodzillaKill(beaten);
+  // 打赢这一档之后，下一档难度是不是刚解锁了（打在结算文案里）
+  const unlockedNext = GZ_DIFF_ORDER.find((d) => progress.gzUnlocked(d) && !progress.gzCleared.includes(d));
   sfx.win();
   celebrate(3, ['#3a7d44', '#e8a33d', '#8fe0ff']);
   loot.value = r.drop ? [{ label: r.drop.label, color: RARITY_META[r.drop.rarity].color }] : [];
@@ -138,7 +177,12 @@ function onEnd(win: boolean): void {
 
   resultText.value =
     `🏆 击杀成功！（累计 ${progress.gzKills} 杀）${gain} · 🏅 +${r.honor}` +
-    (r.allOwned ? ' · 这一档的限定已集齐' : '');
+    (r.allOwned ? ' · 这一档的限定已集齐' : '') +
+    (unlockedNext && unlockedNext !== beaten
+      ? ` · 🔓 解锁「${GZ_DIFFS[unlockedNext].label}」难度`
+      : '');
+  // 刚解锁下一档就顺手把它选上，省得玩家再点一次
+  if (unlockedNext && unlockedNext !== beaten) difficulty.value = unlockedNext;
   toastGood(gain);
 }
 
@@ -191,21 +235,25 @@ onBeforeUnmount(destroyGame);
                 v-for="d in GZ_DIFF_ORDER"
                 :key="d"
                 class="gz-diff"
-                :class="{ 'is-on': difficulty === d }"
+                :class="{ 'is-on': difficulty === d, 'is-lock': !unlocked(d) }"
                 type="button"
-                @click="sfx.click(); difficulty = d"
+                :aria-disabled="!unlocked(d)"
+                @click="pickDiff(d)"
               >
-                <b>{{ GZ_DIFFS[d].label }}</b>
+                <b>{{ unlocked(d) ? GZ_DIFFS[d].label : `🔒 ${GZ_DIFFS[d].label}` }}</b>
                 <span class="num">血量 {{ GZ_DIFFS[d].hits }} 击</span>
                 <span class="num">🪙 {{ GZ_DIFFS[d].coins }} · 🏅 {{ GZ_DIFFS[d].honor }}</span>
                 <span class="num">
                   🎁 限定 {{ setInfo[d].owned }}/{{ setInfo[d].total
                   }}<template v-if="setInfo[d].owned >= setInfo[d].total"> · 已集齐</template>
                 </span>
+                <span v-if="!unlocked(d)" class="gz-lockhint">{{ unlockHint(d) }}</span>
+                <span v-else-if="progress.gzCleared.includes(d)" class="gz-cleared">✓ 已通关</span>
               </button>
             </div>
 
             <p class="muted gz-note">
+              三档难度<b>逐级解锁</b>：打赢<b>简单</b>才开<b>普通</b>、打赢<b>普通</b>才开<b>地狱</b>。
               每天 <b>{{ GZ_DAILY_MAX }}</b> 次免费挑战，失败也消耗次数。
               每次击杀摇一次<b>三选一</b>：🪙 金币 <b>{{ odds.coins }}%</b> ·
               🎁 该档限定 <b>{{ odds.skin }}%</b> · 🔑 宝箱钥匙 <b>{{ odds.keys }}%</b>（荣誉点固定给）。
@@ -307,6 +355,25 @@ onBeforeUnmount(destroyGame);
 .gz-diff.is-on {
   border-color: #d85858;
   background: color-mix(in srgb, #d85858 14%, var(--surface-2));
+}
+
+/* 没解锁的档：整卡压暗、点击只弹提示 */
+.gz-diff.is-lock {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.gz-lockhint {
+  font-size: 10px;
+  font-weight: 700;
+  color: #c9a24a;
+}
+
+.gz-cleared {
+  font-size: 10px;
+  font-weight: 700;
+  color: #53e0a0;
 }
 
 .gz-diff b {

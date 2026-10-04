@@ -12,6 +12,7 @@ import {
   WING_COLORS,
   WING_SHAPE,
   replacesHead,
+  skinHeadH,
   type AuraId,
   type CapeId,
   type Cosmetic,
@@ -4168,141 +4169,134 @@ function drawGodzilla(g: Phaser.GameObjects.Graphics, now: number, pose: Charact
   const feetY = pose.feetY;
   const breathe = Math.sin(now / 520) * 1.2;
   const sway = Math.sin(now / 430);
+  /** 背鳍的呼吸式发光（和场景里那只 Boss 一样泛原子蓝） */
+  const glow = 0.25 + (Math.sin(now / 520) * 0.5 + 0.5) * 0.45;
 
-  // 配色与 Boss（`GodzillaScene.drawGz`）同源：背深腹浅的橄榄绿巨兽
-  const body = 0x3f6f52;
-  const dark = 0x2a4a3a;
-  const deep = 0x1e3529;
-  const belly = 0xa8cf94;
-  const bellyDark = 0x86ac74;
-  const fin = 0xd8e4d0;
+  // 配色与 Boss（`GodzillaScene.drawGz`）同一族：背深腹浅的橄榄绿巨兽
+  const body = 0x416f55;
+  const dark = 0x2c4d3c;
+  const deep = 0x1b3024;
+  const belly = 0xa9cf95;
+  const bellyDark = 0x83a874;
   const claw = 0xe8e4d0;
   const eye = 0xffc24a;
 
-  /** 枫叶状背鳍：中间一片高的 + 根部压一层暗色，看着像从背上长出来 */
+  /**
+   * 枫叶状背鳍：根部压一层暗色、中间一片泛蓝、尖端亮白——
+   * 三片叠起来才有「从背上长出来又发着光」的样子。
+   */
   const spike = (sx: number, sy: number, s: number): void => {
-    g.fillStyle(fin, 1);
-    g.fillTriangle(
-      sx - s * 0.62,
-      sy + s * 0.34,
-      sx + s * 0.62,
-      sy + s * 0.34,
-      sx - f * s * 0.45,
-      sy - s * 0.86,
-    );
-    g.fillTriangle(sx - s * 0.85, sy + s * 0.34, sx - s * 0.1, sy + s * 0.3, sx - s * 0.62, sy - s * 0.42);
-    g.fillTriangle(sx + s * 0.85, sy + s * 0.34, sx + s * 0.1, sy + s * 0.3, sx + s * 0.66, sy - s * 0.36);
-    g.fillStyle(deep, 0.9);
-    g.fillTriangle(
-      sx - s * 0.52,
-      sy + s * 0.36,
-      sx + s * 0.52,
-      sy + s * 0.36,
-      sx - f * s * 0.08,
-      sy + s * 0.02,
-    );
+    g.fillStyle(deep, 1);
+    g.fillTriangle(sx - s * 0.72, sy + s * 0.34, sx + s * 0.72, sy + s * 0.34, sx + s * 0.05, sy - s * 0.92);
+    g.fillStyle(0x7fc8f0, 0.2 + glow * 0.4);
+    g.fillTriangle(sx - s * 0.5, sy + s * 0.26, sx + s * 0.5, sy + s * 0.26, sx + s * 0.05, sy - s * 0.74);
+    g.fillStyle(0xeaf8ff, 0.18 + glow * 0.5);
+    g.fillTriangle(sx - s * 0.2, sy + s * 0.12, sx + s * 0.22, sy + s * 0.12, sx + s * 0.05, sy - s * 0.5);
   };
 
   // ---- 尾巴：从屁股甩出去，越往后越细，贴地但尾尖微微抬起 ----
-  const tailN = 7;
+  const tailN = 8;
   for (let i = tailN; i >= 1; i--) {
     const t = i / tailN;
-    const tx = x - f * (10 + 50 * t) + sway * 5 * t;
-    const ty = feetY - 30 + 26 * t * t + sway * 2 * t;
+    const tx = x - f * (10 + 58 * t) + sway * 5 * t;
+    const ty = feetY - 30 + 27 * t * t + sway * 2 * t;
     g.fillStyle(t > 0.5 ? dark : body, 1);
-    g.fillCircle(tx, ty, 12 - 8.6 * t);
+    g.fillCircle(tx, ty, 12.5 - 9.2 * t);
   }
-  // 尾巴上的那几片鳍
+  // 尾巴上的那几片鳍（越往尾尖越小）
   for (let k = 0; k < 3; k++) {
-    const t = 0.28 + k * 0.24;
-    spike(x - f * (10 + 50 * t) + sway * 5 * t, feetY - 30 + 26 * t * t - (10 - 6 * t), 7 - k * 1.2);
+    const t = 0.26 + k * 0.24;
+    spike(x - f * (10 + 58 * t) + sway * 5 * t, feetY - 30 + 27 * t * t - (10 - 6 * t), 8 - k * 1.4);
   }
 
   // ---- 远侧的手臂与腿（压深一档、往后错开，拉出前后关系；爪子被近侧挡住就不画）----
   g.fillStyle(deep, 1);
-  g.fillRoundedRect(x - f * 30 - 7, feetY - 84, 14, 22, 6);
-  g.fillRoundedRect(x - f * 14 - 9, feetY - 38, 18, 36, 8);
-  g.fillEllipse(x - f * 16, feetY - 4, 26, 9);
+  g.fillRoundedRect(x - f * 32 - 7, feetY - 86, 14, 23, 6);
+  g.fillEllipse(x - f * 36, feetY - 62, 20, 10);
+  g.fillRoundedRect(x - f * 14 - 9, feetY - 40, 18, 38, 8);
+  g.fillEllipse(x - f * 16, feetY - 4, 27, 9);
 
   // ---- 躯干：后侧深、前侧浅，胸口一排腹甲 ----
   g.fillStyle(deep, 1);
-  g.fillEllipse(x - f * 5, feetY - 66 + breathe, 46, 78);
+  g.fillEllipse(x - f * 6, feetY - 64 + breathe, 50, 86);
   g.fillStyle(body, 1);
-  g.fillEllipse(x + f * 3, feetY - 66 + breathe, 44, 76);
+  g.fillEllipse(x + f * 4, feetY - 66 + breathe, 46, 80);
   g.fillStyle(belly, 1);
-  g.fillEllipse(x + f * 10, feetY - 60 + breathe, 24, 54);
+  g.fillEllipse(x + f * 12, feetY - 62 + breathe, 26, 60);
   g.fillStyle(bellyDark, 0.9);
-  for (let k = 0; k < 5; k++) {
-    const bx = f > 0 ? x + 2 : x - 15;
-    g.fillRect(bx, feetY - 88 + k * 11 + breathe, 13, 2.2);
+  for (let k = 0; k < 6; k++) {
+    const bx = f > 0 ? x + 1 : x - 16;
+    g.fillRoundedRect(bx, feetY - 92 + k * 11 + breathe, 14, 2.4, 1);
   }
   // 肩背的鳞纹
-  g.fillStyle(deep, 0.45);
-  for (let k = 0; k < 8; k++) {
-    g.fillCircle(x - f * (5 + (k % 3) * 7), feetY - 96 + Math.floor(k / 3) * 9 + breathe, 1.7);
+  g.fillStyle(deep, 0.4);
+  for (let k = 0; k < 12; k++) {
+    g.fillCircle(x - f * (6 + (k % 3) * 8), feetY - 98 + Math.floor(k / 3) * 10 + breathe, 1.7);
   }
 
   // ---- 背鳍：从脖子一路排到屁股 ----
-  for (let k = 0; k < 5; k++) {
-    spike(x - f * (13 + k * 1.6), feetY - 100 + k * 15 + breathe, 11.5 - k * 0.7);
+  for (let k = 0; k < 6; k++) {
+    spike(x - f * (13 + k * 1.6), feetY - 98 + k * 14 + breathe, 12.5 - k * 0.7);
   }
 
   // ---- 近侧的腿 + 三爪大脚 ----
   g.fillStyle(body, 1);
-  g.fillRoundedRect(x + f * 3 - 10, feetY - 42, 21, 40, 9);
-  g.fillEllipse(x + f * 5, feetY - 4, 29, 10);
+  g.fillRoundedRect(x + f * 3 - 10, feetY - 44, 21, 42, 9);
+  g.fillEllipse(x + f * 5, feetY - 4, 30, 10);
   g.fillStyle(claw, 1);
   for (let k = 0; k < 3; k++) {
-    const cx = x + f * 11 + f * k * 6;
-    g.fillTriangle(cx, feetY - 8, cx + f * 9, feetY - 3.5, cx, feetY + 1.5);
+    const cx = x + f * 12 + f * k * 6;
+    g.fillTriangle(cx, feetY - 9, cx + f * 10, feetY - 4, cx, feetY + 2);
   }
 
   // ---- 脖子 + 头（吻部朝前，一排牙）----
   g.fillStyle(dark, 1);
-  g.fillRoundedRect(x + f * 2 - 9, feetY - 104, 17, 22, 7);
+  g.fillRoundedRect(x + f * 2 - 9, feetY - 106, 18, 24, 7);
   g.fillStyle(body, 1);
-  g.fillEllipse(x + f * 5, feetY - 94 + breathe, 31, 27);
-  g.fillEllipse(x + f * 17, feetY - 91 + breathe, 27, 19);
+  g.fillEllipse(x + f * 6, feetY - 96 + breathe, 34, 30);
+  g.fillEllipse(x + f * 20, feetY - 92 + breathe, 30, 20);
+  // 头后的小角（两只，错开一点）
+  g.fillStyle(dark, 1);
+  g.fillTriangle(x - f * 7, feetY - 104, x - f * 16, feetY - 114, x - f * 3, feetY - 101);
+  g.fillTriangle(x - f * 2, feetY - 108, x - f * 8, feetY - 118, x + f * 3, feetY - 105);
   // 眉骨：压在眼睛上的暗色
   g.fillStyle(dark, 1);
   g.fillTriangle(
     x + f * 2,
-    feetY - 105 + breathe,
-    x + f * 19,
-    feetY - 100 + breathe,
+    feetY - 107 + breathe,
+    x + f * 20,
+    feetY - 102 + breathe,
     x + f * 4,
-    feetY - 95 + breathe,
+    feetY - 96 + breathe,
   );
-  // 嘴缝 + 上排牙 + 下巴
+  // 嘴缝 + 上下两排牙 + 下巴
   g.fillStyle(deep, 1);
-  g.fillEllipse(x + f * 15, feetY - 84 + breathe, 25, 5.5);
+  g.fillEllipse(x + f * 17, feetY - 85 + breathe, 27, 6);
   g.fillStyle(0xfff6e0, 1);
   for (let k = 0; k < 4; k++) {
-    const tx = x + f * 9 + f * k * 5;
-    g.fillTriangle(tx, feetY - 87 + breathe, tx + f * 3.4, feetY - 87 + breathe, tx + f * 1.6, feetY - 80 + breathe);
+    const tx = x + f * 9 + f * k * 6;
+    g.fillTriangle(tx, feetY - 88 + breathe, tx + f * 3.6, feetY - 88 + breathe, tx + f * 1.8, feetY - 80 + breathe);
+    g.fillTriangle(tx + f * 2, feetY - 80 + breathe, tx + f * 5.6, feetY - 80 + breathe, tx + f * 3.8, feetY - 87 + breathe);
   }
   g.fillStyle(dark, 1);
-  g.fillEllipse(x + f * 13, feetY - 78 + breathe, 19, 8);
+  g.fillEllipse(x + f * 14, feetY - 77 + breathe, 21, 9);
   // 琥珀色竖瞳 + 高光 + 鼻孔
   g.fillStyle(eye, 1);
-  g.fillCircle(x + f * 11, feetY - 96 + breathe, 4);
+  g.fillEllipse(x + f * 12, feetY - 97 + breathe, 8, 10);
   g.fillStyle(deep, 1);
-  g.fillRect(x + f * 11 - 0.9, feetY - 99.4 + breathe, 1.8, 6.6);
+  g.fillRect(x + f * 12 - 1, feetY - 102 + breathe, 2, 10);
   g.fillStyle(0xffffff, 0.85);
-  g.fillCircle(x + f * 9.7, feetY - 97.6 + breathe, 1.1);
-  g.fillCircle(x + f * 28, feetY - 92 + breathe, 1.4);
-  // 头后的小角
-  g.fillStyle(dark, 1);
-  g.fillTriangle(x - f * 7, feetY - 103, x - f * 15, feetY - 112, x - f * 3, feetY - 100);
+  g.fillCircle(x + f * 10.4, feetY - 99.4 + breathe, 1.2);
+  g.fillCircle(x + f * 31, feetY - 93 + breathe, 1.4);
 
   // ---- 近侧的短胳膊 + 三爪 ----
   g.fillStyle(body, 1);
-  g.fillRoundedRect(x + f * 11 - 7, feetY - 90, 14, 21, 6);
-  g.fillRoundedRect(x + f * 22 - 10, feetY - 78, 20, 12, 6);
+  g.fillRoundedRect(x + f * 11 - 7, feetY - 92, 15, 23, 6);
+  g.fillRoundedRect(x + f * 23 - 10, feetY - 80, 21, 13, 6);
   g.fillStyle(claw, 1);
   for (let k = 0; k < 3; k++) {
-    const cx = x + f * 31 + f * k * 5;
-    g.fillTriangle(cx, feetY - 76, cx + f * 7, feetY - 72.5, cx, feetY - 68);
+    const cx = x + f * 33 + f * k * 5;
+    g.fillTriangle(cx, feetY - 78, cx + f * 8, feetY - 74, cx, feetY - 69);
   }
 }
 
@@ -6104,7 +6098,15 @@ export function drawCharacter(
   pose: CharacterPose,
   opts: CharacterOpts = {},
 ): void {
+  /** 默认小人的头顶（也是身体绘制的基准） */
   const topY = pose.feetY - PLAYER_H;
+  /**
+   * **装扮层**（帽子 / 翅膀 / 披风 / 宠物 / emoji 头）的基准高度。
+   * 它按这只角色**真实的头顶**算（`SKIN_HEAD_H`），不是默认小人的 108——
+   * 否则矮个子角色（史莱姆 / 蘑菇 / 小章鱼…）的帽子会飘在头顶上方、翅膀悬在半空。
+   * 默认小人（`'none'`）与表里没写的形象仍然是 108，老装扮的落点完全不变。
+   */
+  const accTopY = pose.feetY - skinHeadH(cos.characterSkin);
 
   if (opts.shadow !== false) {
     if (cos.ring !== 'none') drawRing(g, now, pose.x, pose.feetY, cos.ring);
@@ -6113,8 +6115,8 @@ export function drawCharacter(
   }
 
   if (cos.aura !== 'none') drawAura(g, now, pose.x, pose.feetY, cos.aura, AURA_COLORS[cos.aura]);
-  if (cos.cape !== 'none') drawCape(g, now, pose.x, topY, cos.cape);
-  if (cos.wings !== 'none') drawWings(g, now, pose.x, topY, cos);
+  if (cos.cape !== 'none') drawCape(g, now, pose.x, accTopY, cos.cape);
+  if (cos.wings !== 'none') drawWings(g, now, pose.x, accTopY, cos);
 
   if (cos.characterSkin === 'ubear') {
     drawUBear(g, now, pose);
@@ -6202,19 +6204,19 @@ export function drawCharacter(
   } else if (cos.emoji && opts.face) {
     const face = opts.face;
     face.setText(cos.emoji);
-    face.setPosition(pose.x, topY + 17);
+    face.setPosition(pose.x, accTopY + 17);
     face.setVisible(true);
   } else {
     g.fillStyle(P.skin, 1);
-    g.fillCircle(pose.x, topY + 16, 13);
+    g.fillCircle(pose.x, accTopY + 16, 13);
   }
 
   // 帽子 / 宠物画在「头之上」的层（overG），没给就退回单层渲染
   const over = opts.overG ?? g;
   // headOff > 0 时把头饰往下挪到原来那颗头的位置（见 FULL_HEAD_DY）；
   // `now` 传下去，新增那批会动的头饰（风车 / 蜜蜂 / 灯泡…）才动得起来
-  if (cos.hat !== 'none') drawHat(over, pose.x, topY + headOff, cos.hat, now);
+  if (cos.hat !== 'none') drawHat(over, pose.x, accTopY + headOff, cos.hat, now);
   if (cos.pet !== 'none') {
-    drawPet(over, now, pose.x, topY, pose.facing < 0 ? 1 : 0, cos.pet, cos.petStar);
+    drawPet(over, now, pose.x, accTopY, pose.facing < 0 ? 1 : 0, cos.pet, cos.petStar);
   }
 }

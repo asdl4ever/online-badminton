@@ -705,14 +705,139 @@ export function currentChestTheme(now: number = Date.now()): ChestTheme {
  * 摇一次类别并返回这一类的候选池：
  * - 普通宝箱：`CHEST_ODDS.normal`
  * - 高级宝箱：`CHEST_ODDS.premium`
- * - 其余落到**本期主题宝箱**（`currentChestTheme()`，用当期种子定住的池子）
+ * - 其余落到**选中的主题宝箱**（`slot`，玩家在「奖池切换」里挑的那个；
+ *   不传就用当期主题 `currentChestTheme()` 的池子）
  */
-export function pickChestPool(now: number = Date.now()): Item[] {
+export function pickChestPool(now: number = Date.now(), slot?: ChestSlot): Item[] {
   const r = Math.random();
   if (r < CHEST_ODDS.normal) return themePool(NORMAL_THEME);
   if (r < CHEST_ODDS.normal + CHEST_ODDS.premium) return themePool(PREMIUM_THEME);
+  if (slot) return slot.items;
   const theme = currentChestTheme(now);
   return bannerItems(theme, chestPeriod(now));
+}
+
+// ---- 多池：当期 + 限时返场 + 常驻经典 ------------------------------------------
+//
+// 不再是"这一小时只能开这一期"：同一时刻有 5~6 个池子可选——
+// ① **当期主题**（照旧每小时轮换）；② **限时返场**（每 6 小时换一批，随机挑 3 个
+// 历史主题，每个自己活 2~24 小时，到点下架）；③ **常驻经典大池**（普通 / 高级宝箱，
+// 什么时候都在）。玩家在「奖池切换」里选一个，抽奖时"主题"那一档就用它
+// （普通 50% / 选中主题 35% / 高级 15% 不变，见 `pickChestPool`）。
+
+/** 池子的身份：当期 / 限时返场 / 常驻（普通与高级宝箱） */
+export type ChestSlotKind = 'current' | 'return' | 'const';
+/** 页签归类：经典（早期 11 个主题 + 普通 / 高级宝箱）· 新品（后加的纯主题） */
+export type ChestTab = 'classic' | 'new';
+
+export interface ChestSlot {
+  /** 槽位唯一键（面板拿它记「我选的是哪个池」） */
+  key: string;
+  theme: ChestTheme;
+  kind: ChestSlotKind;
+  tab: ChestTab;
+  /**
+   * 这个池子抽「主题」那一档时用的池子（= 墙上展示的这些件）。
+   * 当期按小时换、返场整批固定、常驻按小时换（都是种子随机，人人一致）。
+   */
+  items: Item[];
+  /** 下架时间戳（毫秒）；**0 = 常驻不过期** */
+  endsAt: number;
+  /** 现在能不能选中 / 抽取 */
+  active: boolean;
+}
+
+/** 早期 11 个主题 + 两个兜底大池 = 「经典」页签 */
+const CLASSIC_IDS = new Set([
+  'deep', 'hallow', 'steel', 'royal', 'sakura', 'galaxy', 'magma', 'frost', 'jungle', 'neon', 'cosmo',
+  'normal', 'premium',
+]);
+
+/** 每 6 小时换一批返场池 */
+const RETURN_BATCH_MS = 6 * 3_600_000;
+/** 一批返场几个池子 */
+const RETURN_COUNT = 3;
+/** 每个返场池活 2~24 小时 */
+const RETURN_MIN_MS = 2 * 3_600_000;
+const RETURN_MAX_MS = 24 * 3_600_000;
+
+function makeSlot(theme: ChestTheme, kind: ChestSlotKind, endsAt: number, seed: number): ChestSlot {
+  return {
+    key: `${kind}:${theme.id}`,
+    theme,
+    kind,
+    tab: CLASSIC_IDS.has(theme.id) ? 'classic' : 'new',
+    items: bannerItems(theme, seed),
+    endsAt,
+    active: true,
+  };
+}
+
+/** 刚刚下架（或还没轮到）的主题：只在页签里占个位置，不能选 */
+function idleSlot(theme: ChestTheme, now: number): ChestSlot {
+  return {
+    key: `idle:${theme.id}`,
+    theme,
+    kind: 'return',
+    tab: CLASSIC_IDS.has(theme.id) ? 'classic' : 'new',
+    items: bannerItems(theme, chestPeriod(now)),
+    endsAt: 0,
+    active: false,
+  };
+}
+
+/**
+ * 现在**能抽**的池子：当期主题 + 限时返场（0~3 个）+ 常驻经典大池（2 个）。
+ * 全部由时间推导（`mulberry32` + 批号当种子），不落库、刷新不变、人人一致。
+ */
+export function activeChestSlots(now: number = Date.now()): ChestSlot[] {
+  const period = chestPeriod(now);
+  const current = chestThemeFor(period);
+  const out: ChestSlot[] = [makeSlot(current, 'current', chestPeriodEnd(now), period)];
+
+  // 返场：按批号定死「这一批返场哪几个、各活多久」，到点自己下架
+  const batch = Math.floor(now / RETURN_BATCH_MS);
+  const batchStart = batch * RETURN_BATCH_MS;
+  const rng = mulberry32(hashStr('chest-return') ^ Math.imul(batch, 2654435761));
+  const picked = shuffled(
+    CHEST_THEMES.filter((t) => !t.complement && t.id !== current.id),
+    rng,
+  ).slice(0, RETURN_COUNT);
+  picked.forEach((t, i) => {
+    const life = RETURN_MIN_MS + rng() * (RETURN_MAX_MS - RETURN_MIN_MS);
+    // 错开一点，别几个池子同时下架
+    const endsAt = batchStart + life + i * 900_000;
+    if (endsAt > now) out.push(makeSlot(t, 'return', endsAt, batch));
+  });
+
+  // 常驻：普通宝箱 / 高级宝箱（同一柜杂货，星级结构不同），永远能开
+  for (const t of CHEST_THEMES.filter((x) => x.complement)) {
+    out.push(makeSlot(t, 'const', 0, period));
+  }
+  return out;
+}
+
+/** 全部主题（「经典 / 新品」两个页签要铺满，没返场的也列出来只是选不了） */
+export function allChestSlots(now: number = Date.now()): ChestSlot[] {
+  const active = activeChestSlots(now);
+  const byId = new Map(active.map((s) => [s.theme.id, s]));
+  const out: ChestSlot[] = [];
+  for (const t of CHEST_THEMES) {
+    if (t.complement) continue;
+    out.push(byId.get(t.id) ?? idleSlot(t, now));
+  }
+  for (const s of active) if (s.kind === 'const') out.push(s);
+  return out;
+}
+
+/** 默认选中的池子 = 当期主题 */
+export function defaultChestSlot(now: number = Date.now()): ChestSlot {
+  return activeChestSlots(now)[0];
+}
+
+/** 按 key 找池子（玩家的选择记在本机，跨期之后可能已经不存在了） */
+export function findChestSlot(key: string, now: number = Date.now()): ChestSlot | undefined {
+  return activeChestSlots(now).find((s) => s.key === key);
 }
 
 /**

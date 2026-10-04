@@ -8,6 +8,7 @@ import { useLobbyStore } from '../stores/lobby';
 import { toastBad, toastGood } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
 import { useJoystickPrefs } from '../composables/useJoystick';
+import { usePerfHudPref } from '../composables/usePerfHud';
 import { sfx } from '../game/audio';
 import { RARITY_META, type Rarity } from '../game/items';
 import type { CharacterSkin } from '../game/cosmetics';
@@ -28,6 +29,7 @@ const {
   scale: joyScale,
   setScale: setJoyScale,
 } = useJoystickPrefs();
+const { enabled: perfHud, setEnabled: setPerfHud } = usePerfHudPref();
 
 const code = ref('');
 const unlocked = ref<{ label: string; rarity: Rarity } | null>(null);
@@ -143,13 +145,33 @@ function submit(): void {
         />
       </div>
       <p class="muted set__hint">
-        自由摇杆：大地图 / 商店 / 宠物店在左侧区域按下，摇杆出现在手指下，松手消失；
+        自由摇杆：大地图 / 各房间里在左侧区域按下，摇杆出现在手指下，松手消失；
         比赛里是左半屏（右半屏仍然是瞄准球拍）。大小对全部摇杆生效（比赛下一局生效）。
         比赛里把左摇杆往上推仍然是<b>起跳</b>，操作逻辑没有变化。
       </p>
       <p class="muted set__hint">
-        「桌面端也显示虚拟摇杆」：触屏设备始终显示；打开后电脑上也在大地图 / 商店 /
-        宠物店 / 比赛 / 矿洞 / 农场 / 潜水常显摇杆（比赛场景下一局生效）。
+        「桌面端也显示虚拟摇杆」：触屏设备始终显示；打开后电脑上也在大地图 /
+        比赛 / 矿洞 / 农场 / 潜水 / 各房间常显摇杆（比赛场景下一局生效）。
+      </p>
+    </section>
+
+    <section class="set__block">
+      <h4 class="set__title">性能诊断</h4>
+      <VSwitch
+        :model-value="perfHud"
+        color="primary"
+        hide-details
+        label="显示帧时间 / 卡顿面板"
+        @update:model-value="setPerfHud(!!$event)"
+      />
+      <p class="muted set__hint">
+        打开后屏幕左上角（退出按钮下方）常显一块小面板：<b>fps</b>、最近 5 秒里
+        <b>最慢的一帧</b>、<b>掉帧次数</b>，以及最近几次卡顿与浏览器的<b>长任务</b>——有掉帧时会变红。
+      </p>
+      <p class="muted set__hint">
+        为什么不是只看 fps：帧率是<b>平滑过的平均值</b>，一秒里卡一帧看不出来；这里记的是
+        <b>每一帧花了多久</b>，才能抓到「突然卡一下」那种顿挫，长任务还能指出是哪一刻主线程被占住。
+        排查性能用，平时建议关掉（面板本身不挡操作、也不影响帧率）。
       </p>
     </section>
 

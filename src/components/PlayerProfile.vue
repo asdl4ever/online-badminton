@@ -108,7 +108,9 @@ const radar = computed(() => {
     const ang = -Math.PI / 2 + (Math.PI * 2 * i) / STAT_AXES.length;
     return [RADAR_C + Math.cos(ang) * RADAR_R * frac, RADAR_C + Math.sin(ang) * RADAR_R * frac];
   };
-  const poly = STAT_AXES.map((a, i) => axisPoint(i, s[a.key] / 100).join(',')).join(' ');
+  // 刻度按 100 封顶：玩家练满后五维会超过 100（见 training.ts 的 TRAIN_PER_LEVEL），
+  // 不封的话雷达会画到圈外、进度条也会溢出。
+  const poly = STAT_AXES.map((a, i) => axisPoint(i, Math.min(1, s[a.key] / 100)).join(',')).join(' ');
   const rings = [0.5, 1].map((f) =>
     STAT_AXES.map((_, i) => axisPoint(i, f).join(',')).join(' '),
   );
@@ -122,7 +124,7 @@ const radar = computed(() => {
       key: a.key,
       label: a.label,
       effect: a.effect,
-      value: s[a.key],
+      value: Math.min(100, s[a.key]),
       x,
       y,
       bonus: statBonus(s[a.key]),

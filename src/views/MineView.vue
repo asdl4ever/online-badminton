@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import { MiningScene, type MiningSceneData } from '../game/mine/MiningScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
@@ -63,6 +63,7 @@ function boot(session: NetLink | null) {
     banner: false,
     audio: { noAudio: true },
     scale: sceneScaleConfig(),
+    ...renderConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('MiningScene', MiningScene, true, data),

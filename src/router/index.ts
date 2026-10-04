@@ -66,17 +66,18 @@ export const router = createRouter({
       name: 'arena',
       component: () => import('../views/ArenaView.vue'),
     },
-    // 大地图上的商店：活动 + 宝箱
+    // 大地图上的商城：顶部 皮肤 / 宝箱 / 背包 + 左侧分类（子路由只换这一段）
+    // `:section?` = coin（金币商店）/ honor（荣誉商店）/ pet（宠物）/ shard（碎片兑换）
+    //                / chest（宝箱）/ bag（背包）
     {
-      path: '/shop',
+      path: '/shop/:section?',
       name: 'shop',
       component: () => import('../views/ShopView.vue'),
     },
-    // 大地图上的宠物店：每小时刷新 3 只在售宠物
+    // 宠物店已经并进商城的「皮肤 → 宠物」，老链接直接重定向
     {
       path: '/petshop',
-      name: 'petshop',
-      component: () => import('../views/PetShopView.vue'),
+      redirect: '/shop/pet',
     },
     // 大地图上的赛事中心（观战台）：世界赛树状图 + 真观战
     {

@@ -9,7 +9,7 @@ import { toastGood, toastWarn } from '../composables/useToast';
 import { useProgressStore } from '../stores/progress';
 
 /**
- * 小黄龙联动面板（挂在商店的活动告示板里）：
+ * 小黄龙联动面板（挂在小黄龙联名页 `/nailong` 里）：
  * 左边是小黄龙本人和挑战入口，右边是抽奖转盘。
  * 每天 3 张挑战门票（开一场扣一张，输赢都扣），打赢 → +1 张券，券拿去转盘抽限定周边与资源。
  */

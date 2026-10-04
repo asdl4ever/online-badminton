@@ -331,8 +331,15 @@ const pinch = createPinchZoom({
 const nearZone = ref<WorldZone | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
+/**
+ * 角色与平板这两块 DOM：位置**每帧直接写 style**，不走模板绑定。
+ * 绑到 `me`（每秒变 60 次）上会让整个大世界每帧重渲染一次——直接写 DOM 后，
+ * `me` 不再被渲染函数读取，改它就不会触发组件更新。
+ */
+const meBox = ref<HTMLElement | null>(null);
+const tabletBtn = ref<HTMLElement | null>(null);
 
-/* --- 段位/背包/宝箱(跳商店)/好友/成就都由 PageShell 内置 --- */
+/* --- 段位/背包/宝箱(跳商城)/好友/成就都由 PageShell 内置 --- */
 
 /** 在线玩家列表已移除（左侧不再显示）；好友邀请走右上角好友面板 */
 
@@ -378,20 +385,14 @@ const tradeOpen = ref(false);
 /** 正在跟谁交易（也是「靠近了收购商」的判据，用来显示 💰 按钮 / 接管 E 键） */
 const tradeNpc = ref<WorldNpc | null>(null);
 
-/** 站在哪个收购商的范围里（没有就是 null） */
-const nearTrader = computed<WorldNpc | null>(() => {
-  let best: WorldNpc | null = null;
-  let bestD = Infinity;
-  for (const n of WORLD_NPCS) {
-    if (!n.trader) continue;
-    const d = Math.hypot(me.value.x - n.x, me.value.y - n.y);
-    if (d < n.range && d < bestD) {
-      bestD = d;
-      best = n;
-    }
-  }
-  return best;
-});
+/**
+ * 站在哪个收购商的范围里（没有就是 null）。
+ *
+ * **刻意不是 computed**：它依赖人的坐标，而坐标每帧都在动——做成 computed 会让
+ * 整个大世界每帧重渲染一次。改成 ref，在 `updateCamera()` 里算，且只在**结果
+ * 变了**才写（同引用不触发更新），于是跨进 / 跨出收购范围时才更新一次。
+ */
+const nearTrader = ref<WorldNpc | null>(null);
 
 function openTrade(n: WorldNpc): void {
   sfx.click();
@@ -550,6 +551,44 @@ function updateCamera(): void {
     }
   }
   nearZone.value = near;
+
+  // 站在哪个收购商跟前（他站在区域圈外，所以单独判一次）；只在结果变了才写
+  let trader: WorldNpc | null = null;
+  let tBest = Infinity;
+  for (const n of WORLD_NPCS) {
+    if (!n.trader) continue;
+    const d = Math.hypot(n.x - me.value.x, n.y - me.value.y);
+    if (d < n.range && d < tBest) {
+      tBest = d;
+      trader = n;
+    }
+  }
+  if (nearTrader.value !== trader) nearTrader.value = trader;
+}
+
+/**
+ * 把角色的位置直接写进 DOM（不经过 Vue 响应式）。
+ * 这两块（角色、平板）每帧都在动，走模板绑定会每帧重渲染整个大世界。
+ */
+function syncAvatarDom(): void {
+  const x = me.value.x;
+  const y = me.value.y;
+  if (meBox.value) {
+    meBox.value.style.left = `${x}px`;
+    meBox.value.style.top = `${y}px`;
+  }
+  if (tabletBtn.value) {
+    // 平板**不在缩放平面里**（见模板注释）：它必须压过自由摇杆的半屏热区才点得到，
+    // 而平面是带 transform 的层叠上下文，里面的 z-index 永远压不过热区。
+    // 人物永远钉在舞台正中（`updateCamera`），所以这里用「舞台中心 + 世界偏移 × 视距」换算。
+    const z = clampZoom(zoom.value);
+    const halfW = (stage.value?.clientWidth ?? 0) / 2;
+    const halfH = (stage.value?.clientHeight ?? 0) / 2;
+    tabletBtn.value.style.left = `${halfW + 30 * z}px`;
+    tabletBtn.value.style.top = `${halfH - 52 * z}px`;
+    // 原先它跟着平面一起被缩放了 z，现在自己乘回来（`tabletScale` 那套补偿照旧）
+    tabletBtn.value.style.transform = `translate(-50%, -50%) scale(${z * tabletScale.value})`;
+  }
 }
 
 let raf = 0;
@@ -590,6 +629,7 @@ function loop(now: number): void {
   stepNpcs(dt);
   stepRacket(dt);
   updateCamera();
+  syncAvatarDom();
   // 自己的位姿发给对方（12Hz），对方的位置插值过来
   map.tick(dt, { x: me.value.x, y: me.value.y, facing });
   paintMe(now);
@@ -653,6 +693,8 @@ onMounted(() => {
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   updateCamera();
+  // 角色 / 平板的位置是直写 DOM 的，首帧到来前先摆好，避免开场闪一下左上角
+  syncAvatarDom();
   raf = requestAnimationFrame(loop);
 });
 
@@ -822,10 +864,9 @@ onBeforeUnmount(() => {
 
           <!-- 角色：和游戏里同一份绘制（含全部装扮 + 球拍皮肤），脚底对齐坐标点 -->
           <div
+            ref="meBox"
             class="avatar is-me"
             :style="{
-              left: `${me.x}px`,
-              top: `${me.y}px`,
               width: `${avatarBox.w}px`,
               height: `${avatarBox.h}px`,
               transform: `translate(-50%, calc(-100% + ${avatarFeetPad}px))`,
@@ -834,24 +875,6 @@ onBeforeUnmount(() => {
             <canvas ref="meCanvas" class="avatar__rig" />
             <div class="avatar__name">你</div>
           </div>
-
-          <!-- 角色右手边上那台平板：点一下就弹出来（报名 / 预约 / 赛事中心 / 排行榜 / 新闻周刊） -->
-          <button
-            class="world__tablet"
-            type="button"
-            title="平板 · 赛事报名 / 我的预约"
-            :style="{
-              left: `${me.x + 30}px`,
-              top: `${me.y - 52}px`,
-              transform: `translate(-50%, -50%) scale(${tabletScale})`,
-            }"
-            @click.stop="openTablet"
-          >
-            <span class="world__tablet-frame">
-              <span class="world__tablet-screen">🏆</span>
-            </span>
-            <span v-if="bookedCount" class="world__tablet-dot num">{{ bookedCount }}</span>
-          </button>
 
           <!-- 好友：同样的绘制，用 2 号位颜色区分，位置来自 12Hz 同步 -->
           <div
@@ -869,6 +892,23 @@ onBeforeUnmount(() => {
             <div class="avatar__name">{{ mapPeer.name }}</div>
           </div>
         </div>
+
+        <!-- 角色右手边上那台平板：点它弹出「ArenaOS」（报名 / 预约 / 赛事中心 / 排行）。
+             ⚠️ **刻意摆在平面之外**：平面带 transform，是个层叠上下文，里面的节点
+             z-index 永远压不过自由摇杆的半屏热区（28）——就会被热区吞掉，点它变成走路。
+             放在舞台层（z-index 31）才点得到；位置每帧由 `syncAvatarDom()` 直写。 -->
+        <button
+          ref="tabletBtn"
+          class="world__tablet"
+          type="button"
+          title="平板 · 赛事报名 / 我的预约"
+          @click.stop="openTablet"
+        >
+          <span class="world__tablet-frame">
+            <span class="world__tablet-screen">🏆</span>
+          </span>
+          <span v-if="bookedCount" class="world__tablet-dot num">{{ bookedCount }}</span>
+        </button>
 
         <div class="world__prompt" :class="{ 'is-on': !!nearZone }">
           {{ nearZone ? `按 E 进入「${nearZone.name}」` : '' }}
@@ -1184,10 +1224,12 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
 }
 
-/* --- 角色右手边那台平板：点它弹出「ArenaOS」 ------------------------------- */
+/* --- 角色右手边那台平板：点它弹出「ArenaOS」 -------------------------------
+   它挂在**舞台层**（不在 `.world__plane` 里），所以要压过自由摇杆热区（28）；
+   位置由 `syncAvatarDom()` 每帧直写（舞台中心 + 世界偏移 × 视距）。 */
 .world__tablet {
   position: absolute;
-  z-index: 14;
+  z-index: 31;
   width: 40px;
   height: 52px;
   padding: 0;

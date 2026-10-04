@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { GameScene, type HudState, type MatchConfig, type MatchOpponent } from '../game/scenes/GameScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import GameSticks from './ui/GameSticks.vue';
 import type { MatchRole, SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
@@ -70,12 +70,24 @@ const container = ref<HTMLDivElement | null>(null);
 const hud = ref<HudState | null>(null);
 let game: Phaser.Game | null = null;
 
+/**
+ * 已经至少渲染过一帧没。
+ *
+ * ⚠️ **没画过就 `sleep()` 的话，这块画布是永远空白的**——`loop.sleep()` 停掉的是循环，
+ * 画布保留的是「上一次画面」，一次都没画过就什么都没有。球馆里睡着的场地全靠这一帧
+ * 停在屏幕上（场地是静态的，睡不睡看起来一样），所以先让它真的画一帧再判断。
+ */
+let drew = false;
+
 /** 按 `paused` 把 Phaser 主循环 sleep / wake（sleep 会同时停掉 update 与渲染） */
 function applyPaused(): void {
   const loop = game?.loop;
   if (!loop) return;
-  if (props.paused && loop.running) loop.sleep();
-  else if (!props.paused && !loop.running) loop.wake();
+  if (props.paused) {
+    if (drew && loop.running) loop.sleep();
+  } else if (!loop.running) {
+    loop.wake();
+  }
 }
 
 watch(() => props.paused, applyPaused);
@@ -84,30 +96,9 @@ function scene(): GameScene | null {
   return (game?.scene.getScene('GameScene') as GameScene | undefined) ?? null;
 }
 
-function sendEmote(id: string): void {
-  scene()?.sendEmote(id);
-}
-
-function voteParty(optionId: string): void {
-  scene()?.voteParty(optionId);
-}
-
-function nextPartyRound(): void {
-  scene()?.nextPartyRound();
-}
-
-defineExpose({ sendEmote, voteParty, nextPartyRound });
-
-onMounted(async () => {
-  // Phaser renders text with the canvas 2D API, which does not re-flow when a
-  // web font finishes loading — so wait for the display face before booting
-  try {
-    await document.fonts.load('700 64px "Chakra Petch"');
-  } catch {
-    /* font optional: the stack falls back to system CJK */
-  }
-
-  const cfg: MatchConfig = {
+/** 把当前 props 组装成 MatchConfig（**首次启动与「原地重启场景」共用同一份**） */
+function buildCfg(): MatchConfig {
+  return {
     role: props.role,
     session: props.session,
     onHud: (s) => {
@@ -135,6 +126,58 @@ onMounted(async () => {
     idle: props.idle,
     forceTouch: props.forceTouch,
   };
+}
+
+/**
+ * **原地重启场景**，而不是重建整个 Phaser 实例。
+ *
+ * ⚠️ 这是「进入 / 退出比赛卡一下」的正解：`new Phaser.Game()` 要建 WebGL 上下文 +
+ * 编译着色器，`destroy()` 再还回去，**这两下在手机上是几百毫秒到两秒的主线程长任务**
+ * （诊断面板上就是「长任务 463ms / 2043ms」）。球馆里「上场 / 离开场地」只是**同一块
+ * 画布换个模式**，却因为父组件用了 `:key` 把整块画布重挂 → 每次点都新建一个实例。
+ *
+ * 改成 `scene.restart(cfg)`：渲染器与着色器都还在，只把场景重建一遍（几十毫秒）。
+ *
+ * 渲染器层面的东西（`hall` 决定画布透明与否、`role`、`session`）不在这里管——
+ * 它们在一次挂载里是不变的，真要变仍然靠 `:key` 重挂。
+ */
+function restartScene(): void {
+  scene()?.scene.restart(buildCfg());
+}
+
+/**
+ * 这些 props 一变，场景要按新配置重来（原来靠父组件的 `:key` 重挂整个实例）。
+ * `paused` 不在此列——它只 sleep / wake 主循环，见 `applyPaused()`。
+ */
+watch(
+  () => [props.optionId, props.opponent, props.idle, props.forceTouch, props.theme, props.party],
+  restartScene,
+);
+
+function sendEmote(id: string): void {
+  scene()?.sendEmote(id);
+}
+
+function voteParty(optionId: string): void {
+  scene()?.voteParty(optionId);
+}
+
+function nextPartyRound(): void {
+  scene()?.nextPartyRound();
+}
+
+defineExpose({ sendEmote, voteParty, nextPartyRound });
+
+onMounted(async () => {
+  // Phaser renders text with the canvas 2D API, which does not re-flow when a
+  // web font finishes loading — so wait for the display face before booting
+  try {
+    await document.fonts.load('700 64px "Chakra Petch"');
+  } catch {
+    /* font optional: the stack falls back to system CJK */
+  }
+
+  const cfg: MatchConfig = buildCfg();
 
   game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -147,6 +190,7 @@ onMounted(async () => {
     banner: false,
     audio: { noAudio: true },
     scale: sceneScaleConfig(),
+    ...renderConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => {
@@ -158,10 +202,14 @@ onMounted(async () => {
   // 画布后备缓冲 = 容器 CSS 尺寸 × 设备像素比（高分屏不糊），并跟随尺寸变化
   bindCanvasSize(game, container.value);
 
-  // Phaser 的 postBoot 在 loop.start() 之前，那时 sleep 是空操作；构造返回后
-  // loop 已经起跑，这里补一刀（下一帧再兜一次，兼容 boot 被推迟的情况）。
-  applyPaused();
-  requestAnimationFrame(applyPaused);
+  // 先让渲染器 + 场景**真的画两帧**，之后才按 `paused` 决定睡不睡：
+  // 没画过就 sleep 会留下一块空白画布（见 `drew` 的注释）。
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      drew = true;
+      applyPaused();
+    }),
+  );
 
   if (import.meta.env.DEV) {
     (window as unknown as { __game?: Phaser.Game }).__game = game;

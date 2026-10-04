@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import { ClimbScene } from '../game/climb/ClimbScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
 import { useCustomizeStore } from '../stores/customize';
@@ -37,6 +37,7 @@ onMounted(() => {
     banner: false,
     audio: { noAudio: true },
     scale: sceneScaleConfig(),
+    ...renderConfig(),
     // the climb is the only mode that needs a real rigid-body solver
     physics: {
       default: 'matter',

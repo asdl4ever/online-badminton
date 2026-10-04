@@ -7,7 +7,7 @@ import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import ItemIcon from '../components/ItemIcon.vue';
 import { AlienScene, type AlienSceneCfg } from '../game/alien/AlienScene';
-import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import {
   ALIEN_DAILY_MAX,
@@ -84,6 +84,7 @@ function bootScene(): void {
     banner: false,
     audio: { noAudio: true },
     scale: sceneScaleConfig(),
+    ...renderConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('AlienScene', AlienScene, true, data),

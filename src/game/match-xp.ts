@@ -112,8 +112,14 @@ export function createMatchTally(): MatchTallyTracker {
   };
 }
 
-/** 每一项的原始分封顶：免得某一维（比如跑动）一家独大 */
-const PER_KEY_CAP = 60;
+/**
+ * 每一项的原始分封顶：免得某一维（比如跑动）一家独大。
+ *
+ * 2026-10 从 60 收到 36：配合下面的 `MATCH_XP_SCALE` 一起把**一场比赛的收益**
+ * 压到「每维 3~4 点」。封顶留着是因为速度 / 体力的原始分本来就能到两三百
+ * （跑动一多就爆表），有它才不至于让「跑得多」一家独大。
+ */
+const PER_KEY_CAP = 36;
 const cap = (v: number): number => Math.max(0, Math.min(PER_KEY_CAP, v));
 
 const countKinds = (h: Record<ShotKind, number>): number =>
@@ -142,10 +148,14 @@ export function rawMatchXp(t: MatchTally, me: 0 | 1): Record<TrainKey, number> {
 /**
  * **基准系数**：所有比赛经验的统一缩放（只调手感就动这一个数）。
  *
- * 0.7 —— 整体往下压了三成：五维靠打比赛「顺手长」的速度要慢于健身房那种
- * 定向苦练，不然一晚上刷几场就把一维推上去了。
+ * 0.06 —— 2026-10 从 0.7 大幅下调：比赛现在只算「顺手长一点」，
+ * **一场打完每维大约 3~4 点**（赢球、11:9 这种拉锯；输球更低）。
+ * 想精准练某一维必须去健身房 / 操场（那里也一起砍半了）。
+ *
+ * 估算：一场 11:9 的胜利 ≈ 基准 0.06 × 对手强度 ~0.9 × 比赛质量 ~1.7 ≈ 0.09，
+ * 再乘封顶后的原始分 36 → 每维约 3 点。
  */
-export const MATCH_XP_SCALE = 0.7;
+export const MATCH_XP_SCALE = 0.06;
 
 /**
  * 对手强度系数：对面 rating 越高给得越多，1500 为基准（0.6~1.8）。

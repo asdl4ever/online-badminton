@@ -3,9 +3,6 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
 import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
-import ArenaScreen from '../components/ArenaScreen.vue';
-import { arenaLive } from '../composables/useArenaLive';
-import { worldState } from '../game/world-arena';
 import PageShell from '../components/ui/PageShell.vue';
 import Button from '../components/ui/Button.vue';
 import AppModal from '../components/ui/AppModal.vue';
@@ -33,18 +30,18 @@ import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 
 /**
- * **大熊球馆**（原来的训练场 / 单机练习）——一间俯视大厅，分成三个区（`AREA_PLATES`）：
+ * **大熊球馆**（原来的训练场 / 单机练习）——一间俯视大厅：
  *
- * - **🏆 中央比赛区**（上）：两张公开赛场地（100 赛 / 200 赛）**并排放在一起**，
- *   播赛事中心这两个档的真实直播，场地上方有计分板（`ArenaScreen` + `ArenaBoard`）、
- *   场边有座位；走近「坐下看」，镜头拉到 1:1（复用赛事中心的 `world-arena`）。
- * - **🏸 训练区**（左）：🏸 发球机（走近 → 右下角按钮 → 开练，开练后换成正式对局画布）。
- * - **🎾 普通场地区**（下）：6 张**空**场地（3×2）。走近「上场」打一盘（挑战人机 /
- *   邀请好友参赛），平时就空着——**不再放 AI 互打的演示**（一堆 Phaser 实例同时
- *   跑对局太卡）。走到附近才挂画面（`courtMounted`）。
+ * - **🎾 普通场地区**：6 张**空**场地（3×2）。走近「上场」打一盘（挑战人机 /
+ *   发球机对练 / 邀请好友参赛），平时就空着——**不放 AI 互打的演示**（一堆 Phaser
+ *   实例同时跑对局太卡）。走到附近才挂画面（`courtMounted`）。
+ *
+ * ⚠️ 原来的 **🏆 中央比赛区**（两张 100 赛 / 200 赛公开赛场地的**实时直播** + 计分板 +
+ * 座位）已经整块删掉：那两块各是一台完整的双 AI 对局，走进去要 `new Phaser.Game`
+ * 建 WebGL 上下文 + 编译着色器，来回走就是「突然巨卡一下再恢复」。想观赛去**赛事中心**。
  *
  * 每块场地下面都垫着一层 `.court-mat`（看台 + 地板 + 收边），所以 `hall` 画布
- * （只画线 + 网）看起来也是一块**真场地**；区与区之间是 `PATHS` 里的圆头走道。
+ * （只画线 + 网）看起来也是一块**真场地**；场地之间是 `PATHS` 里的圆头走道。
  */
 const router = useRouter();
 const store = useGameStore();
@@ -67,6 +64,8 @@ const EXIT_RADIUS = 175;
 const stage = ref<HTMLElement | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const meCanvas = ref<HTMLCanvasElement | null>(null);
+/** 角色那块 DOM：位置每帧直写 style（不绑 `me`，否则走动时整页每帧重渲染） */
+const meBox = ref<HTMLElement | null>(null);
 const AVATAR_SCALE = 0.8;
 const avatarBox = avatarBoxSize(AVATAR_SCALE);
 const avatarFeetPad = Math.round(AVATAR_FEET_PAD * AVATAR_SCALE);
@@ -77,9 +76,8 @@ const COURT_Y = [1450, 1980];
 const COURTS = COURT_Y.flatMap((y) => COURT_X.map((x) => ({ x, y })));
 
 /**
- * 6 张普通场地**都是空的**：球馆里只有「中央比赛区」那两张公开赛场地在跑直播
- * （`STAGE_COURTS` + `ArenaScreen`），普通场地**不再放 AI 对局**——一堆 Phaser
- * 实例同时跑对局太卡。空场地可以「上场」或「邀请好友参赛」。
+ * 6 张普通场地**都是空的**：**不放 AI 互打的演示**（一堆 Phaser 实例同时跑对局太卡）。
+ * 走近按 E / 点一下 → 弹「上场」卡：挑战人机 / 发球机对练 / 邀请好友参赛。
  */
 /** 这张场地的画面挂上了没：走到附近才挂（省性能，别一进馆就起一堆 Phaser 实例） */
 const courtMounted = ref<boolean[]>(COURTS.map(() => false));
@@ -151,133 +149,115 @@ const COURT_FOCUS_BIAS = 130;
  */
 function courtFocusCam(): { x: number; y: number; zoom: number } | null {
   const i = courtFocus.value;
-  if (i == null) return null;
-  const cup = cupSlotIndex(i);
-  const c = cup >= 0 ? STAGE_COURTS[cup] : COURTS[i];
-  const box = stage.value?.getBoundingClientRect();
-  const w = box?.width ?? 844;
-  const h = box?.height ?? 390;
+  if (i == null || i < 0 || i >= COURTS.length) return null;
+  const c = COURTS[i];
+  // 用 ResizeObserver 维护的 stageSize，不再每帧 getBoundingClientRect（那是强制同步布局）
+  const w = stageSize.value.w || 844;
+  const h = stageSize.value.h || 390;
   const fit = Math.max(0.3, Math.min(1.4, Math.min(w / VIEW_W, h / VIEW_H)));
   return { x: c.x, y: c.y + COURT_FOCUS_BIAS, zoom: fit };
 }
 
 
 
-/** **中央比赛区**：两张公开赛场地**并排放在一起**（100 赛 / 200 赛）——
- *  播赛事中心这两个档的**真实直播**，上面有计分板（`ArenaBoard`） */
-const STAGE_COURTS = [
-  { id: 'cup100', x: 1400, y: 500, label: '100 赛', tier: 'l100' },
-  { id: 'cup200', x: 2200, y: 500, label: '200 赛', tier: 'l200' },
-];
-
-/** 后排两块中央场地此刻要播的那一场（`worldState` 是纯函数、按 `now` 算，
- *  所以每秒喂一次新的时间戳刷新）。 */
-const arenaNow = ref(Date.now());
-let arenaTick = Date.now();
-
 /**
- * 中央两块场地**播哪两档**：从世界赛的十一档里挑**真的有人报名**的最低两档。
- *
- * ⚠️ 不能写死 100 赛 / 200 赛——世界赛按名人堂排名切档，而**最低档总是最先被并空**
- * （`tierPools` 把不足 2 人的档往下并，底档只剩一个人时还会并到上一档），所以默认
- * 20 人名单下 100 赛一个人都没有 → `arenaLive()` 返回 null → 那块场地永远空白，
- * 看着就像「图片坏了」。这里改成从有人的档里挑，场地上永远有得播。
- */
-const stageTiers = computed<{ id: string; tag: string }[]>(() => {
-  const ok = worldState(progress.aiPlayers, arenaNow.value).cups.filter(
-    (c) => c.entrants.length >= 2,
-  );
-  return STAGE_COURTS.map((slot, i) => {
-    const c = ok[i] ?? ok[0];
-    return c ? { id: c.tier.id, tag: c.tier.tag } : { id: slot.tier, tag: slot.label };
-  });
-});
-
-const cupLive = computed(() =>
-  stageTiers.value.map((t) => {
-    void arenaNow.value;
-    return arenaLive(progress.aiPlayers, t.id, arenaNow.value);
-  }),
-);
-
-/** 后排两块中央场地的镜头槽位（`courtFocus` 的哨兵下标，和普通场地下标不重叠） */
-const CUP_SLOTS = STAGE_COURTS.map((_, i) => COURTS.length + i);
-const cupSlotIndex = (i: number): number => CUP_SLOTS.indexOf(i);
-
-/**
- * **哪些画面此刻在屏幕内**（每帧在 `onFrame` 里刷）：球馆里同时挂着好几台 Phaser
- * （2 场公开赛直播 + 最多 6 张场地），全都在跑各自的 rAF 会很卡。屏幕外的那些就把
- * Phaser 主循环 `sleep()` 掉（update + 渲染一起停），重新走回来再 `wake()`——所以
- * 「进去半天就卡」「看比赛也卡」的根因是后台一堆实例空烧。
+ * **哪些画面此刻在屏幕内**（每帧在 `onFrame` 里刷）：球馆里可能同时挂着好几台 Phaser
+ * （最多 6 张场地），全都在跑各自的 rAF 会很卡。屏幕外的那些就把 Phaser 主循环
+ * `sleep()` 掉（update + 渲染一起停），重新走回来再 `wake()`。
  */
 const courtVisible = ref<boolean[]>(COURTS.map(() => false));
-const cupVisible = ref<boolean[]>(STAGE_COURTS.map(() => false));
-
-/**
- * **中央两块公开赛直播场地也要「走近才挂」**：它们各自是一台完整的双 AI 对局，
- * 一进馆就把两台都建起来（WebGL 上下文 + 着色器编译）就是「刚进门卡一下」的主因。
- * 场地垫 / 看台 / 计分板照旧留着，走上去才真正开始直播。
- */
-const cupMounted = ref<boolean[]>(STAGE_COURTS.map(() => false));
 
 /**
  * **错开创建**：一帧里同时进视野的可能有好几块场地，全是 `new Phaser.Game` 会堆成
  * 一次明显的卡顿。所以挂载都排进这个队列，每 `MOUNT_GAP_MS` 只挂一台。
  */
 const MOUNT_GAP_MS = 170;
-const mountQueue: { kind: 'court' | 'cup'; idx: number }[] = [];
+const mountQueue: number[] = [];
 let lastMountAt = 0;
 
-function mountList(kind: 'court' | 'cup') {
-  return kind === 'court' ? courtMounted.value : cupMounted.value;
-}
+/** 同时挂着的场地上限：超了就把「离得最远的那张」还回去（省 WebGL 上下文） */
+const MAX_MOUNTED = 4;
+/**
+ * **拆场的距离**：比「可见半径」远这么多才真的拆掉。
+ * `new Phaser.Game`（建 WebGL 上下文 + 编译着色器）是球馆里最贵的一下，所以在场地
+ * 边界来回走时**尽量别反复创建 / 销毁**——走远到这个倍数才还回去，走回来时它还在
+ * （只是被 `sleep()` 着，几乎不耗）。
+ */
+const UNMOUNT_RATIO = 2.6;
 
 /** 排进挂载队列（已经在挂 / 已挂的不重复排） */
-function queueMount(kind: 'court' | 'cup', idx: number): void {
-  if (mountList(kind)[idx]) return;
-  if (mountQueue.some((q) => q.kind === kind && q.idx === idx)) return;
-  mountQueue.push({ kind, idx });
+function queueMount(idx: number): void {
+  if (courtMounted.value[idx]) return;
+  if (mountQueue.includes(idx)) return;
+  mountQueue.push(idx);
 }
 
 /** 立刻挂上（镜头锁定的那一块不能等队列） */
-function mountNow(kind: 'court' | 'cup', idx: number): void {
-  const at = mountQueue.findIndex((q) => q.kind === kind && q.idx === idx);
+function mountNow(idx: number): void {
+  const at = mountQueue.indexOf(idx);
   if (at >= 0) mountQueue.splice(at, 1);
-  if (!mountList(kind)[idx]) mountList(kind)[idx] = true;
+  if (!courtMounted.value[idx]) courtMounted.value[idx] = true;
 }
 
 /** 拆掉（连队列里没挂上的一起取消） */
-function unmount(kind: 'court' | 'cup', idx: number): void {
-  for (let i = mountQueue.length - 1; i >= 0; i--) {
-    if (mountQueue[i].kind === kind && mountQueue[i].idx === idx) mountQueue.splice(i, 1);
-  }
-  if (mountList(kind)[idx]) mountList(kind)[idx] = false;
+function unmount(idx: number): void {
+  const at = mountQueue.indexOf(idx);
+  if (at >= 0) mountQueue.splice(at, 1);
+  if (courtMounted.value[idx]) courtMounted.value[idx] = false;
 }
 
 /** 每 `MOUNT_GAP_MS` 放一台出来 */
 function pumpMounts(now: number): void {
   if (!mountQueue.length || now - lastMountAt < MOUNT_GAP_MS) return;
   const next = mountQueue.shift();
-  if (!next) return;
+  if (next === undefined) return;
   lastMountAt = now;
-  mountList(next.kind)[next.idx] = true;
+  courtMounted.value[next] = true;
 }
 
-/** 某块普通场地要不要暂停：在看某一格（打球 / 看直播）时只留那一格，其余全停 */
+/**
+ * 每帧决定「哪几张场地的画面该挂着」：靠近的挂上、走远的拆掉；同时挂着的数量封顶
+ * `MAX_MOUNTED`（超了按距离裁最远的）。**已挂的**在排序里算「更近」（减一个 radius），
+ * 所以会在附近多留一会儿——这是为了减少 `new Phaser.Game` / `destroy` 的次数。
+ */
+function stepMounts(now: number): void {
+  const radius = visibleRadius();
+  const runR = runRadius();
+  const drop = radius * UNMOUNT_RATIO;
+  const mx = walk.me.value.x;
+  const my = walk.me.value.y;
+  const busy = (i: number) => hallPlaying.value === i || hallMachine.value === i;
+  const dist = (i: number) => Math.hypot(COURTS[i].x - mx, COURTS[i].y - my);
+
+  const wanted: number[] = [];
+  for (let i = 0; i < COURTS.length; i++) {
+    const d = dist(i);
+    // 「挂不挂画布」看宽松的 radius（提前挂上，走近就有）；「跑不跑」看屏幕内的 runR
+    courtVisible.value[i] = d <= runR;
+    if (busy(i) || d <= radius) wanted.push(i);
+    else if (courtMounted.value[i] && d <= drop) wanted.push(i);
+    else if (courtMounted.value[i]) unmount(i);
+  }
+
+  if (wanted.length > MAX_MOUNTED) {
+    const key = (i: number) => dist(i) - (courtMounted.value[i] ? radius : 0);
+    wanted.sort((a, b) => key(a) - key(b));
+    for (const i of wanted.slice(MAX_MOUNTED)) if (!busy(i)) unmount(i);
+    wanted.length = MAX_MOUNTED;
+  }
+  for (const i of wanted) queueMount(i);
+  pumpMounts(now);
+}
+
+/** 某块场地要不要暂停：在打某一格时只留那一格，其余全停 */
 function courtPaused(i: number): boolean {
   return courtFocus.value !== null ? courtFocus.value !== i : !courtVisible.value[i];
 }
-/** 中央那块直播场地同理 */
-function cupPaused(i: number): boolean {
-  return courtFocus.value !== null ? courtFocus.value !== CUP_SLOTS[i] : !cupVisible.value[i];
-}
 
-/** 两块公开赛场地的**计分**：观战直播的 HUD 给的，喂给场地上方那块牌子 */
-const cupScore = ref<[number, number][]>(STAGE_COURTS.map(() => [0, 0]));
-function onCupHud(i: number, s: HudState): void {
-  const a = cupScore.value[i];
-  if (a[0] !== s.score[0] || a[1] !== s.score[1]) cupScore.value[i] = [s.score[0], s.score[1]];
-}
+/** 镜头锁定的那一块不能等队列，立刻挂上（点了「上场」就马上要有画面） */
+watch(courtFocus, (i) => {
+  if (i !== null && i >= 0) mountNow(i);
+});
 
 /** 场地之间的**走道**：一条主走道横贯全场（把中央比赛区与场地区分开）+ 一条副走道 +
  *  两条竖走道（左那条同时是**入口大道**，从出口一直通到主走道） */
@@ -288,29 +268,55 @@ const PATHS = [
   { x: 2350, y: 1665, w: 130, h: 1210 }, // 右侧竖走道
 ];
 
-/** 两个区的**地板平台**（纯地面装饰，压在最下层）：把一伙玩法圈在一起，看着像正经场馆 */
+/** 场地区的**地板平台**（纯地面装饰，压在最下层）：把一伙玩法圈在一起，看着像正经场馆 */
 const AREA_PLATES = [
-  { id: 'cup', name: '🏆 中央比赛区', x: 1800, y: 560, w: 2100, h: 700 },
   { id: 'courts', name: '🎾 普通场地区', x: 1800, y: 1715, w: 3300, h: 1030 },
 ];
 
-/** 6 张普通场地也是可交互物：空的「上场」，有人的「坐下看」 */
+/** 6 张普通场地是可交互物：走近按 E / 点一下 → 弹「上场」卡（挑战人机 / 发球机 / 邀请） */
 const COURT_OBJECTS = COURTS.map((c, i) => ({ id: `court-${i}`, x: c.x, y: c.y }));
-const WALK_OBJECTS = [...STAGE_COURTS, ...COURT_OBJECTS];
+const WALK_OBJECTS: { id: string; x: number; y: number }[] = [...COURT_OBJECTS];
 
 function paintMe(now: number): void {
   const c = meCanvas.value;
   if (c) paintAvatar(c, customize.cosmetic, now, { scale: AVATAR_SCALE, facing: 1 });
 }
 
+/** 角色 DOM 的位置（走动手感无关的纯摆放；直写 style 跳过响应式） */
+function syncMe(): void {
+  const el = meBox.value;
+  if (!el) return;
+  el.style.left = `${me.value.x}px`;
+  el.style.top = `${me.value.y}px`;
+}
+
 /** 镜头能看到的半径（决定哪几张场地要把对局挂起来）；锁在场地里时按锁定视距算 */
-function visibleRadius(): number {
-  const box = stage.value?.getBoundingClientRect();
+/**
+ * **「真的要渲染」的范围**：屏幕上看得见的那一圈（含场地自身的尺寸）。
+ *
+ * 为什么要和「挂载半径」分开：挂上 / 销毁一次 Phaser 很贵（几百毫秒的主线程长任务），
+ * 所以**一旦挂上就留到走远**（`UNMOUNT_RATIO`）；但**没必要让屏幕外的那几张一直跑**——
+ * 每张都是一块全屏画布，手机上纯粹白烧填充率（诊断面板里球馆站着不动只有 28fps，
+ * 就是因为同时有好几张在跑）。睡着的画布**保留最后一次画面**（场地是静态的，
+ * 睡不睡肉眼看不出区别），所以这里不改变观感。
+ */
+function runRadius(): number {
   const z = clampZoom(courtFocusCam()?.zoom ?? zoom.value);
-  const vw = (box?.width ?? 844) / z;
-  const vh = (box?.height ?? 390) / z;
+  const vw = (stageSize.value.w || 844) / z;
+  const vh = (stageSize.value.h || 390) / z;
+  return Math.hypot(vw / 2 + courtBox.value.w / 2, vh / 2 + courtBox.value.h / 2);
+}
+
+function visibleRadius(): number {
+  const z = clampZoom(courtFocusCam()?.zoom ?? zoom.value);
+  const vw = (stageSize.value.w || 844) / z;
+  const vh = (stageSize.value.h || 390) / z;
   return Math.hypot(vw, vh) / 2 + 700;
 }
+
+/** 站在门口：右下角出现「出门」。**不是 computed**（它依赖每帧在动的坐标），
+ *  在 onFrame 里按结果变化才写，避免走动时整页每帧重渲染。 */
+const nearDoor = ref(false);
 
 const walk = useWalk({
   stage,
@@ -329,43 +335,17 @@ const walk = useWalk({
     }
   },
   onFrame: (now) => {
-    // 每秒刷一次赛事直播（`worldState` 按时间算的纯函数，得喂新时间戳才知道换场了）
-    if (now - arenaTick > 1000) {
-      arenaTick = now;
-      arenaNow.value = now;
-    }
-    // 走到附近才把这块场地的画面挂起来：一堆 Phaser 实例一起跑太费。**走远就拆掉**
-    // （带滞回，免得在边界来回抖动），把 WebGL 上下文也还回去——手机上的上下文数量
-    // 有限，挂太多会丢上下文变黑屏。屏幕上通常同时只有 1~3 张。
-    const radius = visibleRadius();
-    const drop = radius * 1.4;
-    for (let i = 0; i < COURTS.length; i++) {
-      const c = COURTS[i];
-      const d = Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y);
-      courtVisible.value[i] = d <= radius;
-      if (d <= radius) queueMount('court', i);
-      else if (d > drop && hallPlaying.value !== i && hallMachine.value !== i) unmount('court', i);
-    }
-    // 中央两场直播：和普通场地一个待遇——走近才挂画面，走远整块拆掉（省两台 AI 对局）
-    for (let i = 0; i < STAGE_COURTS.length; i++) {
-      const c = STAGE_COURTS[i];
-      const d = Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y);
-      cupVisible.value[i] = d <= radius;
-      if (courtFocus.value === CUP_SLOTS[i]) mountNow('cup', i);
-      else if (d <= radius) queueMount('cup', i);
-      else if (d > drop) unmount('cup', i);
-    }
-    // 一帧只放一台出来，避开「同时 new 好几台 Phaser」的瞬时卡顿
-    pumpMounts(now);
+    // 走到附近才把这块场地的画面挂起来（错开、封顶、走远才拆），见 stepMounts
+    stepMounts(now);
+    // 走动替身：位置直写 DOM、门口提示按变化才写（都不走模板绑定，免得每帧重渲染）
+    syncMe();
+    const nd = Math.hypot(me.value.x - DOOR.x, me.value.y - DOOR.y) < EXIT_RADIUS;
+    if (nearDoor.value !== nd) nearDoor.value = nd;
     // 上场打球 / 发球机对练时我们就在场地里，球馆里那个走动的替身就别画了
     if (hallPlaying.value === null && hallMachine.value === null) paintMe(now);
   },
 });
 const { me, joy, nearId, tryEnter } = walk;
-
-const nearDoor = computed(
-  () => Math.hypot(me.value.x - DOOR.x, me.value.y - DOOR.y) < EXIT_RADIUS,
-);
 
 /* ===== 练习区：对战 AI / 发球机 ========================================== */
 const playing = ref(false);
@@ -487,12 +467,6 @@ function inviteToCourt(i: number): void {
   void router.push({ path: '/online', query: { court: i + 1, invite: '1' } });
 }
 
-/** 后排中央球场：坐下看（镜头拉到那块直播屏，画面放大到 1:1） */
-function watchCup(i: number): void {
-  sfx.click();
-  courtFocus.value = CUP_SLOTS[i];
-}
-
 /** 离开这块场地：回到球馆里走动（人机那局的结果已经记过账了） */
 function leaveCourt(): void {
   sfx.click();
@@ -503,11 +477,13 @@ function leaveCourt(): void {
   hallOver.value = false;
 }
 
-/** 整块重挂的 key：在「空场地 / 人机对局 / 发球机对练」之间切换时要重开一局 */
-function courtKey(i: number): string {
-  const mode = hallPlaying.value === i ? 'play' : hallMachine.value === i ? 'machine' : 'idle';
-  return `${i}-${mode}-${currentOpponent.value?.id ?? ''}`;
-}
+/*
+ * ⚠️ 这里原来有个 `courtKey(i)`，用来在「空场地 / 人机对局 / 发球机对练」之间切换时
+ * 通过 `:key` 把整块画布重挂。**已删掉**：重挂等于新建一个 Phaser 实例（建 WebGL
+ * 上下文 + 编译着色器），手机上一次就是几百毫秒到两秒的主线程长任务——「上场 / 离开
+ * 场地卡一下」就是这么来的。现在 `GameCanvas` 自己盯住 `idle` / `opponent` / `optionId`
+ * 这些 props，变了就 `scene.restart()` **原地重启场景**（渲染器还在，只重建场景）。
+ */
 
 /** 每张场地的比分（正式对局同一份 HUD 数据，摆到场地上方的计分板上） */
 const courtScore = ref<[number, number][]>(COURTS.map(() => [0, 0]));
@@ -561,23 +537,17 @@ const courtCardOpen = computed({
   },
 });
 
-/** 右下角那个按钮：6 张普通场地（都空着）+ 中央球场 */
+/** 右下角那个按钮：走近某张空场地时出现 */
 const action = computed(() => {
   if (courtFocus.value !== null) return null;
   const id = nearId.value ?? '';
-  if (id.startsWith('court-')) {
-    return { label: '上场 · 这场地空着', court: Number(id.slice(6)), kind: 'play' as const };
-  }
-  const cup = STAGE_COURTS.findIndex((c) => c.id === id);
-  if (cup >= 0) return { label: '坐下看 · 中央球场', court: -1, kind: 'cup' as const, cup };
-  return null;
+  if (!id.startsWith('court-')) return null;
+  return { label: '上场 · 这场地空着', court: Number(id.slice(6)) };
 });
 
 function onAction(): void {
   const a = action.value;
-  if (!a) return;
-  if (a.kind === 'play') openCourt(a.court);
-  else if (a.kind === 'cup') watchCup(a.cup);
+  if (a) openCourt(a.court);
 }
 
 const touch = isTouchDevice();
@@ -585,7 +555,7 @@ const { always: joyAlways } = useJoystickPrefs();
 const showJoy = computed(() => touch || joyAlways.value);
 const walkHint = computed(
   () =>
-    `${touch ? '拖动摇杆' : 'WASD / 摇杆'}走动 · 下两排是空场地（上场可打人机 / 发球机对练 / 邀请好友），上是公开赛直播`,
+    `${touch ? '拖动摇杆' : 'WASD / 摇杆'}走动 · 6 张空场地，走近点一下就能上场（打人机 / 发球机对练 / 邀请好友）`,
 );
 
 function leave(): void {
@@ -730,35 +700,6 @@ onBeforeUnmount(() => {
               }"
             />
 
-            <!-- ===== 中央比赛区：两张公开赛场地**并排放在一起**（100 赛 / 200 赛）=====
-                 播**赛事中心这两个档的真实直播**（同一台 GameCanvas + spectate，
-                 和普通场地是同一份逻辑），场地上方有计分板，场边有座位区，走近可以坐下看 -->
-            <div
-              v-for="(c, i) in STAGE_COURTS"
-              :key="c.id"
-              class="cupscreen"
-              :class="{ 'is-live': courtFocus === CUP_SLOTS[i] }"
-              :style="{ left: `${c.x}px`, top: `${c.y}px` }"
-            >
-              <ArenaScreen
-                :broadcast="cupLive[i]"
-                :score="cupScore[i]"
-                :focused="courtFocus === CUP_SLOTS[i]"
-                :mounted="cupMounted[i]"
-                :paused="cupPaused(i)"
-                :w="courtFocus === CUP_SLOTS[i] ? VIEW_W : courtBox.w"
-                :h="courtFocus === CUP_SLOTS[i] ? VIEW_H : courtBox.h"
-                :seats="13"
-                :idle-text="`${stageTiers[i].tag} · 本场已结束 · 等下一场`"
-                :cosmetic="customize.cosmetic"
-                :attrs="progress.attrs"
-                :local-name="lobby.playerName"
-                :local-rank="progress.tier.id"
-                @hud="(s) => onCupHud(i, s)"
-              />
-              <span class="venue__name">{{ stageTiers[i].tag }} · 公开赛</span>
-            </div>
-
             <!-- ===== 普通场地区：6 张普通场地（3×2）=====
                  每张就是一个**真的 GameCanvas**（和练习区「开打」那台同一套逻辑 /
                  组件 / 绘制），只是 `hall` 让画布透明、背景不画，下面垫一层场地垫 -->
@@ -780,7 +721,6 @@ onBeforeUnmount(() => {
               <div class="court-mat" />
               <GameCanvas
                 v-if="courtMounted[i]"
-                :key="courtKey(i)"
                 role="single"
                 :session="null"
                 :opponent="hallPlaying === i ? opponentConfig : undefined"
@@ -825,10 +765,9 @@ onBeforeUnmount(() => {
             <!-- 角色（上场打球 / 发球机对练时我们就在画面里，替身收起来） -->
             <div
               v-if="hallPlaying === null && hallMachine === null"
+              ref="meBox"
               class="avatar is-me"
               :style="{
-                left: `${me.x}px`,
-                top: `${me.y}px`,
                 width: `${avatarBox.w}px`,
                 height: `${avatarBox.h}px`,
                 transform: `translate(-50%, calc(-100% + ${avatarFeetPad}px))`,
@@ -1057,11 +996,10 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
 }
 
-/* 镜头拉近某一格（上场打人机 / 发球机对练 / 坐下看）时，**其余场地全部收起来**：
+/* 镜头拉近某一格（上场打人机 / 发球机对练）时，**其余场地全部收起来**：
    它们是各自的比例 / 分辨率，透过聚焦那一格的透明背景露出来时，就成了
    「小一号、发虚、像另一个图层」的幽灵角色。 */
-.room.is-solo .mini:not(.is-live),
-.room.is-solo .cupscreen:not(.is-live) {
+.room.is-solo .mini:not(.is-live) {
   visibility: hidden;
 }
 
@@ -1119,16 +1057,6 @@ onBeforeUnmount(() => {
 }
 
 /* --- 后排：中央比赛场地（赛事直播屏） ------------------------------------- */
-/* 一块 ArenaScreen：场地 + 赛事中心真实直播 + 场边座位区 */
-.cupscreen {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
 .stage-court {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -1208,15 +1136,6 @@ onBeforeUnmount(() => {
 
 .venue.is-near .court {
   border-color: #ffd45c;
-}
-
-.venue__name {
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: rgba(16, 30, 20, 0.55);
-  font-size: 12px;
-  font-weight: 800;
-  color: #fff4dc;
 }
 
 .court {

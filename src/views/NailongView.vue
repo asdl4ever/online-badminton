@@ -119,6 +119,7 @@ function back(): void {
           :key="canvasKey"
           role="single"
           difficulty="easy"
+          theme="nailong"
           :option-id="NAILONG_OPTION_ID"
           :opponent="opponent"
           :session="null"

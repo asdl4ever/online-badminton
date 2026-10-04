@@ -319,6 +319,8 @@ const seatedAt = ref<string | null>(null);
 const stage = ref<HTMLElement | null>(null);
 const plane = ref<HTMLElement | null>(null);
 const meCanvas = ref<HTMLCanvasElement | null>(null);
+/** 角色那块 DOM：位置每帧直写 style（不绑 `me`，否则走动时整页每帧重渲染） */
+const meBox = ref<HTMLElement | null>(null);
 /** 观众的 canvas（按观众 id）× 外层 div（每帧直接改样式，不走 Vue 渲染） */
 const crowdCanvases = ref<Record<string, HTMLCanvasElement | null>>({});
 const crowdEls: Record<string, HTMLElement | null> = {};
@@ -407,6 +409,7 @@ function loop(now: number): void {
   stepCrowd(dt, now);
   stepNearSeat();
   updateCamera(dt);
+  syncMe();
   paintMe(now);
   if (frameNo % 2 === 0) paintCrowd(now);
   paintScreen(now);
@@ -500,6 +503,14 @@ function paintMe(now: number): void {
   const canvas = meCanvas.value;
   if (!canvas) return;
   paintAvatar(canvas, customize.cosmetic, now, { scale: AVATAR_SCALE, facing: facing.value });
+}
+
+/** 角色 DOM 的位置（直写 style，跳过响应式；观众早就用的是这套写法） */
+function syncMe(): void {
+  const el = meBox.value;
+  if (!el) return;
+  el.style.left = `${me.value.x}px`;
+  el.style.top = `${me.value.y}px`;
 }
 
 function paintCrowd(now: number): void {
@@ -1034,10 +1045,9 @@ function back(): void {
 
             <!-- 玩家自己 -->
             <div
+              ref="meBox"
               class="avatar is-me"
               :style="{
-                left: `${me.x}px`,
-                top: `${me.y}px`,
                 width: `${box.w}px`,
                 height: `${box.h}px`,
                 zIndex: meZ,

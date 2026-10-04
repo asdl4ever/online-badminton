@@ -26,7 +26,8 @@ export const SCENE_META: Record<SceneId, SceneMeta> = {
   fish: { label: '在海湾潜水', icon: '🤿', route: '/fish', kind: 'fish' },
   mine: { label: '在矿洞', icon: '⛏️', route: '/mine', kind: 'mine' },
   climb: { label: '在攀岩', icon: '🧗', route: '/climb' },
-  petshop: { label: '在宠物店', icon: '🐾', route: '/petshop' },
+  // 场景 id 沿用 'petshop'（老客户端 / 服务端白名单里都这么写）；界面本身已经是商城的「宠物」栏
+  petshop: { label: '在商城', icon: '🏪', route: '/shop' },
   watch: { label: '在赛事中心观战', icon: '👁', route: '/watch' },
   farm: { label: '在农场', icon: '🌾', route: '/farm' },
   nailong: { label: '在小黄龙联名', icon: '🐲', route: '/nailong' },
@@ -59,7 +60,7 @@ export interface JoinInfo {
 const NO_JOIN_REASON: Partial<Record<SceneId, string>> = {
   off: '离线',
   climb: '攀岩暂不支持联机',
-  petshop: '宠物店里没有对局',
+  petshop: '商城里没有对局',
   watch: '在赛事中心看比赛',
   farm: '农场没有联机',
   nailong: '小黄龙联名单人挑战中',

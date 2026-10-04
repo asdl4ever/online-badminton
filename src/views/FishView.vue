@@ -18,7 +18,7 @@ import {
   upgradeCost,
 } from '../game/dive/fish';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import { ITEMS } from '../game/items';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
@@ -277,6 +277,7 @@ function boot(session: NetLink | null) {
     banner: false,
     audio: { noAudio: true },
     scale: sceneScaleConfig(),
+    ...renderConfig(),
     scene: [],
     callbacks: {
       postBoot: (g) => g.scene.add('DiveScene', DiveScene, true, data),

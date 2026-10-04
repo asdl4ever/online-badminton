@@ -79,7 +79,7 @@ watch(
   { deep: true },
 );
 
-/** 抽卡归到大地图的商店：宝箱按钮直接带路过去（不再各页弹窗） */
+/** 抽卡统一归到商城：宝箱按钮直接带路过去（落到 `/shop/chest`，不再各页弹窗） */
 const shellRouter = useRouter();
 
 /** 右上角图标行的铺开状态记在本机 */
@@ -170,10 +170,11 @@ defineExpose({
           <button class="icon-btn jelly" type="button" title="背包与收藏" @click="showBag = true">
             背包
           </button>
-          <button class="icon-btn jelly" type="button" title="商店（活动 / 宝箱）" @click="shellRouter.push('/shop')">
+          <!-- 商店统一成商城（/shop）：宝箱那一栏直接由这个按钮落进去 -->
+          <button class="icon-btn jelly" type="button" title="商城 · 宝箱" @click="shellRouter.push('/shop/chest')">
             宝箱
           </button>
-          <!-- 宠物从大地图的「宠物店」（/petshop）买，这里不放入口 -->
+          <!-- 宠物在商城的「皮肤 → 宠物」里买，这里不放入口 -->
           <button class="icon-btn jelly" type="button" title="好友" @click="showFriends = true">
             好友
           </button>

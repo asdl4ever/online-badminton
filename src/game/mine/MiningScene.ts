@@ -125,6 +125,8 @@ export class MiningScene extends Phaser.Scene {
   private total = 0;
   private debris: Debris[] = [];
 
+  /** 静态背景层（天空 / 地面）：create 时画一次，不参与每帧重画 */
+  private bg!: Phaser.GameObjects.Graphics;
   private g!: Phaser.GameObjects.Graphics;
   /** 角色单独一层（depth 2）：emoji 脸在它之下，装备不会被脸盖住 */
   private charG!: Phaser.GameObjects.Graphics;
@@ -169,6 +171,9 @@ export class MiningScene extends Phaser.Scene {
       .setDepth(12)
       .setVisible(false);
 
+    // 背景层先建（同 depth 下先建的先画，于是垫在动态层下面）
+    this.bg = this.add.graphics();
+    this.drawBackdrop();
     this.g = this.add.graphics();
     this.charG = this.add.graphics().setDepth(2);
     this.charOverG = this.add.graphics().setDepth(4);
@@ -600,13 +605,10 @@ export class MiningScene extends Phaser.Scene {
   }
 
   // ---- drawing -------------------------------------------------------------
-  private draw(): void {
-    const g = this.g;
-    g.clear();
-    this.charG.clear();
-    this.charOverG.clear();
-
-    // sky + ground（多画一圈：手机横屏更宽时两侧露背景而不是黑边）
+  /** 天空 / 地面：静态，create 时画一次（每帧重画纯属浪费） */
+  private drawBackdrop(): void {
+    const g = this.bg;
+    // 多画一圈（pad）：手机横屏比 16:9 更宽时，两侧露的是天空与地面而不是黑边
     const pad = SCENE_BG_PAD;
     const w = VIEW_W + pad * 2;
     g.fillStyle(0xc9c2ae, 1);
@@ -615,6 +617,13 @@ export class MiningScene extends Phaser.Scene {
     g.fillRect(-pad, GROUND_Y, w, VIEW_H - GROUND_Y + pad);
     g.fillStyle(0x5d4b34, 1);
     g.fillRect(-pad, GROUND_Y, w, 6);
+  }
+
+  private draw(): void {
+    const g = this.g;
+    g.clear();
+    this.charG.clear();
+    this.charOverG.clear();
 
     // 矿石山：逐块画方块 + 矿脉 + 裂纹（裂纹随耐久加深）
     for (const b of this.blocks) {

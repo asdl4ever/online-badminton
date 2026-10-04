@@ -5,6 +5,8 @@
  * Unlocks / rarity live in items.ts; this file only defines the shape of a
  * look and how each value renders.
  */
+/** 只借一个数：默认小人的身高 = 默认的「头顶高度」（见文件末尾的 `SKIN_HEAD_H`） */
+import { PLAYER_H } from './constants';
 
 export type HitStyle =
   | 'ring'
@@ -1996,6 +1998,72 @@ export const FULL_HEAD_DY = 12;
 /** 这个头饰是不是「整头替换」（不画 emoji 脸） */
 export function replacesHead(hat: HatId): boolean {
   return FULL_HEAD_HATS.includes(hat);
+}
+
+/**
+ * **每只角色形象的「头顶」高度**（相对脚底，px）：默认小人是 `PLAYER_H`（108）。
+ *
+ * 帽子与宠物就坐在这个高度上，翅膀 / 披风挂在它下面 48 / 30px——所以**矮个子角色**
+ * （果冻史莱姆 84、蘑菇人 90、小章鱼 96…）必须调小，否则会看到
+ * 「帽子飘在头顶上方、翅膀悬在半空」。
+ *
+ * 取的是**脑袋顶**，不含天线 / 长耳 / 火苗 / 雷 / 冠羽这类往上冒的细装饰
+ * （不然帽子会坐到装饰尖上）。表里的数是**渲染出来量过像素**的：
+ * 「实心顶」（一行里至少有 8 个实心像素的最高行）作基准，顶着自己高帽 / 冠羽的那些
+ * 再往下压 10~20px，让帽子落在脑袋上。**以后新加矮个子形象就往这里补一条**。
+ */
+export const SKIN_HEAD_H: Partial<Record<CharacterSkin, number>> = {
+  // 矮个子：不改就会明显悬空的那几只
+  slime: 84,
+  frog: 84,
+  mushroom: 90,
+  ghost: 90,
+  starlet: 90,
+  panda: 92,
+  octopus: 96,
+  emberling: 96,
+  icesprite: 96,
+  cactus: 100,
+  robot: 100,
+  angler: 100,
+  snowman: 104,
+  // 头上有高装饰（长耳 / 天线 / 角 / 自家帽子）：帽子该落在脑袋上，不是装饰尖上
+  alien: 104,
+  guard: 104,
+  chanSpirit: 104,
+  godzilla: 106,
+  nailong: 106,
+  sakurabun: 106,
+  bigtSpirit: 106,
+  phoenix: 110,
+  dragonlord: 110,
+  yuanSpirit: 110,
+  // 主题宝箱的招牌形象（云风伯是一朵矮云、白骨祭司只有一具骨架，都得调矮）
+  // ⚠️ 云风伯上半身是**近白色**的云团：量像素时会把白团的顶量出来（81），
+  // 但那截在浅色背景上几乎看不见，所以按「看得见的那团」再往下压（74）
+  nimbSpirit: 74,
+  relicSpirit: 90,
+  playSpirit: 98,
+  desSpirit: 98,
+  aegisSpirit: 108,
+  confSpirit: 112,
+  arcanSpirit: 115,
+  // 🗺️ 山海经怪物皮肤（烛龙的鬃火最高；混沌是只没脸的口袋所以矮）
+  hunDun: 95,
+  qiongQi: 96,
+  taoWu: 97,
+  yuYu: 98,
+  jiuweiHu: 100,
+  baShe: 102,
+  taoTie: 104,
+  guDiao: 106,
+  zhuLong: 112,
+  xiangLiu: 114,
+};
+
+/** 这只角色的头顶高度（表里没有就按默认小人算） */
+export function skinHeadH(skin: CharacterSkin): number {
+  return SKIN_HEAD_H[skin] ?? PLAYER_H;
 }
 
 export type PetKind =
