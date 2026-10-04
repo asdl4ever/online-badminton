@@ -7,7 +7,7 @@ import Panel from '../components/ui/Panel.vue';
 import Button from '../components/ui/Button.vue';
 import ItemIcon from '../components/ItemIcon.vue';
 import { AlienScene, type AlienSceneCfg } from '../game/alien/AlienScene';
-import { sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import {
   ALIEN_DAILY_MAX,
@@ -89,6 +89,9 @@ function bootScene(): void {
       postBoot: (g) => g.scene.add('AlienScene', AlienScene, true, data),
     },
   });
+
+  // 画布后备缓冲 = 容器 CSS 尺寸 × 设备像素比（高分屏不糊），并跟随尺寸变化
+  bindCanvasSize(game, host.value);
 }
 
 function onEnd(kills: number): void {

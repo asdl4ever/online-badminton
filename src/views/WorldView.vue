@@ -670,12 +670,10 @@ onBeforeUnmount(() => {
     <PageShell
       avatar
       title="大世界 · 营地"
-      back
       friends-kind="map"
       :friends-code="mapCode"
       :friends-can-invite="!!mapCode"
       :friends-ensure-room="ensureInviteRoom"
-      @back="router.push('/home')"
     >
     <template #stage>
       <div

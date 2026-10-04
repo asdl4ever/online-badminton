@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useProgressStore } from '../stores/progress';
 import { POINT_RULES, TIERS, titleForPoints, type TierId } from '../game/ranks';
+import { ARENA_TIERS } from '../game/arena';
 import { toHex } from '../game/cosmetics';
 import { celebrate } from '../composables/celebrate';
 import { toastGood } from '../composables/useToast';
@@ -80,6 +81,35 @@ function claim(id: TierId): void {
       }}
       / 负 +{{ POINT_RULES.single.lose }}。积分只存在本机；杯赛按积分逐档解锁，赛季每月清零。
     </p>
+
+    <!-- 奖杯柜：各杯赛的前三名陈列（原首页已移除，挪到这块荣誉面板里） -->
+    <div class="rp__trophies">
+      <h4 class="rp__trophies-title">🏆 奖杯柜</h4>
+      <div class="trophies">
+        <div
+          v-for="c in ARENA_TIERS"
+          :key="c.tier"
+          class="trophy"
+          :class="{ 'is-empty': !progress.trophies[c.tier] }"
+        >
+          <div class="trophy__cup">
+            <template v-if="progress.trophies[c.tier]">
+              <span v-if="progress.trophies[c.tier].champion" class="trophy__big">🏆</span>
+              <span v-else-if="progress.trophies[c.tier].runner" class="trophy__big">🥈</span>
+              <span v-else class="trophy__big">🥉</span>
+            </template>
+            <span v-else class="trophy__big is-dim">🏆</span>
+          </div>
+          <div class="trophy__name">{{ c.glyph }} {{ c.label }}</div>
+          <div v-if="progress.trophies[c.tier]" class="trophy__count num">
+            <span v-if="progress.trophies[c.tier].champion">冠×{{ progress.trophies[c.tier].champion }}</span>
+            <span v-if="progress.trophies[c.tier].runner">亚×{{ progress.trophies[c.tier].runner }}</span>
+            <span v-if="progress.trophies[c.tier].third">季×{{ progress.trophies[c.tier].third }}</span>
+          </div>
+          <div v-else class="muted trophy__none">暂无奖杯</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -201,5 +231,64 @@ function claim(id: TierId): void {
 .rp__note {
   margin-top: var(--s4);
   font-size: 12px;
+}
+
+/* --- 奖杯柜（从首页搬过来） -------------------------------------------------- */
+.rp__trophies {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
+.rp__trophies-title {
+  margin: 0 0 var(--s3);
+  font-size: 14px;
+}
+
+.trophies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--s3);
+}
+
+.trophy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--s3) var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.trophy.is-empty {
+  opacity: 0.55;
+}
+
+.trophy__big {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.trophy__big.is-dim {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.trophy__name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trophy__count {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.trophy__none {
+  font-size: 11px;
 }
 </style>

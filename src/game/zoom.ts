@@ -55,9 +55,87 @@ export function sceneZoom(scene: Phaser.Scene): number {
   return fitZoom(scene) * readZoom();
 }
 
-/** 所有 Phaser 页面共用的画布配置：画布 = 容器尺寸、1:1 像素（不再靠 CSS 拉伸） */
+/**
+ * 画布最多按几倍设备像素比渲染。
+ * 手机上 DPR 常见 2.5~3，全开会让 GPU 负担和像素量成正比地涨，
+ * 所以封顶 2——清晰度提升已经很明显，代价可控。
+ */
+export const MAX_CANVAS_DPR = 2;
+
+/** 本机画布该用的像素倍率（≥1，封顶 `MAX_CANVAS_DPR`） */
+export function canvasDpr(): number {
+  const d = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+  return Math.max(1, Math.min(MAX_CANVAS_DPR, d));
+}
+
+/**
+ * 所有 Phaser 页面共用的画布配置。
+ *
+ * ⚠️ 这里用 `NONE` 而**不是** `RESIZE`：`RESIZE` 会把画布的**后备缓冲**开成
+ * **CSS 像素**（`canvas.width = 容器宽`），DPR=3 的手机上等于被浏览器放大三倍
+ * 显示 —— 这就是「手机画质糊」的根因。改成自己管尺寸（见 `bindCanvasSize`），
+ * 后备缓冲 = CSS 尺寸 × DPR、CSS 尺寸不变，于是高分屏上是原生分辨率渲染。
+ */
 export function sceneScaleConfig(): Phaser.Types.Core.ScaleConfig {
-  return { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.NO_CENTER };
+  return { mode: Phaser.Scale.NONE, autoCenter: Phaser.Scale.NO_CENTER };
+}
+
+/**
+ * 按「CSS 尺寸 × 设备像素比」设置画布后备缓冲，并跟随窗口 / 容器尺寸变化重做。
+ *
+ * 所有 `new Phaser.Game(...)` 之后都要调一次（`host` 传画布容器）。
+ * `game.scale.resize()` 会同时更新后备缓冲、渲染器视口，并派发 `RESIZE`
+ * 事件（各场景的 `onSceneResize` 靠它重新铺满），所以相机与 HUD 都跟得上。
+ * 组件销毁时（`Game.destroy`）自动解绑，不用调用方操心。
+ */
+export function bindCanvasSize(game: Phaser.Game, host: HTMLElement | null): void {
+  const dpr = canvasDpr();
+  let resize = (): void => {};
+
+  function bind(): void {
+    const canvas = game.canvas;
+    if (!canvas) return;
+
+    resize = (): void => {
+      const el = host ?? canvas.parentElement;
+      const w = Math.round(el?.clientWidth || window.innerWidth || 0);
+      const h = Math.round(el?.clientHeight || window.innerHeight || 0);
+      if (w < 1 || h < 1) return;
+      const pw = Math.round(w * dpr);
+      const ph = Math.round(h * dpr);
+      if (game.scale.gameSize.width !== pw || game.scale.gameSize.height !== ph) {
+        game.scale.resize(pw, ph);
+      }
+      // CSS 尺寸保持 CSS 像素（`NONE` 模式下 Phaser 不动样式，这里自己写）
+      if (canvas.style.width !== `${w}px`) canvas.style.width = `${w}px`;
+      if (canvas.style.height !== `${h}px`) canvas.style.height = `${h}px`;
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    // 容器自己变大小（转屏、面板开合）也要跟上
+    if (host && typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => resize());
+      ro.observe(host);
+      game.events.once(Phaser.Core.Events.DESTROY, () => ro.disconnect());
+    }
+    game.events.once(Phaser.Core.Events.DESTROY, () => {
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('orientationchange', resize);
+    });
+  }
+
+  // 画布是 boot 时才建的：还没建就等 `ready`
+  if (game.canvas) bind();
+  else game.events.once(Phaser.Core.Events.READY, bind);
+}
+
+/** 画布在 **CSS 像素**下的尺寸（`pinScreen` / `anchorHud` 用的是这套坐标） */
+export function screenSize(scene: Phaser.Scene): { w: number; h: number } {
+  const cam = scene.cameras.main;
+  const dpr = canvasDpr();
+  return { w: cam.width / dpr, h: cam.height / dpr };
 }
 
 /**
@@ -137,19 +215,21 @@ interface Pinnable {
  */
 export function pinScreen(obj: Pinnable, sx: number, sy: number, scale = 1): void {
   const cam = obj.scene.cameras.main;
+  const dpr = canvasDpr();
   const z = cam.zoom || 1;
   const cx = cam.width / 2;
   const cy = cam.height / 2;
-  obj.setPosition(cx + (sx - cx) / z, cy + (sy - cy) / z);
-  obj.setScale(scale / z);
+  // `(sx, sy)` 是 **CSS 屏幕像素**，画布内部是 CSS × dpr
+  obj.setPosition(cx + (sx * dpr - cx) / z, cy + (sy * dpr - cy) / z);
+  obj.setScale((scale * dpr) / z);
 }
 
 /**
  * 让一个 `setScrollFactor(0)` 的文字/图标在**任意视距下**都贴住屏幕底部居中。
  */
 export function pinHudBottom(obj: Pinnable, margin = 28): void {
-  const cam = obj.scene.cameras.main;
-  pinScreen(obj, cam.width / 2, cam.height - margin);
+  const { w, h } = screenSize(obj.scene);
+  pinScreen(obj, w / 2, h - margin);
 }
 
 /**
@@ -171,6 +251,8 @@ export function anchorHud(
   screenY: number,
 ): void {
   const z = obj.scene.cameras.main.zoom || 1;
-  obj.setScale(1 / z);
-  obj.setPosition((screenX - designX) / z, (screenY - designY) / z);
+  const dpr = canvasDpr();
+  // 整体按 dpr 缩放：位置与尺寸一起放大，屏幕上的落点与物理尺寸都不变
+  obj.setScale(dpr / z);
+  obj.setPosition(((screenX - designX) * dpr) / z, ((screenY - designY) * dpr) / z);
 }

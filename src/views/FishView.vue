@@ -18,7 +18,7 @@ import {
   upgradeCost,
 } from '../game/dive/fish';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import { ITEMS } from '../game/items';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
@@ -282,6 +282,9 @@ function boot(session: NetLink | null) {
       postBoot: (g) => g.scene.add('DiveScene', DiveScene, true, data),
     },
   });
+
+  // 画布后备缓冲 = 容器 CSS 尺寸 × 设备像素比（高分屏不糊），并跟随尺寸变化
+  bindCanvasSize(game, container.value);
   sessionCaught.value = 0;
 }
 

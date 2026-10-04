@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import { MiningScene, type MiningSceneData } from '../game/mine/MiningScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
@@ -68,6 +68,9 @@ function boot(session: NetLink | null) {
       postBoot: (g) => g.scene.add('MiningScene', MiningScene, true, data),
     },
   });
+
+  // 画布后备缓冲 = 容器 CSS 尺寸 × 设备像素比（高分屏不糊），并跟随尺寸变化
+  bindCanvasSize(game, container.value);
 }
 
 /**

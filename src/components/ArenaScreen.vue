@@ -34,6 +34,11 @@ withDefaults(
     focused?: boolean;
     /** 这块画面此刻不可见（球馆里走远了 / 在看别的场地）：把直播画布的主循环停掉 */
     paused?: boolean;
+    /**
+     * 这块画面**要不要挂上去**（球馆里走远了就整块拆掉，别留着一台 Phaser 空占
+     * WebGL 上下文）。场地垫 / 看台 / 计分板照旧留着，走近再挂。
+     */
+    mounted?: boolean;
     /** 场边一排几个座位 */
     seats?: number;
     /** 没在直播时牌子上写的一行 */
@@ -43,7 +48,7 @@ withDefaults(
     localName: string;
     localRank: TierId;
   }>(),
-  { score: null, focused: false, seats: 11, idleText: '本场已结束 · 等下一场' },
+  { score: null, focused: false, mounted: true, seats: 11, idleText: '本场已结束 · 等下一场' },
 );
 
 const emit = defineEmits<{ hud: [HudState] }>();
@@ -65,7 +70,7 @@ const emit = defineEmits<{ hud: [HudState] }>();
 
     <!-- 直播画面：和普通场地同一台（双 AI 播放，画布透明、不画背景） -->
     <GameCanvas
-      v-if="broadcast"
+      v-if="broadcast && mounted"
       :key="broadcast.key"
       role="single"
       :session="null"

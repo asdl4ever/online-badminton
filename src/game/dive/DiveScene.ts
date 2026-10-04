@@ -3,7 +3,7 @@ import { PLAYER_H, VIEW_H, VIEW_W } from '../constants';
 import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import { RacketTracker } from '../racket';
 import { TouchControls, isTouchDevice } from '../touch';
-import { anchorHud, applySceneZoom, onSceneResize, pinScreen } from '../zoom';
+import { anchorHud, applySceneZoom, onSceneResize, pinScreen, screenSize } from '../zoom';
 import { joystickAlwaysOn } from '../device';
 import type { WorldConfig } from '../config';
 import type { Cosmetic } from '../cosmetics';
@@ -1689,11 +1689,12 @@ export class DiveScene extends Phaser.Scene {
   private drawHud(): void {
     const g = this.hudG;
     g.clear();
-    const cam = this.cameras.main;
     // HUD 全部贴屏幕：先给整块图形定一个「屏幕底部居中」的锚点（内部照旧按设计坐标画），
     // 再把右缘那条深度条按**实际屏幕宽**摆到右边去。
-    anchorHud(g, VIEW_W / 2, VIEW_H - 46, cam.width / 2, cam.height - 46);
-    const ox = cam.width / 2 - VIEW_W / 2; // 锚点在屏幕坐标系里额外偏移的横向距离
+    // 注意 `screenSize` 给的是 **CSS 像素**（画布后备缓冲是 CSS × dpr）。
+    const s = screenSize(this);
+    anchorHud(g, VIEW_W / 2, VIEW_H - 46, s.w / 2, s.h - 46);
+    const ox = s.w / 2 - VIEW_W / 2; // 锚点在屏幕坐标系里额外偏移的横向距离
     const max = oxygenMax(this.cfg.oxygenLv);
     const frac = Phaser.Math.Clamp(this.oxygen / max, 0, 1);
     const w = 320;
@@ -1706,9 +1707,9 @@ export class DiveScene extends Phaser.Scene {
     g.fillRoundedRect(x, y, w * frac, 8, 4);
 
     // 右侧潜水深度进度条：当前深度 / 本岛海床（贴屏幕右缘、下沿留 150px）
-    const barX = cam.width - 36 - ox;
+    const barX = s.w - 36 - ox;
     const barTop = 96;
-    const barBot = cam.height - 150;
+    const barBot = s.h - 150;
     const track = barBot - barTop;
     const df = Phaser.Math.Clamp(this.me.y / this.island.floor, 0, 1);
     g.fillStyle(0x04101f, 0.5);
@@ -1754,8 +1755,8 @@ export class DiveScene extends Phaser.Scene {
     );
 
     // 两行文字也钉在屏幕底部居中（1:1 像素，任意视距都不会被放大或跑位）
-    pinScreen(this.hudText, cam.width / 2, cam.height - 58);
-    pinScreen(this.hintText, cam.width / 2, cam.height - 84);
+    pinScreen(this.hudText, s.w / 2, s.h - 58);
+    pinScreen(this.hintText, s.w / 2, s.h - 84);
   }
 
   // ---- 联机 ----------------------------------------------------------------

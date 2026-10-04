@@ -511,6 +511,18 @@ function ownerOf(item: Item): ChestTheme | null {
   return out;
 }
 
+/**
+ * 一件物品归属的**宝箱主题**（背包按「主题」筛选用），没归属就是 `null`。
+ *
+ * 只有**宝箱池里**的物品（`gacha` / `chest`）才有主题：活动限定、兑换码、荣誉柜台、
+ * 金币商店专属、碎片兑换、跑量特训那些**不进任何宝箱池**，一律返回 `null`
+ * ——在背包里归成「无主题」，不然「外星人」会被关键词「星」误判进星海漫游。
+ */
+export function themeOf(item: Item): ChestTheme | null {
+  if (item.source !== 'gacha' && item.source !== 'chest') return null;
+  return ownerOf(item);
+}
+
 const poolCache = new Map<string, Item[]>();
 
 /**

@@ -37,6 +37,12 @@ class Sfx {
     g.gain.exponentialRampToValueAtTime(gain, t + 0.005);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     osc.connect(g).connect(this.master);
+    // 放完就断开：不然播过的节点会一直挂在音频图上（Web Audio 在它们被 GC 之前
+    // 不会回收），一局下来几百个振荡器堆着，手机会时不时抖一下
+    osc.onended = (): void => {
+      osc.disconnect();
+      g.disconnect();
+    };
     osc.start(t);
     osc.stop(t + dur + 0.02);
   }
@@ -54,6 +60,12 @@ class Sfx {
     g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(filter).connect(g).connect(this.master);
+    // 同上：noise 源 + 滤波器 + 增益放完就断开，别留在音频图上
+    src.onended = (): void => {
+      src.disconnect();
+      filter.disconnect();
+      g.disconnect();
+    };
     src.start(t);
     src.stop(t + dur + 0.02);
   }

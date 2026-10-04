@@ -5,7 +5,7 @@ import { sanitizeCosmetic, type Cosmetic } from '../cosmetics';
 import { drawCharacter } from '../draw/character';
 import { drawRacketHead, racketFrameColor } from '../draw/racket';
 import { GROUND_Y, LEVEL_TOP, ROCKS, SPAWN, SUMMIT, WALL_L, WALL_R, type Rock } from './level';
-import { applySceneZoom, onSceneResize, pinScreen } from '../zoom';
+import { applySceneZoom, onSceneResize, pinScreen, screenSize } from '../zoom';
 
 /**
  * Getting Over It, with a badminton racket.
@@ -184,10 +184,11 @@ export class ClimbScene extends Phaser.Scene {
     // 三处 HUD 都是 scrollFactor=0 的，靠 pinScreen 钉在屏幕角上（尺寸 1:1 像素）
     const fitCam = () => {
       applySceneZoom(this);
-      const cam = this.cameras.main;
+      // `screenSize` 给的是 **CSS 像素**（画布后备缓冲是 CSS × dpr）
+      const s = screenSize(this);
       pinScreen(this.info, 10, 10);
-      pinScreen(this.banner, cam.width / 2, cam.height / 2);
-      pinScreen(this.tip, cam.width - 20, 18);
+      pinScreen(this.banner, s.w / 2, s.h / 2);
+      pinScreen(this.tip, s.w - 20, 18);
     };
     fitCam();
     onSceneResize(this, fitCam);

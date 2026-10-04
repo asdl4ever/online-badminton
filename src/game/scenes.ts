@@ -18,7 +18,8 @@ export interface SceneMeta {
 
 export const SCENE_META: Record<SceneId, SceneMeta> = {
   off: { label: '不在线', icon: '💤', route: '' },
-  home: { label: '在主界面', icon: '🏠', route: '/home' },
+  // 老首页已取消（一进游戏就是大世界）：旧的 'home' 状态一律当大世界处理
+  home: { label: '在大世界', icon: '🧭', route: '/' },
   map: { label: '在大世界', icon: '🧭', route: '/', kind: 'map' },
   // 对局统一落在联机页：好友「加入 / 跟着房主」都去这里，页面自己按房号入房
   match: { label: '在联机对局', icon: '🏸', route: '/online', kind: 'match' },
@@ -39,6 +40,8 @@ export const SCENE_KIND: Partial<Record<SceneId, InviteKind>> = {
   match: 'match',
   fish: 'fish',
   mine: 'mine',
+  // 旧版本客户端可能还报着 'home'（那屏现在是大地图了）
+  home: 'map',
 };
 
 export function sceneMeta(scene: SceneId): SceneMeta {
@@ -55,7 +58,6 @@ export interface JoinInfo {
 /** 不能一起玩的界面，各自给一句「为什么」——比笼统的「不可加入」有用 */
 const NO_JOIN_REASON: Partial<Record<SceneId, string>> = {
   off: '离线',
-  home: '在主界面，还没开始玩',
   climb: '攀岩暂不支持联机',
   petshop: '宠物店里没有对局',
   watch: '在赛事中心看比赛',
@@ -94,9 +96,8 @@ export function sceneFromPath(path: string): SceneId {
   if (path.startsWith('/nailong')) return 'nailong';
   if (path.startsWith('/godzilla')) return 'godzilla';
   if (path.startsWith('/alien')) return 'alien';
-  if (path.startsWith('/home')) return 'home';
-  // 新闻周刊只是个阅读页：当成「在主界面」（没有独立的联机场景 id）
-  if (path.startsWith('/news')) return 'home';
+  // 老首页已经取消（/home 重定向到大世界）；新闻周刊只是个大世界里的阅读页
+  if (path.startsWith('/home') || path.startsWith('/news')) return 'map';
   if (path === '/' || path.startsWith('/world')) return 'map';
   return 'off';
 }

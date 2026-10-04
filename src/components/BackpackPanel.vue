@@ -16,6 +16,7 @@ import {
   type Item,
   type ItemSlot,
 } from '../game/items';
+import { CHEST_THEMES, themeOf } from '../game/chest';
 import type {
   AuraId,
   CapeId,
@@ -63,11 +64,55 @@ function displayStars(item: Item): number {
   return item.slot === 'pet' ? progress.petStar(item.ref) || 1 : item.stars;
 }
 
+/* --- 筛选：星级（可多选）+ 宝箱主题（可多选） -------------------------------- */
+/** 选中的星级（空 = 不限） */
+const starFilter = ref<number[]>([]);
+/** 选中的宝箱主题 id（空 = 不限；`'none'` = 无主题：活动 / 兑换码 / 荣誉 / 商店那些） */
+const themeFilter = ref<string[]>([]);
+
+/** 一件物品的主题键（没有主题就是 `'none'`） */
+function themeKeyOf(item: Item): string {
+  return themeOf(item)?.id ?? 'none';
+}
+
+/** 只列出**自己仓库里真的出现过**的主题，免得摆一排空主题 */
+const themeOptions = computed(() => {
+  const has = new Set(ownedItems.value.map(themeKeyOf));
+  const out = CHEST_THEMES.filter((t) => !t.complement && has.has(t.id)).map((t) => ({
+    id: t.id as string,
+    emoji: t.emoji,
+    name: t.name,
+  }));
+  if (has.has('none')) out.push({ id: 'none', emoji: '📦', name: '无主题' });
+  return out;
+});
+
+const hasFilter = computed(() => starFilter.value.length > 0 || themeFilter.value.length > 0);
+
+function toggleStar(s: number): void {
+  const at = starFilter.value.indexOf(s);
+  if (at >= 0) starFilter.value.splice(at, 1);
+  else starFilter.value.push(s);
+}
+
+function toggleTheme(id: string): void {
+  const at = themeFilter.value.indexOf(id);
+  if (at >= 0) themeFilter.value.splice(at, 1);
+  else themeFilter.value.push(id);
+}
+
+function clearFilters(): void {
+  starFilter.value = [];
+  themeFilter.value = [];
+}
+
 const filtered = computed(() => {
-  const list =
+  let list =
     filter.value === 'all'
       ? ownedItems.value
       : ownedItems.value.filter((i) => i.slot === filter.value);
+  if (starFilter.value.length) list = list.filter((i) => starFilter.value.includes(displayStars(i)));
+  if (themeFilter.value.length) list = list.filter((i) => themeFilter.value.includes(themeKeyOf(i)));
   if (sortBy.value === 'default') return list;
   // 星级高的在前；同星级按稀有度（越稀有越靠前）、再按名字，保证顺序稳定
   return [...list].sort(
@@ -230,7 +275,43 @@ function equippedLabel(slot: ItemSlot): string {
         </div>
       </div>
 
-      <div class="bp__collect muted">已收集 {{ ownedCount }} / {{ ITEMS.length }}</div>
+      <!-- 筛选：星级（多选）+ 宝箱主题（多选），可和上面的部位页签叠加 -->
+      <div class="bp__filters">
+        <span class="bp__sorts-label">筛选</span>
+        <div class="bp__chips">
+          <button
+            v-for="s in [1, 2, 3, 4, 5]"
+            :key="s"
+            class="bp__chip"
+            :class="{ 'is-on': starFilter.includes(s) }"
+            type="button"
+            @click="toggleStar(s)"
+          >
+            {{ s }}★
+          </button>
+        </div>
+        <div class="bp__chips bp__chips--scroll">
+          <button
+            v-for="t in themeOptions"
+            :key="t.id"
+            class="bp__chip"
+            :class="{ 'is-on': themeFilter.includes(t.id) }"
+            type="button"
+            @click="toggleTheme(t.id)"
+          >
+            {{ t.emoji }} {{ t.name }}
+          </button>
+        </div>
+        <button v-if="hasFilter" class="bp__tab bp__chip--clear" type="button" @click="clearFilters">
+          ✕ 清空
+        </button>
+      </div>
+
+      <div class="bp__collect muted">
+        已收集 {{ ownedCount }} / {{ ITEMS.length }}<template v-if="hasFilter">
+          · 当前筛选出 {{ filtered.length }} 件</template
+        >
+      </div>
 
       <div v-auto-animate="{ duration: 220 }" class="bp__grid" :style="{ '--cols': COLS }">
         <button
@@ -359,6 +440,53 @@ function equippedLabel(slot: ItemSlot): string {
 .bp__sorts-label {
   font-size: 12px;
   color: var(--text-dim);
+}
+
+/* 筛选区：星级一行 + 主题一行（主题多，横向滚动，不占地方） */
+.bp__filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: var(--s3);
+}
+
+.bp__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bp__chips--scroll {
+  flex: 1 1 240px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.bp__chip {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bp__chip.is-on {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.bp__chip--clear {
+  flex: none;
 }
 
 .bp__collect {

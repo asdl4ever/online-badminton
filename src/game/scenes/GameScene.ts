@@ -1568,6 +1568,18 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * 给 `this.message` 上色：**颜色没变就不碰它**。
+   * `Text.setColor` 会无条件重画整张文字纹理（44px 的大字还带一次纹理上传），
+   * 而 `refreshMessages` 是每帧跑的 —— 结算画面挂在那儿就会每帧重绘一次。
+   */
+  private msgColor = '';
+  private setMessageColor(color: string): void {
+    if (this.msgColor === color) return;
+    this.msgColor = color;
+    this.message.setColor(color);
+  }
+
   private refreshMessages(): void {
     const w = this.world;
     const local = this.localIndex();
@@ -1582,7 +1594,7 @@ export class GameScene extends Phaser.Scene {
       if (w.phase === 'gameover') {
         const won = w.winner === local;
         this.message.setText(w.winner < 0 ? '平局！' : won ? '你赢了！' : '你输了');
-        this.message.setColor(won ? P.msgWin : P.msgLose);
+        this.setMessageColor(won ? P.msgWin : P.msgLose);
         this.subMessage.setText(`颠球 ${w.juggle.count[0]} : ${w.juggle.count[1]}`);
       } else if (w.phase === 'serve') {
         this.message.setText('');
@@ -1629,7 +1641,7 @@ export class GameScene extends Phaser.Scene {
     // in fun mode the replay button would skip the party flow, so hide it
     if (this.party.active && w.phase === 'gameover') {
       this.message.setText('本轮结束');
-      this.message.setColor(P.msgWin);
+      this.setMessageColor(P.msgWin);
       this.setReplayVisible(false);
       this.subMessage.setY(VIEW_H / 2 + 30);
       this.subMessage.setText('等待下一轮…');
@@ -1640,12 +1652,12 @@ export class GameScene extends Phaser.Scene {
       if (this.cfg.spectate) {
         const winnerName = w.winner === 0 ? this.localName : this.remoteName;
         this.message.setText(`${winnerName} 获胜`);
-        this.message.setColor(P.msgWin);
+        this.setMessageColor(P.msgWin);
         this.subMessage.setText('');
       } else {
         const won = w.winner === local;
         this.message.setText(won ? '你赢了！' : '你输了');
-        this.message.setColor(won ? P.msgWin : P.msgLose);
+        this.setMessageColor(won ? P.msgWin : P.msgLose);
         this.subMessage.setText(this.touchControls || this.cfg.noRematch ? '' : '也可以按 R 键');
       }
       this.subMessage.setY(this.replayY + this.replayH / 2 + 34);
@@ -1942,7 +1954,11 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(cx, cy, av / 2 + 2);
 
       this.avatarTexts[idx].setText(cos.emoji || '●').setPosition(cx, cy + 1);
-      nameText.setPosition(cx + av / 2 + 8, cy).setColor('#ffffff');
+      // ⚠️ 别在这里 setColor：Phaser 的 `Text.setColor` 会**无条件重画整张文字纹理**
+      // （`TextStyle.setColor` → `update()` → `updateText()`，含一次 GPU 纹理上传），
+      // 而这里是每帧都跑的 —— 两边的牌子等于每帧白重绘两次。
+      // 颜色在建 `nameTexts` 时就写死成 `#ffffff` 了，这里只挪位置。
+      nameText.setPosition(cx + av / 2 + 8, cy);
     }
   }
 

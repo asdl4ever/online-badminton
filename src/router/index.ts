@@ -1,5 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
-import HomeView from '../views/HomeView.vue';
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -10,8 +9,9 @@ export const router = createRouter({
       name: 'world',
       component: () => import('../views/WorldView.vue'),
     },
-    // 原来的首页（工具坞：段位 / 外观 / 背包 / 宝箱 / 宠物蛋 / 好友）
-    { path: '/home', name: 'home', component: HomeView },
+    // 老的首页（工具坞那屏）已经取消：一进来就是大世界。
+    // 旧链接 / 旧版本客户端里残留的 /home 直接落回大地图。
+    { path: '/home', redirect: '/' },
     {
       path: '/single',
       name: 'single',

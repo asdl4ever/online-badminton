@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ArenaSignup from './ArenaSignup.vue';
 import Button from './ui/Button.vue';
@@ -56,15 +56,30 @@ const APP_TITLE: Record<AppId, string> = {
   news: '新闻周刊',
 };
 
-/** 时钟 + 倒计时：只在平板打开时走表 */
+/**
+ * 时钟 + 倒计时：**只在平板打开时走表**。
+ * 这个组件在大世界里是常驻挂载的（`<TabletPanel v-model="tabletOpen" />`），
+ * 以前 `onMounted` 里无条件起 1 秒的定时器 —— 平板整场没打开也在每秒叫醒一次
+ * 组件、顺带重算 `clock` / 各档倒计时。改成跟着 `modelValue` 开关。
+ */
 const nowTick = ref(Date.now());
 let timer: number | undefined;
-onMounted(() => {
+
+function startClock(): void {
+  if (timer) return;
+  nowTick.value = Date.now();
   timer = window.setInterval(() => (nowTick.value = Date.now()), 1000);
-});
-onBeforeUnmount(() => {
+}
+
+function stopClock(): void {
   if (timer) window.clearInterval(timer);
+  timer = undefined;
+}
+
+watch(() => props.modelValue, (open) => (open ? startClock() : stopClock()), {
+  immediate: true,
 });
+onBeforeUnmount(stopClock);
 
 const clock = computed(() => {
   const d = new Date(nowTick.value);

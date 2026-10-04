@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { GameScene, type HudState, type MatchConfig, type MatchOpponent } from '../game/scenes/GameScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
 import GameSticks from './ui/GameSticks.vue';
 import type { MatchRole, SimEvent } from '../game/types';
 import type { NetMetrics } from '../game/telemetry';
@@ -154,6 +154,9 @@ onMounted(async () => {
       },
     },
   });
+
+  // 画布后备缓冲 = 容器 CSS 尺寸 × 设备像素比（高分屏不糊），并跟随尺寸变化
+  bindCanvasSize(game, container.value);
 
   // Phaser 的 postBoot 在 loop.start() 之前，那时 sleep 是空操作；构造返回后
   // loop 已经起跑，这里补一刀（下一帧再兜一次，兼容 boot 被推迟的情况）。

@@ -213,6 +213,56 @@ const cupSlotIndex = (i: number): number => CUP_SLOTS.indexOf(i);
 const courtVisible = ref<boolean[]>(COURTS.map(() => false));
 const cupVisible = ref<boolean[]>(STAGE_COURTS.map(() => false));
 
+/**
+ * **中央两块公开赛直播场地也要「走近才挂」**：它们各自是一台完整的双 AI 对局，
+ * 一进馆就把两台都建起来（WebGL 上下文 + 着色器编译）就是「刚进门卡一下」的主因。
+ * 场地垫 / 看台 / 计分板照旧留着，走上去才真正开始直播。
+ */
+const cupMounted = ref<boolean[]>(STAGE_COURTS.map(() => false));
+
+/**
+ * **错开创建**：一帧里同时进视野的可能有好几块场地，全是 `new Phaser.Game` 会堆成
+ * 一次明显的卡顿。所以挂载都排进这个队列，每 `MOUNT_GAP_MS` 只挂一台。
+ */
+const MOUNT_GAP_MS = 170;
+const mountQueue: { kind: 'court' | 'cup'; idx: number }[] = [];
+let lastMountAt = 0;
+
+function mountList(kind: 'court' | 'cup') {
+  return kind === 'court' ? courtMounted.value : cupMounted.value;
+}
+
+/** 排进挂载队列（已经在挂 / 已挂的不重复排） */
+function queueMount(kind: 'court' | 'cup', idx: number): void {
+  if (mountList(kind)[idx]) return;
+  if (mountQueue.some((q) => q.kind === kind && q.idx === idx)) return;
+  mountQueue.push({ kind, idx });
+}
+
+/** 立刻挂上（镜头锁定的那一块不能等队列） */
+function mountNow(kind: 'court' | 'cup', idx: number): void {
+  const at = mountQueue.findIndex((q) => q.kind === kind && q.idx === idx);
+  if (at >= 0) mountQueue.splice(at, 1);
+  if (!mountList(kind)[idx]) mountList(kind)[idx] = true;
+}
+
+/** 拆掉（连队列里没挂上的一起取消） */
+function unmount(kind: 'court' | 'cup', idx: number): void {
+  for (let i = mountQueue.length - 1; i >= 0; i--) {
+    if (mountQueue[i].kind === kind && mountQueue[i].idx === idx) mountQueue.splice(i, 1);
+  }
+  if (mountList(kind)[idx]) mountList(kind)[idx] = false;
+}
+
+/** 每 `MOUNT_GAP_MS` 放一台出来 */
+function pumpMounts(now: number): void {
+  if (!mountQueue.length || now - lastMountAt < MOUNT_GAP_MS) return;
+  const next = mountQueue.shift();
+  if (!next) return;
+  lastMountAt = now;
+  mountList(next.kind)[next.idx] = true;
+}
+
 /** 某块普通场地要不要暂停：在看某一格（打球 / 看直播）时只留那一格，其余全停 */
 function courtPaused(i: number): boolean {
   return courtFocus.value !== null ? courtFocus.value !== i : !courtVisible.value[i];
@@ -293,17 +343,20 @@ const walk = useWalk({
       const c = COURTS[i];
       const d = Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y);
       courtVisible.value[i] = d <= radius;
-      if (d <= radius) courtMounted.value[i] = true;
-      else if (d > drop && hallPlaying.value !== i && hallMachine.value !== i) {
-        courtMounted.value[i] = false;
-      }
+      if (d <= radius) queueMount('court', i);
+      else if (d > drop && hallPlaying.value !== i && hallMachine.value !== i) unmount('court', i);
     }
-    // 中央两场直播：走远就不画（DOM 场地垫 / 计分板还留着），省两台 AI 对局的开销
+    // 中央两场直播：和普通场地一个待遇——走近才挂画面，走远整块拆掉（省两台 AI 对局）
     for (let i = 0; i < STAGE_COURTS.length; i++) {
       const c = STAGE_COURTS[i];
-      cupVisible.value[i] =
-        Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y) <= radius;
+      const d = Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y);
+      cupVisible.value[i] = d <= radius;
+      if (courtFocus.value === CUP_SLOTS[i]) mountNow('cup', i);
+      else if (d <= radius) queueMount('cup', i);
+      else if (d > drop) unmount('cup', i);
     }
+    // 一帧只放一台出来，避开「同时 new 好几台 Phaser」的瞬时卡顿
+    pumpMounts(now);
     // 上场打球 / 发球机对练时我们就在场地里，球馆里那个走动的替身就别画了
     if (hallPlaying.value === null && hallMachine.value === null) paintMe(now);
   },
@@ -691,6 +744,7 @@ onBeforeUnmount(() => {
                 :broadcast="cupLive[i]"
                 :score="cupScore[i]"
                 :focused="courtFocus === CUP_SLOTS[i]"
+                :mounted="cupMounted[i]"
                 :paused="cupPaused(i)"
                 :w="courtFocus === CUP_SLOTS[i] ? VIEW_W : courtBox.w"
                 :h="courtFocus === CUP_SLOTS[i] ? VIEW_H : courtBox.h"

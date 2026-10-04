@@ -364,8 +364,14 @@ function release(): void {
   const power = Math.max(0, Math.min(1, peak.sp / SPEED_REF));
   const distM = THROW_MIN_M + (THROW_MAX_M - THROW_MIN_M) * power;
   const px = distM * PX_PER_M;
-  const x1 = Math.max(60, Math.min(ROOM_W - 60, THROW_SPOT.x + dirX * px));
-  const y1 = Math.max(320, Math.min(ROOM_H - 80, THROW_SPOT.y + dirY * px));
+  // 落点**夹进这条 50m 直道**：推歪了也落回跑道上，只是横向距离短（推得越偏越短）
+  const laneTop = RUNWAY.y - RUNWAY.h / 2 + 14;
+  const laneBottom = RUNWAY.y + RUNWAY.h / 2 - 14;
+  const x1 = Math.max(
+    THROW_SPOT.x,
+    Math.min(RUNWAY.x0 + RUNWAY.len, THROW_SPOT.x + dirX * px),
+  );
+  const y1 = Math.max(laneTop, Math.min(laneBottom, THROW_SPOT.y + dirY * px));
   flight = { x0: me.value.x, y0: me.value.y - 60, x1, y1, t0: performance.now() };
   ball.value = { x: flight.x0, y: flight.y0 };
   phase.value = 'fly';

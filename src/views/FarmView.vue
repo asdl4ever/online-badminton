@@ -6,7 +6,7 @@ import PageShell from '../components/ui/PageShell.vue';
 import Button from '../components/ui/Button.vue';
 import { FarmScene, type FarmSceneData } from '../game/farm/FarmScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
 import GameSticks from '../components/ui/GameSticks.vue';
 import { FARM_MAX_LEVEL, FARM_UPGRADE_COST, TRACTOR_COST } from '../game/items';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
@@ -73,6 +73,9 @@ function boot(): void {
       postBoot: (g) => g.scene.add('FarmScene', FarmScene, true, data),
     },
   });
+
+  // 画布后备缓冲 = 容器 CSS 尺寸 × 设备像素比（高分屏不糊），并跟随尺寸变化
+  bindCanvasSize(game, container.value);
 }
 
 function upgrade(): void {

@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import { ClimbScene } from '../game/climb/ClimbScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
-import { sceneScaleConfig } from '../game/zoom';
+import { bindCanvasSize, sceneScaleConfig } from '../game/zoom';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
 import { useCustomizeStore } from '../stores/customize';
@@ -53,6 +53,9 @@ onMounted(() => {
       },
     },
   });
+
+  // 画布后备缓冲 = 容器 CSS 尺寸 × 设备像素比（高分屏不糊），并跟随尺寸变化
+  bindCanvasSize(game, container.value);
 
   if (import.meta.env.DEV) {
     (window as unknown as { __climb?: Phaser.Game }).__climb = game;

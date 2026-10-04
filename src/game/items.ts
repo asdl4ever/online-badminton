@@ -8,7 +8,9 @@
  * Equipping writes the item's `ref` into the cosmetic store.
  */
 import type { TierId } from './ranks';
-import { PLUS_META } from './effects/plus';
+// ⚠️ 从 `plusMeta` 引（纯数据），**不要**从 `effects/plus` 引 ——
+// 那边顶部是运行时 `import Phaser from 'phaser'`，会让整个 Phaser 被拖进入口 chunk
+import { PLUS_META } from './effects/plusMeta';
 
 export type ItemSlot =
   | 'skin'
