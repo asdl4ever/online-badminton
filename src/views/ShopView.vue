@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import ChestPanel from '../components/ChestPanel.vue';
@@ -235,7 +234,6 @@ const countdown = computed(() => {
           <div class="room__hint">{{ walkHint }}</div>
 
           <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
-          <ZoomControl />
         </div>
       </template>
     </PageShell>

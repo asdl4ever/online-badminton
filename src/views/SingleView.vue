@@ -5,10 +5,10 @@ import { useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import ArenaScreen from '../components/ArenaScreen.vue';
 import { arenaLive } from '../composables/useArenaLive';
+import { worldState } from '../game/world-arena';
 import PageShell from '../components/ui/PageShell.vue';
 import Button from '../components/ui/Button.vue';
 import AppModal from '../components/ui/AppModal.vue';
-import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import GameSticks from '../components/ui/GameSticks.vue';
 import StaminaRow from '../components/ui/StaminaRow.vue';
@@ -23,6 +23,7 @@ import { celebrate } from '../composables/celebrate';
 import type { HudState, MatchOpponent } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
 import { STYLE_META, tierFromStats, type Difficulty } from '../game/ai';
+import { formatGains, type MatchTally } from '../game/match-xp';
 import { TRAIN_META, TRAIN_XP_PER, type TrainKey } from '../game/training';
 import { ensureStats, pickOpponent, type AiPlayer } from '../game/players';
 import { sfx } from '../game/audio';
@@ -51,6 +52,11 @@ const customize = useCustomizeStore();
 const lobby = useLobbyStore();
 const progress = useProgressStore();
 const hud = ref<HudState | null>(null);
+/**
+ * 最近一次 HUD 里带的「本场统计」（扣杀 / 接杀 / 跑动 / 失误…）：
+ * 打完一局拿它换五维经验（见 `game/match-xp.ts`）。
+ */
+const tally = ref<MatchTally | null>(null);
 
 /* ===== 房间 =============================================================== */
 const ROOM_W = 3600;
@@ -90,14 +96,9 @@ const courtFocus = ref<number | null>(null);
 /** 我在哪张场地上打（null = 没在打）：那张场地的对局切成**正式单机对局** */
 const hallPlaying = ref<number | null>(null);
 
-/** 练习区的**发球机**也做成一张场地（和 6 张普通场地同一套）：
- *  没在练的时候就是一块空场地（**不放 AI 演示**），走近点「开练」你自己上 */
-const MACHINE = { x: 2600, y: 950 };
-/** 发球机那一格的哨兵下标（不在 COURTS 里；镜头 / 盒子尺寸按它算） */
-const MACHINE_SLOT = COURTS.length;
-const machineMounted = ref(false);
-const machinePlaying = ref(false);
-/** 「上场」后弹的那张小卡：挑战人机 / 邀请好友参赛 */
+/** 哪块空场地在跑**发球机对练**（null = 没有）：和「挑战人机」一样占一张场地 */
+const hallMachine = ref<number | null>(null);
+/** 「上场」后弹的那张小卡：挑战人机 / 发球机对练 / 邀请好友参赛 */
 const courtCard = ref<number | null>(null);
 const hallOver = ref(false);
 /** 我在打的那一局的双方体力（和正式对局同一份数据，摆到屏幕顶上） */
@@ -152,7 +153,7 @@ function courtFocusCam(): { x: number; y: number; zoom: number } | null {
   const i = courtFocus.value;
   if (i == null) return null;
   const cup = cupSlotIndex(i);
-  const c = i === MACHINE_SLOT ? MACHINE : cup >= 0 ? STAGE_COURTS[cup] : COURTS[i];
+  const c = cup >= 0 ? STAGE_COURTS[cup] : COURTS[i];
   const box = stage.value?.getBoundingClientRect();
   const w = box?.width ?? 844;
   const h = box?.height ?? 390;
@@ -162,11 +163,6 @@ function courtFocusCam(): { x: number; y: number; zoom: number } | null {
 
 
 
-/** 中排：只剩发球机（「对战 AI」已取消 —— 直接上前排任意一块空场地上场打） */
-const PRACTICE = [
-  { id: 'machine', x: 520, y: 900, sign: '🏸', name: '发球机', desc: '接球练连击' },
-];
-
 /** **中央比赛区**：两张公开赛场地**并排放在一起**（100 赛 / 200 赛）——
  *  播赛事中心这两个档的**真实直播**，上面有计分板（`ArenaBoard`） */
 const STAGE_COURTS = [
@@ -174,20 +170,57 @@ const STAGE_COURTS = [
   { id: 'cup200', x: 2200, y: 500, label: '200 赛', tier: 'l200' },
 ];
 
-/** 后排两块中央场地此刻要播的那一场（赛事中心 `l100` / `l200` 档的直播）。
- *  `worldState` 是纯函数、按 `now` 算，所以每秒喂一次新的时间戳刷新。 */
+/** 后排两块中央场地此刻要播的那一场（`worldState` 是纯函数、按 `now` 算，
+ *  所以每秒喂一次新的时间戳刷新）。 */
 const arenaNow = ref(Date.now());
 let arenaTick = Date.now();
+
+/**
+ * 中央两块场地**播哪两档**：从世界赛的十一档里挑**真的有人报名**的最低两档。
+ *
+ * ⚠️ 不能写死 100 赛 / 200 赛——世界赛按名人堂排名切档，而**最低档总是最先被并空**
+ * （`tierPools` 把不足 2 人的档往下并，底档只剩一个人时还会并到上一档），所以默认
+ * 20 人名单下 100 赛一个人都没有 → `arenaLive()` 返回 null → 那块场地永远空白，
+ * 看着就像「图片坏了」。这里改成从有人的档里挑，场地上永远有得播。
+ */
+const stageTiers = computed<{ id: string; tag: string }[]>(() => {
+  const ok = worldState(progress.aiPlayers, arenaNow.value).cups.filter(
+    (c) => c.entrants.length >= 2,
+  );
+  return STAGE_COURTS.map((slot, i) => {
+    const c = ok[i] ?? ok[0];
+    return c ? { id: c.tier.id, tag: c.tier.tag } : { id: slot.tier, tag: slot.label };
+  });
+});
+
 const cupLive = computed(() =>
-  STAGE_COURTS.map((c) => {
+  stageTiers.value.map((t) => {
     void arenaNow.value;
-    return arenaLive(progress.aiPlayers, c.tier, arenaNow.value);
+    return arenaLive(progress.aiPlayers, t.id, arenaNow.value);
   }),
 );
 
-/** 后排两块中央场地的镜头槽位（和发球机那格一样，是 `courtFocus` 的哨兵下标） */
-const CUP_SLOTS = STAGE_COURTS.map((_, i) => COURTS.length + 1 + i);
+/** 后排两块中央场地的镜头槽位（`courtFocus` 的哨兵下标，和普通场地下标不重叠） */
+const CUP_SLOTS = STAGE_COURTS.map((_, i) => COURTS.length + i);
 const cupSlotIndex = (i: number): number => CUP_SLOTS.indexOf(i);
+
+/**
+ * **哪些画面此刻在屏幕内**（每帧在 `onFrame` 里刷）：球馆里同时挂着好几台 Phaser
+ * （2 场公开赛直播 + 最多 6 张场地），全都在跑各自的 rAF 会很卡。屏幕外的那些就把
+ * Phaser 主循环 `sleep()` 掉（update + 渲染一起停），重新走回来再 `wake()`——所以
+ * 「进去半天就卡」「看比赛也卡」的根因是后台一堆实例空烧。
+ */
+const courtVisible = ref<boolean[]>(COURTS.map(() => false));
+const cupVisible = ref<boolean[]>(STAGE_COURTS.map(() => false));
+
+/** 某块普通场地要不要暂停：在看某一格（打球 / 看直播）时只留那一格，其余全停 */
+function courtPaused(i: number): boolean {
+  return courtFocus.value !== null ? courtFocus.value !== i : !courtVisible.value[i];
+}
+/** 中央那块直播场地同理 */
+function cupPaused(i: number): boolean {
+  return courtFocus.value !== null ? courtFocus.value !== CUP_SLOTS[i] : !cupVisible.value[i];
+}
 
 /** 两块公开赛场地的**计分**：观战直播的 HUD 给的，喂给场地上方那块牌子 */
 const cupScore = ref<[number, number][]>(STAGE_COURTS.map(() => [0, 0]));
@@ -205,16 +238,15 @@ const PATHS = [
   { x: 2350, y: 1665, w: 130, h: 1210 }, // 右侧竖走道
 ];
 
-/** 三个区的**地板平台**（纯地面装饰，压在最下层）：把一伙玩法圈在一起，看着像正经场馆 */
+/** 两个区的**地板平台**（纯地面装饰，压在最下层）：把一伙玩法圈在一起，看着像正经场馆 */
 const AREA_PLATES = [
   { id: 'cup', name: '🏆 中央比赛区', x: 1800, y: 560, w: 2100, h: 700 },
-  { id: 'practice', name: '🏸 训练区', x: 520, y: 900, w: 820, h: 560 },
   { id: 'courts', name: '🎾 普通场地区', x: 1800, y: 1715, w: 3300, h: 1030 },
 ];
 
 /** 6 张普通场地也是可交互物：空的「上场」，有人的「坐下看」 */
 const COURT_OBJECTS = COURTS.map((c, i) => ({ id: `court-${i}`, x: c.x, y: c.y }));
-const WALK_OBJECTS = [...PRACTICE, ...STAGE_COURTS, ...COURT_OBJECTS];
+const WALK_OBJECTS = [...STAGE_COURTS, ...COURT_OBJECTS];
 
 function paintMe(now: number): void {
   const c = meCanvas.value;
@@ -240,9 +272,7 @@ const walk = useWalk({
   spawn: { x: 1250, y: 2200 },
   focus: courtFocusCam,
   onEnter: (id) => {
-    if (id === 'machine') openMachine();
-    else if (id === 'ai') pendingMode.value = 'ai';
-    else if (id.startsWith('court-') && courtFocus.value === null) {
+    if (id.startsWith('court-') && courtFocus.value === null) {
       // 按 E / 点场地：普通场地都是空的 → 直接弹「上场」卡
       // （已经在一块场地上时忽略，免得打球时误点又弹一次卡）
       openCourt(Number(id.slice(6)));
@@ -254,24 +284,28 @@ const walk = useWalk({
       arenaTick = now;
       arenaNow.value = now;
     }
-    // 走到附近才把这块场地的画面挂起来（挂过就一直留着）：一堆 Phaser 实例
-    // 一起跑太费，屏幕上通常同时只有 1~3 张（且都是空场地，只画线 + 网）
+    // 走到附近才把这块场地的画面挂起来：一堆 Phaser 实例一起跑太费。**走远就拆掉**
+    // （带滞回，免得在边界来回抖动），把 WebGL 上下文也还回去——手机上的上下文数量
+    // 有限，挂太多会丢上下文变黑屏。屏幕上通常同时只有 1~3 张。
     const radius = visibleRadius();
+    const drop = radius * 1.4;
     for (let i = 0; i < COURTS.length; i++) {
-      if (courtMounted.value[i]) continue;
       const c = COURTS[i];
-      if (Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y) > radius) continue;
-      courtMounted.value[i] = true;
+      const d = Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y);
+      courtVisible.value[i] = d <= radius;
+      if (d <= radius) courtMounted.value[i] = true;
+      else if (d > drop && hallPlaying.value !== i && hallMachine.value !== i) {
+        courtMounted.value[i] = false;
+      }
     }
-    // 发球机那一格同理
-    if (
-      !machineMounted.value &&
-      Math.hypot(MACHINE.x - walk.me.value.x, MACHINE.y - walk.me.value.y) <= radius
-    ) {
-      machineMounted.value = true;
+    // 中央两场直播：走远就不画（DOM 场地垫 / 计分板还留着），省两台 AI 对局的开销
+    for (let i = 0; i < STAGE_COURTS.length; i++) {
+      const c = STAGE_COURTS[i];
+      cupVisible.value[i] =
+        Math.hypot(c.x - walk.me.value.x, c.y - walk.me.value.y) <= radius;
     }
-    // 上场打球 / 发球机开练时我们就在场地里，球馆里那个走动的替身就别画了
-    if (hallPlaying.value === null && !machinePlaying.value) paintMe(now);
+    // 上场打球 / 发球机对练时我们就在场地里，球馆里那个走动的替身就别画了
+    if (hallPlaying.value === null && hallMachine.value === null) paintMe(now);
   },
 });
 const { me, joy, nearId, tryEnter } = walk;
@@ -367,9 +401,26 @@ function startHallMatch(i: number): void {
   courtCard.value = null;
   courtFocus.value = i;
   hallOver.value = false;
+  hallMachine.value = null;
+  store.practice = 'ai'; // 让「战绩记给人机对手」那套生效
   rollOpponent();
   stamina.value = [100, 100];
   hallPlaying.value = i;
+}
+
+/**
+ * **发球机对练**：把这块空场地切成「发球机喂球」，连击换经验 / 里程碑那套照旧；
+ * 原来球馆里那台独立的发球机已经取消，现在上任意一块空场地都能选它。
+ */
+function startHallMachine(i: number): void {
+  sfx.click();
+  courtCard.value = null;
+  courtFocus.value = i;
+  hallOver.value = false;
+  hallPlaying.value = null;
+  stamina.value = [100, 100];
+  store.practice = 'machine'; // 让「连击换经验 / 里程碑」那套生效
+  hallMachine.value = i;
 }
 
 /**
@@ -389,32 +440,19 @@ function watchCup(i: number): void {
   courtFocus.value = CUP_SLOTS[i];
 }
 
-/** 发球机：镜头拉到它那张场地，并把那一格切成「你自己练」（再点一次收手） */
-function openMachine(): void {
-  if (machinePlaying.value) {
-    machinePlaying.value = false;
-    courtFocus.value = null;
-    return;
-  }
-  sfx.click();
-  store.practice = 'machine'; // 让「连击换经验 / 里程碑」那套生效
-  courtFocus.value = MACHINE_SLOT;
-  machinePlaying.value = true;
-}
-
 /** 离开这块场地：回到球馆里走动（人机那局的结果已经记过账了） */
 function leaveCourt(): void {
   sfx.click();
   courtCard.value = null;
   courtFocus.value = null;
   hallPlaying.value = null;
-  machinePlaying.value = false;
+  hallMachine.value = null;
   hallOver.value = false;
 }
 
-/** 整块重挂的 key：在「空场地」和「正式对局」之间切换、或换对手时要重开一局 */
+/** 整块重挂的 key：在「空场地 / 人机对局 / 发球机对练」之间切换时要重开一局 */
 function courtKey(i: number): string {
-  const mode = hallPlaying.value === i ? 'play' : 'idle';
+  const mode = hallPlaying.value === i ? 'play' : hallMachine.value === i ? 'machine' : 'idle';
   return `${i}-${mode}-${currentOpponent.value?.id ?? ''}`;
 }
 
@@ -425,7 +463,12 @@ const courtScore = ref<[number, number][]>(COURTS.map(() => [0, 0]));
 function onCourtHud(i: number, s: HudState): void {
   const a = courtScore.value[i];
   if (a[0] !== s.score[0] || a[1] !== s.score[1]) courtScore.value[i] = [s.score[0], s.score[1]];
+  if (hallMachine.value === i) {
+    hud.value = s; // 发球机对练：连击换经验 / 里程碑要看这份 HUD
+    return;
+  }
   if (hallPlaying.value !== i) return;
+  if (s.match) tally.value = s.match;
   stamina.value = s.stamina;
 }
 
@@ -465,14 +508,13 @@ const courtCardOpen = computed({
   },
 });
 
-/** 右下角那个按钮：6 张普通场地（都空着）+ 发球机 + 中央球场 */
+/** 右下角那个按钮：6 张普通场地（都空着）+ 中央球场 */
 const action = computed(() => {
   if (courtFocus.value !== null) return null;
   const id = nearId.value ?? '';
   if (id.startsWith('court-')) {
     return { label: '上场 · 这场地空着', court: Number(id.slice(6)), kind: 'play' as const };
   }
-  if (id === 'machine') return { label: '发球机 · 开练', court: -1, kind: 'machine' as const };
   const cup = STAGE_COURTS.findIndex((c) => c.id === id);
   if (cup >= 0) return { label: '坐下看 · 中央球场', court: -1, kind: 'cup' as const, cup };
   return null;
@@ -483,7 +525,6 @@ function onAction(): void {
   if (!a) return;
   if (a.kind === 'play') openCourt(a.court);
   else if (a.kind === 'cup') watchCup(a.cup);
-  else openMachine();
 }
 
 const touch = isTouchDevice();
@@ -491,7 +532,7 @@ const { always: joyAlways } = useJoystickPrefs();
 const showJoy = computed(() => touch || joyAlways.value);
 const walkHint = computed(
   () =>
-    `${touch ? '拖动摇杆' : 'WASD / 摇杆'}走动 · 下两排是空场地（可上场 / 邀请好友），上是公开赛直播，左侧是发球机`,
+    `${touch ? '拖动摇杆' : 'WASD / 摇杆'}走动 · 下两排是空场地（上场可打人机 / 发球机对练 / 邀请好友），上是公开赛直播`,
 );
 
 function leave(): void {
@@ -500,7 +541,7 @@ function leave(): void {
 }
 
 /**
- * 练球机：每接到一颗球（连击 +1）给一笔「技术 + 防守」经验；
+ * 练球机：每接到一颗球（连击 +1）给一笔「防守」经验（发球机只管防守这一维）；
  * 连击每满 10 解锁一档「复古训练房」里程碑奖励（首次才发）。
  */
 watch(
@@ -510,7 +551,7 @@ watch(
     const gained = streak - (prev ?? 0);
     if (gained > 0) {
       const xp = gained * TRAIN_XP_PER.machineReturn;
-      for (const k of progress.train({ technique: xp, defense: xp })) announceTrain(k);
+      for (const k of progress.train({ defense: xp })) announceTrain(k);
     }
     if (streak <= 0) return;
     progress.noteMachineStreak(streak);
@@ -533,6 +574,7 @@ function announceTrain(k: TrainKey): void {
 
 function onHud(state: HudState) {
   hud.value = state;
+  if (state.match) tally.value = state.match;
 }
 
 function onEvent(e: SimEvent) {
@@ -544,11 +586,23 @@ function onEvent(e: SimEvent) {
   else if (e.type === 'gameover') {
     const win = e.scorer === 0;
     progress.recordResult(win, 'single');
-    if (!isMachine.value && currentOpponent.value) {
-      progress.recordVsAi(currentOpponent.value.id, win);
-    }
+    const foe = currentOpponent.value;
+    if (!isMachine.value && foe) progress.recordVsAi(foe.id, win);
     if (win) sfx.win();
     else sfx.lose();
+    // 「打比赛也在变强」：这一场干了什么 → 五维经验（发球机不算，它有自己的「接到一颗给一点」）
+    if (!isMachine.value && tally.value) {
+      const { gains, up } = progress.gainMatchXp({
+        tally: tally.value,
+        localIndex: 0,
+        win,
+        foeKey: foe?.id ?? 'single',
+        foeRating: foe?.rating,
+      });
+      if (gains.length) toastGood(`🏸 本场训练：${formatGains(gains)}`);
+      for (const k of up) announceTrain(k);
+    }
+    tally.value = null;
   }
 }
 
@@ -637,61 +691,18 @@ onBeforeUnmount(() => {
                 :broadcast="cupLive[i]"
                 :score="cupScore[i]"
                 :focused="courtFocus === CUP_SLOTS[i]"
+                :paused="cupPaused(i)"
                 :w="courtFocus === CUP_SLOTS[i] ? VIEW_W : courtBox.w"
                 :h="courtFocus === CUP_SLOTS[i] ? VIEW_H : courtBox.h"
                 :seats="13"
-                :idle-text="`${c.label} · 本场已结束 · 等下一场`"
+                :idle-text="`${stageTiers[i].tag} · 本场已结束 · 等下一场`"
                 :cosmetic="customize.cosmetic"
                 :attrs="progress.attrs"
                 :local-name="lobby.playerName"
                 :local-rank="progress.tier.id"
                 @hud="(s) => onCupHud(i, s)"
               />
-              <span class="venue__name">{{ c.label }} · 公开赛</span>
-            </div>
-
-            <!-- ===== 训练区：发球机 ===== -->
-            <div
-              v-for="a in PRACTICE"
-              :key="a.id"
-              class="venue"
-              :class="{ 'is-near': nearId === a.id }"
-              :style="{ left: `${a.x}px`, top: `${a.y}px` }"
-              @click="tryEnter(a.id)"
-            >
-              <!-- 发球机：和 6 张普通场地一样 —— 一张场地 + 一个真 GameCanvas
-                   （发球机本身由场景自己画），没在练的时候是「AI 对着它练球」 -->
-              <div
-                class="micourt"
-                :class="{ 'is-live': courtFocus === MACHINE_SLOT }"
-                :style="{
-                  width: `${courtFocus === MACHINE_SLOT ? VIEW_W : courtBox.w}px`,
-                  height: `${courtFocus === MACHINE_SLOT ? VIEW_H : courtBox.h}px`,
-                }"
-              >
-                <div class="court-mat" />
-                <GameCanvas
-                  v-if="machineMounted"
-                  :key="`machine-${machinePlaying ? 'play' : 'idle'}`"
-                  role="single"
-                  :session="null"
-                  option-id="machineEasy"
-                  :hall="true"
-                  :idle="!machinePlaying"
-                  :no-sticks="true"
-                  :no-hud="true"
-                  :no-rematch="true"
-                  :force-touch="machinePlaying"
-                  :cosmetic="customize.cosmetic"
-                  :attrs="progress.attrs"
-                  :local-name="lobby.playerName"
-                  :local-rank="progress.tier.id"
-                  :party="false"
-                  @hud="(s) => (hud = s)"
-                  @sim="onEvent"
-                />
-              </div>
-              <span class="venue__name">{{ a.name }}</span>
+              <span class="venue__name">{{ stageTiers[i].tag }} · 公开赛</span>
             </div>
 
             <!-- ===== 普通场地区：6 张普通场地（3×2）=====
@@ -720,8 +731,10 @@ onBeforeUnmount(() => {
                 :session="null"
                 :opponent="hallPlaying === i ? opponentConfig : undefined"
                 :hall="true"
-                :idle="hallPlaying !== i"
-                :force-touch="hallPlaying === i"
+                :paused="courtPaused(i)"
+                :option-id="hallMachine === i ? 'machineEasy' : undefined"
+                :idle="hallPlaying !== i && hallMachine !== i"
+                :force-touch="hallPlaying === i || hallMachine === i"
                 :no-sticks="true"
                 :no-hud="true"
                 :no-rematch="true"
@@ -755,9 +768,9 @@ onBeforeUnmount(() => {
               <span class="room__sign">出口</span>
             </div>
 
-            <!-- 角色（上场打球 / 发球机开练时我们就在画面里，替身收起来） -->
+            <!-- 角色（上场打球 / 发球机对练时我们就在画面里，替身收起来） -->
             <div
-              v-if="hallPlaying === null && !machinePlaying"
+              v-if="hallPlaying === null && hallMachine === null"
               class="avatar is-me"
               :style="{
                 left: `${me.x}px`,
@@ -776,12 +789,11 @@ onBeforeUnmount(() => {
 
           <!-- 走动：球馆那颗摇杆。上场打球：换成和正式对局同一对 DOM 摇杆 -->
           <Joystick
-            v-if="showJoy && hallPlaying === null && !machinePlaying"
+            v-if="showJoy && hallPlaying === null && hallMachine === null"
             @move="(x, y) => (joy = { x, y })"
           />
-          <!-- 上场打球 / 发球机开练：和正式对局同一对摇杆，而且**常显**（桌面 / 模拟器上也靠它走位） -->
-          <GameSticks v-if="hallPlaying !== null || machinePlaying" :always="true" />
-          <ZoomControl v-if="courtFocus === null" />
+          <!-- 上场打球 / 发球机对练：和正式对局同一对摇杆，而且**常显**（桌面 / 模拟器上也靠它走位） -->
+          <GameSticks v-if="hallPlaying !== null || hallMachine !== null" :always="true" />
 
           <!-- 上场那局：复用正式对局那排体力条（比分写在场地画面里） -->
           <div v-if="hallPlaying !== null" class="court-hud">
@@ -800,7 +812,7 @@ onBeforeUnmount(() => {
               🔁 再来一局
             </button>
             <button class="room-enter" type="button" @click="leaveCourt">
-              {{ hallPlaying !== null ? '🚪 离开场地' : '👀 不看了' }}
+              {{ hallPlaying !== null || hallMachine !== null ? '🚪 离开场地' : '👀 不看了' }}
             </button>
           </div>
 
@@ -852,11 +864,13 @@ onBeforeUnmount(() => {
       max-width="420px"
     >
       <div class="diff">
-        <p class="diff__head">镜头已经拉到这块场地上了。<b>和谁打？</b></p>
+        <p class="diff__head">镜头已经拉到这块场地上了。<b>怎么练？</b></p>
         <Button variant="primary" block @click="startHallMatch(courtCard ?? 0)">⚔️ 挑战人机</Button>
+        <Button block @click="startHallMachine(courtCard ?? 0)">🏸 发球机对练</Button>
         <Button block @click="inviteToCourt(courtCard ?? 0)">🧑‍🤝‍🧑 邀请好友参赛</Button>
         <p class="muted" style="font-size: 13px">
-          邀请好友：开出「场地 {{ (courtCard ?? 0) + 1 }}」这个房间并弹出好友面板，点「邀请」好友就进这个场地和你打。
+          发球机对练：一台发射器按节奏喂球，连击换经验、里程碑奖励照旧。邀请好友：开出「场地
+          {{ (courtCard ?? 0) + 1 }}」这个房间并弹出好友面板，点「邀请」好友就进这个场地和你打。
         </p>
       </div>
     </AppModal>
@@ -989,11 +1003,10 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
 }
 
-/* 镜头拉近某一格（上场 / 坐下看 / 发球机开练）时，**其余场地全部收起来**：
+/* 镜头拉近某一格（上场打人机 / 发球机对练 / 坐下看）时，**其余场地全部收起来**：
    它们是各自的比例 / 分辨率，透过聚焦那一格的透明背景露出来时，就成了
    「小一号、发虚、像另一个图层」的幽灵角色。 */
 .room.is-solo .mini:not(.is-live),
-.room.is-solo .micourt:not(.is-live),
 .room.is-solo .cupscreen:not(.is-live) {
   visibility: hidden;
 }
@@ -1135,8 +1148,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.venue.is-near .court,
-.venue.is-near .machine {
+.venue.is-near .court {
   filter: drop-shadow(0 0 9px rgba(255, 212, 92, 0.85));
 }
 
@@ -1201,75 +1213,6 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
 }
 
-/* 练习区那块「场地盒子」（发球机）：尺寸由内联给，和 6 张普通场地同一套 */
-.micourt {
-  position: relative;
-  flex: none;
-}
-
-.machine {
-  position: relative;
-  width: 130px;
-  height: 132px;
-}
-
-.machine__base {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 100px;
-  height: 30px;
-  border-radius: 10px;
-  border: 2px solid #232833;
-  background: linear-gradient(180deg, #6b7383, #3a4150);
-  transform: translateX(-50%);
-}
-
-.machine__barrel {
-  position: absolute;
-  left: 50%;
-  top: 34px;
-  width: 26px;
-  height: 58px;
-  border-radius: 8px;
-  border: 2px solid #232833;
-  background: linear-gradient(180deg, #8b93a4, #4b5261);
-  transform: translateX(-50%) rotate(14deg);
-}
-
-.machine__balls {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 46px;
-  height: 26px;
-  transform: translateX(-50%);
-}
-
-.machine__balls i {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #f6f7f9;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-.machine__balls i:nth-child(1) {
-  left: 2px;
-  top: 9px;
-}
-
-.machine__balls i:nth-child(2) {
-  left: 17px;
-  top: 2px;
-}
-
-.machine__balls i:nth-child(3) {
-  left: 32px;
-  top: 10px;
-}
-
 /* --- 角色 / 提示 / 按钮 --------------------------------------------------- */
 .avatar__rig {
   display: block;
@@ -1305,13 +1248,13 @@ onBeforeUnmount(() => {
   right: max(14px, env(safe-area-inset-right));
   bottom: calc(env(safe-area-inset-bottom) + 186px);
   z-index: 32;
-  padding: 12px 22px;
+  padding: 0.7em 1.3em;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.55);
   background: linear-gradient(180deg, #37d67a, #1fa85c);
   color: #fff;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: var(--ui-pill-font);
   font-weight: 800;
   letter-spacing: 1px;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
@@ -1364,13 +1307,13 @@ onBeforeUnmount(() => {
   right: max(14px, env(safe-area-inset-right));
   bottom: calc(env(safe-area-inset-bottom) + 250px);
   z-index: 32;
-  padding: 12px 22px;
+  padding: 0.7em 1.3em;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.55);
   background: linear-gradient(180deg, #f2b544, #d9942a);
   color: #fff;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: var(--ui-pill-font);
   font-weight: 800;
   letter-spacing: 1px;
   box-shadow: 0 10px 26px rgba(150, 100, 20, 0.45);

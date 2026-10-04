@@ -1528,6 +1528,8 @@ export interface ThemeHatArt {
 }
 
 export const THEME_HATS: Record<string, ThemeHatArt> = {
+  // 🏟 操场跑量里程碑（2km / 5km…）
+  runHat: { ornament: 'bolt', accent: 0x39d0a0, base: 'band' },
   desTurban: { ornament: 'crescent', accent: 0xc9803a, base: 'wrap' },
   desScarab: { ornament: 'shell', accent: 0xffd45c, base: 'band' },
   nimbHalo: { ornament: 'cloud', accent: 0xffffff, base: 'topper' },
@@ -1586,6 +1588,8 @@ export type AuraMotion = 'orbit' | 'rise' | 'pulse' | 'sparkle' | 'drift' | 'fal
 export interface ThemeAuraArt { motion: AuraMotion; accent: number; }
 
 export const THEME_AURAS: Record<string, ThemeAuraArt> = {
+  // 🏟 操场跑量里程碑
+  runAura: { motion: 'rise', accent: 0x39d0a0 },
   desSandAura: { motion: 'drift', accent: 0xc9803a },
   desSunAura: { motion: 'pulse', accent: 0xffd45c },
   nimbWindAura: { motion: 'swirl', accent: 0xffffff },
@@ -1711,6 +1715,8 @@ export type RingPattern = 'orbs' | 'petals' | 'runes' | 'spikes' | 'arcs';
 export interface ThemeRingArt { pattern: RingPattern; accent: number; }
 
 export const THEME_RINGS: Record<string, ThemeRingArt> = {
+  // 🏟 操场跑量里程碑
+  runRing: { pattern: 'spikes', accent: 0x39d0a0 },
   desRing: { pattern: 'orbs', accent: 0xffd45c },
   nimbRing: { pattern: 'arcs', accent: 0xffffff },
   confRing: { pattern: 'petals', accent: 0xff869c },
@@ -2273,6 +2279,8 @@ export interface ThemeTrailArt { pattern: TrailPattern; accent: number; }
 export interface TrailPoint { x: number; y: number; }
 
 export const THEME_TRAILS: Record<string, ThemeTrailArt> = {
+  // 🏟 操场跑量里程碑
+  runTrail: { pattern: 'comet', accent: 0x39d0a0 },
   // 每个主题两条拖尾，图案尽量不重样（21 种图案）
   desTrailA: { pattern: 'sand', accent: 0xffd45c },
   desTrailB: { pattern: 'comet', accent: 0xffd45c },
@@ -2574,6 +2582,8 @@ export type SwingPattern =
 export interface ThemeSwingArt { pattern: SwingPattern; accent: number; }
 
 export const THEME_SWINGS: Record<string, ThemeSwingArt> = {
+  // 🏟 操场跑量里程碑
+  runSwing: { pattern: 'slash', accent: 0x39d0a0 },
   // 每个主题一种专属「斩」，不重样
   desSwing: { pattern: 'crescent', accent: 0xffd45c },
   nimbSwing: { pattern: 'spiral', accent: 0xffffff },

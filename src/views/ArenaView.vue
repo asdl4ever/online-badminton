@@ -11,6 +11,7 @@ import AppModal from '../components/ui/AppModal.vue';
 import ArenaSignup from '../components/ArenaSignup.vue';
 import type { HudState, MatchOpponent } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
+import { formatGains, type MatchTally } from '../game/match-xp';
 import { STYLE_META, tierFromStats } from '../game/ai';
 import {
   ARENA_ROUNDS,
@@ -44,6 +45,8 @@ const game = useGameStore();
 
 const phase = ref<'lobby' | 'bracket' | 'match'>('lobby');
 const hud = ref<HudState | null>(null);
+/** 本场统计（扣杀 / 接杀 / 跑动 / 失误…）：打完换五维经验，见 `game/match-xp.ts` */
+const tally = ref<MatchTally | null>(null);
 const quitOpen = ref(false);
 const resultOpen = ref(false);
 const lastPlace = ref<ArenaPlace | null>(null);
@@ -187,6 +190,7 @@ function closeResult(): void {
 
 function onHud(state: HudState): void {
   hud.value = state;
+  if (state.match) tally.value = state.match;
 }
 
 function onEvent(e: SimEvent): void {
@@ -201,9 +205,23 @@ function onEvent(e: SimEvent): void {
     const before = run.value;
     const evBefore = before ? arenaEventOf(before.tier, before.cupName) : null;
     const nameBefore = before?.cupName ?? '';
+    // 对手也要先拿住（`myOpponent` 是从 arenaRun 算的）
+    const foeBefore = myOpponent.value;
     const res = progress.arenaFinishMatch(win);
     if (win) sfx.win();
     else sfx.lose();
+    // 「打比赛也在变强」：这一场干了什么 → 五维经验（对手 rating 决定强度系数）
+    if (tally.value && foeBefore) {
+      const { gains } = progress.gainMatchXp({
+        tally: tally.value,
+        localIndex: 0,
+        win,
+        foeKey: foeBefore.id,
+        foeRating: foeBefore.rating,
+      });
+      if (gains.length) toastGood(`🏸 本场训练：${formatGains(gains)}`);
+    }
+    tally.value = null;
     if (res.finished) {
       lastPlace.value = res.place ?? null;
       lastEvent.value = evBefore;

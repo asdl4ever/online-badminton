@@ -110,6 +110,10 @@ function gotoCups(): void {
 }
 
 function checkBookings(): void {
+  // 世界自己会变：到点让老将退役、新秀入行（见 players.evolveRoster），
+  // 世界赛冠军出炉也顺手记进「新闻周刊」（见 progress.scanWorldNews）
+  progress.evolveRosterIfDue();
+  progress.scanWorldNews();
   const started = progress.tickArenaBooking(Date.now(), lobby.playerName);
   if (started.length) startRing(started.join(' · '));
 }

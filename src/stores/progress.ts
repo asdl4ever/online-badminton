@@ -32,6 +32,8 @@ import {
   PET_STAR_META,
   PETS,
   RARITY_META,
+  RUN_KM_STEP,
+  RUN_MILESTONES,
   STAR_WEIGHT,
   TRACTOR_COST,
   shardPriceOf,
@@ -54,14 +56,13 @@ import {
   applyAiResult,
   applyMatchResult,
   attrsFromStats,
+  ensureRosterSize,
   ensureStats,
+  evolveRoster,
   generatePlayers,
-  LEGEND_ID,
-  makeRandomPlayer,
   playerStats,
-  ratingFromStats,
+  rosterSlice,
   syncDerived,
-  withLegend,
   type AiPlayer,
   type PlayerStats,
 } from '../game/players';
@@ -80,11 +81,19 @@ import {
   addTrainXp,
   emptyLevels,
   emptyXp,
-  trainQuotaMul,
   type TrainKey,
   type TrainLevels,
   type TrainXp,
 } from '../game/training';
+import {
+  MATCH_XP_SCALE,
+  opponentMul,
+  qualityMul,
+  rawMatchXp,
+  scaleMatchXp,
+  type MatchTally,
+  type MatchXpGain,
+} from '../game/match-xp';
 import { ACHIEVEMENTS, type AchMetric, type Achievement } from '../game/achievements';
 import {
   NAILONG_DAILY_MAX,
@@ -161,6 +170,22 @@ function todayKey(): string {
 export type PullResult =
   | { kind: 'item'; item: Item; duplicate: boolean; refund: number }
   | { kind: 'bag'; bag: 'coins' | 'shards'; amount: number };
+
+/**
+ * 📰 **新闻周刊**的一条消息：世界自己发生的事（老将退役 / 新秀入行…）。
+ * 换血时由 `evolveRosterIfDue()` 生成，周刊页（`views/NewsView.vue`）按周成刊。
+ */
+export interface NewsItem {
+  id: string;
+  /** 发生时刻 */
+  at: number;
+  /** `champion` = 世界赛冠军（见 `scanWorldNews()`） */
+  kind: 'retire' | 'debut' | 'champion';
+  /** 头条（一句概括，如「3 位老将宣布退役」） */
+  title: string;
+  /** 涉及的人（名字），周刊里列在头条下面 */
+  names: string[];
+}
 
 export interface HatchResult {
   pet: Item;
@@ -543,37 +568,77 @@ export const useProgressStore = defineStore('progress', () => {
     return res.up;
   }
 
+  /* --- 「打比赛也在变强」：一场比赛 → 五维经验（见 game/match-xp.ts） -------- */
   /**
-   * **每日训练额度**：每项今天各练了几组（跨天自动清零）。
-   * 满额 `TRAIN_DAILY_SETS` 组，之后是零头，再多不给——见 `training.ts`。
+   * 每天的比赛经验**满额额度**：和健身房的「每天每项 3 组满额」是同一个思路 ——
+   * 到量之后只给零头、再多不给，免得靠刷比赛几天就把五维练满。
+   *
+   * 现在是 **600 满额 / 1200 封顶**（900~1800 那版给的还是偏多：按每场几十点算，
+   * 一天能打满的量差不多是一晚上打完不至于「练满一维」的尺度）。
    */
-  const trainDay = useLocalStorage('bmt-train-day', '');
-  const trainSets = useLocalStorage<TrainLevels>('bmt-train-sets', emptyLevels());
-
-  /** 今天这一项已经练了几组（跨天算 0） */
-  function trainSetsToday(key: TrainKey): number {
-    return trainDay.value === todayKey() ? (trainSets.value[key] ?? 0) : 0;
-  }
+  const MATCH_XP_DAILY = 600;
+  const MATCH_XP_LEAN = 1200;
+  const matchXpDay = useLocalStorage<{ day: string; xp: number }>('bmt-match-xp-day', {
+    day: '',
+    xp: 0,
+  });
+  /** 今天对同一个对手已经打了几场（第 2 场 40%、第 3 场 15%、之后 0） */
+  const matchXpFoes = useLocalStorage<Record<string, { day: string; n: number }>>(
+    'bmt-match-xp-foes',
+    {},
+  );
 
   /**
-   * 练完一组：先按「今天第几组」算额度系数，再发对应量的经验，最后记一组。
-   * `baseXp` 是这一组的基础经验（评级倍率已算好）；返回本次结算（额度系数 / 实得经验 / 升级项）。
+   * 一场比赛打完 → 换五维经验（那张「干了什么 → 长哪一维」的表在 `game/match-xp.ts`）。
+   *
+   * 系数 = **基准（0.7）× 对手强度 × 比赛质量 × 同对手递减 × 每日额度**；返回这一场
+   * 涨了什么，页面拿去弹结算提示。机器（发球机）不走这条，它有自己的「接到一颗给一点」。
    */
-  function finishTrainSet(
-    key: TrainKey,
-    baseXp: number,
-  ): { mul: number; xp: number; up: TrainKey[]; setsToday: number } {
+  function gainMatchXp(input: {
+    tally: MatchTally;
+    localIndex: 0 | 1;
+    win: boolean;
+    /** 同一个对手重复打会递减（AI id / 对手名 / 房间号） */
+    foeKey: string;
+    /** 对手 rating：越高给得越多；联机没有 rating，传 undefined 就是 1.0 倍 */
+    foeRating?: number;
+  }): { gains: MatchXpGain[]; up: TrainKey[] } {
     const today = todayKey();
-    if (trainDay.value !== today) {
-      trainDay.value = today;
-      trainSets.value = emptyLevels();
+    const raw = rawMatchXp(input.tally, input.localIndex);
+    // 同对手递减（同一天）
+    const rec = matchXpFoes.value[input.foeKey];
+    const played = rec && rec.day === today ? rec.n : 0;
+    const foeMul = played === 0 ? 1 : played === 1 ? 0.4 : played === 2 ? 0.15 : 0;
+    // 每日额度
+    const used = matchXpDay.value.day === today ? matchXpDay.value.xp : 0;
+    const quotaMul = used < MATCH_XP_DAILY ? 1 : used < MATCH_XP_LEAN ? 0.25 : 0;
+
+    const gains = scaleMatchXp(
+      raw,
+      MATCH_XP_SCALE *
+        opponentMul(input.foeRating) *
+        qualityMul(input.tally, input.win) *
+        foeMul *
+        quotaMul,
+    );
+    let up: TrainKey[] = [];
+    if (gains.length) {
+      const byKey: Partial<Record<TrainKey, number>> = {};
+      let total = 0;
+      for (const g of gains) {
+        byKey[g.key] = g.xp;
+        total += g.xp;
+      }
+      up = train(byKey);
+      matchXpDay.value = { day: today, xp: used + total };
     }
-    const setsToday = trainSets.value[key] ?? 0;
-    const mul = trainQuotaMul(setsToday);
-    const xp = Math.round(baseXp * mul);
-    const up = xp > 0 ? train({ [key]: xp } as Partial<Record<TrainKey, number>>) : [];
-    trainSets.value = { ...emptyLevels(), ...trainSets.value, [key]: setsToday + 1 };
-    return { mul, xp, up, setsToday: setsToday + 1 };
+    // 记下「今天跟他也打过一场」（顺手把昨天的记录清掉）
+    const nextFoes: typeof matchXpFoes.value = {};
+    for (const [k, v] of Object.entries(matchXpFoes.value)) if (v.day === today) nextFoes[k] = v;
+    nextFoes[input.foeKey] = { day: today, n: played + 1 };
+    matchXpFoes.value = nextFoes;
+
+    return { gains, up };
   }
 
   /**
@@ -581,6 +646,46 @@ export const useProgressStore = defineStore('progress', () => {
    * 玩家（锻炼等级 → 五维）和 AI（名录里的五维）走的是同一条换算。
    */
   const attrs = computed(() => attrsFromStats(playerStats(points.value, trainLevels.value)));
+
+  /* --- 🏟 操场跑量里程碑：累计跑量每满 1km 解锁一件专属装备 ------------------ */
+  /**
+   * 累计跑量（米，永久累计，跨场次不清零）。
+   * **键名带 v2**：v1 用的是「直道标尺」换算（32px = 1m），人物 400px/s 等于
+   * 12.5 m/s，几秒就能跑出一公里——那一版的里程全部作废，从 0 重新算。
+   */
+  const RUN_METERS_KEY = 'bmt-run-meters-v2';
+  const hadRunV2 =
+    typeof localStorage !== 'undefined' && localStorage.getItem(RUN_METERS_KEY) !== null;
+  const runMeters = useLocalStorage(RUN_METERS_KEY, 0);
+  // 第一次升到 v2：把 v1 那版「几秒一公里」白送出去的跑道装备收回来，重新按新比例跑一遍
+  if (!hadRunV2) {
+    owned.value = owned.value.filter((id) => !RUN_MILESTONES.includes(id));
+  }
+
+  /** 已经解锁到第几件（按 `RUN_MILESTONES` 的顺序，0 = 一件都没解锁） */
+  function runUnlockedCount(): number {
+    const reached = Math.floor(runMeters.value / RUN_KM_STEP);
+    return Math.max(0, Math.min(RUN_MILESTONES.length, reached));
+  }
+
+  /**
+   * 跑了这么多米：累加里程，够档就把新装备发进收藏。
+   * 返回**这次真正新拿到**的物品 id（之前已经拥有的不会重复报，免得弹一串空提示）。
+   */
+  function noteRun(meters: number): string[] {
+    if (!(meters > 0)) return [];
+    const before = runUnlockedCount();
+    runMeters.value += meters;
+    const after = runUnlockedCount();
+    const got: string[] = [];
+    for (let i = before; i < after; i++) {
+      const id = RUN_MILESTONES[i];
+      if (!id || owned.value.includes(id)) continue;
+      owned.value = [...owned.value, id];
+      got.push(id);
+    }
+    return got;
+  }
 
   function isClaimed(id: TierId): boolean {
     return claimed.value.includes(id);
@@ -599,8 +704,13 @@ export const useProgressStore = defineStore('progress', () => {
       return owned.value.includes(item.id);
     if (item.source === 'egg') return (petStars.value[item.ref] ?? 0) > 0;
     if (item.source === 'streak') return milestones.value.includes(100);
-    // 荣誉商店 / 活动限定 / 连击里程碑的东西：拿到过才算拥有（都记在 owned 里）
-    if (item.source === 'honor' || item.source === 'event' || item.source === 'combo')
+    // 荣誉商店 / 活动限定 / 连击里程碑 / 跑量里程碑的东西：拿到过才算拥有（都记在 owned 里）
+    if (
+      item.source === 'honor' ||
+      item.source === 'event' ||
+      item.source === 'combo' ||
+      item.source === 'run'
+    )
       return owned.value.includes(item.id);
     return claimed.value.includes(item.source);
   }
@@ -697,8 +807,10 @@ export const useProgressStore = defineStore('progress', () => {
 
   /** AI 球员名录：首次进入游戏时随机生成一份，之后持久化（战绩会被写回） */
   const aiPlayers = useLocalStorage<AiPlayer[]>('bmt-ai-players', []);
+  /** 老存档里那位「传奇球员皮泽恩」的 id：他已经下线，见到就从名录里清掉 */
+  const LEGACY_LEGEND_ID = 'legend-peisien';
   if (!aiPlayers.value.length) {
-    aiPlayers.value = generatePlayers(20);
+    aiPlayers.value = generatePlayers();
   } else {
     // 老存档：补四维 / 把 style 与 difficulty 校准到与四维一致（没变化就不写回）
     const needs = aiPlayers.value.some(
@@ -709,18 +821,73 @@ export const useProgressStore = defineStore('progress', () => {
         p.difficulty !== tierFromStats(p.stats),
     );
     if (needs) aiPlayers.value = aiPlayers.value.map(syncDerived);
+    // 老存档兼容：皮泽恩已下线（清掉），并把名录补到 ROSTER_SIZE 位
+    if (aiPlayers.value.some((p) => p.id === LEGACY_LEGEND_ID)) {
+      aiPlayers.value = aiPlayers.value.filter((p) => p.id !== LEGACY_LEGEND_ID);
+    }
+    aiPlayers.value = ensureRosterSize(aiPlayers.value);
   }
+
+  /** 名录「换血」的进度（时间片号）：每片只换一次，见 `players.evolveRoster()` */
+  const rosterSliceKey = useLocalStorage('bmt-ai-roster-slice', 0);
+
+  /** 📰 「新闻周刊」的消息：世界自己发生的事（退役 / 新秀入行…），见 `evolveRosterIfDue` */
+  const news = useLocalStorage<NewsItem[]>('bmt-news', []);
+  /** 周刊最多留这么多条（再老的就不留了） */
+  const NEWS_CAP = 300;
+  /** 每种消息各自的上限：冠军远比换血频繁，单独限住，别把退役/入行的公告挤出周刊 */
+  const NEWS_KIND_CAP: Record<NewsItem['kind'], number> = {
+    retire: 60,
+    debut: 60,
+    champion: 60,
+  };
+  function pushNews(item: Omit<NewsItem, 'id'>): void {
+    const id = `${item.at.toString(36)}-${item.kind}-${Math.random().toString(36).slice(2, 7)}`;
+    const counts: Partial<Record<NewsItem['kind'], number>> = {};
+    news.value = [{ ...item, id }, ...news.value]
+      .filter((n) => {
+        const c = (counts[n.kind] ?? 0) + 1;
+        counts[n.kind] = c;
+        return c <= NEWS_KIND_CAP[n.kind];
+      })
+      .slice(0, NEWS_CAP);
+  }
+
   /**
-   * 把传奇球员皮泽恩补进名录（老存档 / 名录被改坏时都要补上），并恒定排在最前。
-   * 返回是否真的补了人。除了初始化时调用，名人堂页面挂载时也会再校验一次——
-   * 这样即使游戏在更新之前就已经开着（store 早就初始化完了），打开排行榜也能自动补上。
+   * 🌍 **世界自己会变**：到点让一批到龄的系统球员退役、补进一批新秀（rating 偏低，
+   * 从低档赛事打起）。启动时与 15 秒心跳（`App.vue`）各调一次；没跨时间片就直接返回。
+   * 玩家自己在名人堂新增的球员不受影响。
+   *
+   * 每次换血顺手给「新闻周刊」记两条消息（退役公告 / 新秀入行），名单带上。
    */
-  function ensureLegend(): boolean {
-    if (aiPlayers.value.some((p) => p.id === LEGEND_ID)) return false;
-    aiPlayers.value = withLegend(aiPlayers.value);
-    return true;
+  function evolveRosterIfDue(now: number = Date.now()): void {
+    const slice = rosterSlice(now);
+    if (slice <= rosterSliceKey.value) return;
+    const before = aiPlayers.value;
+    const after = evolveRoster(before, slice);
+    aiPlayers.value = after;
+    rosterSliceKey.value = slice;
+    const beforeById = new Map(before.map((p) => [p.id, p]));
+    const retired = after.filter((p) => !p.custom && p.retired && !beforeById.get(p.id)?.retired);
+    const rookies = after.filter((p) => !beforeById.has(p.id));
+    if (retired.length) {
+      pushNews({
+        at: now,
+        kind: 'retire',
+        title: `${retired.length} 位老将宣布退役`,
+        names: retired.map((p) => p.name),
+      });
+    }
+    if (rookies.length) {
+      pushNews({
+        at: now,
+        kind: 'debut',
+        title: `${rookies.length} 位新秀通过资格赛入行`,
+        names: rookies.map((p) => p.name),
+      });
+    }
   }
-  ensureLegend();
+  evolveRosterIfDue();
 
   // 老存档兼容：以前 100 连击送「哥斯拉」，改版后哥斯拉由「哥斯拉来袭」地狱难度掉落。
   // 已经打到 100 连击的老玩家，把哥斯拉按旧规则补进收藏，不让人白打。
@@ -1003,7 +1170,7 @@ export const useProgressStore = defineStore('progress', () => {
    * - **低档杯赛**（`ROOKIE_TIERS` 之内）：现场生成一路临时弱手，完全不碰名人堂；
    *   名字是这一路人的外号（重炮老张 / 铁壁小李…）、表情共用一套（😡 / 🛡️ / ⚡…）、
    *   四维按身份偏移、装扮按档次。
-   * - **其余杯赛**：从名人堂名录里抽（杯赛越高抽到的一档越强），最后两档必定拉上皮泽恩；
+   * - **其余杯赛**：从名人堂名录里抽（杯赛越高抽到的一档越强，名额不够就按排名补）；
    *   选出候选后按身份排一遍（谁更像这一路就先上）。
    *   对手的 `stats` / `style` 是**叠加了本场偏移的副本** —— 同一批人打不同赛事会带着
    *   这一场的战术倾向（扣杀营里人人更爱扣），但**名人堂存档里他们的四维与风格一行不改**，
@@ -1028,29 +1195,10 @@ export const useProgressStore = defineStore('progress', () => {
       // 杯赛越高，抽到的一档越强
       const start = Math.round((1 - idx / Math.max(1, ARENA_TIERS.length - 1)) * span);
       const chosen = sorted.length <= want ? [...sorted] : sorted.slice(start, start + want);
-      // 传奇球员皮泽恩只打高级赛事：最后两档杯赛必定拉他进 16 人名单
-      if (idx >= ARENA_TIERS.length - 2 && !chosen.some((p) => p.id === LEGEND_ID) && chosen.length) {
-        const legend = sorted.find((p) => p.id === LEGEND_ID);
-        if (legend) chosen.splice(chosen.length - 1, 1, legend);
-      }
       while (chosen.length < want && sorted.length) {
         chosen.push(sorted[chosen.length % sorted.length]);
       }
       opponents = preferByEvent(chosen, ev).map((p) => {
-        // 传奇球员不参与「这一场的偏移」：他来哪一届都是他自己那一套
-        if (p.id === LEGEND_ID) {
-          const own = ensureStats(p);
-          return {
-            id: p.id,
-            name: p.name,
-            isMe: false,
-            rating: p.rating,
-            style: p.style,
-            difficulty: p.difficulty,
-            cosmetic: p.cosmetic,
-            stats: own,
-          };
-        }
         const stats = biasedStats(ensureStats(p), ev);
         return {
           id: p.id,
@@ -1200,59 +1348,6 @@ export const useProgressStore = defineStore('progress', () => {
     };
   }
 
-  // ---- 名人堂的增删改（新增 / 退役 / 编辑）----------------------------------
-
-  /** 新增一位球员（随机生成，随后可以在编辑面板里改） */
-  function addAiPlayer(): AiPlayer {
-    const p = makeRandomPlayer(aiPlayers.value);
-    aiPlayers.value = [...aiPlayers.value, p];
-    pushNotice(`名人堂新增球员「${p.name}」`);
-    return p;
-  }
-
-  /**
-   * 编辑一位球员：名字 / 装扮 / rating / 五维。
-   * 改了五维就按五维**重算 rating**（不传 rating 时），并顺手把 style / difficulty 校准。
-   */
-  function updateAiPlayer(
-    id: string,
-    patch: Partial<Pick<AiPlayer, 'name' | 'rating' | 'cosmetic'>> & { stats?: Partial<PlayerStats> },
-  ): void {
-    const idx = aiPlayers.value.findIndex((p) => p.id === id);
-    if (idx < 0) return;
-    const cur = aiPlayers.value[idx];
-    const stats: PlayerStats = patch.stats
-      ? { ...ensureStats(cur), ...patch.stats }
-      : ensureStats(cur);
-    const next = [...aiPlayers.value];
-    next[idx] = syncDerived({
-      ...cur,
-      ...patch,
-      stats,
-      rating: patch.rating ?? (patch.stats ? ratingFromStats(stats) : cur.rating),
-    });
-    aiPlayers.value = next;
-  }
-
-  /** 退役（不再上榜单 / 不再参加赛事）或复出；战绩与履历都保留 */
-  function setAiRetired(id: string, retired: boolean): void {
-    const idx = aiPlayers.value.findIndex((p) => p.id === id);
-    if (idx < 0) return;
-    const next = [...aiPlayers.value];
-    next[idx] = { ...next[idx], retired };
-    aiPlayers.value = next;
-    pushNotice(`「${next[idx].name}」${retired ? '已退役，不再参加赛事' : '复出了'}`);
-  }
-
-  /** 除名：只允许删掉**自己新增**的球员（系统球员请用「退役」） */
-  function removeAiPlayer(id: string): boolean {
-    const p = aiPlayers.value.find((x) => x.id === id);
-    if (!p || !p.custom || id === LEGEND_ID) return false;
-    aiPlayers.value = aiPlayers.value.filter((x) => x.id !== id);
-    pushNotice(`已把「${p.name}」除名`);
-    return true;
-  }
-
   // ---- 🌍 世界赛（观战台的数据源）-------------------------------------------
 
   /**
@@ -1272,6 +1367,32 @@ export const useProgressStore = defineStore('progress', () => {
   function worldArenaState(now = Date.now()): WorldArenaState {
     return worldState(aiPlayers.value, now, worldArena.value.overrides);
   }
+
+  /** 已经为「哪一档的哪一届」写过冠军新闻（`cup.tier.id` → 届号） */
+  const newsChamps = useLocalStorage<Record<string, number>>('bmt-news-champs', {});
+  /**
+   * 🏆 **冠军也进新闻**：世界赛冠军出炉时写一条。
+   *
+   * 只记**最高档（总决赛）**的冠军——世界赛一共 11 个档、每档 10 分钟一届，
+   * 11 个档全记的话周刊会被冠军刷屏（新闻里冠军本来就单独限量，见 `NEWS_KIND_CAP`）。
+   * 跟着 15 秒心跳调（`App.vue`），没出炉 / 这一届记过就直接返回。
+   */
+  function scanWorldNews(now: number = Date.now()): void {
+    const st = worldArenaState(now);
+    const top = st.cups[st.cups.length - 1];
+    if (!top || !top.champion) return;
+    if ((newsChamps.value[top.tier.id] ?? -1) >= top.season) return;
+    const name = aiPlayers.value.find((p) => p.id === top.champion)?.name;
+    if (!name) return;
+    pushNews({
+      at: now,
+      kind: 'champion',
+      title: `${top.tier.tag} · ${top.name} 冠军`,
+      names: [name],
+    });
+    newsChamps.value = { ...newsChamps.value, [top.tier.id]: top.season };
+  }
+  scanWorldNews();
 
   /** 现在正在直播的所有场次（跨杯，可能同时好几场）——观战台的大屏用 */
   function worldLiveMatches(
@@ -1926,9 +2047,11 @@ export const useProgressStore = defineStore('progress', () => {
     trainLevels,
     trainXp,
     train,
-    trainSetsToday,
-    finishTrainSet,
+    gainMatchXp,
     attrs,
+    runMeters,
+    runUnlockedCount,
+    noteRun,
     isOwned,
     milestones,
     machineBest,
@@ -2015,14 +2138,12 @@ export const useProgressStore = defineStore('progress', () => {
     arenaQuit,
     aiPlayers,
     aiNames,
-    ensureLegend,
+    evolveRosterIfDue,
+    scanWorldNews,
+    news,
     honor,
     playerRecord,
     recordVsAi,
-    addAiPlayer,
-    updateAiPlayer,
-    setAiRetired,
-    removeAiPlayer,
     worldArenaState,
     worldLiveMatches,
     worldLiveMatchOf,

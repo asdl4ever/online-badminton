@@ -564,24 +564,33 @@ button {
    UI 规范层 — 固定像素尺寸 + 奶黄 Liquid Glass 皮肤
    --------------------------------------------------------------------------
    放在文件最后，整段覆盖上面的旧外观：所有控件的尺寸都走 --ui-*，
-   不随屏幕缩放；表面换成一整层暖白玻璃（双色内边 + 指针高光 + 果冻回弹）。
+   **随视口宽度等比缩放**（见下），表面换成一整层暖白玻璃（双色内边 + 指针高光 + 果冻回弹）。
    颜色 token 也一并改到奶黄，但因为它们仍在 :root，所以组件都不用改。
    ========================================================================== */
 :root {
-  /* --- 固定像素尺寸（唯一真源）----------------------------------------- */
-  --ui-bar-h: 44px;
-  --ui-dock-w: 200px;
-  --ui-icon: 34px;
-  /* 左上角那排按钮（退出 / 模式设置）的高度——下面所有浮层都靠它让位 */
+  /* --- 控件尺寸（唯一真源）：以 **1440px 宽为参考** 等比缩放 ----------------
+     每个 `clamp(下限, Nvw, 上限)` 里的「上限」就是它在 1440px 下的尺寸，
+     `Nvw` = 上限 ÷ 1440 × 100。于是宽屏（≥1440）保持原样，笔记本 / 手机
+     这种窄屏按比例缩小 —— **视觉比例才和桌面一致**（以前是固定像素，
+     手机上一个按钮能占掉大半个屏）。
+     下限取上限的 ~80%，守住可点性：图标最小 24px（≥ WCAG 2.2 AA 的 24px）。 */
+  --ui-bar-h: clamp(30px, 2.64vw, 38px);
+  /* 左侧「在线好友」面板宽度 */
+  --ui-dock-w: clamp(147px, 12.78vw, 184px);
+  /* 方形图标按钮（顶栏 / 右上图标行 / 浮标共用）：30px @1440 */
+  --ui-icon: clamp(24px, 2.08vw, 30px);
+  /* 左上角那排按钮（退出 / 头像）的高度——下面所有浮层都靠它让位 */
   --ui-top-h: var(--ui-icon);
-  --ui-btn-sm: 36px;
-  --ui-btn-md: 44px;
-  --ui-btn-lg: 52px;
-  --ui-chip-h: 24px;
-  --ui-font-xs: 12px;
-  --ui-font-sm: 13px;
-  --ui-font-md: 15px;
-  --ui-font-lg: 17px;
+  --ui-btn-sm: clamp(26px, 2.22vw, 32px);
+  --ui-btn-md: clamp(30px, 2.64vw, 38px);
+  --ui-btn-lg: clamp(37px, 3.19vw, 46px);
+  --ui-chip-h: clamp(18px, 1.53vw, 22px);
+  /* 房间里「🚪 进入 / 出门」那种大胶囊按钮的字号（内边距用 em 跟着它走） */
+  --ui-pill-font: clamp(12px, 1.18vw, 17px);
+  --ui-font-xs: clamp(9px, 0.76vw, 11px);
+  --ui-font-sm: clamp(9.5px, 0.83vw, 12px);
+  --ui-font-md: clamp(11px, 0.97vw, 14px);
+  --ui-font-lg: clamp(12px, 1.04vw, 15px);
 
   /* --- 奶黄配色（平涂为主，少渐变）------------------------------------ */
   --bg: #fff3cc;
@@ -669,7 +678,7 @@ h3 {
 .v-btn.soft-btn {
   min-height: var(--ui-btn-md);
   height: var(--ui-btn-md);
-  padding: 0 16px;
+  padding: 0 13px;
   border-radius: var(--lg-radius);
   border: 1px solid var(--glass-border);
   background: var(--glass-bg);
@@ -687,14 +696,14 @@ h3 {
 .v-btn.soft-btn--sm {
   min-height: var(--ui-btn-sm);
   height: var(--ui-btn-sm);
-  padding: 0 12px;
+  padding: 0 10px;
   font-size: var(--ui-font-sm);
 }
 
 .v-btn.soft-btn--lg {
   min-height: var(--ui-btn-lg);
   height: var(--ui-btn-lg);
-  padding: 0 22px;
+  padding: 0 18px;
   font-size: var(--ui-font-lg);
 }
 
@@ -975,8 +984,9 @@ h3 {
   width: auto;
   min-width: var(--ui-icon);
   height: var(--ui-icon);
-  padding: 0 10px;
-  gap: 4px;
+  /* 内边距用 em：跟着下面那行（随屏缩放的）字号走，文字按钮才会同比缩 */
+  padding: 0 0.85em;
+  gap: 0.35em;
   border-color: transparent;
   background: transparent;
   box-shadow: none;

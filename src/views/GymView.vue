@@ -2,10 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
-import AppModal from '../components/ui/AppModal.vue';
-import Button from '../components/ui/Button.vue';
 import TrainXpHud from '../components/TrainXpHud.vue';
 import { useWalk } from '../composables/useWalk';
 import { isTouchDevice } from '../game/device';
@@ -14,21 +11,10 @@ import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas
 import {
   TRAIN_META,
   TRAIN_MAX_LEVEL,
-  TRAIN_SET_SECONDS,
-  TRAIN_SET_TARGET,
-  TRAIN_QUALITY,
-  TRAIN_GRADE_LABEL,
-  TRAIN_GRADE_COLOR,
-  TRAIN_DAILY_SETS,
+  TRAIN_XP_PER,
   trainProgress,
   trainXpFor,
-  trainJudge,
-  trainGradeOf,
-  trainSetBaseXp,
-  trainComboBonus,
-  type TrainGrade,
   type TrainKey,
-  type TrainQuality,
 } from '../game/training';
 import { sfx } from '../game/audio';
 import { toastGood } from '../composables/useToast';
@@ -39,10 +25,12 @@ import { useProgressStore } from '../stores/progress';
 /**
  * 大世界的「健身房」：**俯视平面房间**（和大世界同一套走动 / 镜头 / 视距）。
  *
- * 走到哑铃区按 E（手机点一下）→ **举起哑铃**，然后用**右摇杆上下往复**：
- * 放到底再举起来算 1 次，每次给一笔「进攻」锻炼经验（见 training.ts）。
- * 再按一次 E / 走开就放下。角色头顶挂着正在练那一项的等级与进度条，
- * 屏幕底部是总览（`TrainXpHud`）。
+ * 走到哑铃 / 沙袋 / 跑步机旁边按 E（手机点一下）就开始练，**一台器械只管一维**：
+ * - 🏋️ 哑铃区：右摇杆上下往复，举一次给「进攻」经验；
+ * - 🥊 沙袋：右摇杆推出去再收回来，挥一拳给「技术」经验；
+ * - 🏃 跑步机：左摇杆推着跑，跑得越多给越多「体力」经验。
+ * 没有节奏判定、没有 20 秒一组、也没有评级与每日额度——做一次记一次。
+ * 角色头顶挂着正在练那一项的等级与进度条，屏幕底部是总览（`TrainXpHud`）。
  */
 const router = useRouter();
 const customize = useCustomizeStore();
@@ -62,10 +50,10 @@ const AVATAR_SCALE = 0.8;
 const avatarBox = avatarBoxSize(AVATAR_SCALE);
 const avatarFeetPad = Math.round(AVATAR_FEET_PAD * AVATAR_SCALE);
 
-/** 三块场地：哑铃区（举重）与沙袋（挥拍）练「进攻」，跑步机练「体力」 */
-const LIFT = { id: 'lift', x: 430, y: 470, sign: '🏋️', name: '哑铃区', desc: '举重练「进攻」' };
-const BAG = { id: 'bag', x: 930, y: 470, sign: '🥊', name: '沙袋', desc: '挥拍练「进攻」' };
-const TREAD = { id: 'tread', x: 1340, y: 470, sign: '🏃', name: '跑步机', desc: '跑步练「体力」' };
+/** 三台器械各练一维：举重 → 进攻，沙袋 → 技术，跑步机 → 体力 */
+const LIFT = { id: 'lift', x: 430, y: 470, sign: '🏋️', name: '哑铃区', desc: '举重 +进攻' };
+const BAG = { id: 'bag', x: 930, y: 470, sign: '🥊', name: '沙袋', desc: '挥拍 +技术' };
+const TREAD = { id: 'tread', x: 1340, y: 470, sign: '🏃', name: '跑步机', desc: '跑步 +体力' };
 const AREAS = [LIFT, BAG, TREAD];
 
 /** 当前在做的动作：站着 / 举重 / 打沙袋 / 上跑步机 */
@@ -73,208 +61,63 @@ const mode = ref<'idle' | 'lift' | 'bag' | 'tread'>('idle');
 const lifting = computed(() => mode.value === 'lift');
 const bagging = computed(() => mode.value === 'bag');
 const treading = computed(() => mode.value === 'tread');
+
 /** 跑步机上的里程（px，显示用） */
 const treadDist = ref(0);
-/** 沙袋被击中一次就 +1（key 一变就重放摆动动画） */
+/** 沙袋被打一拳就 +1（key 一变就重放摆动动画） */
 const bagPunch = ref(0);
-/** 打沙袋：右摇杆先收回来（≤0.3）再推出去（≥0.8）才算一次挥拍 */
-let bagArmed = true;
-/** 0 = 完全放下，1 = 举到最高 */
-const lift = ref(0);
-/** 已经放到底（可以算下一次） */
-let armed = true;
 /** 这次进房一共做了多少动作 / 拿了多少经验 */
 const reps = ref(0);
 const sessionXp = ref(0);
+/** 0 = 完全放下，1 = 举到最高 */
+const lift = ref(0);
 /** 右摇杆向量（松手回零） */
 const racketJoy = ref({ x: 0, y: 0 });
+/** 左摇杆原始输入：站着时用来走动，在器械上时只当动作输入（人不动） */
+const rawJoy = ref({ x: 0, y: 0 });
+let armed = true;
+let bagArmed = true;
 let liftLast = performance.now();
+/** 跑步机：累计里程（每跑够一段给一次经验） */
+let treadAccum = 0;
 
-/* ===== 训练组：一次 20 秒的小挑战 ========================================= */
-type GymStation = 'lift' | 'bag' | 'tread';
-
-interface SetState {
-  station: GymStation;
-  /** 还剩几秒 */
-  left: number;
-  /** 质量分（含连击加成） */
-  score: number;
-  /** 有效动作（Perfect / Good） */
-  reps: number;
-  perfect: number;
-  combo: number;
-  bestCombo: number;
-  /** 开组时刻 / 上一次动作时刻 / 跑步机下一次判定的时刻（都是 ms） */
-  startAt: number;
-  lastAt: number;
-  tick: number;
+/* --- 飘字（做一次动作 +N） ------------------------------------------------ */
+interface Pop {
+  id: number;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+}
+const pops = ref<Pop[]>([]);
+let popSeq = 0;
+function addPop(text: string, color: string): void {
+  const p: Pop = { id: ++popSeq, x: me.value.x, y: me.value.y - 190, text, color };
+  pops.value = [...pops.value, p];
+  window.setTimeout(() => {
+    pops.value = pops.value.filter((v) => v.id !== p.id);
+  }, 900);
 }
 
-/** 正在进行的那一组（null = 没在练） */
-const set = ref<SetState | null>(null);
-/** 这一组的结算卡（null = 没弹） */
-const result = ref<{
-  station: GymStation;
-  key: TrainKey;
-  grade: TrainGrade;
-  reps: number;
-  perfect: number;
-  bestCombo: number;
-  base: number;
-  mul: number;
-  xp: number;
-  setsToday: number;
-  up: TrainKey[];
-} | null>(null);
-const resultOpen = computed({
-  get: () => result.value !== null,
-  set: (v: boolean) => {
-    if (!v) result.value = null;
-  },
-});
-/** 节奏条：上一次动作到现在走了多少个节拍（0~1，满格 ≈ 该出手了） */
-const beatPct = ref(0);
-/** 跑步机现在是「冲刺」还是「慢跑」（间隔训练） */
-const treadPush = ref(true);
-
-/** 这台器械练哪一维（跑步机练体力，其余练进攻） */
-const stationKey = (s: GymStation): TrainKey => (s === 'tread' ? 'stamina' : 'attack');
-
-function startSet(station: GymStation): void {
-  const now = performance.now();
-  set.value = {
-    station,
-    left: TRAIN_SET_SECONDS,
-    score: 0,
-    reps: 0,
-    perfect: 0,
-    combo: 0,
-    bestCombo: 0,
-    startAt: now,
-    lastAt: now,
-    tick: now + 500,
-  };
-  beatPct.value = 0;
-  sfx.click();
-}
-
-/** 记一次动作的质量：Perfect / Good 攒分并续连击，Miss 断连 */
-function applyQuality(q: TrainQuality): void {
-  const s = set.value;
-  if (!s) return;
-  if (q === 'miss') {
-    s.combo = 0;
-    return;
-  }
-  s.reps += 1;
-  s.combo += 1;
-  s.bestCombo = Math.max(s.bestCombo, s.combo);
-  if (q === 'perfect') s.perfect += 1;
-  s.score += TRAIN_QUALITY[q] * trainComboBonus(s.combo);
-}
-
-/** 举重 / 沙袋：按「距上一次动作的间隔」判质量（跟着节奏条做就是 Perfect） */
-function judgeAction(): void {
-  const s = set.value;
-  if (!s) return;
-  const now = performance.now();
-  const dt = (now - s.lastAt) / 1000;
-  s.lastAt = now;
-  applyQuality(trainJudge(dt, TRAIN_SET_TARGET[s.station].beat).quality);
-}
-
-/** 跑步机：每 0.5 秒判一次「配速」——3 秒冲刺、3 秒慢跑交替，跟着提示推摇杆 */
-function judgeTread(now: number): void {
-  const s = set.value;
-  if (!s || s.station !== 'tread' || now < s.tick) return;
-  s.tick = now + 500;
-  const push = Math.floor((now - s.startAt) / 3000) % 2 === 0;
-  treadPush.value = push;
-  const mag = Math.min(1, Math.hypot(rawJoy.value.x, rawJoy.value.y));
-  let q: TrainQuality = 'miss';
-  if (push) {
-    if (mag >= 0.7) q = 'perfect';
-    else if (mag >= 0.45) q = 'good';
-  } else if (mag >= 0.25 && mag <= 0.65) {
-    q = 'perfect';
-  } else if (mag >= 0.15 && mag <= 0.8) {
-    q = 'good';
-  }
-  applyQuality(q);
-}
-
-/** 一组结束：评级 → 每日额度 → 发经验 → 弹结算卡 */
-function finishSet(): void {
-  const s = set.value;
-  if (!s) return;
-  set.value = null;
-  mode.value = 'idle';
-  standTarget = null;
-  racketJoy.value = { x: 0, y: 0 };
-  joy.value = { ...rawJoy.value };
-  beatPct.value = 0;
-  if (s.reps === 0) return; // 一次都没做成 → 不算一组、也不占额度
-  const key = stationKey(s.station);
-  const grade = trainGradeOf(s.score, TRAIN_SET_TARGET[s.station].target);
-  const base = trainSetBaseXp(grade);
-  const r = progress.finishTrainSet(key, base);
-  sessionXp.value += r.xp;
-  for (const k of r.up) {
+/** 给某一维加经验，升级了就弹提示 + 庆祝 */
+function addXp(key: TrainKey, amount: number): void {
+  for (const k of progress.train({ [key]: amount } as Partial<Record<TrainKey, number>>)) {
     toastGood(`${TRAIN_META[k].label} 升到 Lv.${progress.trainLevels[k]}！`);
     celebrate(1, [TRAIN_META[k].color]);
   }
-  sfx.point();
-  result.value = {
-    station: s.station,
-    key,
-    grade,
-    reps: s.reps,
-    perfect: s.perfect,
-    bestCombo: s.bestCombo,
-    base,
-    mul: r.mul,
-    xp: r.xp,
-    setsToday: r.setsToday,
-    up: r.up,
-  };
 }
 
-/** 结算卡上显示的东西 */
-const resultInfo = computed(() => {
-  const r = result.value;
-  if (!r) return null;
-  const meta = TRAIN_META[r.key];
-  const stationName = { lift: '哑铃区', bag: '沙袋', tread: '跑步机' }[r.station];
-  return {
-    stationName,
-    title: `${meta.label}训练 · ${stationName}`,
-    gradeText: TRAIN_GRADE_LABEL[r.grade],
-    gradeColor: TRAIN_GRADE_COLOR[r.grade],
-    label: meta.label,
-    color: meta.color,
-    quotaNote:
-      r.setsToday <= TRAIN_DAILY_SETS
-        ? `今日第 ${r.setsToday} / ${TRAIN_DAILY_SETS} 组（满额）`
-        : r.mul > 0
-          ? `今日第 ${r.setsToday} 组 · 已超额，只给 ${Math.round(r.mul * 100)}%`
-          : `今日第 ${r.setsToday} 组 · 今日额度已用完`,
-  };
-});
+/** 记一次动作：加经验 + 飘字 + 累加本场统计 */
+function gain(key: TrainKey, amount: number): void {
+  reps.value += 1;
+  sessionXp.value += amount;
+  addXp(key, amount);
+  addPop(`+${amount} ${TRAIN_META[key].label}`, TRAIN_META[key].color);
+}
 
-/** 头顶那条：现在在练的那一项（跑步机练体力，其它练进攻） */
-const head = computed(() => {
-  const k = treading.value ? 'stamina' : 'attack';
-  const level = progress.trainLevels[k] ?? 0;
-  const xp = progress.trainXp[k] ?? 0;
-  return {
-    icon: k === 'stamina' ? '💪' : '🏋️',
-    label: TRAIN_META[k].label,
-    level,
-    pct: Math.round(trainProgress(level, xp) * 100),
-    text: level >= TRAIN_MAX_LEVEL ? '满级' : `${xp}/${trainXpFor(level)}`,
-    color: TRAIN_META[k].color,
-  };
-});
+/** 朝向：跟着走动方向翻面；frameLast 给跑步机算 dt */
+let facing: 1 | -1 = 1;
+let frameLast = performance.now();
 
 function paintMe(now: number): void {
   const c = meCanvas.value;
@@ -302,20 +145,9 @@ function stepLift(now: number): void {
   if (lift.value <= 0.12) armed = true;
   else if (armed && lift.value >= 0.85) {
     armed = false;
-    countRep();
-  }
-}
-
-/** 一次动作（举重 / 打沙袋）：只判质量，经验在「一组结束」时一次性结算 */
-function countRep(fromBag = false): void {
-  reps.value += 1;
-  if (fromBag) {
-    bagPunch.value += 1;
-    sfx.hit('smash');
-  } else {
     sfx.hit('drive');
+    gain('attack', TRAIN_XP_PER.lift);
   }
-  judgeAction();
 }
 
 /** 打沙袋：右摇杆推出去一次 = 一次有效挥拍（要先收回来才能再算） */
@@ -324,20 +156,24 @@ function stepBag(): void {
   if (mag <= 0.3) bagArmed = true;
   else if (bagArmed && mag >= 0.8) {
     bagArmed = false;
-    countRep(true);
+    bagPunch.value += 1;
+    sfx.hit('smash');
+    gain('technique', TRAIN_XP_PER.bag);
   }
 }
 
-/** 跑步机：推着左摇杆就在跑（里程只用来显示），配速判定见 judgeTread */
+/** 跑步机：推着左摇杆就在跑，每跑够一段给一次「体力」经验 */
 function stepTread(dt: number): void {
   const mag = Math.min(1, Math.hypot(rawJoy.value.x, rawJoy.value.y));
   const d = 380 * mag * dt;
-  if (d > 0.5) treadDist.value += d;
+  if (d <= 0.5) return;
+  treadDist.value += d;
+  treadAccum += d;
+  if (treadAccum >= 380) {
+    treadAccum -= 380;
+    gain('stamina', TRAIN_XP_PER.tread);
+  }
 }
-
-/** 朝向：跟着走动方向翻面；frameLast 给跑步机算 dt */
-let facing: 1 | -1 = 1;
-let frameLast = performance.now();
 
 const walk = useWalk({
   stage,
@@ -346,7 +182,7 @@ const walk = useWalk({
   height: ROOM_H,
   radius: 210,
   objects: () => AREAS,
-  spawn: { x: 800, y: 320 },
+  spawn: { x: 800, y: 640 },
   onEnter: (id) => {
     toggleAction(id);
   },
@@ -354,48 +190,24 @@ const walk = useWalk({
     const dt = Math.min((now - frameLast) / 1000, 0.05);
     frameLast = now;
     if (joy.value.x) facing = joy.value.x > 0 ? 1 : -1;
-    // 刚点了器械：先走过去站好，站定之前不算动作（免得走路也在跑步机上刷里程）
+    // 刚点了器械：先走过去站好，站定之前不做动作
     stepToMachine(dt);
-    if (standTarget) {
-      paintMe(now);
-      return;
-    }
-    // 站定了 → 开始这一组；倒计时走完 → 结算
-    const s = set.value;
-    if (!s && mode.value !== 'idle') {
-      startSet(mode.value as GymStation);
-    } else if (s) {
-      s.left -= dt;
-      if (s.left <= 0) {
-        finishSet();
-        paintMe(now);
-        return;
-      }
-    }
-    if (bagging.value) stepBag();
-    else if (treading.value) {
-      stepTread(dt);
-      judgeTread(now);
-    } else stepLift(now);
-    // 节奏条：举重 / 沙袋按「距上次动作多久」走，满格 ≈ 该出手了
-    const cur = set.value;
-    if (cur && TRAIN_SET_TARGET[cur.station].beat > 0) {
-      beatPct.value = Math.min(1, (now - cur.lastAt) / (TRAIN_SET_TARGET[cur.station].beat * 1000));
+    if (!standTarget) {
+      if (bagging.value) stepBag();
+      else if (treading.value) stepTread(dt);
+      else stepLift(now);
     }
     paintMe(now);
   },
 });
 const { me, joy, nearId, tryEnter } = walk;
 
-/** 左摇杆原始输入：站着时用来走动，在器械上时只当动作输入（人不动） */
-const rawJoy = ref({ x: 0, y: 0 });
-
 function onWalkMove(x: number, y: number): void {
   rawJoy.value = { x, y };
   joy.value = mode.value === 'idle' ? { x, y } : { x: 0, y: 0 };
 }
 
-/** 点了器械之后要走到哪儿站好（器械中心往下一点＝站在上面 / 站在前面） */
+/** 点了器械之后要走到哪儿站好（器械中心往下一点＝站上去 / 站前面） */
 function standPos(a: { x: number; y: number }): { x: number; y: number } {
   return { x: a.x, y: a.y + 70 };
 }
@@ -420,27 +232,29 @@ function stepToMachine(dt: number): void {
   me.value = { x: me.value.x + (dx / d) * step, y: me.value.y + (dy / d) * step };
 }
 
+/** 从器械上下来（不管在做什么，直接回站立状态） */
+function dismount(): void {
+  mode.value = 'idle';
+  standTarget = null;
+  racketJoy.value = { x: 0, y: 0 };
+  joy.value = { ...rawJoy.value };
+  lift.value = 0;
+  treadAccum = 0;
+}
+
 function toggleAction(id: string): void {
-  const want =
-    id === 'lift' ? 'lift' : id === 'bag' ? 'bag' : id === 'tread' ? 'tread' : null;
+  const want = id === 'lift' ? 'lift' : id === 'bag' ? 'bag' : id === 'tread' ? 'tread' : null;
   if (!want) return;
-  if (result.value) return; // 结算卡还开着：别让 E / 点击又开一组
-  // 已经在这台器械上 → 提前收手（这一组按已有成绩结算）
+  // 已经在这台器械上 → 收手
   if (mode.value === want) {
-    if (set.value) finishSet();
-    else {
-      mode.value = 'idle';
-      standTarget = null;
-      racketJoy.value = { x: 0, y: 0 };
-      joy.value = { ...rawJoy.value };
-    }
+    dismount();
     return;
   }
-  // 换台 / 从站着上器械：先把没结算的那组结掉
-  if (set.value) finishSet();
   mode.value = want;
   armed = true;
   bagArmed = true;
+  lift.value = 0;
+  treadAccum = 0;
   racketJoy.value = { x: 0, y: 0 };
   joy.value = { x: 0, y: 0 };
   sfx.click();
@@ -467,15 +281,43 @@ const nearDoor = computed(
   () => Math.hypot(me.value.x - DOOR.x, me.value.y - DOOR.y) < EXIT_RADIUS,
 );
 
+/** 当前这台器械练哪一维（站着时默认显示举重那一项） */
+const HEAD_KEY: Record<'idle' | 'lift' | 'bag' | 'tread', TrainKey> = {
+  idle: 'attack',
+  lift: 'attack',
+  bag: 'technique',
+  tread: 'stamina',
+};
+const HEAD_ICON: Record<TrainKey, string> = {
+  attack: '🏋️',
+  technique: '🎯',
+  stamina: '💪',
+  speed: '🏃',
+  defense: '🛡️',
+};
+
+/** 头顶那条：现在在练的那一项 */
+const head = computed(() => {
+  const k: TrainKey = HEAD_KEY[mode.value];
+  const level = progress.trainLevels[k] ?? 0;
+  const xp = progress.trainXp[k] ?? 0;
+  return {
+    icon: HEAD_ICON[k],
+    label: TRAIN_META[k].label,
+    level,
+    pct: Math.round(trainProgress(level, xp) * 100),
+    text: level >= TRAIN_MAX_LEVEL ? '满级' : `${xp}/${trainXpFor(level)}`,
+    color: TRAIN_META[k].color,
+  };
+});
+
 const touch = isTouchDevice();
 const { always: joyAlways } = useJoystickPrefs();
 const showJoy = computed(() => touch || joyAlways.value);
 const prompt = computed(() => {
-  if (lifting.value) return '右摇杆上下往复举重 —— 跟着上面的节奏条做，越齐越准';
-  if (bagging.value) return '右摇杆推出去再收回来 —— 跟着上面的节奏条做，越齐越准';
-  if (treading.value) {
-    return treadPush.value ? '冲刺！左摇杆推满' : '慢跑 —— 左摇杆轻轻推着';
-  }
+  if (lifting.value) return '右摇杆上下往复举重 —— 每举起一次都给「进攻」经验';
+  if (bagging.value) return '右摇杆推出去再收回来 —— 每挥一拳都给「技术」经验';
+  if (treading.value) return '左摇杆推着跑 —— 跑得越多，「体力」经验越多';
   return '';
 });
 
@@ -488,16 +330,9 @@ function back(): void {
   void router.push('/');
 }
 
-// 走开自动收手（正在进行的那一组按已有成绩结算）
+// 走开自动收手
 watch(nearId, (v) => {
-  if (!v && mode.value !== 'idle') {
-    if (set.value) finishSet();
-    else {
-      mode.value = 'idle';
-      standTarget = null;
-      racketJoy.value = { x: 0, y: 0 };
-    }
-  }
+  if (!v && mode.value !== 'idle') dismount();
 });
 </script>
 
@@ -511,27 +346,37 @@ watch(nearId, (v) => {
             class="room__plane"
             :style="{ width: `${ROOM_W}px`, height: `${ROOM_H}px` }"
           >
-            <!-- 哑铃架：一排三副哑铃 -->
-            <div class="rack" :style="{ left: `${LIFT.x}px`, top: `${LIFT.y - 130}px` }">
-              <div class="rack__bar" />
-              <div class="rack__set">
+            <!-- 墙上的窗（暖光透进来） -->
+            <div class="window" :style="{ left: '800px' }" />
+            <div class="window" :style="{ left: '1150px' }" />
+
+            <!-- 哑铃区背后的练功镜 -->
+            <div class="mirror" :style="{ left: `${LIFT.x}px` }" />
+
+            <!-- 哑铃架 -->
+            <div class="rack" :style="{ left: `${LIFT.x}px`, top: `${LIFT.y - 110}px` }">
+              <div class="rack__top">
                 <span v-for="i in 3" :key="i" class="dumbbell" />
               </div>
+              <div class="rack__legs" />
             </div>
 
             <!-- 沙袋：吊在架子上，每打中一次摆一下 -->
-            <div class="bag" :style="{ left: `${BAG.x}px`, top: `${BAG.y - 160}px` }">
+            <div class="bag" :style="{ left: `${BAG.x}px`, top: `${BAG.y - 190}px` }">
+              <div class="bag__frame" />
               <div class="bag__rope" />
               <div :key="bagPunch" class="bag__body" />
             </div>
 
             <!-- 跑步机：推着左摇杆跑，带子在滚 -->
-            <div class="tread" :style="{ left: `${TREAD.x}px`, top: `${TREAD.y + 30}px` }">
-              <div class="tread__belt" :class="{ 'is-run': treading }" />
-              <div class="tread__deck" />
+            <div class="tread" :style="{ left: `${TREAD.x}px`, top: `${TREAD.y + 20}px` }">
+              <div class="tread__deck">
+                <div class="tread__belt" :class="{ 'is-run': treading }" />
+              </div>
+              <div class="tread__console" />
             </div>
 
-            <!-- 两块场地的交互卡（靠近高亮 / 点它开始） -->
+            <!-- 三块场地的交互卡（靠近高亮 / 点它开始） -->
             <div
               v-for="a in AREAS"
               :key="a.id"
@@ -547,6 +392,16 @@ watch(nearId, (v) => {
 
             <!-- 门口 -->
             <div class="room__door" :style="{ left: `${DOOR.x}px`, top: `${DOOR.y}px` }" />
+
+            <!-- 做一次动作的飘字 -->
+            <div
+              v-for="p in pops"
+              :key="p.id"
+              class="pop"
+              :style="{ left: `${p.x}px`, top: `${p.y}px`, color: p.color }"
+            >
+              {{ p.text }}
+            </div>
 
             <!-- 角色：和地图同一份绘制 -->
             <div
@@ -577,24 +432,6 @@ watch(nearId, (v) => {
             }}<template v-if="treadDist > 0"> · 跑了 {{ Math.round(treadDist / 32) }} m</template>
           </div>
 
-          <!-- 训练组：倒计时 + 节奏条 + 连击 -->
-          <div v-if="set" class="setbar">
-            <span class="setbar__time num">⏱ {{ Math.ceil(set.left) }}s</span>
-            <span
-              v-if="TRAIN_SET_TARGET[set.station].beat > 0"
-              class="setbar__beat"
-              :style="{ '--fill': `${Math.round(beatPct * 100)}%` }"
-            >
-              <i class="setbar__zone" />
-              <b />
-            </span>
-            <span v-else class="setbar__pace" :class="{ 'is-push': treadPush }">
-              {{ treadPush ? '冲刺' : '慢跑' }}
-            </span>
-            <span class="setbar__combo">🔥 {{ set.combo }}</span>
-            <span class="setbar__score num">{{ set.score.toFixed(1) }}</span>
-          </div>
-
           <div class="room__prompt" :class="{ 'is-on': !!prompt }">{{ prompt }}</div>
 
           <!-- 左：走动（上器械后不动）；右：举重上下往复 / 打沙袋推出去 -->
@@ -604,7 +441,6 @@ watch(nearId, (v) => {
             side="right"
             @move="(x, y) => (racketJoy = { x, y })"
           />
-          <ZoomControl />
 
           <!-- 靠近场地：右下角弹出图标按钮（手机点它开练，桌面也可以按 E） -->
           <button v-if="action" class="room-enter" type="button" @click="onAction">
@@ -617,28 +453,8 @@ watch(nearId, (v) => {
         </div>
       </template>
 
-      <TrainXpHud :keys="['attack', 'stamina']" />
+      <TrainXpHud :keys="['attack', 'technique', 'stamina']" />
     </PageShell>
-
-    <!-- 一组练完的结算卡 -->
-    <AppModal v-model="resultOpen" title="训练结束" max-width="380px">
-      <div v-if="result && resultInfo" class="sum">
-        <p class="sum__grade" :style="{ color: resultInfo.gradeColor }">
-          <b>{{ result.grade }}</b>
-          <span>{{ resultInfo.gradeText }}</span>
-        </p>
-        <p class="sum__title">{{ resultInfo.title }}</p>
-        <p class="muted sum__line">
-          有效动作 {{ result.reps }} · Perfect {{ result.perfect }} · 最高连击 {{ result.bestCombo }}
-        </p>
-        <p class="sum__xp" :style="{ color: resultInfo.color }">
-          +{{ result.xp }} {{ resultInfo.label }}经验
-        </p>
-        <p class="muted sum__line">基础 {{ result.base }} × 今日额度 {{ Math.round(result.mul * 100) }}%</p>
-        <p class="muted sum__line">{{ resultInfo.quotaNote }}</p>
-        <Button variant="primary" block @click="resultOpen = false">继续</Button>
-      </div>
-    </AppModal>
   </div>
 </template>
 
@@ -648,377 +464,206 @@ watch(nearId, (v) => {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #2f3440;
+  background: #e7d2a6;
 }
 
+/* 奶油色的墙 + 暖木地板：俯视平面，上半是墙、下半是地板 */
 .room__plane {
   position: absolute;
   left: 0;
   top: 0;
-  background:
-    linear-gradient(180deg, #3a4150 0 150px, #545b6b 150px 100%),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 90px);
-  border-bottom: 16px solid #232833;
+  background-color: #ecd9b0;
+  background-image:
+    linear-gradient(
+      180deg,
+      #fdf4e0 0 178px,
+      #f6e7c6 178px 190px,
+      #ddc194 190px 200px,
+      rgba(0, 0, 0, 0) 200px
+    ),
+    radial-gradient(120% 66% at 50% 72%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 72%),
+    repeating-linear-gradient(90deg, rgba(168, 128, 70, 0.1) 0 2px, rgba(0, 0, 0, 0) 2px 84px),
+    repeating-linear-gradient(0deg, rgba(168, 128, 70, 0.07) 0 1px, rgba(0, 0, 0, 0) 1px 44px);
+  border-bottom: 16px solid #d8bd8c;
+}
+
+/* 墙上的窗：暖光玻璃 + 奶油窗框 */
+.window {
+  position: absolute;
+  top: 40px;
+  width: 210px;
+  height: 112px;
+  transform: translateX(-50%);
+  border-radius: 12px;
+  border: 7px solid #fff6e4;
+  background: linear-gradient(180deg, #bfe6ff 0 58%, #dff0ff 58% 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(190, 150, 90, 0.25),
+    0 8px 20px -12px rgba(120, 90, 40, 0.6);
+  overflow: hidden;
+}
+
+.window::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  transform: translateX(-50%);
+  background: #fff6e4;
+}
+
+/* 练功镜：哑铃区背后的整面镜子 */
+.mirror {
+  position: absolute;
+  top: 34px;
+  width: 330px;
+  height: 130px;
+  transform: translateX(-50%);
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(214, 236, 250, 0.95), rgba(178, 208, 232, 0.9));
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.55),
+    0 8px 20px -12px rgba(120, 90, 40, 0.55);
+}
+
+.mirror::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  top: 10%;
+  width: 26%;
+  height: 80%;
+  border-radius: 999px;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
+  filter: blur(2px);
 }
 
 .room__door {
   position: absolute;
-  width: 130px;
-  height: 62px;
+  width: 150px;
+  height: 74px;
   transform: translate(-50%, -100%);
-  border: 4px solid #232833;
+  border: 5px solid #d8bd8c;
   border-bottom: 0;
-  border-radius: 62px 62px 0 0;
-  background: linear-gradient(180deg, #6f7a8c, #4c5563);
+  border-radius: 74px 74px 0 0;
+  background: linear-gradient(180deg, #fff3da, #f0dcb2);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.6);
 }
 
 /* --- 哑铃架 --------------------------------------------------------------- */
 .rack {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 320px;
-  height: 120px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  border-radius: 14px;
-  border: 3px solid #232833;
-  background: linear-gradient(180deg, #4b5261, #333944);
+  gap: 10px;
+  padding: 12px 22px 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #7a6649, #5a4830);
+  box-shadow:
+    0 16px 26px -14px rgba(70, 46, 12, 0.7),
+    inset 0 2px 0 rgba(255, 255, 255, 0.18);
 }
 
-.rack__bar {
-  width: 300px;
-  height: 10px;
-  border-radius: 6px;
-  background: linear-gradient(180deg, #9aa3b4, #6b7383);
-}
-
-.rack__set {
+.rack__top {
   display: flex;
-  gap: 42px;
+  gap: 46px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff7e6, #efdcb6);
+  box-shadow: inset 0 -4px 8px -4px rgba(120, 90, 40, 0.5);
+}
+
+.rack__legs {
+  width: 100%;
+  height: 8px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #8d7653, #6a563a);
 }
 
 .dumbbell {
   position: relative;
   display: block;
   width: 46px;
-  height: 8px;
-  border-radius: 4px;
-  background: #3a4048;
+  height: 9px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #dfe4ec, #97a0b0);
 }
 
 .dumbbell::before,
 .dumbbell::after {
   content: '';
   position: absolute;
-  top: -8px;
-  width: 10px;
-  height: 24px;
-  border-radius: 4px;
-  background: #e0a13a;
+  top: -9px;
+  width: 13px;
+  height: 27px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #4a5264, #262b35);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25);
 }
 
 .dumbbell::before {
-  left: -8px;
+  left: -9px;
 }
 
 .dumbbell::after {
-  right: -8px;
-}
-
-/* --- 交互按钮 ------------------------------------------------------------- */
-.area {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 10px 20px 8px;
-  border-radius: 14px;
-  border: 2px solid #6b7383;
-  background: linear-gradient(180deg, #4b5261, #333944);
-  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.6);
-  cursor: pointer;
-}
-
-.area.is-near {
-  border-color: #ffd45c;
-  box-shadow: 0 0 0 3px rgba(255, 212, 92, 0.45), 0 6px 14px -6px rgba(0, 0, 0, 0.6);
-}
-
-.area.is-on {
-  border-color: #7fe08f;
-}
-
-.area__sign {
-  font-size: 30px;
-  line-height: 1;
-}
-
-.area__name {
-  font-size: 14px;
-  font-weight: 800;
-  color: #fff4dc;
-}
-
-.area__desc {
-  font-size: 11px;
-  color: #cfd6e2;
-}
-
-/* --- 角色 ----------------------------------------------------------------- */
-.avatar__rig {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.avatar__xp {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% - 2px);
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: rgba(20, 26, 34, 0.72);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.avatar__xplabel {
-  font-size: 11px;
-}
-
-.avatar__xptrack {
-  display: block;
-  width: 64px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-}
-
-.avatar__xptrack i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-}
-
-.avatar__xpnum {
-  font-size: 10px;
-  color: #cfe0cf;
-}
-
-/* --- 提示 / 统计 ---------------------------------------------------------- */
-.room__prompt,
-.room__stat {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 5px 14px;
-  border-radius: var(--r-pill);
-  font-size: 12px;
-  pointer-events: none;
-}
-
-.room__prompt {
-  bottom: 96px;
-  background: rgba(20, 26, 34, 0.6);
-  color: #f2ffe9;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.room__prompt.is-on {
-  opacity: 1;
-}
-
-.room__stat {
-  top: calc(env(safe-area-inset-top) + 12px);
-  background: rgba(20, 26, 34, 0.45);
-  color: #e6eefc;
-}
-
-/* --- 训练组：倒计时 + 节奏条 + 连击 ---------------------------------------- */
-.setbar {
-  position: absolute;
-  left: 50%;
-  top: calc(env(safe-area-inset-top) + 46px);
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 14px;
-  border-radius: var(--r-pill);
-  background: rgba(16, 22, 30, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #eaf3ff;
-  font-size: 13px;
-  font-weight: 800;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.setbar__time {
-  color: #ffd45c;
-}
-
-/* 节奏条：绿色区是 Perfect 窗口；白色填充走到绿区里出手最准 */
-.setbar__beat {
-  position: relative;
-  display: block;
-  width: 130px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  overflow: hidden;
-}
-
-.setbar__zone {
-  position: absolute;
-  left: 55%;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background: rgba(55, 214, 122, 0.3);
-}
-
-.setbar__beat b {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: var(--fill, 0%);
-  border-radius: 999px;
-  background: linear-gradient(90deg, #8fbcff, #ffffff);
-}
-
-.setbar__pace {
-  padding: 1px 10px;
-  border-radius: 999px;
-  background: rgba(61, 139, 253, 0.3);
-  color: #dbe9ff;
-}
-
-.setbar__pace.is-push {
-  background: rgba(255, 90, 77, 0.35);
-  color: #ffe3e0;
-}
-
-.setbar__combo {
-  color: #ffb347;
-}
-
-.setbar__score {
-  color: #9fe6b0;
-}
-
-/* --- 结算卡 --------------------------------------------------------------- */
-.sum {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sum__grade {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0;
-}
-
-.sum__grade b {
-  font-family: var(--font-display);
-  font-size: 34px;
-  line-height: 1;
-}
-
-.sum__grade span {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.sum__title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.sum__line {
-  margin: 0;
-  font-size: 12px;
-}
-
-.sum__xp {
-  margin: 4px 0;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.room__exit {
-  position: absolute;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: calc(env(safe-area-inset-bottom) + 250px);
-  z-index: 32;
-  padding: 12px 22px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.55);
-  background: linear-gradient(180deg, #f2b544, #d9942a);
-  color: #fff;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  box-shadow: 0 10px 26px rgba(150, 100, 20, 0.45);
-  cursor: pointer;
-}
-
-.room__exit:active {
-  transform: scale(0.94);
-}
-
-@media (pointer: fine) {
-  .room-enter {
-    bottom: calc(env(safe-area-inset-bottom) + 24px);
-  }
-
-  .room__exit {
-    bottom: calc(env(safe-area-inset-bottom) + 88px);
-  }
+  right: -9px;
 }
 
 /* --- 沙袋 ----------------------------------------------------------------- */
 .bag {
   position: absolute;
   transform: translate(-50%, 0);
-  width: 74px;
-  height: 190px;
+  width: 84px;
+  height: 200px;
+}
+
+.bag__frame {
+  position: absolute;
+  left: -48px;
+  right: -48px;
+  top: 0;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #aab2c0, #5f6675);
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.6);
 }
 
 .bag__rope {
-  width: 4px;
-  height: 56px;
-  margin: 0 auto;
-  background: #2b3038;
+  width: 5px;
+  height: 46px;
+  margin: 12px auto 0;
+  background: linear-gradient(90deg, #9aa2b2, #5f6675);
 }
 
 .bag__body {
-  width: 74px;
-  height: 122px;
-  border-radius: 12px 12px 16px 16px;
-  border: 3px solid #2b3038;
-  background: linear-gradient(180deg, #7a2f2f, #5a2020);
-  box-shadow: inset 0 -10px 18px -8px rgba(0, 0, 0, 0.6);
+  position: relative;
+  width: 78px;
+  height: 134px;
+  margin: 0 auto;
+  border-radius: 14px 14px 20px 20px;
+  background: linear-gradient(180deg, #c85a5a, #8c3131);
+  box-shadow:
+    inset -9px 0 16px -9px rgba(0, 0, 0, 0.6),
+    inset 9px 0 16px -9px rgba(255, 255, 255, 0.3),
+    0 16px 24px -16px rgba(0, 0, 0, 0.7);
   transform-origin: 50% -58px;
   animation: bag-swing 0.55s ease-out;
+}
+
+.bag__body::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 30px;
+  height: 10px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
 }
 
 @keyframes bag-swing {
@@ -1039,19 +684,266 @@ watch(nearId, (v) => {
   }
 }
 
+/* --- 跑步机 --------------------------------------------------------------- */
+.tread {
+  position: absolute;
+  transform: translate(-50%, 0);
+  width: 220px;
+  height: 130px;
+}
+
+.tread__deck {
+  position: absolute;
+  left: 0;
+  top: 44px;
+  width: 200px;
+  height: 64px;
+  padding: 8px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #59626f, #39414d);
+  box-shadow: 0 16px 24px -16px rgba(0, 0, 0, 0.65);
+}
+
+.tread__belt {
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  background: repeating-linear-gradient(90deg, #3c414d 0 14px, #31363f 14px 28px);
+  background-size: 28px 100%;
+  box-shadow: inset 0 2px 6px -2px rgba(0, 0, 0, 0.7);
+}
+
+.tread__belt.is-run {
+  animation: belt-run 0.5s linear infinite;
+}
+
+@keyframes belt-run {
+  to {
+    background-position: -28px 0;
+  }
+}
+
+.tread__console {
+  position: absolute;
+  right: 0;
+  top: 6px;
+  width: 48px;
+  height: 62px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #59626f, #39414d);
+  box-shadow: 0 10px 18px -12px rgba(0, 0, 0, 0.7);
+}
+
+.tread__console::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 9px;
+  height: 26px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #9fe4ff, #3aa6e0);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+/* --- 交互按钮 ------------------------------------------------------------- */
+.area {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 22px 9px;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 250, 238, 0.82);
+  box-shadow: 0 10px 22px -14px rgba(110, 80, 30, 0.7);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  cursor: pointer;
+}
+
+.area.is-near {
+  border-color: #ffce5c;
+  box-shadow: 0 0 0 3px rgba(255, 206, 92, 0.5), 0 10px 22px -14px rgba(110, 80, 30, 0.7);
+}
+
+.area.is-on {
+  border-color: #4ecb7a;
+  box-shadow: 0 0 0 3px rgba(78, 203, 122, 0.45), 0 10px 22px -14px rgba(110, 80, 30, 0.7);
+}
+
+.area__sign {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.area__name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #4a3410;
+}
+
+.area__desc {
+  font-size: 11px;
+  color: #8a7440;
+}
+
+/* --- 角色 ----------------------------------------------------------------- */
+.avatar__rig {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.avatar__xp {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 2px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 250, 238, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.avatar__xplabel {
+  font-size: 11px;
+}
+
+.avatar__xptrack {
+  display: block;
+  width: 64px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(90, 60, 10, 0.18);
+  overflow: hidden;
+}
+
+.avatar__xptrack i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.avatar__xpnum {
+  font-size: 10px;
+  color: #8a7440;
+}
+
+/* --- 做一次动作的飘字 ------------------------------------------------------ */
+.pop {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  animation: pop-up 0.9s ease-out forwards;
+}
+
+@keyframes pop-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.8);
+  }
+
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -62%) scale(1.12);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -170%) scale(1);
+  }
+}
+
+/* --- 提示 / 统计 ---------------------------------------------------------- */
+.room__prompt,
+.room__stat {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 15px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.room__prompt {
+  bottom: 96px;
+  background: rgba(255, 250, 238, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  color: #4a3410;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.room__prompt.is-on {
+  opacity: 1;
+}
+
+.room__stat {
+  top: calc(env(safe-area-inset-top) + 12px);
+  background: rgba(255, 250, 238, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #6a5220;
+}
+
+.room__exit {
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: calc(env(safe-area-inset-bottom) + 250px);
+  z-index: 32;
+  padding: 0.7em 1.3em;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(180deg, #f2b544, #d9942a);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: var(--ui-pill-font);
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 10px 26px rgba(150, 100, 20, 0.45);
+  cursor: pointer;
+}
+
+.room__exit:active {
+  transform: scale(0.94);
+}
+
+@media (pointer: fine) {
+  .room-enter {
+    bottom: calc(env(safe-area-inset-bottom) + 24px);
+  }
+
+  .room__exit {
+    bottom: calc(env(safe-area-inset-bottom) + 88px);
+  }
+}
+
 /* --- 右下角图标按钮（靠近场地出现；和大世界的「进入」同一款） ---------------- */
 .room-enter {
   position: absolute;
   right: max(14px, env(safe-area-inset-right));
   bottom: calc(env(safe-area-inset-bottom) + 186px);
   z-index: 32;
-  padding: 12px 22px;
+  padding: 0.7em 1.3em;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.55);
   background: linear-gradient(180deg, #37d67a, #1fa85c);
   color: #fff;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: var(--ui-pill-font);
   font-weight: 800;
   letter-spacing: 1px;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
@@ -1069,40 +961,5 @@ watch(nearId, (v) => {
     opacity: 0;
     transform: translateY(10px) scale(0.9);
   }
-}
-
-/* --- 跑步机 --------------------------------------------------------------- */
-.tread {
-  position: absolute;
-  transform: translate(-50%, 0);
-  width: 190px;
-  height: 130px;
-}
-
-.tread__belt {
-  width: 190px;
-  height: 46px;
-  border-radius: 10px;
-  border: 3px solid #232833;
-  background: repeating-linear-gradient(90deg, #4b5261 0 12px, #3a4150 12px 24px);
-  background-size: 24px 100%;
-}
-
-.tread__belt.is-run {
-  animation: belt-run 0.45s linear infinite;
-}
-
-@keyframes belt-run {
-  to {
-    background-position: -24px 0;
-  }
-}
-
-.tread__deck {
-  width: 206px;
-  height: 16px;
-  margin: -4px 0 0 -8px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #6b7383, #333944);
 }
 </style>

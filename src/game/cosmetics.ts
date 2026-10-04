@@ -431,7 +431,9 @@ export type HatId =
   | 'chanHat' | 'chanLantern' | 'arcanCap' | 'arcanCrown' | 'relicBone'
   | 'relicAmber' | 'playBlock' | 'playTop' | 'yuanLamp' | 'yuanMask'
   // 🗺️ 山海宝箱的普通货
-  | 'shanHatFeather' | 'shanHatDragon';
+  | 'shanHatFeather' | 'shanHatDragon'
+  // 🏟 操场跑量里程碑专属
+  | 'runHat';
 
 export type PetId =
   | 'none'
@@ -469,7 +471,9 @@ export type TrailId =
   | 'arcanTrailA' | 'arcanTrailB' | 'relicTrailA' | 'relicTrailB'
   | 'playTrailA' | 'playTrailB' | 'yuanTrailA' | 'yuanTrailB'
   // 🗺️ 山海宝箱的普通货
-  | 'shanTrail';
+  | 'shanTrail'
+  // 🏟 操场跑量里程碑专属
+  | 'runTrail';
 
 /**
  * 挥拍拖尾：球拍挥动时那条弧线的风格。和「击球拖尾」（球飞行的拖尾）是
@@ -502,7 +506,9 @@ export type SwingTrailId =
   | 'desSwing' | 'nimbSwing' | 'confSwing' | 'bigtSwing' | 'aegisSwing'
   | 'chanSwing' | 'arcanSwing' | 'relicSwing' | 'playSwing' | 'yuanSwing'
   // 🗺️ 山海宝箱的普通货
-  | 'shanSwing';
+  | 'shanSwing'
+  // 🏟 操场跑量里程碑专属
+  | 'runSwing';
 
 /**
  * 坐骑：纯装饰，画在角色脚下、跟着他一起跑和跳。
@@ -576,7 +582,9 @@ export type RingId =
   | 'desRing' | 'nimbRing' | 'confRing' | 'bigtRing' | 'aegisRing'
   | 'chanRing' | 'arcanRing' | 'relicRing' | 'playRing' | 'yuanRing'
   // 🗺️ 山海宝箱的普通货
-  | 'shanRing';
+  | 'shanRing'
+  // 🏟 操场跑量里程碑专属
+  | 'runRing';
 
 export type AuraId =
   | 'none'
@@ -685,7 +693,9 @@ export type AuraId =
   | 'arcanRuneAura' | 'arcanStarAura' | 'relicDustAura' | 'relicAmberAura'
   | 'playBallAura' | 'playSparkAura' | 'yuanFireAura' | 'yuanLanternAura'
   // 🗺️ 山海宝箱的普通货
-  | 'shanAuraSpirit' | 'shanAuraStar';
+  | 'shanAuraSpirit' | 'shanAuraStar'
+  // 🏟 操场跑量里程碑专属
+  | 'runAura';
 
 export type RacketSkinId =
   | 'default'
@@ -957,8 +967,10 @@ const HAT_IDS: HatId[] = [
   'confCrown', 'bigtClown', 'bigtRing', 'aegisHelm', 'aegisCrest',
   'chanHat', 'chanLantern', 'arcanCap', 'arcanCrown', 'relicBone',
   'relicAmber',   'playBlock', 'playTop', 'yuanLamp', 'yuanMask',
-// 山海宝箱普通货
-'shanHatFeather', 'shanHatDragon',
+  // 山海宝箱普通货
+  'shanHatFeather', 'shanHatDragon',
+  // 🏟 操场跑量里程碑专属
+  'runHat',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
@@ -976,6 +988,8 @@ const TRAIL_IDS: TrailId[] = [
   'arcanTrailA', 'arcanTrailB', 'relicTrailA', 'relicTrailB',
   'playTrailA', 'playTrailB', 'yuanTrailA', 'yuanTrailB',
   'shanTrail',
+  // 🏟 操场跑量里程碑专属
+  'runTrail',
 ];
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
@@ -991,6 +1005,8 @@ const SWING_TRAIL_IDS: SwingTrailId[] = [
   'desSwing', 'nimbSwing', 'confSwing', 'bigtSwing', 'aegisSwing',
   'chanSwing', 'arcanSwing', 'relicSwing', 'playSwing', 'yuanSwing',
   'shanSwing',
+  // 🏟 操场跑量里程碑专属
+  'runSwing',
 ];
 const MOUNT_IDS: MountId[] = [
   'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
@@ -1023,6 +1039,8 @@ const RING_IDS: RingId[] = [
   'desRing', 'nimbRing', 'confRing', 'bigtRing', 'aegisRing',
   'chanRing', 'arcanRing', 'relicRing', 'playRing', 'yuanRing',
   'shanRing',
+  // 🏟 操场跑量里程碑专属
+  'runRing',
 ];
 
 /** 地环配色（跟着组别走） */
@@ -1046,6 +1064,8 @@ export const RING_COLORS: Record<RingId, number> = {
   arcanRing: 0xb46cff, relicRing: 0xd8c8a0, playRing: 0x4a90d9,
   yuanRing: 0xffd45c,
   shanRing: 0x9fe8c0,
+  // 🏟 操场跑量里程碑专属
+  runRing: 0x39d0a0,
 };
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
@@ -1066,6 +1086,8 @@ const AURA_IDS: AuraId[] = [
   'arcanRuneAura', 'arcanStarAura', 'relicDustAura', 'relicAmberAura',
   'playBallAura', 'playSparkAura', 'yuanFireAura', 'yuanLanternAura',
   'shanAuraSpirit', 'shanAuraStar',
+  // 🏟 操场跑量里程碑专属
+  'runAura',
 ];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
@@ -1774,6 +1796,8 @@ export const HAT_COLORS: Record<HatId, number> = {
   yuanLamp: 0xe8404a, yuanMask: 0xffd45c,
   // 山海宝箱普通货
   shanHatFeather: 0xd8e8ff, shanHatDragon: 0xd42a2a,
+  // 🏟 操场跑量里程碑专属
+  runHat: 0x39d0a0,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -1931,6 +1955,7 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   arcanCap: 'themed', arcanCrown: 'themed', relicBone: 'themed', relicAmber: 'themed',
   playBlock: 'themed', playTop: 'themed', yuanLamp: 'themed', yuanMask: 'themed',
   shanHatFeather: 'themed', shanHatDragon: 'themed',
+  runHat: 'themed',
 };
 
 /**
@@ -2034,6 +2059,8 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   playTrailA: 0x4a90d9, playTrailB: 0xffc04a,
   yuanTrailA: 0xffd45c, yuanTrailB: 0xff8a6a,
   shanTrail: 0x9fe8c0,
+  // 🏟 操场跑量里程碑专属
+  runTrail: 0x39d0a0,
 };
 
 /** 挥拍拖尾各风格的主色 */
@@ -2062,6 +2089,8 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   arcanSwing: 0xb46cff, relicSwing: 0xd8c8a0, playSwing: 0x4a90d9,
   yuanSwing: 0xffd45c,
   shanSwing: 0xff8a3c,
+  // 🏟 操场跑量里程碑专属
+  runSwing: 0x39d0a0,
 };
 
 /** 坐骑各款的主色 */
@@ -2218,6 +2247,8 @@ export const AURA_COLORS: Record<AuraId, number> = {
   playBallAura: 0x4a90d9, playSparkAura: 0xffc04a,
   yuanFireAura: 0xff8a3c, yuanLanternAura: 0xffd45c,
   shanAuraSpirit: 0x9fe8c0, shanAuraStar: 0xffe89a,
+  // 🏟 操场跑量里程碑专属
+  runAura: 0x39d0a0,
 };
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {

@@ -40,7 +40,8 @@ export interface Item {
    *  `chest` = **宝箱专属**（能开出来，但金币商店不卖——金币商店只上 `coin` 与
    *  3★ 及以下的 `gacha`，见 `COIN_SHOP`）；
    *  `shard` = **碎片兑换专属**：开箱抽不到、金币买不到，唯一途径是攒 🧩 星尘碎片
-   *  去宝箱的兑换区换（见 `SHARD_SHOP`） */
+   *  去宝箱的兑换区换（见 `SHARD_SHOP`）；
+   *  `run` = **操场跑量里程碑专属**：累计跑量每满 1km 解锁一件（见 `RUN_MILESTONES`） */
   source:
     | 'free'
     | 'gacha'
@@ -53,6 +54,7 @@ export interface Item {
     | 'honor'
     | 'event'
     | 'combo'
+    | 'run'
     | TierId;
   /**
    * **抽奖权重覆盖**（可选，见 `stores/progress.ts` 的 `rollFrom`）。
@@ -1053,6 +1055,13 @@ export const ITEMS: Item[] = [
   it('racketSkin', 'shanRacketB', '螭鳞球拍', 'rare', 3, 'chest'),
   it('swingTrail', 'shanSwing', '山海斩', 'rare', 3, 'chest'),
   it('mount', 'shanMountKun', '鲲鹏', 'epic', 4, 'chest'),
+
+  // --- 🏟 操场「跑道特训」：累计跑量里程碑专属（每 1km 一件，见 RUN_MILESTONES） ---
+  it('ring', 'runRing', '跑道地环', 'rare', 3, 'run'),
+  it('aura', 'runAura', '冲线光环', 'epic', 4, 'run'),
+  it('trail', 'runTrail', '疾跑拖尾', 'epic', 4, 'run'),
+  it('swingTrail', 'runSwing', '冲刺斩', 'epic', 4, 'run'),
+  it('hat', 'runHat', '跑鞋头带', 'epic', 4, 'run'),
 ];
 
 export const GACHA_POOL = ITEMS.filter((i) => i.source === 'gacha' || i.source === 'chest');
@@ -1256,6 +1265,21 @@ export const MILESTONE_REWARD: Record<number, string> = {
   90: 'ring:courtline',
   100: 'skin:coach',
 };
+
+/**
+ * 🏟 操场「跑量里程碑」：累计里程**每满 1km** 解锁一件「跑道特训」专属装备
+ * （`source: 'run'`，不进任何宝箱池、金币也买不到）。
+ * 累计里程与已解锁档数记在 `bmt-run-meters` / `bmt-run-claimed`，
+ * 判定与发奖在 `stores/progress.ts` 的 `noteRun()`。
+ */
+export const RUN_KM_STEP = 1000;
+export const RUN_MILESTONES: string[] = [
+  'ring:runRing',
+  'aura:runAura',
+  'trail:runTrail',
+  'swingTrail:runSwing',
+  'hat:runHat',
+];
 
 /** ten draws cost 10% less than ten singles */
 /** pet stars are a per-player quality, independent of the pet species */

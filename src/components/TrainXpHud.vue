@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import {
   TRAIN_META,
   TRAIN_MAX_LEVEL,
-  TRAIN_DAILY_SETS,
   trainProgress,
   trainXpFor,
   type TrainKey,
@@ -12,7 +11,7 @@ import { useProgressStore } from '../stores/progress';
 
 /**
  * 锻炼页（健身房 / 操场）**底部那条总览**：把这一页会练到的几维
- * 各画一行「图标 + 等级 + 进度条 + 经验/下一级 + 今日训练额度」。
+ * 各画一行「图标 + 等级 + 进度条 + 经验/下一级」。
  *
  * 头顶那条「当前正在练的那一项」由各页面画在角色身上（跟着人走），这里只做总览。
  */
@@ -32,7 +31,6 @@ const rows = computed(() =>
   props.keys.map((k) => {
     const level = progress.trainLevels[k] ?? 0;
     const xp = progress.trainXp[k] ?? 0;
-    const setsToday = progress.trainSetsToday(k);
     return {
       key: k,
       icon: ICON[k],
@@ -41,9 +39,6 @@ const rows = computed(() =>
       level,
       pct: Math.round(trainProgress(level, xp) * 100),
       text: level >= TRAIN_MAX_LEVEL ? '满级' : `${xp}/${trainXpFor(level)}`,
-      setsToday,
-      daily: TRAIN_DAILY_SETS,
-      done: setsToday >= TRAIN_DAILY_SETS,
     };
   }),
 );
@@ -55,9 +50,6 @@ const rows = computed(() =>
       <span class="xhud__name" :style="{ color: r.color }">{{ r.icon }} {{ r.label }} Lv.{{ r.level }}</span>
       <span class="xhud__track"><i :style="{ width: `${r.pct}%`, background: r.color }" /></span>
       <span class="xhud__num num">{{ r.text }}</span>
-      <span class="xhud__quota" :class="{ 'is-done': r.done }">
-        今日 {{ Math.min(r.setsToday, r.daily) }}/{{ r.daily }}
-      </span>
     </div>
   </div>
 </template>
@@ -69,11 +61,14 @@ const rows = computed(() =>
   bottom: calc(env(safe-area-inset-bottom) + 12px);
   transform: translateX(-50%);
   display: flex;
-  gap: 18px;
-  padding: 7px 16px;
-  border-radius: 14px;
-  background: rgba(18, 26, 20, 0.6);
-  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.7);
+  gap: 20px;
+  padding: 8px 18px;
+  border-radius: 16px;
+  background: rgba(255, 250, 238, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 26px -14px rgba(90, 60, 10, 0.6);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
   pointer-events: none;
   z-index: 24;
 }
@@ -84,16 +79,16 @@ const rows = computed(() =>
   gap: 8px;
   font-size: 12px;
   font-weight: 700;
-  color: #f2ffe9;
+  color: #4a3410;
   white-space: nowrap;
 }
 
 .xhud__track {
   display: block;
   width: 96px;
-  height: 7px;
+  height: 8px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(90, 60, 10, 0.16);
   overflow: hidden;
 }
 
@@ -106,20 +101,6 @@ const rows = computed(() =>
 
 .xhud__num {
   font-size: 11px;
-  color: #cfe0cf;
-}
-
-/* 今日训练额度：满额是绿的，超额后转成金色提醒「再练只给零头」 */
-.xhud__quota {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: rgba(55, 214, 122, 0.22);
-  color: #baf0cb;
-  font-size: 10px;
-}
-
-.xhud__quota.is-done {
-  background: rgba(255, 212, 92, 0.22);
-  color: #ffe6a8;
+  color: #8a7440;
 }
 </style>

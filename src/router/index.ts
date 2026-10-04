@@ -22,13 +22,13 @@ export const router = createRouter({
       path: '/training',
       redirect: '/single',
     },
-    // 健身房：挥拍砸沙袋练「进攻」
+    // 健身房：举重「进攻」· 沙袋「技术」· 跑步机「体力」
     {
       path: '/gym',
       name: 'gym',
       component: () => import('../views/GymView.vue'),
     },
-    // 操场：跑步练「速度 / 体力」
+    // 操场：跑圈练「速度」
     {
       path: '/track',
       name: 'track',
@@ -78,12 +78,6 @@ export const router = createRouter({
       name: 'petshop',
       component: () => import('../views/PetShopView.vue'),
     },
-    // 大地图上的名人堂：AI 球员排行榜 + 观战
-    {
-      path: '/hall',
-      name: 'hall',
-      component: () => import('../views/HallView.vue'),
-    },
     // 大地图上的赛事中心（观战台）：世界赛树状图 + 真观战
     {
       path: '/watch',
@@ -113,6 +107,12 @@ export const router = createRouter({
       path: '/alien',
       name: 'alien',
       component: () => import('../views/AlienView.vue'),
+    },
+    // 新闻周刊：世界自己发生的事（老将退役 / 新秀入行…）
+    {
+      path: '/news',
+      name: 'news',
+      component: () => import('../views/NewsView.vue'),
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 

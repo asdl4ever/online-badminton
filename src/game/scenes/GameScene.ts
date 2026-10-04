@@ -46,6 +46,7 @@ import {
   stepPlayerLocal,
   stepWorld,
 } from '../simulation';
+import { createMatchTally, type MatchTally, type MatchTallyTracker } from '../match-xp';
 import { AIController, NEUTRAL_STATS } from '../ai';
 import { attrsFromStats, type PlayerStats } from '../players';
 import { createControls, readControls, type ControlKeys } from '../input';
@@ -99,6 +100,11 @@ export interface HudState {
     misses: number;
     feeds: number;
   };
+  /**
+   * 这一场「你实际打出来的东西」（扣杀 / 接杀 / 跑动 / 失误…）。
+   * 页面在 `gameover` 时拿它去换五维经验 —— 见 `game/match-xp.ts`。
+   */
+  match?: MatchTally;
 }
 
 /**
@@ -235,6 +241,10 @@ export class GameScene extends Phaser.Scene {
 
   /** sim events produced since the last snapshot went out */
   private netEvents: SimEvent[] = [];
+  /** 本场「你实际打出来的东西」的统计：结算时换五维经验（见 `game/match-xp.ts`） */
+  private tally: MatchTallyTracker = createMatchTally();
+  /** 上一帧双方的水平位置（算跑动距离用） */
+  private lastX: [number, number] = [0, 0];
   /** render interpolation: pose before this frame's fixed steps + blend factor */
   private prevShuttle = { x: 0, y: 0 };
   private prevPlayers = [
@@ -318,6 +328,8 @@ export class GameScene extends Phaser.Scene {
     this.trail = [];
     this.flashes = [];
     this.netEvents = [];
+    this.tally = createMatchTally();
+    this.lastX = [0, 0];
     this.shuttleHistory = [];
     this.alpha = 0;
     this.predShuttle.live = false;
@@ -829,6 +841,8 @@ export class GameScene extends Phaser.Scene {
     this.specRightInput = { ...EMPTY_INPUT };
     this.hasSnapshot = false;
     this.gameoverSeen = false;
+    this.tally = createMatchTally();
+    this.lastX = [0, 0];
     this.racket.reset();
     this.touchControls?.reset();
     for (const e of this.emotes) e.text.destroy();
@@ -1140,8 +1154,24 @@ export class GameScene extends Phaser.Scene {
       this.infoAccum = 0;
       this.refreshInfoLine();
     }
+    this.trackMatch(rawDt);
     this.publishHud(false);
     this.publishMetrics(dt);
+  }
+
+  /**
+   * 攒「这一场干了什么」里跟位置/时间有关的那部分（跑动距离、时长）。
+   * 只在**回合中**累加：每分之间会把球员摆回发球位，那段位移不算跑动。
+   */
+  private trackMatch(dt: number): void {
+    const w = this.world;
+    const live = w.phase === 'rally';
+    if (live) this.tally.tick(dt);
+    for (const i of [0, 1] as const) {
+      const x = w.players[i].x;
+      if (live) this.tally.travel(i, Math.abs(x - this.lastX[i]));
+      this.lastX[i] = x;
+    }
   }
 
   /**
@@ -1383,6 +1413,10 @@ export class GameScene extends Phaser.Scene {
 
   private flushEvents(): void {
     for (const e of this.world.events) {
+      // 「打比赛也在变强」的统计：击球 / 下网 / 得分各记一笔（见 game/match-xp.ts）
+      if (e.type === 'hit') this.tally.hit(e.player === 1 ? 1 : 0, e.kind ?? 'drive');
+      else if (e.type === 'net') this.tally.net();
+      else if (e.type === 'point') this.tally.point(e.scorer === 1 ? 1 : 0);
       if (e.type === 'hit') {
         this.spawnHitEffect(e.player === 1 ? 1 : 0, e.kind);
         this.shakeFor(e.kind, e.power ?? 0);
@@ -1517,7 +1551,7 @@ export class GameScene extends Phaser.Scene {
     ];
     const key = `${w.score[0]}:${w.score[1]}:${w.phase}:${w.winner}:${w.server}:${roomCode}:${opponentConnected}:${
       machine ? `${m.streak}:${m.best}:${m.misses}` : ''
-    }:${stamina[0]}:${stamina[1]}`;
+    }:${stamina[0]}:${stamina[1]}:${this.tally.value.points}`;
     if (!force && key === this.lastHud) return;
     this.lastHud = key;
     this.cfg.onHud({
@@ -1530,6 +1564,7 @@ export class GameScene extends Phaser.Scene {
       server: w.server,
       machine,
       stamina,
+      match: this.tally.value,
     });
   }
 

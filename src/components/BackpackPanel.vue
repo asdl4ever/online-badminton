@@ -50,11 +50,33 @@ const filters: { id: Filter; label: string }[] = [
   ...SLOT_ORDER.map((s) => ({ id: s as Filter, label: SLOT_LABELS[s] })),
 ];
 
-const filtered = computed(() =>
-  filter.value === 'all'
-    ? ownedItems.value
-    : ownedItems.value.filter((i) => i.slot === filter.value),
-);
+/** 排序：默认按物品表的登记顺序 / 「星级」按星级从高到低 */
+type SortBy = 'default' | 'stars';
+const sortBy = ref<SortBy>('default');
+const sorts: { id: SortBy; label: string }[] = [
+  { id: 'default', label: '默认' },
+  { id: 'stars', label: '⭐ 星级' },
+];
+
+/** pets show the star level the player actually hatched, not a fixed value */
+function displayStars(item: Item): number {
+  return item.slot === 'pet' ? progress.petStar(item.ref) || 1 : item.stars;
+}
+
+const filtered = computed(() => {
+  const list =
+    filter.value === 'all'
+      ? ownedItems.value
+      : ownedItems.value.filter((i) => i.slot === filter.value);
+  if (sortBy.value === 'default') return list;
+  // 星级高的在前；同星级按稀有度（越稀有越靠前）、再按名字，保证顺序稳定
+  return [...list].sort(
+    (a, b) =>
+      displayStars(b) - displayStars(a) ||
+      RARITY_META[a.rarity].weight - RARITY_META[b.rarity].weight ||
+      a.label.localeCompare(b.label, 'zh'),
+  );
+});
 
 /** a fixed 5x5 grid per page, padded with empty cells */
 const cells = computed<(Item | null)[]>(() => {
@@ -95,11 +117,6 @@ function currentRef(slot: ItemSlot): string {
 
 function isEquipped(item: Item): boolean {
   return currentRef(item.slot) === item.ref;
-}
-
-/** pets show the star level the player actually hatched, not a fixed value */
-function displayStars(item: Item): number {
-  return item.slot === 'pet' ? progress.petStar(item.ref) || 1 : item.stars;
 }
 
 function equip(item: Item): void {
@@ -195,6 +212,20 @@ function equippedLabel(slot: ItemSlot): string {
             @click="filter = f.id"
           >
             {{ f.label }}
+          </button>
+        </div>
+
+        <div class="bp__sorts">
+          <span class="bp__sorts-label">排序</span>
+          <button
+            v-for="s in sorts"
+            :key="s.id"
+            class="bp__tab"
+            :class="{ 'is-active': sortBy === s.id }"
+            type="button"
+            @click="sortBy = s.id"
+          >
+            {{ s.label }}
           </button>
         </div>
       </div>
@@ -316,6 +347,18 @@ function equippedLabel(slot: ItemSlot): string {
   color: var(--text);
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* 排序：默认顺序 / 按星级从高到低 */
+.bp__sorts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bp__sorts-label {
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .bp__collect {

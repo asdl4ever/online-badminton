@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
-import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import { isTouchDevice } from '../game/device';
 import { useJoystickPrefs } from '../composables/useJoystick';
@@ -237,8 +236,10 @@ function paintMe(now: number): void {
   });
 }
 
-/* --- 角色右手边的平板：点它弹出来（报名 / 预约 / 赛事中心 / 名人堂） --------- */
+/* --- 角色右手边的平板：点它弹出来（报名 / 预约 / 赛事中心 / 排行榜 / 新闻） --- */
 const tabletOpen = ref(false);
+/** 平板里正在打挑战（整屏对局）：这时屏蔽地图的键盘走动，免得一边打球一边把角色走丢 */
+const tabletDuel = ref(false);
 /** 待开赛的预约数：有就挂个角标，平板里是「我的预约」 */
 const bookedCount = computed(() => Object.keys(progress.arenaBooking).length);
 /**
@@ -313,10 +314,19 @@ const held = new Set<string>();
 const MOVED_SPEED = 400; // px/s
 const cam = ref({ x: 0, y: 0 });
 
-/* --- 视距（zoom）：公共件（右缘滑块 + 双指捏合），大世界与各房间共用同一份 ----- */
-/** 双指捏合：固定摇杆 / 缩放条 / 进入按钮 / 平板上的手指不参与——`.joy-zone`
- *  （自由摇杆热区）**故意留着**，捏合要能从它上面起手（摇杆靠 `pinchActive` 让位） */
-const pinch = createPinchZoom('.joy, .zoomer, .world-enter, .world__tablet');
+/* --- 视距（zoom）：双指捏合，大世界与各房间共用同一份 --------------------- */
+/**
+ * 双指捏合：固定摇杆 / 进入按钮 / 平板上的手指不参与——`.joy-zone`（自由摇杆热区）
+ * **故意留着**，捏合要能从它上面起手（摇杆靠 `pinchActive` 让位）。
+ *
+ * `splitHalves`：大世界左右各一颗自由摇杆，**两指分处左右两半 = 一边走一边挥拍**，
+ * 不能当成捏合（否则两颗摇杆一起让位，走也走不了、拍也挥不出）；同一半里的两指
+ * 仍是捏合，所以缩放照旧。
+ */
+const pinch = createPinchZoom({
+  ignore: '.joy, .world-enter, .world__tablet',
+  splitHalves: true,
+});
 
 const nearZone = ref<WorldZone | null>(null);
 const plane = ref<HTMLElement | null>(null);
@@ -621,8 +631,9 @@ const enterHint = computed<{ label: string; go: () => void } | null>(() => {
 });
 
 function onKeyDown(e: KeyboardEvent): void {
-  // 弹窗开着时不响应键盘走动 / 按 E 进区域（不然一边看活动一边被传走）
-  if (eventsOpen.value || comboOpen.value || tradeOpen.value) return;
+  // 弹窗 / 平板里的挑战对局开着时不响应键盘走动 / 按 E 进区域
+  // （不然一边看活动、一边打球的时候会被传走 / 把人走丢）
+  if (eventsOpen.value || comboOpen.value || tradeOpen.value || tabletDuel.value) return;
   const k = e.key.toLowerCase();
   if (KEY_VECTORS[k]) held.add(k);
   if (k !== 'e') return;
@@ -826,7 +837,7 @@ onBeforeUnmount(() => {
             <div class="avatar__name">你</div>
           </div>
 
-          <!-- 角色右手边上那台平板：点一下就弹出来（报名 / 预约 / 赛事中心 / 名人堂） -->
+          <!-- 角色右手边上那台平板：点一下就弹出来（报名 / 预约 / 赛事中心 / 排行榜 / 新闻周刊） -->
           <button
             class="world__tablet"
             type="button"
@@ -887,8 +898,7 @@ onBeforeUnmount(() => {
         <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
         <Joystick v-if="showJoy" side="right" @move="(x, y) => (racketJoy = { x, y })" />
 
-        <!-- 视距：公共件（右缘一根可拖动的滑块；也可以在地图上双指捏合） -->
-        <ZoomControl />
+        <!-- 视距：地图上**双指捏合**调（原来的右缘滑块已下线） -->
 
         <!-- 靠近区域 / 收购商：右下角出现「进入」按钮（层级压过摇杆热区，点它不会走人） -->
         <button v-if="enterHint" class="world-enter" type="button" @click="enterHint.go()">
@@ -948,8 +958,12 @@ onBeforeUnmount(() => {
     <TradePanel :line="tradeNpc?.tradeLine" />
   </AppModal>
 
-  <!-- 角色右手边那台平板点出来的界面（报名 / 预约 / 赛事中心 / 名人堂） -->
-  <TabletPanel v-model="tabletOpen" @signed="onTabletSigned" />
+  <!-- 角色右手边那台平板点出来的界面（报名 / 预约 / 赛事中心 / 排行榜 / 新闻周刊） -->
+  <TabletPanel
+    v-model="tabletOpen"
+    @signed="onTabletSigned"
+    @duel="(v) => (tabletDuel = v)"
+  />
   </div>
 </template>
 
@@ -961,7 +975,7 @@ onBeforeUnmount(() => {
   color: var(--text-dim);
 }
 
-/* 视距滑块是公共件 `components/ui/ZoomControl.vue`（样式跟着组件走） */
+/* 视距靠**双指捏合**调（`composables/useZoom.ts` 的 `createPinchZoom`），没有滑块了 */
 
 /* --- 右下角「进入」按钮：靠近区域圈时出现 ----------------------------------- */
 .world-enter {
@@ -970,13 +984,13 @@ onBeforeUnmount(() => {
   /* 抬到底部摇杆（最大 156px）之上，固定/自由摇杆都挡不到它 */
   bottom: calc(env(safe-area-inset-bottom) + 186px);
   z-index: 32;
-  padding: 12px 22px;
+  padding: 0.7em 1.3em;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.55);
   background: linear-gradient(180deg, #37d67a, #1fa85c);
   color: #fff;
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: var(--ui-pill-font);
   font-weight: 800;
   letter-spacing: 1px;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
@@ -1263,8 +1277,10 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: 0.55em;
+  padding: 0.7em 1em;
+  /* 整块字号走 --ui-*（随视口宽缩放），里面各元素用 em 跟着它走 */
+  font-size: var(--ui-font-md);
   border-radius: var(--r-pill);
   border: 2px solid #ffd93d;
   background: linear-gradient(135deg, #fff6cf, #ffe07a);
@@ -1273,7 +1289,7 @@ onBeforeUnmount(() => {
 }
 
 .world__event-icon {
-  font-size: 24px;
+  font-size: 1.7em;
   line-height: 1;
 }
 
@@ -1285,13 +1301,13 @@ onBeforeUnmount(() => {
 }
 
 .world__event-text b {
-  font-size: 13px;
+  font-size: 0.93em;
   color: #6a4a00;
 }
 
 .world__event-text em {
   font-style: normal;
-  font-size: 10px;
+  font-size: 0.71em;
   color: #9a7a20;
 }
 

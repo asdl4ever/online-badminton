@@ -36,20 +36,62 @@ export interface AiPlayer {
   cosmetic: Cosmetic;
   /**
    * **已退役**：人还留在名录里（战绩 / 履历都保留），但不再上排行榜、也不参加赛事。
-   * 可以在名人堂里点「复出」把他请回来。
+   * 现在由系统按时间片决定（见 `evolveRoster()`），退役满 `RETIRED_KEEP_SLICES` 片就清掉。
    */
   retired?: boolean;
-  /** 玩家自己在名人堂里新增的球员（可以「除名」） */
+  /** 老存档里「玩家自己新增的球员」标记：系统换血永远不动这一类人 */
   custom?: boolean;
+  /** **入行的时间片**（见 `rosterSlice()`）：职业生涯满 `CAREER_SLICES` 片，系统就让他退役 */
+  debut?: number;
+  /** 退役是在哪个时间片（系统退役的人保留 `RETIRED_KEEP_SLICES` 片后从名录里清掉） */
+  retiredAt?: number;
 }
 
-/** 名录里的名字池（首次生成时随机不重复取） */
+/**
+ * 名录里的名字池（随机不重复取）。要**够大**：系统换血时「在役 100 位 + 退役名录里的
+ * 那几十位」会同时占着名字，池子见底就会退化成「球员 N」。
+ */
 const NAME_POOL = [
   '疾风侠', '扣杀王', '老张', '小球童', '夜羽', '铁拍子', '云中鹤', '大力妹', '零式', '翻盘手',
   '闪电手', '不动明王', '断线风筝', '一羽惊鸿', '白露', '疾光', '冷月', '烈风', '青隼', '玄铁',
   '长空', '飞星', '雨燕', '孤影', '斜风', '轻尘', '风暴眼', '铁壁', '碎星', '落霞',
   '独酌', '踏雪', '流云', '花间', '重炮', '碎羽', '弹指', '游龙', '雷霆', '磐石',
+  '追风', '凌波', '白虹', '秋水', '寒山', '拾光', '破军', '青铜', '飞沙', '沉舟',
+  '夜航', '孤舟', '微光', '折枝', '听雪', '无相', '斩风', '点水', '疾影', '碎雷',
+  '苍岚', '霜刃', '赤羽', '浮云', '长歌', '朝露', '暮雨', '寒鸦', '空山', '拂晓',
+  '花火', '流萤', '青羽', '白石', '孤星', '逐日', '风吟', '雪见', '月白', '凌云',
+  '拂尘', '残月', '无咎', '九霄', '断崖', '静水', '素问', '玄鸟', '踏歌', '青岚',
+  '烟雨', '疾雷', '秋声', '弄影', '飞花', '猎风', '拾贝', '归途', '长庚', '星野',
+  '破晓', '子夜', '若水', '青锋', '苍梧', '碧落', '铁心', '流火', '雪原', '独行',
+  '风痕', '寒江', '远山', '轻舟', '破风', '长虹',
+  '听风', '观澜', '临渊', '无涯', '斩月', '疾星', '长夜', '孤灯', '碧霄', '赤霄',
+  '玄冥', '飞白', '点翠', '流觞', '听雨', '拂柳', '折柳', '碧海', '苍云', '白霜',
+  '紫电', '青霜', '金错', '银鞍', '铁马', '飞羽', '落雪', '寒梅', '青松', '修竹',
+  '幽兰', '墨竹', '苍鹰', '白鹤', '玄鹤', '青鸾', '朱雀', '玄武', '听涛', '观海',
+  '拾花', '逐月', '揽星', '断水', '裂石', '撼山', '凌霜', '傲雪', '枕流', '漱石',
+  '佩玉', '鸣珂', '白驹', '踏浪', '御风', '裁云', '剪水', '落雁', '沉鱼', '闭月',
+  '羞花', '承影', '含光', '宵练', '泰阿', '湛卢', '鱼肠', '巨阙', '龙渊', '干将',
+  '莫邪', '青钢', '游隼', '疾风子', '白眉', '皂衣', '紫髯', '长髯', '短打', '瘦马',
+  '铁手', '铜头', '木剑', '石砚',
 ];
+
+/** 名人堂名录的目标人数（首次进入游戏 / 老存档都会补到这个数） */
+export const ROSTER_SIZE = 100;
+
+/**
+ * **名录「换血」的时间片**：每过一个时间片，系统就让一批到龄的老将退役、补进一批新秀
+ * （见 `evolveRoster()`）。6 小时一片，所以世界是会慢慢变的，但一天也就变几次。
+ */
+export const ROSTER_SLICE_MS = 6 * 60 * 60 * 1000;
+/** 一位系统球员的职业生涯长度（多少个时间片 ≈ 3 天），满期退役 */
+export const CAREER_SLICES = 12;
+/** 系统退役的人最多在「退役名录」里留多久（多少个时间片），之后从名录里清掉（不会无限膨胀） */
+export const RETIRED_KEEP_SLICES = 8;
+
+/** 现在是第几个「换血时间片」 */
+export function rosterSlice(now: number = Date.now()): number {
+  return Math.floor(now / ROSTER_SLICE_MS);
+}
 
 const EMOJIS = ['😎', '🐯', '🦊', '🐼', '🦅', '🐉', '👾', '🤠', '🐺', '🦁', '🐧', '🦈', '🐸', '🤖', '🐻', '🦉'];
 
@@ -155,7 +197,7 @@ export function statBonus(v: number): number {
  * 在此之上叠加「锻炼等级」——练哪一维就长哪一维（见 training.ts）。
  *
  * 体力那一维的基础分故意比别的维低 16，所以角色**一上来体力比较弱**
- * （跑动挥拍掉得快），得去操场跑到练满才追平。练出来的东西和 AI 走同一条
+ * （跑动挥拍掉得快），得去健身房踩跑步机练满才追平。练出来的东西和 AI 走同一条
  * attrsFromStats 换算。
  */
 export function playerStats(points: number, levels: TrainLevels): PlayerStats {
@@ -220,82 +262,120 @@ function randomCosmetic(rng: () => number): Cosmetic {
   return c;
 }
 
-/** 随机生成一整份名录（首次进入游戏时调用一次） */
-export function generatePlayers(count = 20, rng: () => number = Math.random): AiPlayer[] {
-  const names = [...NAME_POOL];
-  for (let i = names.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [names[i], names[j]] = [names[j], names[i]];
+/**
+ * 造一位**系统球员**：姓名从还没被占用的名字池里挑、id 不与名录冲突、装扮随机。
+ * `lo~hi` 是出道的 rating 区间 —— **新秀用低区间**，所以他们自然落进低档赛事
+ * （100 赛打的就是这批人）。
+ */
+function makeSystemPlayer(
+  roster: readonly AiPlayer[],
+  rng: () => number,
+  opts: { debut?: number; lo?: number; hi?: number; record?: boolean } = {},
+): AiPlayer {
+  const { debut, lo = 900, hi = 1800, record = false } = opts;
+  const usedNames = new Set(roster.map((p) => p.name));
+  const free = NAME_POOL.filter((n) => !usedNames.has(n));
+  const name = free.length ? free[Math.floor(rng() * free.length)] : `球员 ${roster.length + 1}`;
+  const usedIds = new Set(roster.map((p) => p.id));
+  let seq = roster.length + 1;
+  let id = `ai-${seq}`;
+  while (usedIds.has(id)) {
+    seq += 1;
+    id = `ai-${seq}`;
   }
-  const n = Math.min(count, names.length);
+  const rating = Math.round(lo + rng() * (hi - lo));
+  const stats = rollStats(rating, rng);
+  return {
+    id,
+    name,
+    // 风格与难度都是五维的结果，不再独立随机
+    style: styleFromStats(stats),
+    difficulty: tierFromStats(stats),
+    wins: record ? Math.floor(rng() * 30) : 0,
+    losses: record ? Math.floor(rng() * 30) : 0,
+    rating,
+    stats,
+    cosmetic: randomCosmetic(rng),
+    ...(debut == null ? {} : { debut }),
+  };
+}
+
+/** 入行时间片：错开在最近 `CAREER_SLICES` 片里，免得同一批人同时到龄、一起退役 */
+function staggeredDebut(slice: number, rng: () => number): number {
+  return slice - Math.floor(rng() * CAREER_SLICES);
+}
+
+/** 随机生成一整份名录（首次进入游戏时调用一次） */
+export function generatePlayers(
+  count = ROSTER_SIZE,
+  rng: () => number = Math.random,
+  slice: number = rosterSlice(),
+): AiPlayer[] {
   const out: AiPlayer[] = [];
-  for (let i = 0; i < n; i++) {
-    const rating = Math.round(900 + rng() * 900);
-    const stats = rollStats(rating, rng);
-    out.push({
-      id: `ai-${i + 1}`,
-      name: names[i],
-      // 风格与难度都是四维的结果，不再独立随机
-      style: styleFromStats(stats),
-      difficulty: tierFromStats(stats),
-      wins: Math.floor(rng() * 30),
-      losses: Math.floor(rng() * 30),
-      rating,
-      stats,
-      cosmetic: randomCosmetic(rng),
-    });
+  for (let i = 0; i < count; i++) {
+    out.push(makeSystemPlayer(out, rng, { debut: staggeredDebut(slice, rng), record: true }));
   }
   return out;
 }
 
-// ---- 传奇球员：皮泽恩 -------------------------------------------------------
-
-/** 传奇球员「皮泽恩」的固定 id：他永远在名录里，也永远在榜首 */
-export const LEGEND_ID = 'legend-peisien';
-
 /**
- * 游戏里最强的 AI —— 皮泽恩。
- *
- * 五维全线 95+，于是（见 ai.ts 的 behaviorFromStats）：
- * - `defense` 拉满 → `loft` 1.4：出球又高又深，**高远球压底线**
- * - `attack` 拉满 → `aggression` 1.7：球一旦偏高就压网起跳**扣杀**
- * - `technique` 拉满 → 出球误差与失误率都压到最低
- * 风格由五维派生为 `legend`。外观是他标志性的大肚子熊皮（U熊，球撞肚皮会被弹开）。
+ * 把名录补到至少 `target` 位（老存档从 20 位升到 100 位用）。
+ * 补进来的是**系统球员**（不是玩家新增的，所以不能「除名」）。
  */
-export function makeLegend(): AiPlayer {
-  const stats: PlayerStats = {
-    technique: 99,
-    speed: 96,
-    attack: 99,
-    defense: 98,
-    stamina: 95,
-  };
-  return {
-    id: LEGEND_ID,
-    name: '皮泽恩',
-    style: styleFromStats(stats),
-    difficulty: tierFromStats(stats),
-    wins: 486,
-    losses: 12,
-    rating: 2400,
-    stats,
-    cosmetic: {
-      ...DEFAULT_COSMETIC,
-      characterSkin: 'ubear',
-      emoji: '🐻',
-      racket: 0xffb03a,
-      trail: 0xffd45c,
-      trailStyle: 'gold',
-      swingTrail: 'blaze',
-      aura: 'king',
-      racketSkin: 'gold',
-    },
-  };
+export function ensureRosterSize(
+  roster: readonly AiPlayer[],
+  target: number = ROSTER_SIZE,
+  rng: () => number = Math.random,
+  slice: number = rosterSlice(),
+): AiPlayer[] {
+  if (roster.length >= target) return [...roster];
+  const out = [...roster];
+  while (out.length < target) {
+    out.push(makeSystemPlayer(out, rng, { debut: staggeredDebut(slice, rng) }));
+  }
+  return out;
 }
 
-/** 把皮泽恩补进名录（老存档里没有他时也要有），并且恒定排在最前 */
-export function withLegend(roster: readonly AiPlayer[]): AiPlayer[] {
-  return [makeLegend(), ...roster.filter((p) => p.id !== LEGEND_ID)];
+/**
+ * **系统换血**：到点让一批到龄的老将退役，再补进同样多的新秀 —— 世界会自己变。
+ *
+ * - **只动系统球员**：玩家自己在名人堂新增的（`custom`）永远不进不出；
+ * - 职业生涯满 `CAREER_SLICES` 片 → 退役（留在「退役名录」里可见，战绩与履历都还在）；
+ * - 退役满 `RETIRED_KEEP_SLICES` 片就**从名录里清掉**（世界会翻篇，名录不会无限膨胀）；
+ * - **新秀出道的 rating 偏低**（900~1150）→ 从 **100 赛**这种低档赛事打起；高级赛事仍是
+ *   老将的地盘。新人靠赢球把 rating 打上去，才会慢慢升档。
+ *
+ * 每个时间片调一次即可（多片没调也只按当前片处理一次）；`debut` / `retiredAt` 会写进存档。
+ */
+export function evolveRoster(
+  roster: readonly AiPlayer[],
+  slice: number = rosterSlice(),
+  rng: () => number = Math.random,
+): AiPlayer[] {
+  const out: AiPlayer[] = [];
+  for (const p of roster) {
+    if (p.custom) {
+      out.push(p); // 玩家自己加的人，系统不碰
+      continue;
+    }
+    if (p.retired) {
+      // 老存档里「手动退役」的人没有 retiredAt：从现在开始计，照样会被清掉
+      const at = p.retiredAt ?? slice;
+      if (slice - at >= RETIRED_KEEP_SLICES) continue;
+      out.push(p.retiredAt == null ? { ...p, retiredAt: at } : p);
+      continue;
+    }
+    const debut = p.debut ?? staggeredDebut(slice, rng);
+    if (slice - debut >= CAREER_SLICES) out.push({ ...p, retired: true, retiredAt: slice });
+    else out.push(p.debut == null ? { ...p, debut } : p);
+  }
+  // 补新秀：系统球员的「在役」人数补回 ROSTER_SIZE（玩家自己加的人不占这个名额）
+  const custom = out.filter((p) => p.custom).length;
+  const active = out.filter((p) => !p.custom && !p.retired).length;
+  for (let i = 0; i < ROSTER_SIZE - custom - active; i++) {
+    out.push(makeSystemPlayer(out, rng, { debut: slice, lo: 900, hi: 1150 }));
+  }
+  return out;
 }
 
 /** 排行榜排序：rating 从高到低 */

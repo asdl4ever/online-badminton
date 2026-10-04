@@ -3,11 +3,19 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import ArenaSignup from './ArenaSignup.vue';
 import Button from './ui/Button.vue';
+import GameCanvas from './GameCanvas.vue';
+import LeaderboardApp from './LeaderboardApp.vue';
+import NewsPaper from './NewsPaper.vue';
 import { arenaByTier } from '../game/arena';
 import { arenaEventOf } from '../game/arena-events';
 import { fmtClock } from '../game/arena-schedule';
 import { sfx } from '../game/audio';
 import { toastWarn } from '../composables/useToast';
+import { ensureStats, type AiPlayer } from '../game/players';
+import type { MatchOpponent } from '../game/scenes/GameScene';
+import type { SimEvent } from '../game/types';
+import { useCustomizeStore } from '../stores/customize';
+import { useLobbyStore } from '../stores/lobby';
 import { useProgressStore } from '../stores/progress';
 
 /**
@@ -17,16 +25,36 @@ import { useProgressStore } from '../stores/progress';
  * （`ArenaSignup`）——所以平板里报的名、预约的场次，和去晋级赛馆里操作完全一样。
  * 「我的预约」把 `progress.arenaBooking` 列出来，带开赛倒计时；到点由全局心跳自动开赛
  * （`App.vue` 会响铃提醒）。
+ *
+ * 另外两个应用是内嵌的：**🏅 排行榜**（`LeaderboardApp`，原「名人堂」的只读版，
+ * 点球员看主页、可以挑战）和 **📰 新闻周刊**（`NewsPaper`，和 `/news` 整页同一份）。
+ * 挑战要打一局正式对局，平板这屏装不下 —— 所以挑战时平板让位，**整屏**开一局
+ * （`GameCanvas` 全屏覆盖层，退出后回到平板）。
  */
 const props = defineProps<{ modelValue: boolean }>();
 
-const emit = defineEmits<{ 'update:modelValue': [boolean]; signed: [] }>();
+const emit = defineEmits<{
+  'update:modelValue': [boolean];
+  signed: [];
+  /** 挑战对局开 / 关（大世界据此屏蔽键盘走动，免得一边打球一边把人走丢） */
+  duel: [boolean];
+}>();
 
 const router = useRouter();
 const progress = useProgressStore();
+const customize = useCustomizeStore();
+const lobby = useLobbyStore();
 
-type AppId = 'signup' | 'bookings';
+type AppId = 'signup' | 'bookings' | 'rank' | 'news';
 const app = ref<AppId | null>(null);
+
+/** 状态栏里写的应用名 */
+const APP_TITLE: Record<AppId, string> = {
+  signup: '赛事报名',
+  bookings: '我的预约',
+  rank: '排行榜',
+  news: '新闻周刊',
+};
 
 /** 时钟 + 倒计时：只在平板打开时走表 */
 const nowTick = ref(Date.now());
@@ -72,6 +100,7 @@ const runInfo = computed(() => {
 
 function close(): void {
   sfx.click();
+  if (duel.value) quitDuel();
   app.value = null;
   emit('update:modelValue', false);
 }
@@ -103,13 +132,64 @@ function go(path: string): void {
   close();
   void router.push(path);
 }
+
+/* --- ⚔️ 挑战：整屏打一局（比分 / 体力 / 摇杆都由 GameCanvas 自己画）--------- */
+const duel = ref<MatchOpponent | null>(null);
+const duelId = ref('');
+const duelResult = ref<'win' | 'lose' | null>(null);
+/** 每一场自增：重挂画布，换局不换人 */
+const duelRound = ref(0);
+
+/** 排行榜里点了「挑战」：对手的装扮与四维直接取自名人堂名录 */
+function onChallenge(p: AiPlayer): void {
+  sfx.click();
+  duelId.value = p.id;
+  duel.value = { name: p.name, cosmetic: p.cosmetic, stats: ensureStats(p) };
+  duelResult.value = null;
+  duelRound.value += 1;
+  emit('duel', true);
+}
+
+function rematch(): void {
+  sfx.click();
+  duelResult.value = null;
+  duelRound.value += 1;
+}
+
+function quitDuel(): void {
+  duel.value = null;
+  duelResult.value = null;
+  duelId.value = '';
+  emit('duel', false);
+}
+
+/** 打完结算：记玩家自己的战绩 + 该球员的战绩（和原来名人堂里的挑战一致） */
+function onDuelSim(e: SimEvent): void {
+  if (e.type === 'hit') sfx.hit(e.kind ?? 'drive');
+  else if (e.type === 'belly') sfx.hit('lift');
+  else if (e.type === 'net') sfx.net();
+  else if (e.type === 'land') sfx.land();
+  else if (e.type === 'point') sfx.point();
+  else if (e.type === 'gameover') {
+    sfx.point();
+    if (!duelResult.value) {
+      const win = e.scorer === 0;
+      progress.recordResult(win, 'single');
+      if (duelId.value) progress.recordVsAi(duelId.value, win);
+      duelResult.value = win ? 'win' : 'lose';
+      if (win) sfx.win();
+      else sfx.lose();
+    }
+  }
+}
 </script>
 
 <template>
   <!-- 传送到 body：地图页面外面套着带 backdrop-filter 的玻璃外壳，
        那会变成 fixed 定位的包含块，平板就会被裁在页面里 -->
   <Teleport to="body">
-    <div v-if="props.modelValue" class="tbl" role="dialog" aria-label="平板">
+    <!-- 挑战时平板整块让位，改由下面的全屏对局接管 -->
+    <div v-if="props.modelValue && !duel" class="tbl" role="dialog" aria-label="平板">
       <div class="tbl__scrim" @click="close" />
 
       <!-- 平板本体：横向，左边一颗摄像头、底部一条 home 指示条 -->
@@ -121,9 +201,7 @@ function go(path: string): void {
             <span class="tbl__bar-left">
               <button v-if="app" class="tbl__back" type="button" @click="home">← 主屏幕</button>
               <b v-else>🏸 ArenaOS</b>
-              <span v-if="app" class="tbl__bar-app">
-                {{ app === 'signup' ? '赛事报名' : '我的预约' }}
-              </span>
+              <span v-if="app" class="tbl__bar-app">{{ APP_TITLE[app] }}</span>
             </span>
             <span class="tbl__bar-right num">
               {{ clock }}
@@ -150,9 +228,13 @@ function go(path: string): void {
                 <span class="tbl-app__icon tbl-app__icon--watch">📺</span>
                 <span class="tbl-app__name">赛事中心</span>
               </button>
-              <button class="tbl-app" type="button" @click="go('/hall')">
-                <span class="tbl-app__icon tbl-app__icon--hall">🏛️</span>
-                <span class="tbl-app__name">名人堂</span>
+              <button class="tbl-app" type="button" @click="openApp('rank')">
+                <span class="tbl-app__icon tbl-app__icon--rank">🏅</span>
+                <span class="tbl-app__name">排行榜</span>
+              </button>
+              <button class="tbl-app" type="button" @click="openApp('news')">
+                <span class="tbl-app__icon tbl-app__icon--news">📰</span>
+                <span class="tbl-app__name">新闻周刊</span>
               </button>
             </div>
 
@@ -169,8 +251,18 @@ function go(path: string): void {
             <ArenaSignup compact @signed="onSigned" />
           </div>
 
+          <!-- 应用：🏅 排行榜（原「名人堂」的只读版：点球员看主页、可以挑战） -->
+          <div v-else-if="app === 'rank'" class="tbl__app">
+            <LeaderboardApp @challenge="onChallenge" />
+          </div>
+
+          <!-- 应用：📰 新闻周刊（和 `/news` 整页同一份正文，只是小一号） -->
+          <div v-else-if="app === 'news'" class="tbl__app">
+            <NewsPaper compact />
+          </div>
+
           <!-- 应用：我的预约 -->
-          <div v-else class="tbl__app">
+          <div v-else-if="app === 'bookings'" class="tbl__app">
             <div v-if="runInfo" class="bk-card">
               <div class="bk-card__title">🏸 本届进行中</div>
               <div class="muted bk-card__sub">
@@ -200,6 +292,33 @@ function go(path: string): void {
 
           <span class="tbl__indicator" aria-hidden="true" />
         </div>
+      </div>
+    </div>
+
+    <!-- ⚔️ 挑战：整屏一局（平板那屏放不下对局，直接让 GameCanvas 铺满整屏）。
+         摇杆 / 比分 / 体力条都由 GameCanvas 自己画，这里只加退出与「再战」。 -->
+    <div v-if="duel" class="duel">
+      <GameCanvas
+        :key="`duel-${duel.name}-${duelRound}`"
+        role="single"
+        :session="null"
+        :opponent="duel"
+        :no-rematch="true"
+        :cosmetic="customize.cosmetic"
+        :local-name="lobby.playerName"
+        :local-rank="progress.tier.id"
+        :party="false"
+        @sim="onDuelSim"
+      />
+      <button class="duel__exit" type="button" @click="quitDuel">← 退出</button>
+      <div class="duel__banner">
+        <span class="num">
+          <template v-if="duelResult === 'win'">🏆 你赢了 {{ duel.name }}！</template>
+          <template v-else-if="duelResult === 'lose'">你输给了 {{ duel.name }}，要再来吗？</template>
+          <template v-else>⚔️ 挑战 {{ duel.name }}（先到 11 分）</template>
+        </span>
+        <Button v-if="duelResult" size="sm" @click="rematch">再战一场</Button>
+        <Button size="sm" variant="quiet" @click="quitDuel">返回平板</Button>
       </div>
     </div>
   </Teleport>
@@ -381,8 +500,12 @@ function go(path: string): void {
   background: linear-gradient(160deg, #ffc9c9, #e4622f);
 }
 
-.tbl-app__icon--hall {
+.tbl-app__icon--rank {
   background: linear-gradient(160deg, #d8ccff, #6a5aa8);
+}
+
+.tbl-app__icon--news {
+  background: linear-gradient(160deg, #f4e7c6, #b4884a);
 }
 
 .tbl-app__name {
@@ -493,11 +616,57 @@ function go(path: string): void {
   background: color-mix(in srgb, var(--text) 25%, transparent);
 }
 
+/* --- ⚔️ 挑战：整屏对局 ------------------------------------------------------ */
+.duel {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  background: #0b1a2b;
+}
+
+.duel__exit {
+  position: absolute;
+  left: max(12px, env(safe-area-inset-left));
+  top: calc(var(--ui-top-h) + 12px);
+  z-index: 5;
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(10, 16, 28, 0.55);
+  color: #eaf2fb;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.duel__banner {
+  position: absolute;
+  top: calc(var(--ui-top-h) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 4px 16px;
+  border-radius: var(--r-pill);
+  background: rgba(10, 16, 28, 0.55);
+  color: #eaf2fb;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 @media (max-width: 560px) {
   .tbl__frame {
     height: min(80vh, 480px);
     padding: 10px;
     border-radius: 22px;
+  }
+
+  .duel__banner {
+    font-size: 12px;
+    max-width: 92vw;
+    overflow: hidden;
   }
 
   .tbl__home {

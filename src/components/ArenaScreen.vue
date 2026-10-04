@@ -32,6 +32,8 @@ withDefaults(
     score?: [number, number] | null;
     /** 镜头是否锁在这一块（锁定的那块是 1:1，其余按舞台比例） */
     focused?: boolean;
+    /** 这块画面此刻不可见（球馆里走远了 / 在看别的场地）：把直播画布的主循环停掉 */
+    paused?: boolean;
     /** 场边一排几个座位 */
     seats?: number;
     /** 没在直播时牌子上写的一行 */
@@ -69,6 +71,7 @@ const emit = defineEmits<{ hud: [HudState] }>();
       :session="null"
       :spectate="{ left: broadcast.left, right: broadcast.right }"
       :hall="true"
+      :paused="paused"
       :no-sticks="true"
       :no-hud="true"
       :no-rematch="true"

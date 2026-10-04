@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Phaser from 'phaser';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { GameScene, type HudState, type MatchConfig, type MatchOpponent } from '../game/scenes/GameScene';
 import { VIEW_H, VIEW_W } from '../game/constants';
 import { sceneScaleConfig } from '../game/zoom';
@@ -49,6 +49,12 @@ const props = defineProps<{
   noHud?: boolean;
   /** 强制走「触屏摇杆」输入：球馆里页面自己摆了一对常显摇杆时用 */
   forceTouch?: boolean;
+  /**
+   * **暂停这块画面**：球馆里同时挂着好几台 Phaser（2 场公开赛直播 + 6 张空场地
+   * + 发球机），全都在跑各自的 rAF 会卡。不可见的那几台传 `paused` 就把 Phaser
+   * 的主循环 `sleep()` 掉（**同时停掉 update 与渲染**），重新可见时 `wake()`。
+   */
+  paused?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -63,6 +69,16 @@ const container = ref<HTMLDivElement | null>(null);
 /** 留一份最新 HUD 在组件里：给叠在画布上的双方体力条用 */
 const hud = ref<HudState | null>(null);
 let game: Phaser.Game | null = null;
+
+/** 按 `paused` 把 Phaser 主循环 sleep / wake（sleep 会同时停掉 update 与渲染） */
+function applyPaused(): void {
+  const loop = game?.loop;
+  if (!loop) return;
+  if (props.paused && loop.running) loop.sleep();
+  else if (!props.paused && !loop.running) loop.wake();
+}
+
+watch(() => props.paused, applyPaused);
 
 function scene(): GameScene | null {
   return (game?.scene.getScene('GameScene') as GameScene | undefined) ?? null;
@@ -138,6 +154,11 @@ onMounted(async () => {
       },
     },
   });
+
+  // Phaser 的 postBoot 在 loop.start() 之前，那时 sleep 是空操作；构造返回后
+  // loop 已经起跑，这里补一刀（下一帧再兜一次，兼容 boot 被推迟的情况）。
+  applyPaused();
+  requestAnimationFrame(applyPaused);
 
   if (import.meta.env.DEV) {
     (window as unknown as { __game?: Phaser.Game }).__game = game;

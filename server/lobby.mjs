@@ -42,7 +42,6 @@ const SCENES = new Set([
   'mine',
   'climb',
   'petshop',
-  'hall',
   'farm',
   'nailong',
   'watch',

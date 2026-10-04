@@ -47,7 +47,7 @@ export const WORLD_DISTRICTS: WorldDistrict[] = [
   {
     id: 'arena',
     name: '比赛训练区',
-    meta: '练球 / 联机 · 杯赛 · 名人堂 · 观战',
+    meta: '练球 / 联机 · 杯赛 · 观战（排行榜在平板上）',
     x: 100,
     y: 70,
     w: 1000,
@@ -163,17 +163,7 @@ export const WORLD_ZONES: WorldZone[] = [
     route: '/arena',
     badge: '开赛',
   },
-  {
-    id: 'hall',
-    x: 730,
-    y: 530,
-    sign: '🏛️',
-    name: '名人堂',
-    meta: 'AI 球员排行 · 管理球员',
-    route: '/hall',
-    badge: '排行',
-  },
-  // 观战台：夹在四家之间，和晋级赛馆 / 名人堂同一块地
+  // 观战台：夹在几家之间，和晋级赛馆同一块地
   {
     id: 'watch',
     x: 960,
@@ -201,7 +191,7 @@ export const WORLD_ZONES: WorldZone[] = [
     y: 1080,
     sign: '🏋️',
     name: '健身房',
-    meta: '举重练「进攻」',
+    meta: '举重「进攻」· 沙袋「技术」· 跑步机「体力」',
     route: '/gym',
     badge: '练属性',
   },
@@ -211,7 +201,7 @@ export const WORLD_ZONES: WorldZone[] = [
     y: 1080,
     sign: '🏃',
     name: '操场',
-    meta: '跑步练「速度 / 体力」',
+    meta: '跑圈 · 扔实心球 · 每 1km 解锁装备',
     route: '/track',
     badge: '练属性',
   },

@@ -15,6 +15,8 @@ import FriendsPanel from '../components/FriendsPanel.vue';
 
 import type { HudState } from '../game/scenes/GameScene';
 import type { SimEvent } from '../game/types';
+import { formatGains, type MatchTally } from '../game/match-xp';
+import { toastGood } from '../composables/useToast';
 import type { NetMetrics } from '../game/telemetry';
 import { hostOpen, joinMatch } from '../net/connect';
 import { normaliseCode, type NetLink } from '../net/link';
@@ -35,6 +37,8 @@ const progress = useProgressStore();
 
 const joinCode = ref('');
 const hud = ref<HudState | null>(null);
+/** 本场统计（扣杀 / 接杀 / 跑动 / 失误…）：打完换五维经验，见 `game/match-xp.ts` */
+const tally = ref<MatchTally | null>(null);
 const notice = ref('');
 const leaving = ref(false);
 const phaseText = ref('');
@@ -223,6 +227,7 @@ async function copyCode() {
 
 function onHud(state: HudState) {
   hud.value = state;
+  if (state.match) tally.value = state.match;
 }
 
 function onMetrics(m: NetMetrics) {
@@ -241,6 +246,17 @@ function onEvent(e: SimEvent) {
     progress.recordResult(win, 'online');
     if (win) sfx.win();
     else sfx.lose();
+    // 「打比赛也在变强」：联机的对手是真人，没有 rating，强度系数按 1.0
+    if (tally.value) {
+      const { gains } = progress.gainMatchXp({
+        tally: tally.value,
+        localIndex: local,
+        win,
+        foeKey: store.roomCode || 'online',
+      });
+      if (gains.length) toastGood(`🏸 本场训练：${formatGains(gains)}`);
+    }
+    tally.value = null;
   }
 }
 

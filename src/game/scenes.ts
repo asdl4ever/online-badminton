@@ -26,7 +26,6 @@ export const SCENE_META: Record<SceneId, SceneMeta> = {
   mine: { label: '在矿洞', icon: '⛏️', route: '/mine', kind: 'mine' },
   climb: { label: '在攀岩', icon: '🧗', route: '/climb' },
   petshop: { label: '在宠物店', icon: '🐾', route: '/petshop' },
-  hall: { label: '在名人堂', icon: '🏛️', route: '/hall' },
   watch: { label: '在赛事中心观战', icon: '👁', route: '/watch' },
   farm: { label: '在农场', icon: '🌾', route: '/farm' },
   nailong: { label: '在小黄龙联名', icon: '🐲', route: '/nailong' },
@@ -59,7 +58,6 @@ const NO_JOIN_REASON: Partial<Record<SceneId, string>> = {
   home: '在主界面，还没开始玩',
   climb: '攀岩暂不支持联机',
   petshop: '宠物店里没有对局',
-  hall: '在名人堂观战中',
   watch: '在赛事中心看比赛',
   farm: '农场没有联机',
   nailong: '小黄龙联名单人挑战中',
@@ -91,13 +89,14 @@ export function sceneFromPath(path: string): SceneId {
   if (path.startsWith('/mine')) return 'mine';
   if (path.startsWith('/climb')) return 'climb';
   if (path.startsWith('/petshop') || path.startsWith('/shop')) return 'petshop';
-  if (path.startsWith('/hall')) return 'hall';
   if (path.startsWith('/watch')) return 'watch';
   if (path.startsWith('/farm')) return 'farm';
   if (path.startsWith('/nailong')) return 'nailong';
   if (path.startsWith('/godzilla')) return 'godzilla';
   if (path.startsWith('/alien')) return 'alien';
   if (path.startsWith('/home')) return 'home';
+  // 新闻周刊只是个阅读页：当成「在主界面」（没有独立的联机场景 id）
+  if (path.startsWith('/news')) return 'home';
   if (path === '/' || path.startsWith('/world')) return 'map';
   return 'off';
 }

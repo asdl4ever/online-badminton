@@ -7,7 +7,7 @@ import { clampZoom, createPinchZoom, zoom } from './useZoom';
  * 室内小房间的走动逻辑（球场 / 商店 / 宠物店 / 健身房这类「可以进出的房子」用）。
  *
  * 就是大地图（WorldView）那套走动的轻量版——**镜头与视距换算完全一致**：
- * 摇杆 / WASD 走动、镜头跟着人走、右缘那根公共缩放条（`useZoom`）+ 双指捏合，
+ * 摇杆 / WASD 走动、镜头跟着人走、双指捏合调视距（`useZoom` 的 `createPinchZoom`），
  * 所以从大世界走进房间，人物大小与摇杆手感不会变。走近某个物件（场地 / 柜台）
  * 时高亮并提示按 E，按 E 或点物件触发 `onEnter`。角色绘制由调用方每帧做（`onFrame`）。
  */
@@ -64,8 +64,12 @@ export function useWalk(opts: {
     };
   }
 
-  /** 双指捏合：和大地图共用同一份实现 */
-  const pinch = createPinchZoom();
+  /**
+   * 双指捏合：和大地图共用同一份实现。
+   * `splitHalves`：房间里也常有**左右两颗自由摇杆**（球馆上场时的一对、健身房的走+挥），
+   * 两指分处左右两半是「一边走一边挥拍」，不能当成捏合（否则两颗摇杆一起让位）。
+   */
+  const pinch = createPinchZoom({ splitHalves: true });
 
   function updateCamera(): void {
     const rect = opts.stage.value?.getBoundingClientRect();

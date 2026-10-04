@@ -33,7 +33,6 @@ export type SceneId =
   | 'mine'
   | 'climb'
   | 'petshop'
-  | 'hall'
   | 'farm'
   | 'nailong'
   | 'godzilla'
@@ -49,7 +48,6 @@ export const SCENE_IDS: readonly SceneId[] = [
   'mine',
   'climb',
   'petshop',
-  'hall',
   'farm',
   'nailong',
   'godzilla',

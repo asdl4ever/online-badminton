@@ -53,7 +53,7 @@ export const STYLE_META: Record<AiStyle, { label: string; desc: string; color: s
   legend: { label: '传奇', desc: '高远球压底线，逮到机会就扣杀', color: '#ffd45c' },
 };
 
-/** 五维全部达到这条线才算「传奇」（只有皮泽恩这种存在够得着） */
+/** 五维全部达到这条线才算「传奇」（随机生成的球员几乎够不着） */
 const LEGEND_THRESHOLD = 92;
 
 /** 四维 → 风格：哪一维明显最高就是什么类型，没有明显最高的就是均衡 */

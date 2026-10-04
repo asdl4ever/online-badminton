@@ -172,7 +172,7 @@ export const MATCH_KEY = (round: number, index: number): string => `${round}:${i
 
 /**
  * **按名人堂排名切档**：rating 降序，`floor(名次/总人数 × 档数)` = 档号。
- * **不足 2 人的档整体并进低一档**（比如总决赛只有皮泽恩一人 → 并进 900 赛打 4 强），
+ * **不足 2 人的档整体并进低一档**（比如总决赛只剩一个人 → 并进 900 赛打 4 强），
  * 保证没有「一个人自己打决赛」的空转杯，也依然**一人最多出现在一个杯里**。
  */
 export function tierPools(roster: readonly AiPlayer[]): AiPlayer[][] {

@@ -8,7 +8,6 @@ import GameCanvas from '../components/GameCanvas.vue';
 import ArenaBracket from '../components/ArenaBracket.vue';
 import PlayerProfile from '../components/PlayerProfile.vue';
 import AppModal from '../components/ui/AppModal.vue';
-import ZoomControl from '../components/ui/ZoomControl.vue';
 import Joystick from '../components/ui/Joystick.vue';
 import { ARENA_ROUNDS } from '../game/arena';
 import {
@@ -51,7 +50,6 @@ const lobby = useLobbyStore();
 const tick = ref(Date.now());
 let timer = 0;
 onMounted(() => {
-  progress.ensureLegend();
   timer = window.setInterval(() => {
     tick.value = Date.now();
   }, 1000);
@@ -1067,7 +1065,6 @@ function back(): void {
 
           <!-- 手机/桌面：左摇杆走动 -->
           <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
-          <ZoomControl />
 
           <div class="room__hint num">
             {{
