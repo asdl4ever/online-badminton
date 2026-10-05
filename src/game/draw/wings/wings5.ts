@@ -402,4 +402,122 @@ export const WINGS_5: Record<string, WingArt> = {
     g.lineStyle(1.6, a, 0.6);
     g.strokeCircle(cx, cy, 20 + Math.sin(now / 300) * 1.6);
   } },
+  // 刃翼：三片利刃（寒光扫过）
+  blade: { c: 0xc0ccda, a: 0xffffff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    for (let k = 0; k < 3; k++) {
+      const bx = 4 + k * 18, by = 2 - k * (10 + f * 0.5);
+      const len = 52 - k * 8;
+      g.save();
+      g.translateCanvas(bx, by);
+      g.rotateCanvas(-0.4 - k * 0.15);
+      wpoly(g, [[0, -3], [len, 0], [0, 3]], k % 2 ? a : c, 0.96);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillRect(len * 0.2, -1.2, len * 0.5, 1);
+      g.restore();
+    }
+    const gl = Math.abs(Math.sin(now / 200));
+    g.lineStyle(1.4, a, gl * 0.8);
+    g.lineBetween(6, -14 - f, 66, -40 - f);
+  } },
+  // 蜻蜓：四片透明复翼（脉纹 + 高速颤动）
+  dragonfly: { c: 0xbfe8f4, a: 0x5a8ab4, draw: (g, now, flap, c, a) => {
+    const tr = Math.sin(now / 60) * 3;
+    for (const [dx, dy] of [[10, -22], [16, -4], [26, -30], [32, -12]] as const) {
+      g.fillStyle(c, 0.45);
+      g.fillEllipse(dx, dy + tr * (dx > 20 ? 1 : -1), 34, 9);
+      g.lineStyle(1, a, 0.6);
+      g.lineBetween(dx - 12, dy + tr * (dx > 20 ? 1 : -1), dx + 20, dy + tr * (dx > 20 ? 1 : -1));
+    }
+    g.fillStyle(0x5a8ab4, 0.8);
+    g.fillCircle(6, -14, 3);
+  } },
+  // 霓虹：霓虹灯管翼（描边发光 + 闪烁）
+  neon: { c: 0xff4ac8, a: 0x4affff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    const flick = Math.sin(now / 120) > -0.7 ? 1 : 0.3;
+    g.lineStyle(3.4, c, 0.9 * flick);
+    g.beginPath();
+    g.moveTo(2, 6); g.lineTo(28, -34 - f); g.lineTo(58, -52 - f); g.lineTo(84, -40 - f);
+    g.strokePath();
+    g.lineStyle(1.2, a, 0.8 * flick);
+    g.lineBetween(8, 2, 32, -30 - f);
+    g.lineBetween(12, 4, 56, -46 - f);
+    g.fillStyle(a, 0.85 * flick);
+    g.fillCircle(84, -40 - f, 3);
+  } },
+  // 雷霆：雷能翼（雷弧骨架 + 放电）
+  thunder: { c: 0x9fd8ff, a: 0xffe89a, draw: (g, now, flap, c, a) => {
+    const f = flap * 7;
+    wline(g, [[2, 4], [30, -30 - f], [60, -48 - f], [84, -38 - f]], 2.6, c, 0.9);
+    for (let k = 0; k < 3; k++) {
+      if (Math.sin(now / 140 + k * 2) > 0) {
+        g.lineStyle(1.6, a, 0.95);
+        g.lineBetween(30 + k * 18, -24 - k * 10 - f, 40 + k * 18, -36 - k * 8 - f + Math.sin(now / 60 + k) * 5);
+      }
+    }
+    g.fillStyle(0xffffff, 0.85);
+    g.fillCircle(84, -38 - f, 2.4);
+  } },
+  // 水晶：棱柱晶簇翼（折射面 + 闪光）
+  crystal: { c: 0x9ad4ff, a: 0xe0f2ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (let k = 0; k < 4; k++) {
+      const bx = 6 + k * 17, hh = 30 - k * 3;
+      wpoly(g, [[bx, 4], [bx + 8, 4 - hh - f * 0.6], [bx + 14, 4]], k % 2 ? c : a, 0.85);
+      g.fillStyle(0xffffff, 0.5);
+      wpoly(g, [[bx + 2, 2], [bx + 8, 2 - (hh - 8) - f * 0.6], [bx + 10, 2]], 0xffffff, 0.4);
+    }
+    const tw = Math.abs(Math.sin(now / 350));
+    g.fillStyle(0xffffff, tw);
+    g.fillCircle(24, -22 - f * 0.6, 2);
+  } },
+  // 碎晶：悬浮碎晶（多面小块绕转）
+  crystalShard: { c: 0xb46cff, a: 0xe8d8ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[4, 8], [16, -14 - f], [10, -30 - f], [26, -34 - f], [40, -12 - f], [30, 8]], c, 0.5);
+    for (let k = 0; k < 5; k++) {
+      const t = k / 4;
+      const px = 10 + t * 58, py = -6 - t * (26 + f) + Math.sin(now / 300 + k * 2) * 4;
+      g.save();
+      g.translateCanvas(px, py);
+      g.rotateCanvas(now / 400 + k);
+      wpoly(g, [[0, -6], [5, 0], [0, 6], [-5, 0]], k % 2 ? a : c, 0.9);
+      g.restore();
+    }
+  } },
+  // 冰晶：霜花六棱翼（生长呼吸）
+  frost: { c: 0xbfe8ff, a: 0xffffff, draw: (g, now, _flap, c, a) => {
+    const f = flap * 5;
+    const cx = 34, cy = -24 - f;
+    const grow = 0.85 + 0.15 * Math.sin(now / 500);
+    for (let k = 0; k < 6; k++) {
+      const ang = (k / 6) * Math.PI * 2 + now / 2600;
+      g.lineStyle(2.2, c, 0.9);
+      g.lineBetween(cx, cy, cx + Math.cos(ang) * 30 * grow, cy + Math.sin(ang) * 30 * grow);
+      for (const b of [0.55, 0.8]) {
+        g.lineBetween(
+          cx + Math.cos(ang) * 30 * grow * b, cy + Math.sin(ang) * 30 * grow * b,
+          cx + Math.cos(ang + 0.4) * 30 * grow * (b - 0.15), cy + Math.sin(ang + 0.4) * 30 * grow * (b - 0.15));
+      }
+    }
+    g.fillStyle(a, 0.9);
+    g.fillCircle(cx, cy, 5);
+  } },
+  // 冰河：冰川裂谷翼（蓝白断层 + 寒气）
+  glacier: { c: 0x9ad4ee, a: 0xeaf6ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 6], [20, -22 - f], [44, -40 - f], [70, -46 - f], [86, -30 - f], [60, -2], [28, 8]], c, 0.95);
+    wpoly(g, [[26, -20 - f], [44, -38 - f], [70, -44 - f], [84, -30 - f], [56, -4]], a, 0.4);
+    // 断层裂纹
+    g.lineStyle(1.6, 0x4a8ab4, 0.8);
+    g.lineBetween(30, -18 - f, 40, -30 - f);
+    g.lineBetween(48, -34 - f, 58, -40 - f);
+    g.lineBetween(22, 0, 34, -10 - f);
+    for (let k = 0; k < 3; k++) {
+      const ph = (now / 800 + k / 3) % 1;
+      g.fillStyle(a, 0.5 * (1 - ph));
+      g.fillCircle(30 + k * 18, -46 - f - ph * 10, 1.6);
+    }
+  } },
 };
