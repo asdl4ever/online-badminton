@@ -1,11 +1,11 @@
 import { wpoly, wline, type WingArt } from './shared';
 
 /**
- * 第五批翅膀——**老款迁移精绘**（原 feather 系换色款逐只重画）：
- * 天使 / 圣羽 / 羽暴 / 凤凰 / 幽翼 / 流萤。只画右翼，左翼由入口镜像。
+ * 绗簲鎵圭繀鑶€鈥斺€?*鑰佹杩佺Щ绮剧粯**锛堝師 feather 绯绘崲鑹叉閫愬彧閲嶇敾锛夛細
+ * 澶╀娇 / 鍦ｇ窘 / 缇芥毚 / 鍑ゅ嚢 / 骞界考 / 娴佽悿銆傚彧鐢诲彸缈硷紝宸︾考鐢卞叆鍙ｉ暅鍍忋€?
  */
 export const WINGS_5: Record<string, WingArt> = {
-  // 天使：三层白羽列（羽根金环），羽尖泛光
+  // 澶╀娇锛氫笁灞傜櫧缇藉垪锛堢窘鏍归噾鐜級锛岀窘灏栨硾鍏?
   angel: { c: 0xf6f6fa, a: 0xffd45c, draw: (g, now, flap, c, a) => {
     const f = flap * 7;
     for (let row = 0; row < 3; row++) {
@@ -28,7 +28,7 @@ export const WINGS_5: Record<string, WingArt> = {
         g.fillPoints(vs as never, true);
       }
     }
-    // 金色羽环 + 光点
+    // 閲戣壊缇界幆 + 鍏夌偣
     g.lineStyle(2.2, a, 0.9);
     g.strokeCircle(10, -2, 9);
     const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 300));
@@ -36,23 +36,23 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillCircle(58, -52 - f * 0.6, 2.4);
     g.fillCircle(78, -38 - f * 0.6, 1.8);
   } },
-  // 圣羽：金边白翼 + 背后一轮光环射线
+  // 鍦ｇ窘锛氶噾杈圭櫧缈?+ 鑳屽悗涓€杞厜鐜皠绾?
   holyWing: { c: 0xfff6dc, a: 0xf2c14a, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 4], [26, -34 - f], [56, -58 - f], [88, -46 - f], [70, -10], [34, 10]], c);
     wpoly(g, [[8, 2], [30, -30 - f], [58, -50 - f], [80, -42 - f], [62, -8]], a, 0.28);
-    // 五根金羽轴
+    // 浜旀牴閲戠窘杞?
     wline(g, [[4, 2], [30, -30 - f], [54, -50 - f]], 1.6, a, 0.9);
     wline(g, [[6, 4], [36, -22 - f], [66, -34 - f]], 1.4, a, 0.7);
     wline(g, [[6, 6], [40, -12 - f], [72, -18 - f]], 1.4, a, 0.6);
-    // 翼尖三粒圣光
+    // 缈煎皷涓夌矑鍦ｅ厜
     const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 260));
     g.fillStyle(a, tw);
     g.fillCircle(84, -44 - f, 2.8);
     g.fillCircle(66, -52 - f, 2.2);
     g.fillCircle(46, -54 - f, 1.8);
   } },
-  // 羽暴：羽毛被风撕着往外飞（一排离散羽毛，相位乱飞）
+  // 缇芥毚锛氱窘姣涜椋庢挄鐫€寰€澶栭锛堜竴鎺掔鏁ｇ窘姣涳紝鐩镐綅涔遍锛?
   featherStorm: { c: 0xbfe0ff, a: 0x6fa8e8, draw: (g, now, flap, c, a) => {
     const f = flap * 8;
     for (let k = 0; k < 7; k++) {
@@ -70,18 +70,18 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillStyle(k % 2 ? a : c, 0.85 - t * 0.25);
       g.fillPoints(vs as never, true);
     }
-    // 风痕
+    // 椋庣棔
     g.lineStyle(1.4, a, 0.4);
     g.lineBetween(10, -18 - f, 34, -34 - f);
     g.lineBetween(18, -4, 48, -16 - f);
   } },
-  // 凤凰：焰羽三层（外焰/中焰/焰芯）+ 上飘的火羽
+  // 鍑ゅ嚢锛氱劙缇戒笁灞傦紙澶栫劙/涓劙/鐒拌姱锛? 涓婇鐨勭伀缇?
   phoenix: { c: 0xe8562a, a: 0xffd45c, draw: (g, now, flap, c, a) => {
     const f = flap * 7;
     wpoly(g, [[2, 4], [24, -38 - f], [58, -60 - f], [90, -42 - f], [64, -8], [32, 10]], 0xb83a1a, 0.9);
     wpoly(g, [[6, 2], [28, -30 - f], [58, -48 - f], [80, -36 - f], [58, -6]], c, 0.95);
     wpoly(g, [[10, 0], [32, -20 - f], [54, -30 - f], [66, -22 - f], [48, -2]], a, 0.75);
-    // 焰羽上飘
+    // 鐒扮窘涓婇
     for (let k = 0; k < 5; k++) {
       const ph = (now / 500 + k / 5) % 1;
       g.fillStyle(k % 2 ? a : 0xfff0b0, 0.8 * (1 - ph));
@@ -89,28 +89,28 @@ export const WINGS_5: Record<string, WingArt> = {
     }
     wline(g, [[2, 4], [24, -38 - f], [58, -60 - f], [90, -42 - f]], 2, a, 0.9);
   } },
-  // 幽翼：半透明幽膜 + 骨节翼骨 + 消散的幽绿粒子
+  // 骞界考锛氬崐閫忔槑骞借啘 + 楠ㄨ妭缈奸 + 娑堟暎鐨勫菇缁跨矑瀛?
   ghostWing: { c: 0x8a7ae8, a: 0x9effd0, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 2], [30, -32 - f], [62, -52 - f], [86, -38 - f], [60, -6], [30, 8]], c, 0.42);
     wpoly(g, [[6, 0], [30, -24 - f], [52, -38 - f], [70, -28 - f], [48, -2]], 0xc8bcff, 0.3);
-    // 三根翼骨
+    // 涓夋牴缈奸
     wline(g, [[2, 2], [34, -28 - f], [60, -46 - f]], 2.4, 0xe8e0ff, 0.85);
     wline(g, [[4, 4], [40, -16 - f], [68, -24 - f]], 2, 0xe8e0ff, 0.7);
-    // 幽绿消散粒子
+    // 骞界豢娑堟暎绮掑瓙
     for (let k = 0; k < 4; k++) {
       const ph = (now / 700 + k / 4) % 1;
       g.fillStyle(a, 0.7 * (1 - ph));
       g.fillCircle(44 + k * 10, -40 - f - ph * 16, 2.2 * (1 - ph) + 0.6);
     }
   } },
-  // 流萤：暗翼 + 翼缘一圈会呼吸的流萤
+  // 娴佽悿锛氭殫缈?+ 缈肩紭涓€鍦堜細鍛煎惛鐨勬祦钀?
   fireflyWing: { c: 0x2a3442, a: 0xd8ff6a, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 4], [28, -30 - f], [58, -50 - f], [82, -40 - f], [60, -8], [32, 8]], c, 0.95);
     wpoly(g, [[8, 2], [30, -26 - f], [52, -40 - f], [68, -32 - f], [50, -4]], 0x3a4a5c, 0.7);
     wline(g, [[4, 2], [30, -26 - f], [54, -44 - f]], 1.4, 0x55627a, 0.9);
-    // 流萤（六点呼吸，各带光晕）
+    // 娴佽悿锛堝叚鐐瑰懠鍚革紝鍚勫甫鍏夋檿锛?
     for (let k = 0; k < 6; k++) {
       const tw = 0.25 + 0.75 * Math.abs(Math.sin(now / 320 + k * 2.1));
       const px = 22 + (k % 3) * 24, py = -30 - f - (k % 2) * 14 + Math.sin(now / 400 + k) * 3;
@@ -120,40 +120,40 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillCircle(px, py, 1.8);
     }
   } },
-  // 蛾翼：毛茸双叶翼 + 眼斑 + 鳞粉
+  // 铔剧考锛氭瘺鑼稿弻鍙剁考 + 鐪兼枒 + 槌炵矇
   moth: { c: 0xc8a87a, a: 0x8a6242, draw: (g, now, flap, c, a) => {
     const f = flap * 5;
     wpoly(g, [[2, 0], [20, -34 - f], [48, -44 - f], [56, -24 - f], [34, -2]], c, 0.95);
     wpoly(g, [[2, 2], [16, -12 - f * 0.6], [36, -18 - f * 0.6], [40, -4 - f * 0.6], [22, 8]], a, 0.85);
-    // 眼斑（外环内珠）
+    // 鐪兼枒锛堝鐜唴鐝狅級
     g.fillStyle(0x3a2a1c, 0.9);
     g.fillCircle(34, -28 - f, 5.4);
     g.fillStyle(0xfff0c0, 0.95);
     g.fillCircle(34, -28 - f, 2.6);
     g.fillStyle(0x3a2a1c, 0.6);
     g.fillCircle(24, -8 - f * 0.6, 2.4);
-    // 鳞粉
+    // 槌炵矇
     for (let k = 0; k < 4; k++) {
       const ph = (now / 900 + k / 4) % 1;
       g.fillStyle(0xfff0c0, 0.6 * (1 - ph));
       g.fillCircle(30 + ph * 16, -40 - f - ph * 12, 1.2);
     }
   } },
-  // 夜鹰：镰刀状疾翼 + 白翼杠 + 残影
+  // 澶滈拱锛氶暟鍒€鐘剁柧缈?+ 鐧界考鏉?+ 娈嬪奖
   nightjar: { c: 0x2a3442, a: 0xe8ecf4, draw: (g, _now, flap, c, a) => {
     const f = flap * 8;
     wpoly(g, [[2, 0], [40, -40 - f], [88, -50 - f], [58, -14 - f], [24, 6]], c, 0.96);
     wline(g, [[2, 0], [40, -40 - f], [86, -48 - f]], 2, a, 0.9);
-    // 白翼杠两道
+    // 鐧界考鏉犱袱閬?
     g.lineStyle(2.6, a, 0.85);
     g.lineBetween(30, -24 - f, 58, -32 - f);
     g.lineBetween(24, -14 - f, 50, -20 - f);
-    // 疾飞残影
+    // 鐤鹃娈嬪奖
     g.lineStyle(1.6, a, 0.3);
     g.lineBetween(4, 2, 20, -14 - f + 6);
     g.lineBetween(6, 4, 24, -8 - f + 8);
   } },
-  // 玫瑰：层叠花瓣翼 + 藤蔓 + 飘落花瓣
+  // 鐜懓锛氬眰鍙犺姳鐡ｇ考 + 钘よ敁 + 椋樿惤鑺辩摚
   rosewing: { c: 0xe86a8a, a: 0x4fae4a, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     for (let k = 0; k < 4; k++) {
@@ -167,19 +167,19 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillEllipse(-4, -2, 10, 4);
       g.restore();
     }
-    // 藤蔓卷须
+    // 钘よ敁鍗烽』
     g.lineStyle(2, a, 0.9);
     g.beginPath();
     g.arc(52, -44 - f, 6, now / 500, now / 500 + 4);
     g.strokePath();
-    // 飘落花瓣
+    // 椋樿惤鑺辩摚
     for (let k = 0; k < 3; k++) {
       const ph = (now / 1100 + k / 3) % 1;
       g.fillStyle(0xffb0c0, 0.8 * (1 - ph));
       g.fillEllipse(40 + k * 12, -30 - f + ph * 26, 5, 3);
     }
   } },
-  // 等离子：无膜能量翼（双弧光束 + 核心线 + 电弧抖动）
+  // 绛夌瀛愶細鏃犺啘鑳介噺缈硷紙鍙屽姬鍏夋潫 + 鏍稿績绾?+ 鐢靛姬鎶栧姩锛?
   plasmaWing: { c: 0x5ac8ff, a: 0xb46cff, draw: (g, now, flap, c, a) => {
     const f = flap * 7;
     for (let k = 0; k < 3; k++) {
@@ -190,7 +190,7 @@ export const WINGS_5: Record<string, WingArt> = {
       g.arc(0, 4, r, -Math.PI * 0.92 + flap * 0.1, -Math.PI * 0.14 + flap * 0.1);
       g.strokePath();
     }
-    // 核心连线 + 沿途亮珠
+    // 鏍稿績杩炵嚎 + 娌块€斾寒鐝?
     wline(g, [[2, 4], [40, -26 - f], [76, -34 - f]], 1.6, 0xffffff, 0.8);
     for (let k = 0; k < 3; k++) {
       const ph = (now / 240 + k / 3) % 1;
@@ -198,24 +198,24 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillCircle(20 + ph * 56, -14 - ph * (18 + f), 2);
     }
   } },
-  // 剧毒：滴液毒膜翼 + 气泡
+  // 鍓ф瘨锛氭淮娑叉瘨鑶滅考 + 姘旀场
   toxicWing: { c: 0x8fd44a, a: 0x3a9a5a, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 2], [28, -30 - f], [60, -48 - f], [84, -36 - f], [58, -6], [30, 8]], c, 0.85);
     wpoly(g, [[8, 0], [30, -24 - f], [54, -38 - f], [70, -28 - f], [48, -2]], 0xb8e87a, 0.45);
     wline(g, [[4, 0], [32, -26 - f], [56, -42 - f]], 1.6, a, 0.85);
-    // 翼缘毒滴（三滴下坠）
+    // 缈肩紭姣掓淮锛堜笁婊翠笅鍧狅級
     for (let k = 0; k < 3; k++) {
       const ph = (now / 800 + k / 3) % 1;
       g.fillStyle(0xb8e87a, 0.85 * (1 - ph));
       g.fillCircle(20 + k * 20, -6 - f * 0.4 + ph * 16, 2.2 * (1 - ph) + 1);
     }
-    // 气泡
+    // 姘旀场
     g.fillStyle(0xd8ffb0, 0.5);
     g.fillCircle(40, -26 - f, 2.4);
     g.fillCircle(58, -34 - f, 1.8);
   } },
-  // 机甲：三段装甲板翼 + 铆钉 + 尾喷口
+  // 鏈虹敳锛氫笁娈佃鐢叉澘缈?+ 閾嗛拤 + 灏惧柗鍙?
   mechWing: { c: 0x8a94a2, a: 0x5ac8ff, draw: (g, now, flap, c, a) => {
     const f = flap * 5;
     for (let k = 0; k < 3; k++) {
@@ -232,35 +232,35 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillCircle(12, 0, 1.4);
       g.restore();
     }
-    // 尾喷口蓝焰
+    // 灏惧柗鍙ｈ摑鐒?
     const th = 0.6 + 0.4 * Math.sin(now / 70);
     g.fillStyle(a, th);
     g.fillCircle(2, 6, 4);
     g.fillStyle(0xffffff, th * 0.8);
     g.fillCircle(2, 6, 1.8);
   } },
-  // 藤叶：叶脉大叶两片 + 卷须藤蔓
+  // 钘ゅ彾锛氬彾鑴夊ぇ鍙朵袱鐗?+ 鍗烽』钘よ敁
   leafyWing: { c: 0x8fbf5a, a: 0x4a7a3a, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 2], [26, -34 - f], [54, -50 - f], [46, -12 - f], [24, 8]], c, 0.97);
     wpoly(g, [[8, 4], [30, -18 - f], [52, -26 - f], [40, 4]], 0xa8d87a, 0.9);
-    // 叶脉（主脉 + 侧脉）
+    // 鍙惰剦锛堜富鑴?+ 渚ц剦锛?
     wline(g, [[4, 2], [30, -30 - f], [50, -44 - f]], 2, a, 0.9);
     for (let k = 0; k < 4; k++) {
       const t = 0.25 + k * 0.18;
       wline(g, [[4 + 26 * t, 2 - 32 * t - f * t], [4 + 26 * t + 10, 2 - 32 * t - f * t - 6]], 1.2, a, 0.6);
     }
-    // 卷须
+    // 鍗烽』
     g.lineStyle(1.8, a, 0.85);
     g.beginPath();
     g.arc(58, -40 - f, 5, now / 600, now / 600 + 4.4);
     g.strokePath();
   } },
-  // 余烬：焦炭翼 + 翼缘裂纹火光 + 升腾火星
+  // 浣欑儸锛氱劍鐐考 + 缈肩紭瑁傜汗鐏厜 + 鍗囪吘鐏槦
   emberWing: { c: 0x3a2a2a, a: 0xff7a2a, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 4], [26, -32 - f], [56, -50 - f], [82, -38 - f], [58, -6], [30, 8]], c, 0.98);
-    // 裂纹火光（脉冲）
+    // 瑁傜汗鐏厜锛堣剦鍐诧級
     const pulse = 0.5 + 0.5 * Math.sin(now / 240);
     g.lineStyle(2, a, 0.35 + pulse * 0.45);
     g.lineBetween(14, -10, 28, -26 - f);
@@ -268,14 +268,14 @@ export const WINGS_5: Record<string, WingArt> = {
     g.lineBetween(40, -30 - f, 56, -42 - f);
     g.lineBetween(56, -42 - f, 54, -48 - f);
     g.lineBetween(30, 2, 44, -12 - f);
-    // 火星升腾
+    // 鐏槦鍗囪吘
     for (let k = 0; k < 4; k++) {
       const ph = (now / 600 + k / 4) % 1;
       g.fillStyle(k % 2 ? a : 0xffd45c, 0.8 * (1 - ph));
       g.fillCircle(30 + k * 13, -44 - f - ph * 18, 1.8 * (1 - ph) + 0.6);
     }
   } },
-  // 光羽：五根发光羽轴（轴心白热、外晕呼吸）
+  // 鍏夌窘锛氫簲鏍瑰彂鍏夌窘杞达紙杞村績鐧界儹銆佸鏅曞懠鍚革級
   light: { c: 0xfff6d8, a: 0xffe08a, draw: (g, _now, flap, _c, a) => {
     const f = flap * 6;
     for (let k = 0; k < 5; k++) {
@@ -291,7 +291,7 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillCircle(bx + Math.cos(ang) * len, by + Math.sin(ang) * len, 2.2);
     }
   } },
-  // 圣光：垂直光刃翼（四道光柱 + 顶部光冠）
+  // 鍦ｅ厜锛氬瀭鐩村厜鍒冪考锛堝洓閬撳厜鏌?+ 椤堕儴鍏夊啝锛?
   shine: { c: 0xfff8e0, a: 0xf2c14a, draw: (g, now, flap, c, a) => {
     const f = flap * 5;
     for (let k = 0; k < 4; k++) {
@@ -308,7 +308,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(a, tw);
     g.fillCircle(34, -58 - f, 3);
   } },
-  // 星辰：星座翼（星点连线成翼形）
+  // 鏄熻景锛氭槦搴х考锛堟槦鐐硅繛绾挎垚缈煎舰锛?
   star: { c: 0x2a2a44, a: 0xfff0b0, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     const pts: Array<[number, number]> = [[4, 4], [20, -18 - f], [40, -36 - f], [62, -46 - f], [84, -40 - f], [66, -18 - f], [44, -6 - f], [24, 4]];
@@ -323,7 +323,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(c, 0.5);
     g.fillCircle(44, -22 - f, 8);
   } },
-  // 虹翼：七色叠弧（波纹流动）
+  // 铏圭考锛氫竷鑹插彔寮э紙娉㈢汗娴佸姩锛?
   rainbow: { c: 0xffffff, a: 0xff8ad4, draw: (g, now, flap, _c, _a) => {
     const cols = [0xe8404a, 0xff8a3c, 0xffd45c, 0x8fd45a, 0x4ac8ff, 0x5a6ae8, 0xa86ae8];
     for (let k = 0; k < 7; k++) {
@@ -335,12 +335,12 @@ export const WINGS_5: Record<string, WingArt> = {
       g.strokePath();
     }
   } },
-  // 星河：紫罗兰星云翼 + 旋臂星尘
+  // 鏄熸渤锛氱传缃楀叞鏄熶簯缈?+ 鏃嬭噦鏄熷皹
   galaxy: { c: 0x6a4ae8, a: 0xd8c8ff, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 2], [28, -30 - f], [58, -52 - f], [86, -40 - f], [60, -6], [30, 8]], c, 0.55);
     wpoly(g, [[8, 0], [30, -24 - f], [52, -40 - f], [70, -30 - f], [48, -2]], 0x9a7aff, 0.4);
-    // 旋臂星尘
+    // 鏃嬭噦鏄熷皹
     for (let k = 0; k < 10; k++) {
       const t = k / 9;
       const ang = -1.2 + t * 1.9 + now / 2400;
@@ -350,7 +350,7 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillCircle(px, py, 1.6 - t);
     }
   } },
-  // 棱光：折射棱镜翼（三棱镜 + 七彩分光束）
+  // 妫卞厜锛氭姌灏勬１闀滅考锛堜笁妫遍暅 + 涓冨僵鍒嗗厜鏉燂級
   prism: { c: 0xe8f0ff, a: 0x8ad8ff, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[6, 6], [26, -14 - f], [46, 6]], c, 0.5);
@@ -364,7 +364,7 @@ export const WINGS_5: Record<string, WingArt> = {
       g.lineBetween(30, -8 - f, 30 + Math.cos(ang) * len, -8 - f + Math.sin(ang) * len);
     }
   } },
-  // 云羽：卷云羽片（丝缕状，缓慢流动）
+  // 浜戠窘锛氬嵎浜戠窘鐗囷紙涓濈紩鐘讹紝缂撴參娴佸姩锛?
   cirrus: { c: 0xeaf2fb, a: 0x9ac8ee, draw: (g, now, flap, c, _a) => {
     const f = flap * 5;
     for (let k = 0; k < 5; k++) {
@@ -382,7 +382,7 @@ export const WINGS_5: Record<string, WingArt> = {
       g.strokePath();
     }
   } },
-  // 烈阳：日轮翼（放射光芒 + 日冕环）
+  // 鐑堥槼锛氭棩杞考锛堟斁灏勫厜鑺?+ 鏃ュ啎鐜級
   solaris: { c: 0xffb03a, a: 0xfff0b0, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     const cx = 34, cy = -26 - f;
@@ -402,7 +402,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.lineStyle(1.6, a, 0.6);
     g.strokeCircle(cx, cy, 20 + Math.sin(now / 300) * 1.6);
   } },
-  // 刃翼：三片利刃（寒光扫过）
+  // 鍒冪考锛氫笁鐗囧埄鍒冿紙瀵掑厜鎵繃锛?
   blade: { c: 0xc0ccda, a: 0xffffff, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     for (let k = 0; k < 3; k++) {
@@ -420,7 +420,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.lineStyle(1.4, a, gl * 0.8);
     g.lineBetween(6, -14 - f, 66, -40 - f);
   } },
-  // 蜻蜓：四片透明复翼（脉纹 + 高速颤动）
+  // 铚昏湏锛氬洓鐗囬€忔槑澶嶇考锛堣剦绾?+ 楂橀€熼ⅳ鍔級
   dragonfly: { c: 0xbfe8f4, a: 0x5a8ab4, draw: (g, now, _flap, c, a) => {
     const tr = Math.sin(now / 60) * 3;
     for (const [dx, dy] of [[10, -22], [16, -4], [26, -30], [32, -12]] as const) {
@@ -432,7 +432,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(0x5a8ab4, 0.8);
     g.fillCircle(6, -14, 3);
   } },
-  // 霓虹：霓虹灯管翼（描边发光 + 闪烁）
+  // 闇撹櫣锛氶湏铏圭伅绠＄考锛堟弿杈瑰彂鍏?+ 闂儊锛?
   neon: { c: 0xff4ac8, a: 0x4affff, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     const flick = Math.sin(now / 120) > -0.7 ? 1 : 0.3;
@@ -446,7 +446,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(a, 0.85 * flick);
     g.fillCircle(84, -40 - f, 3);
   } },
-  // 雷霆：雷能翼（雷弧骨架 + 放电）
+  // 闆烽渾锛氶浄鑳界考锛堥浄寮ч鏋?+ 鏀剧數锛?
   thunder: { c: 0x9fd8ff, a: 0xffe89a, draw: (g, now, flap, c, a) => {
     const f = flap * 7;
     wline(g, [[2, 4], [30, -30 - f], [60, -48 - f], [84, -38 - f]], 2.6, c, 0.9);
@@ -459,7 +459,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(0xffffff, 0.85);
     g.fillCircle(84, -38 - f, 2.4);
   } },
-  // 水晶：棱柱晶簇翼（折射面 + 闪光）
+  // 姘存櫠锛氭１鏌辨櫠绨囩考锛堟姌灏勯潰 + 闂厜锛?
   crystal: { c: 0x9ad4ff, a: 0xe0f2ff, draw: (g, now, flap, c, a) => {
     const f = flap * 5;
     for (let k = 0; k < 4; k++) {
@@ -472,7 +472,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(0xffffff, tw);
     g.fillCircle(24, -22 - f * 0.6, 2);
   } },
-  // 碎晶：悬浮碎晶（多面小块绕转）
+  // 纰庢櫠锛氭偓娴鏅讹紙澶氶潰灏忓潡缁曡浆锛?
   crystalShard: { c: 0xb46cff, a: 0xe8d8ff, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[4, 8], [16, -14 - f], [10, -30 - f], [26, -34 - f], [40, -12 - f], [30, 8]], c, 0.5);
@@ -486,7 +486,7 @@ export const WINGS_5: Record<string, WingArt> = {
       g.restore();
     }
   } },
-  // 冰晶：霜花六棱翼（生长呼吸）
+  // 鍐版櫠锛氶湝鑺卞叚妫辩考锛堢敓闀垮懠鍚革級
   frost: { c: 0xbfe8ff, a: 0xffffff, draw: (g, now, flap, c, a) => {
     const f = flap * 5;
     const cx = 34, cy = -24 - f;
@@ -504,12 +504,12 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(a, 0.9);
     g.fillCircle(cx, cy, 5);
   } },
-  // 冰河：冰川裂谷翼（蓝白断层 + 寒气）
+  // 鍐版渤锛氬啺宸濊璋风考锛堣摑鐧芥柇灞?+ 瀵掓皵锛?
   glacier: { c: 0x9ad4ee, a: 0xeaf6ff, draw: (g, now, flap, c, a) => {
     const f = flap * 6;
     wpoly(g, [[2, 6], [20, -22 - f], [44, -40 - f], [70, -46 - f], [86, -30 - f], [60, -2], [28, 8]], c, 0.95);
     wpoly(g, [[26, -20 - f], [44, -38 - f], [70, -44 - f], [84, -30 - f], [56, -4]], a, 0.4);
-    // 断层裂纹
+    // 鏂眰瑁傜汗
     g.lineStyle(1.6, 0x4a8ab4, 0.8);
     g.lineBetween(30, -18 - f, 40, -30 - f);
     g.lineBetween(48, -34 - f, 58, -40 - f);
@@ -518,6 +518,115 @@ export const WINGS_5: Record<string, WingArt> = {
       const ph = (now / 800 + k / 3) % 1;
       g.fillStyle(a, 0.5 * (1 - ph));
       g.fillCircle(30 + k * 18, -46 - f - ph * 10, 1.6);
+    }
+  } },
+  // 娣辨笂锛氶粦鏇滆啘缈?+ 瑁傝胺骞藉厜 + 瑙﹂浘涓嬪瀭
+  abyss: { c: 0x1a1424, a: 0x7a5aff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 4], [26, -34 - f], [58, -52 - f], [84, -38 - f], [56, -6], [28, 8]], c, 0.96);
+    wline(g, [[2, 4], [28, -30 - f], [56, -46 - f]], 2.4, 0x2a2038, 1);
+    const p = 0.5 + 0.5 * Math.sin(now / 260);
+    g.lineStyle(2, a, 0.3 + p * 0.4);
+    g.lineBetween(30, -14 - f, 44, -34 - f);
+    g.lineBetween(52, -40 - f, 64, -44 - f);
+    for (let k = 0; k < 3; k++) {
+      const ph = (now / 900 + k / 3) % 1;
+      g.fillStyle(a, 0.3 * (1 - ph));
+      g.fillCircle(34 + k * 16, -2 + ph * 14, 3 + ph * 4);
+    }
+  } },
+  // 楠ㄧ考锛氶鑺傝噦楠ㄤ笁娈?+ 鑺傚ご + 娣¤啘
+  bone: { c: 0xd8c8a0, a: 0xf2ead8, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[6, 2], [34, -28 - f], [62, -44 - f], [80, -34 - f], [54, -6], [30, 8]], 0xf2ead8, 0.22);
+    wline(g, [[2, 2], [30, -20 - f]], 5, c, 1);
+    wline(g, [[30, -20 - f], [58, -40 - f]], 4, c, 1);
+    wline(g, [[58, -40 - f], [82, -34 - f]], 3, c, 1);
+    for (const [jx, jy, r] of [[30, -20 - f, 4], [58, -40 - f, 3.4], [82, -34 - f, 2.6]] as const) {
+      g.fillStyle(a, 1);
+      g.fillCircle(jx, jy, r);
+      g.fillStyle(0xb8a880, 0.5);
+      g.fillCircle(jx - r * 0.3, jy - r * 0.3, r * 0.35);
+    }
+  } },
+  // 鎭堕瓟锛氭殫绾㈣啘缈?+ 榛戣壊鑴夌粶 + 灏栧埡鍓嶇紭
+  demon: { c: 0x8a1a2a, a: 0x1a0e14, draw: (g, _now, flap, c, a) => {
+    const f = flap * 7;
+    wpoly(g, [[2, 4], [26, -36 - f], [58, -56 - f], [86, -40 - f], [58, -6], [28, 8]], c, 0.95);
+    wline(g, [[2, 4], [26, -36 - f], [58, -56 - f], [86, -40 - f]], 2.2, a, 0.9);
+    g.lineStyle(1.8, a, 0.75);
+    g.lineBetween(6, 0, 36, -24 - f); g.lineBetween(36, -24 - f, 52, -40 - f);
+    g.lineBetween(10, 4, 40, -12 - f); g.lineBetween(40, -12 - f, 64, -24 - f);
+    for (const [sx, sy] of [[26, -36 - f], [58, -56 - f], [86, -40 - f]] as const) {
+      wpoly(g, [[sx - 4, sy + 4], [sx, sy - 6], [sx + 4, sy + 4]], 0x2a0e14, 1);
+    }
+  } },
+  // 榄旂考锛氱传榛戣潬缈?+ 涓夊皷閿嬬劙灏?
+  devilWing: { c: 0x3a2050, a: 0xff5a3a, draw: (g, _now, flap, c, a) => {
+    const f = flap * 7;
+    wpoly(g, [[2, 2], [28, -32 - f], [46, -48 - f], [64, -44 - f], [82, -52 - f], [66, -20 - f], [40, 2], [24, 8]], c, 0.96);
+    wline(g, [[2, 2], [30, -28 - f], [46, -46 - f]], 2.2, 0x5a3a7a, 1);
+    wline(g, [[4, 4], [44, -20 - f], [62, -40 - f]], 1.8, 0x5a3a7a, 0.85);
+    for (const [sx, sy] of [[46, -48 - f], [64, -44 - f], [82, -52 - f]] as const) {
+      g.fillStyle(a, 0.85);
+      g.fillCircle(sx, sy, 2.6);
+      g.fillStyle(a, 0.3);
+      g.fillCircle(sx, sy, 5);
+    }
+  } },
+  // 榫欑考锛氬澶ч碁鑶?+ 缈兼寚楠?+ 鍏宠妭鍒╃埅
+  dragon: { c: 0x4a8a5a, a: 0xd9b45c, draw: (g, _now, flap, c, a) => {
+    const f = flap * 7;
+    wpoly(g, [[2, 4], [30, -38 - f], [64, -58 - f], [92, -44 - f], [62, -8], [30, 10]], c, 0.96);
+    wline(g, [[2, 4], [34, -34 - f], [64, -56 - f]], 3, 0x2f6a3f, 1);
+    wline(g, [[4, 4], [42, -20 - f], [78, -40 - f]], 2.6, 0x2f6a3f, 0.95);
+    wline(g, [[6, 6], [48, -10 - f], [88, -20 - f]], 2.2, 0x2f6a3f, 0.9);
+    g.lineStyle(1.2, 0x2f6a3f, 0.6);
+    for (let k = 0; k < 4; k++) {
+      g.beginPath();
+      g.arc(16 + k * 12, -12 - f * (0.3 + k * 0.15), 6, -0.8, 2.2);
+      g.strokePath();
+    }
+    wpoly(g, [[62, -56 - f], [72, -62 - f], [66, -52 - f]], a, 1);
+  } },
+  // 褰辩考锛氱儫褰辫啘 + 杈圭紭娑堟暎
+  shadow: { c: 0x1c1c26, a: 0x55556a, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 2], [28, -32 - f], [58, -50 - f], [82, -36 - f], [54, -4], [26, 8]], c, 0.85);
+    wpoly(g, [[8, 0], [30, -24 - f], [50, -38 - f], [66, -26 - f], [44, -2]], 0x2a2a38, 0.6);
+    for (let k = 0; k < 5; k++) {
+      const ph = (now / 750 + k / 5) % 1;
+      g.fillStyle(a, 0.4 * (1 - ph));
+      g.fillCircle(30 + k * 13, -38 - f - ph * 14, 3.4 * (1 - ph) + 0.8);
+    }
+  } },
+  // 闆锋毚锛氶鏆翠簯鑶?+ 鑶滃唴闆风數鑴夌粶锛堣剦鍐诧級
+  stormcall: { c: 0x3a4a5c, a: 0xffe89a, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 2], [26, -32 - f], [56, -52 - f], [84, -40 - f], [58, -6], [28, 8]], c, 0.95);
+    wpoly(g, [[8, 0], [30, -26 - f], [54, -42 - f], [72, -32 - f], [48, -2]], 0x556a7c, 0.6);
+    for (let k = 0; k < 3; k++) {
+      if (Math.sin(now / 130 + k * 2.4) > 0.1) {
+        g.lineStyle(1.8, a, 0.95);
+        g.lineBetween(24 + k * 16, -20 - k * 8 - f, 34 + k * 16, -34 - k * 6 - f);
+        g.lineBetween(34 + k * 16, -34 - k * 6 - f, 30 + k * 16, -42 - k * 4 - f);
+      }
+    }
+  } },
+  // 娼睈锛氬崐閫忔按鑶滅考 + 娉㈠眰 + 姘村厜
+  tide: { c: 0x4aa8c8, a: 0x9ffcf0, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 2], [28, -32 - f], [58, -50 - f], [84, -38 - f], [56, -6], [28, 8]], c, 0.6);
+    for (let k = 0; k < 3; k++) {
+      g.lineStyle(2.4, k % 2 ? a : 0xffffff, 0.55 - k * 0.12);
+      g.beginPath();
+      for (let s = 0; s <= 5; s++) {
+        const u = s / 5;
+        const px = 6 + u * 74;
+        const py = -8 - k * 12 - f * 0.7 + Math.sin(u * 5 + now / 300 + k) * 3.4 - u * 10;
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath();
     }
   } },
 };
