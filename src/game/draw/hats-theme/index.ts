@@ -1,0 +1,37 @@
+import type Phaser from 'phaser';
+import { HATS_1 } from './hats1';
+import { HATS_2 } from './hats2';
+import { HATS_3 } from './hats3';
+import { HATS_4 } from './hats4';
+
+/**
+ * 主题头饰的**逐顶独立画**总入口（分文件见 hats1~4.ts）。
+ * 约定与 character.ts 的 drawHat 一致：(x, hy) = 帽沿线（hy = topY + 4），
+ * 帽子往上长（y 负方向）、横跨约 x±20。
+ */
+const HATS: Record<string, (typeof HATS_1)[string]> = {
+  ...HATS_1,
+  ...HATS_2,
+  ...HATS_3,
+  ...HATS_4,
+};
+
+export function hasCustomHat(id: string): boolean {
+  return !!HATS[id];
+}
+
+export function drawHatCustom(
+  g: Phaser.GameObjects.Graphics,
+  now: number,
+  id: string,
+  x: number,
+  hy: number,
+): boolean {
+  const art = HATS[id];
+  if (!art) return false;
+  const c = art.c ?? 0xffd45c;
+  g.save();
+  art.draw(g, now, x, hy, c, art.a);
+  g.restore();
+  return true;
+}

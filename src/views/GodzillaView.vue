@@ -172,7 +172,8 @@ function onEnd(win: boolean): void {
   } else if (r.kind === 'keys') {
     gain = `🔑 宝箱钥匙 +${r.keys}`;
   } else {
-    gain = `🪙 金币 +${r.coins}`;
+    gain =
+      `🪙 金币 +${r.coins}` + (r.petBonus > 0 ? `（🐾 宠物 +${r.petBonus}）` : '');
   }
 
   resultText.value =

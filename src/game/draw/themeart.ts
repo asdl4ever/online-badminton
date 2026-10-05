@@ -1,6 +1,30 @@
 import Phaser from 'phaser';
 import { PLAYER_H } from '../constants';
 import type { CharacterPose } from './character';
+// 第三批 10 个主题宝箱的 spec / 形象（见 themeart2.ts），下面展开进本文件的各张表
+import {
+  THEME_SKIN_ART_2,
+  THEME_HATS_2,
+  THEME_AURAS_2,
+  THEME_RINGS_2,
+  THEME_MOUNTS_2,
+  THEME_RACKETS_2,
+  THEME_TRAILS_2,
+  THEME_SWINGS_2,
+  MOUNT_TINT_2,
+} from './themeart2';
+// 第四批 20 个主题宝箱的 spec / 形象（见 themeart3.ts），同样展开进各张表
+import {
+  THEME_SKIN_ART_3,
+  THEME_HATS_3,
+  THEME_AURAS_3,
+  THEME_RINGS_3,
+  THEME_MOUNTS_3,
+  THEME_RACKETS_3,
+  THEME_TRAILS_3,
+  THEME_SWINGS_3,
+  MOUNT_TINT_3,
+} from './themeart3';
 
 /**
  * 主题宝箱的**共享绘制工具箱**。
@@ -1496,6 +1520,8 @@ export const THEME_SKIN_ART: Record<
   string,
   (g: Phaser.GameObjects.Graphics, now: number, pose: CharacterPose) => void
 > = {
+  ...THEME_SKIN_ART_2,
+  ...THEME_SKIN_ART_3,
   desSpirit: drawDesJinn,
   nimbSpirit: drawNimbLord,
   confSpirit: drawConfWitch,
@@ -1528,8 +1554,9 @@ export interface ThemeHatArt {
 }
 
 export const THEME_HATS: Record<string, ThemeHatArt> = {
-  // 🏟 操场跑量里程碑（2km / 5km…）
-  runHat: { ornament: 'bolt', accent: 0x39d0a0, base: 'band' },
+  ...THEME_HATS_2,
+  ...THEME_HATS_3,
+  // 🏟 操场跑量里程碑（runHat 已迁 hats-theme 分包）
   desTurban: { ornament: 'crescent', accent: 0xc9803a, base: 'wrap' },
   desScarab: { ornament: 'shell', accent: 0xffd45c, base: 'band' },
   nimbHalo: { ornament: 'cloud', accent: 0xffffff, base: 'topper' },
@@ -1588,6 +1615,8 @@ export type AuraMotion = 'orbit' | 'rise' | 'pulse' | 'sparkle' | 'drift' | 'fal
 export interface ThemeAuraArt { motion: AuraMotion; accent: number; }
 
 export const THEME_AURAS: Record<string, ThemeAuraArt> = {
+  ...THEME_AURAS_2,
+  ...THEME_AURAS_3,
   // 🏟 操场跑量里程碑
   runAura: { motion: 'rise', accent: 0x39d0a0 },
   desSandAura: { motion: 'drift', accent: 0xc9803a },
@@ -1715,6 +1744,8 @@ export type RingPattern = 'orbs' | 'petals' | 'runes' | 'spikes' | 'arcs';
 export interface ThemeRingArt { pattern: RingPattern; accent: number; }
 
 export const THEME_RINGS: Record<string, ThemeRingArt> = {
+  ...THEME_RINGS_2,
+  ...THEME_RINGS_3,
   // 🏟 操场跑量里程碑
   runRing: { pattern: 'spikes', accent: 0x39d0a0 },
   desRing: { pattern: 'orbs', accent: 0xffd45c },
@@ -1793,6 +1824,8 @@ export type MountFamily = 'beast' | 'glider' | 'wheeled' | 'creature' | 'float' 
 export interface ThemeMountArt { family: MountFamily; accent: number; }
 
 export const THEME_MOUNTS: Record<string, ThemeMountArt> = {
+  ...THEME_MOUNTS_2,
+  ...THEME_MOUNTS_3,
   desCamel: { family: 'beast', accent: 0xc9803a },
   nimbCloud: { family: 'glider', accent: 0x9fd8ff },
   confCake: { family: 'creature', accent: 0xff869c },
@@ -1912,6 +1945,8 @@ export function drawThemeMount(
 
 /** 坐骑主色（避免和 cosmetics 的 MOUNT_COLORS 互相 import，这里放一份镜像） */
 const MOUNT_TINT: Record<string, number> = {
+  ...MOUNT_TINT_2,
+  ...MOUNT_TINT_3,
   desCamel: 0xd8a24a, nimbCloud: 0xeaf6ff, confCake: 0xffd0e0, bigtBall: 0xe8404a,
   aegisSteed: 0xaab4c2, chanBoat: 0x3a8a5a, arcanOrb: 0x9a86e8, relicBone: 0xd8c8a0,
   playHorse: 0xffc04a, yuanBoat: 0xe8404a,
@@ -1937,6 +1972,8 @@ export interface ThemeRacketArt {
 }
 
 export const THEME_RACKETS: Record<string, ThemeRacketArt> = {
+  ...THEME_RACKETS_2,
+  ...THEME_RACKETS_3,
   // 每个主题两只拍子都换掉外形（20 种轮廓，尽量用满）
   desRacketA: { pattern: 'rope', accent: 0xffd45c, frame: 'circle' },
   desRacketB: { pattern: 'rune', accent: 0xc9803a, frame: 'teardrop' },
@@ -2279,6 +2316,8 @@ export interface ThemeTrailArt { pattern: TrailPattern; accent: number; }
 export interface TrailPoint { x: number; y: number; }
 
 export const THEME_TRAILS: Record<string, ThemeTrailArt> = {
+  ...THEME_TRAILS_2,
+  ...THEME_TRAILS_3,
   // 🏟 操场跑量里程碑
   runTrail: { pattern: 'comet', accent: 0x39d0a0 },
   // 每个主题两条拖尾，图案尽量不重样（21 种图案）
@@ -2582,6 +2621,8 @@ export type SwingPattern =
 export interface ThemeSwingArt { pattern: SwingPattern; accent: number; }
 
 export const THEME_SWINGS: Record<string, ThemeSwingArt> = {
+  ...THEME_SWINGS_2,
+  ...THEME_SWINGS_3,
   // 🏟 操场跑量里程碑
   runSwing: { pattern: 'slash', accent: 0x39d0a0 },
   // 每个主题一种专属「斩」，不重样

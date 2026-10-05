@@ -193,22 +193,39 @@ export type WingId =
   | 'aegisShieldWing' | 'aegisBladeWing' | 'chanFanWing' | 'chanLeafWing'
   | 'arcanRuneWing' | 'arcanStarWing' | 'relicBoneWing' | 'relicAmberWing'
   | 'playBlockWing' | 'playKiteWing' | 'yuanLanternWing' | 'yuanFireWing'
+  // 第三批 10 个主题宝箱的专属翅膀（各 2 款）
+  | 'pirateWingA' | 'pirateWingB' | 'steamWingA' | 'steamWingB'
+  | 'astroWingA' | 'astroWingB' | 'juraWingA' | 'juraWingB'
+  | 'mushWingA' | 'mushWingB' | 'tropicWingA' | 'tropicWingB'
+  | 'cryptWingA' | 'cryptWingB' | 'festivWingA' | 'festivWingB'
+  | 'sushiWingA' | 'sushiWingB' | 'wildWingA' | 'wildWingB'
+  // 第四批 20 个主题宝箱的专属翅膀（各 2 款）
+  | 'vulcWingA' | 'vulcWingB' | 'trenchWingA' | 'trenchWingB'
+  | 'dojoWingA' | 'dojoWingB' | 'inkwWingA' | 'inkwWingB'
+  | 'fairyWingA' | 'fairyWingB' | 'racerWingA' | 'racerWingB'
+  | 'vampWingA' | 'vampWingB' | 'autumnWingA' | 'autumnWingB'
+  | 'pandaWingA' | 'pandaWingB' | 'jokerWingA' | 'jokerWingB'
+  | 'pagodWingA' | 'pagodWingB' | 'stormWingA' | 'stormWingB'
+  | 'lunarWingA' | 'lunarWingB' | 'vikingWingA' | 'vikingWingB'
+  | 'safariWingA' | 'safariWingB' | 'theatWingA' | 'theatWingB'
+  | 'boreaWingA' | 'boreaWingB' | 'venicWingA' | 'venicWingB'
+  | 'olympWingA' | 'olympWingB' | 'sambaWingA' | 'sambaWingB'
   // 🗺️ 山海宝箱的普通货
   | 'shanWingFeather' | 'shanWingCloud';
 
 export type CapeId =
   | 'none'
   | 'hero'
-  | 'shadow'
+  | 'shadowCape'
   | 'storm'
-  | 'ember'
-  | 'frost'
-  | 'leaf'
+  | 'emberCape'
+  | 'frostCape'
+  | 'leafCape'
   | 'royal'
   | 'void'
-  | 'dragon'
-  | 'angel'
-  | 'phoenix'
+  | 'dragonCape'
+  | 'angelCape'
+  | 'phoenixCape'
   | 'knight'
   | 'mage'
   | 'ninja'
@@ -266,6 +283,22 @@ export type CapeId =
   | 'aegisRoyal' | 'chanRobe' | 'chanInkCape' | 'arcanCloak'
   | 'arcanMantle' | 'relicHide' | 'relicDustCape' | 'playCape'
   | 'playRibbonCape' | 'yuanSilk' | 'yuanLanternCape'
+  // 第三批 10 个主题宝箱的专属披风（各 2 款）
+  | 'pirateCape' | 'pirateCloak' | 'steamCape' | 'steamCloak' | 'astroCape'
+  | 'astroCloak' | 'juraCape' | 'juraCloak' | 'mushCape' | 'mushCloak'
+  | 'tropicCape' | 'tropicCloak' | 'cryptCape' | 'cryptCloak' | 'festivCape'
+  | 'festivCloak' | 'sushiCape' | 'sushiCloak' | 'wildCape' | 'wildCloak'
+  // 第四批 20 个主题宝箱的专属披风（各 2 款）
+  | 'vulcCape' | 'vulcCloak' | 'trenchCape' | 'trenchCloak'
+  | 'dojoCape' | 'dojoCloak' | 'inkwCape' | 'inkwCloak'
+  | 'fairyCape' | 'fairyCloak' | 'racerCape' | 'racerCloak'
+  | 'vampCape' | 'vampCloak' | 'autumnCape' | 'autumnCloak'
+  | 'pandaCape' | 'pandaCloak' | 'jokerCape' | 'jokerCloak'
+  | 'pagodCape' | 'pagodCloak' | 'stormCape' | 'stormCloak'
+  | 'lunarCape' | 'lunarCloak' | 'vikingCape' | 'vikingCloak'
+  | 'safariCape' | 'safariCloak' | 'theatCape' | 'theatCloak'
+  | 'boreaCape' | 'boreaCloak' | 'venicCape' | 'venicCloak'
+  | 'olympCape' | 'olympCloak' | 'sambaCape' | 'sambaCloak'
   // 🗺️ 山海宝箱的普通货
   | 'shanCapeScale' | 'shanCapeMist';
 
@@ -432,6 +465,22 @@ export type HatId =
   | 'confCrown' | 'bigtClown' | 'bigtRing' | 'aegisHelm' | 'aegisCrest'
   | 'chanHat' | 'chanLantern' | 'arcanCap' | 'arcanCrown' | 'relicBone'
   | 'relicAmber' | 'playBlock' | 'playTop' | 'yuanLamp' | 'yuanMask'
+  // 第三批 10 个主题宝箱的专属头饰（各 2 款）
+  | 'pirateHat' | 'pirateCrown' | 'steamHat' | 'steamCrown' | 'astroHat'
+  | 'astroCrown' | 'juraHat' | 'juraCrown' | 'mushHat' | 'mushCrown'
+  | 'tropicHat' | 'tropicCrown' | 'cryptHat' | 'cryptCrown' | 'festivHat'
+  | 'festivCrown' | 'sushiHat' | 'sushiCrown' | 'wildHat' | 'wildCrown'
+  // 第四批 20 个主题宝箱的专属头饰（各 2 款）
+  | 'vulcHelm' | 'vulcCrown' | 'trenchDiver' | 'trenchCrown'
+  | 'dojoHachimaki' | 'dojoCrown' | 'inkwHat' | 'inkwCrown'
+  | 'fairyHat' | 'fairyCrown' | 'racerHelm' | 'racerCrown'
+  | 'vampHat' | 'vampCrown' | 'autumnHat' | 'autumnCrown'
+  | 'pandaHat' | 'pandaCrown' | 'jokerHat' | 'jokerCrown'
+  | 'pagodHat' | 'pagodCrown' | 'stormHat' | 'stormCrown'
+  | 'lunarHat' | 'lunarCrown' | 'vikingHelm' | 'vikingCrown'
+  | 'safariHat' | 'safariCrown' | 'theatHat' | 'theatCrown'
+  | 'boreaHat' | 'boreaCrown' | 'venicHat' | 'venicCrown'
+  | 'olympWreath' | 'olympCrown' | 'sambaHat' | 'sambaCrown'
   // 🗺️ 山海宝箱的普通货
   | 'shanHatFeather' | 'shanHatDragon'
   // 🏟 操场跑量里程碑专属
@@ -472,6 +521,23 @@ export type TrailId =
   | 'aegisTrailA' | 'aegisTrailB' | 'chanTrailA' | 'chanTrailB'
   | 'arcanTrailA' | 'arcanTrailB' | 'relicTrailA' | 'relicTrailB'
   | 'playTrailA' | 'playTrailB' | 'yuanTrailA' | 'yuanTrailB'
+  // 第三批 10 个主题宝箱的专属击球拖尾（各 2 款）
+  | 'pirateTrailA' | 'pirateTrailB' | 'steamTrailA' | 'steamTrailB'
+  | 'astroTrailA' | 'astroTrailB' | 'juraTrailA' | 'juraTrailB'
+  | 'mushTrailA' | 'mushTrailB' | 'tropicTrailA' | 'tropicTrailB'
+  | 'cryptTrailA' | 'cryptTrailB' | 'festivTrailA' | 'festivTrailB'
+  | 'sushiTrailA' | 'sushiTrailB' | 'wildTrailA' | 'wildTrailB'
+  // 第四批 20 个主题宝箱的专属击球拖尾（各 2 款）
+  | 'vulcTrailA' | 'vulcTrailB' | 'trenchTrailA' | 'trenchTrailB'
+  | 'dojoTrailA' | 'dojoTrailB' | 'inkwTrailA' | 'inkwTrailB'
+  | 'fairyTrailA' | 'fairyTrailB' | 'racerTrailA' | 'racerTrailB'
+  | 'vampTrailA' | 'vampTrailB' | 'autumnTrailA' | 'autumnTrailB'
+  | 'pandaTrailA' | 'pandaTrailB' | 'jokerTrailA' | 'jokerTrailB'
+  | 'pagodTrailA' | 'pagodTrailB' | 'stormTrailA' | 'stormTrailB'
+  | 'lunarTrailA' | 'lunarTrailB' | 'vikingTrailA' | 'vikingTrailB'
+  | 'safariTrailA' | 'safariTrailB' | 'theatTrailA' | 'theatTrailB'
+  | 'boreaTrailA' | 'boreaTrailB' | 'venicTrailA' | 'venicTrailB'
+  | 'olympTrailA' | 'olympTrailB' | 'sambaTrailA' | 'sambaTrailB'
   // 🗺️ 山海宝箱的普通货
   | 'shanTrail'
   // 🏟 操场跑量里程碑专属
@@ -507,6 +573,14 @@ export type SwingTrailId =
   // 10 个新主题宝箱的专属挥拍拖尾（各 1 款）
   | 'desSwing' | 'nimbSwing' | 'confSwing' | 'bigtSwing' | 'aegisSwing'
   | 'chanSwing' | 'arcanSwing' | 'relicSwing' | 'playSwing' | 'yuanSwing'
+  // 第三批 10 个主题宝箱的专属挥拍拖尾（各 1 款）
+  | 'pirateSwing' | 'steamSwing' | 'astroSwing' | 'juraSwing' | 'mushSwing'
+  | 'tropicSwing' | 'cryptSwing' | 'festivSwing' | 'sushiSwing' | 'wildSwing'
+  // 第四批 20 个主题宝箱的专属挥拍拖尾（各 1 款）
+  | 'vulcSwing' | 'trenchSwing' | 'dojoSwing' | 'inkwSwing' | 'fairySwing'
+  | 'racerSwing' | 'vampSwing' | 'autumnSwing' | 'pandaSwing' | 'jokerSwing'
+  | 'pagodSwing' | 'stormSwing' | 'lunarSwing' | 'vikingSwing' | 'safariSwing'
+  | 'theatSwing' | 'boreaSwing' | 'venicSwing' | 'olympSwing' | 'sambaSwing'
   // 🗺️ 山海宝箱的普通货
   | 'shanSwing'
   // 🏟 操场跑量里程碑专属
@@ -559,6 +633,14 @@ export type MountId =
   // 10 个新主题宝箱的专属坐骑（各 1 款）
   | 'desCamel' | 'nimbCloud' | 'confCake' | 'bigtBall' | 'aegisSteed'
   | 'chanBoat' | 'arcanOrb' | 'relicBone' | 'playHorse' | 'yuanBoat'
+  // 第三批 10 个主题宝箱的专属坐骑（各 1 款）
+  | 'pirateMount' | 'steamMount' | 'astroMount' | 'juraMount' | 'mushMount'
+  | 'tropicMount' | 'cryptMount' | 'festivMount' | 'sushiMount' | 'wildMount'
+  // 第四批 20 个主题宝箱的专属坐骑（各 1 款）
+  | 'vulcHound' | 'trenchRay' | 'dojoCrest' | 'inkwBoat' | 'fairySnail'
+  | 'racerKart' | 'vampStallion' | 'autumnBoar' | 'pandaSled' | 'jokerCarriage'
+  | 'pagodPalanquin' | 'stormGlider' | 'lunarCloud' | 'vikingDrakkar' | 'safariElephant'
+  | 'theatSpotlight' | 'boreaStag' | 'venicGondola' | 'olympChariot' | 'sambaFloat'
   // 🗺️ 山海宝箱的普通货
   | 'shanMountKun';
 
@@ -583,6 +665,14 @@ export type RingId =
   // 10 个新主题宝箱的专属地环（各 1 款）
   | 'desRing' | 'nimbRing' | 'confRing' | 'bigtRing' | 'aegisRing'
   | 'chanRing' | 'arcanRing' | 'relicRing' | 'playRing' | 'yuanRing'
+  // 第三批 10 个主题宝箱的专属地环（各 1 款）
+  | 'pirateRing' | 'steamRing' | 'astroRing' | 'juraRing' | 'mushRing'
+  | 'tropicRing' | 'cryptRing' | 'festivRing' | 'sushiRing' | 'wildRing'
+  // 第四批 20 个主题宝箱的专属地环（各 1 款）
+  | 'vulcRing' | 'trenchRing' | 'dojoRing' | 'inkwRing' | 'fairyRing'
+  | 'racerRing' | 'vampRing' | 'autumnRing' | 'pandaRing' | 'jokerRing'
+  | 'pagodRing' | 'stormRing' | 'lunarRing' | 'vikingRing' | 'safariRing'
+  | 'theatRing' | 'boreaRing' | 'venicRing' | 'olympRing' | 'sambaRing'
   // 🗺️ 山海宝箱的普通货
   | 'shanRing'
   // 🏟 操场跑量里程碑专属
@@ -694,6 +784,22 @@ export type AuraId =
   | 'aegisBanner' | 'aegisSteel' | 'chanInkAura' | 'chanPetalAura'
   | 'arcanRuneAura' | 'arcanStarAura' | 'relicDustAura' | 'relicAmberAura'
   | 'playBallAura' | 'playSparkAura' | 'yuanFireAura' | 'yuanLanternAura'
+  // 第三批 10 个主题宝箱的专属光环（各 2 款）
+  | 'pirateAuraA' | 'pirateAuraB' | 'steamAuraA' | 'steamAuraB' | 'astroAuraA'
+  | 'astroAuraB' | 'juraAuraA' | 'juraAuraB' | 'mushAuraA' | 'mushAuraB'
+  | 'tropicAuraA' | 'tropicAuraB' | 'cryptAuraA' | 'cryptAuraB' | 'festivAuraA'
+  | 'festivAuraB' | 'sushiAuraA' | 'sushiAuraB' | 'wildAuraA' | 'wildAuraB'
+  // 第四批 20 个主题宝箱的专属光环（各 2 款）
+  | 'vulcAuraA' | 'vulcAuraB' | 'trenchAuraA' | 'trenchAuraB'
+  | 'dojoAuraA' | 'dojoAuraB' | 'inkwAuraA' | 'inkwAuraB'
+  | 'fairyAuraA' | 'fairyAuraB' | 'racerAuraA' | 'racerAuraB'
+  | 'vampAuraA' | 'vampAuraB' | 'autumnAuraA' | 'autumnAuraB'
+  | 'pandaAuraA' | 'pandaAuraB' | 'jokerAuraA' | 'jokerAuraB'
+  | 'pagodAuraA' | 'pagodAuraB' | 'stormAuraA' | 'stormAuraB'
+  | 'lunarAuraA' | 'lunarAuraB' | 'vikingAuraA' | 'vikingAuraB'
+  | 'safariAuraA' | 'safariAuraB' | 'theatAuraA' | 'theatAuraB'
+  | 'boreaAuraA' | 'boreaAuraB' | 'venicAuraA' | 'venicAuraB'
+  | 'olympAuraA' | 'olympAuraB' | 'sambaAuraA' | 'sambaAuraB'
   // 🗺️ 山海宝箱的普通货
   | 'shanAuraSpirit' | 'shanAuraStar'
   // 🏟 操场跑量里程碑专属
@@ -772,6 +878,23 @@ export type RacketSkinId =
   | 'aegisRacketA' | 'aegisRacketB' | 'chanRacketA' | 'chanRacketB'
   | 'arcanRacketA' | 'arcanRacketB' | 'relicRacketA' | 'relicRacketB'
   | 'playRacketA' | 'playRacketB' | 'yuanRacketA' | 'yuanRacketB'
+  // 第三批 10 个主题宝箱的专属球拍皮肤（各 2 款）
+  | 'pirateRacketA' | 'pirateRacketB' | 'steamRacketA' | 'steamRacketB'
+  | 'astroRacketA' | 'astroRacketB' | 'juraRacketA' | 'juraRacketB'
+  | 'mushRacketA' | 'mushRacketB' | 'tropicRacketA' | 'tropicRacketB'
+  | 'cryptRacketA' | 'cryptRacketB' | 'festivRacketA' | 'festivRacketB'
+  | 'sushiRacketA' | 'sushiRacketB' | 'wildRacketA' | 'wildRacketB'
+  // 第四批 20 个主题宝箱的专属球拍皮肤（各 2 款）
+  | 'vulcRacketA' | 'vulcRacketB' | 'trenchRacketA' | 'trenchRacketB'
+  | 'dojoRacketA' | 'dojoRacketB' | 'inkwRacketA' | 'inkwRacketB'
+  | 'fairyRacketA' | 'fairyRacketB' | 'racerRacketA' | 'racerRacketB'
+  | 'vampRacketA' | 'vampRacketB' | 'autumnRacketA' | 'autumnRacketB'
+  | 'pandaRacketA' | 'pandaRacketB' | 'jokerRacketA' | 'jokerRacketB'
+  | 'pagodRacketA' | 'pagodRacketB' | 'stormRacketA' | 'stormRacketB'
+  | 'lunarRacketA' | 'lunarRacketB' | 'vikingRacketA' | 'vikingRacketB'
+  | 'safariRacketA' | 'safariRacketB' | 'theatRacketA' | 'theatRacketB'
+  | 'boreaRacketA' | 'boreaRacketB' | 'venicRacketA' | 'venicRacketB'
+  | 'olympRacketA' | 'olympRacketB' | 'sambaRacketA' | 'sambaRacketB'
   // 🗺️ 山海宝箱的普通货
   | 'shanRacketA' | 'shanRacketB';
 
@@ -819,6 +942,14 @@ export type CharacterSkin =
   // 10 个新主题宝箱的专属形象（各主题的「招牌角色」，见 game/draw/themeart.ts）
   | 'desSpirit' | 'nimbSpirit' | 'confSpirit' | 'bigtSpirit' | 'aegisSpirit'
   | 'chanSpirit' | 'arcanSpirit' | 'relicSpirit' | 'playSpirit' | 'yuanSpirit'
+  // 第三批 10 个主题宝箱的专属形象（见 game/draw/themeart2.ts）
+  | 'pirateSpirit' | 'steamSpirit' | 'astroSpirit' | 'juraSpirit' | 'mushSpirit'
+  | 'tropicSpirit' | 'cryptSpirit' | 'festivSpirit' | 'sushiSpirit' | 'wildSpirit'
+  // 第四批 20 个主题宝箱的专属形象（见 game/draw/themeart3.ts）
+  | 'vulcSpirit' | 'trenchSpirit' | 'dojoSpirit' | 'inkwSpirit' | 'fairySpirit'
+  | 'racerSpirit' | 'vampSpirit' | 'autumnSpirit' | 'pandaSpirit' | 'jokerSpirit'
+  | 'pagodSpirit' | 'stormSpirit' | 'lunarSpirit' | 'vikingSpirit' | 'safariSpirit'
+  | 'theatSpirit' | 'boreaSpirit' | 'venicSpirit' | 'olympSpirit' | 'sambaSpirit'
   // 🗺️ 山海宝箱：10 只《山海经》怪物皮肤（宝箱专属、极低概率）
   | 'zhuLong' | 'xiangLiu' | 'qiongQi' | 'taoTie' | 'taoWu'
   | 'hunDun' | 'jiuweiHu' | 'baShe' | 'guDiao' | 'yuYu';
@@ -850,6 +981,14 @@ const SKIN_IDS: CharacterSkin[] = [
   // 新主题宝箱专属形象
   'desSpirit', 'nimbSpirit', 'confSpirit', 'bigtSpirit', 'aegisSpirit',
   'chanSpirit', 'arcanSpirit', 'relicSpirit', 'playSpirit', 'yuanSpirit',
+  // 第三批新主题宝箱专属形象
+  'pirateSpirit', 'steamSpirit', 'astroSpirit', 'juraSpirit', 'mushSpirit',
+  'tropicSpirit', 'cryptSpirit', 'festivSpirit', 'sushiSpirit', 'wildSpirit',
+  // 第四批新主题宝箱专属形象
+  'vulcSpirit', 'trenchSpirit', 'dojoSpirit', 'inkwSpirit', 'fairySpirit',
+  'racerSpirit', 'vampSpirit', 'autumnSpirit', 'pandaSpirit', 'jokerSpirit',
+  'pagodSpirit', 'stormSpirit', 'lunarSpirit', 'vikingSpirit', 'safariSpirit',
+  'theatSpirit', 'boreaSpirit', 'venicSpirit', 'olympSpirit', 'sambaSpirit',
   // 山海怪物皮肤
   'zhuLong', 'xiangLiu', 'qiongQi', 'taoTie', 'taoWu',
   'hunDun', 'jiuweiHu', 'baShe', 'guDiao', 'yuYu',
@@ -862,8 +1001,8 @@ export interface Cosmetic {
   racket: number;
   trail: number;
   effect: HitStyle;
-  wings: WingId;
-  cape: CapeId;
+  /** 背部装饰（翅膀 / 披风合并）：id 仍分展开形（原翅膀）与垂坠形（原披风）两家族 */
+  back: BackId;
   aura: AuraId;
   hat: HatId;
   /** 脚下的地环装饰 */
@@ -871,6 +1010,10 @@ export interface Cosmetic {
   pet: PetId;
   /** quality of the equipped pet, 1–5 (ignored when pet is 'none') */
   petStar: number;
+  /** 宠物怎么跟着你：肩旁悬浮 / 贴地跟在身后 / 站在脚边不动 */
+  petFollow: PetFollow;
+  /** 宠物在屏幕的左 / 右 */
+  petSide: PetSide;
   racketSkin: RacketSkinId;
   trailStyle: TrailId;
   /** 挥拍时那条弧线的风格（与球拖尾独立） */
@@ -906,10 +1049,27 @@ const WING_IDS: WingId[] = [
   'aegisShieldWing', 'aegisBladeWing', 'chanFanWing', 'chanLeafWing',
   'arcanRuneWing', 'arcanStarWing', 'relicBoneWing', 'relicAmberWing',
   'playBlockWing', 'playKiteWing', 'yuanLanternWing', 'yuanFireWing',
+  // 第三批新主题宝箱专属翅膀
+  'pirateWingA', 'pirateWingB', 'steamWingA', 'steamWingB',
+  'astroWingA', 'astroWingB', 'juraWingA', 'juraWingB',
+  'mushWingA', 'mushWingB', 'tropicWingA', 'tropicWingB',
+  'cryptWingA', 'cryptWingB', 'festivWingA', 'festivWingB',
+  'sushiWingA', 'sushiWingB', 'wildWingA', 'wildWingB',
+  // 第四批新主题宝箱专属翅膀
+  'vulcWingA', 'vulcWingB', 'trenchWingA', 'trenchWingB',
+  'dojoWingA', 'dojoWingB', 'inkwWingA', 'inkwWingB',
+  'fairyWingA', 'fairyWingB', 'racerWingA', 'racerWingB',
+  'vampWingA', 'vampWingB', 'autumnWingA', 'autumnWingB',
+  'pandaWingA', 'pandaWingB', 'jokerWingA', 'jokerWingB',
+  'pagodWingA', 'pagodWingB', 'stormWingA', 'stormWingB',
+  'lunarWingA', 'lunarWingB', 'vikingWingA', 'vikingWingB',
+  'safariWingA', 'safariWingB', 'theatWingA', 'theatWingB',
+  'boreaWingA', 'boreaWingB', 'venicWingA', 'venicWingB',
+  'olympWingA', 'olympWingB', 'sambaWingA', 'sambaWingB',
   'shanWingFeather', 'shanWingCloud',
 ];
 const CAPE_IDS: CapeId[] = [
-  'none', 'hero', 'shadow', 'storm', 'ember', 'frost', 'leaf', 'royal', 'void', 'dragon', 'angel', 'phoenix',
+  'none', 'hero', 'shadowCape', 'storm', 'emberCape', 'frostCape', 'leafCape', 'royal', 'void', 'dragonCape', 'angelCape', 'phoenixCape',
   'knight', 'mage', 'ninja', 'winter', 'autumn', 'ocean', 'starCape', 'voidCape', 'goldRoyal', 'dragonfire',
   'auroraCape', 'stormlord', 'sakuraCape', 'ironclad', 'pharaoh', 'emberwind', 'abyssCape', 'jadeRobe', 'plaguecoat',
   'captainCape', 'stardust', 'warlord', 'frostlord', 'venomCape', 'cometCape', 'thunderCape', 'mooncloak',
@@ -931,8 +1091,35 @@ const CAPE_IDS: CapeId[] = [
   'aegisRoyal', 'chanRobe', 'chanInkCape', 'arcanCloak',
   'arcanMantle', 'relicHide', 'relicDustCape', 'playCape',
   'playRibbonCape', 'yuanSilk', 'yuanLanternCape',
+  // 第三批新主题宝箱专属披风
+  'pirateCape', 'pirateCloak', 'steamCape', 'steamCloak', 'astroCape',
+  'astroCloak', 'juraCape', 'juraCloak', 'mushCape', 'mushCloak',
+  'tropicCape', 'tropicCloak', 'cryptCape', 'cryptCloak', 'festivCape',
+  'festivCloak',   'sushiCape', 'sushiCloak', 'wildCape', 'wildCloak',
+  // 第四批新主题宝箱专属披风
+  'vulcCape', 'vulcCloak', 'trenchCape', 'trenchCloak',
+  'dojoCape', 'dojoCloak', 'inkwCape', 'inkwCloak',
+  'fairyCape', 'fairyCloak', 'racerCape', 'racerCloak',
+  'vampCape', 'vampCloak', 'autumnCape', 'autumnCloak',
+  'pandaCape', 'pandaCloak', 'jokerCape', 'jokerCloak',
+  'pagodCape', 'pagodCloak', 'stormCape', 'stormCloak',
+  'lunarCape', 'lunarCloak', 'vikingCape', 'vikingCloak',
+  'safariCape', 'safariCloak', 'theatCape', 'theatCloak',
+  'boreaCape', 'boreaCloak', 'venicCape', 'venicCloak',
+  'olympCape', 'olympCloak', 'sambaCape', 'sambaCloak',
   'shanCapeScale', 'shanCapeMist',
 ];
+/**
+ * 🧥 背部装饰：翅膀与披风合并后的统一部位。
+ * id 仍是两个家族的并集（`WingId` 展开形 / `CapeId` 垂坠形），
+ * 绘制时按 `isWingFamily()` 分派锚点（肩部 +48 / 垂坠 +30）。
+ */
+export type BackId = WingId | CapeId;
+export const BACK_IDS: BackId[] = [...new Set([...WING_IDS, ...CAPE_IDS] as BackId[])];
+/** 该背部装饰 id 是否属于原「翅膀家族」（肩部锚点、左右镜像展开形） */
+export function isWingFamily(id: BackId): boolean {
+  return (WING_IDS as string[]).includes(id);
+}
 const HAT_IDS: HatId[] = [
   'none', 'crown', 'cap', 'horn', 'halo', 'wizard', 'santa', 'ninja', 'flower', 'headphone', 'topHat', 'viking',
   'pirate', 'chef', 'astro', 'mushroom', 'beanie', 'antler', 'jester', 'sombrero',
@@ -969,6 +1156,22 @@ const HAT_IDS: HatId[] = [
   'confCrown', 'bigtClown', 'bigtRing', 'aegisHelm', 'aegisCrest',
   'chanHat', 'chanLantern', 'arcanCap', 'arcanCrown', 'relicBone',
   'relicAmber',   'playBlock', 'playTop', 'yuanLamp', 'yuanMask',
+  // 第三批新主题宝箱专属头饰
+  'pirateHat', 'pirateCrown', 'steamHat', 'steamCrown', 'astroHat',
+  'astroCrown', 'juraHat', 'juraCrown', 'mushHat', 'mushCrown',
+  'tropicHat', 'tropicCrown', 'cryptHat', 'cryptCrown', 'festivHat',
+  'festivCrown',   'sushiHat', 'sushiCrown', 'wildHat', 'wildCrown',
+  // 第四批新主题宝箱专属头饰
+  'vulcHelm', 'vulcCrown', 'trenchDiver', 'trenchCrown',
+  'dojoHachimaki', 'dojoCrown', 'inkwHat', 'inkwCrown',
+  'fairyHat', 'fairyCrown', 'racerHelm', 'racerCrown',
+  'vampHat', 'vampCrown', 'autumnHat', 'autumnCrown',
+  'pandaHat', 'pandaCrown', 'jokerHat', 'jokerCrown',
+  'pagodHat', 'pagodCrown', 'stormHat', 'stormCrown',
+  'lunarHat', 'lunarCrown', 'vikingHelm', 'vikingCrown',
+  'safariHat', 'safariCrown', 'theatHat', 'theatCrown',
+  'boreaHat', 'boreaCrown', 'venicHat', 'venicCrown',
+  'olympWreath', 'olympCrown', 'sambaHat', 'sambaCrown',
   // 山海宝箱普通货
   'shanHatFeather', 'shanHatDragon',
   // 🏟 操场跑量里程碑专属
@@ -978,6 +1181,18 @@ const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
   'nailong',
 ];
+
+/**
+ * 🐾 宠物怎么跟着你（背包里选）：
+ * - `shoulder` 悬浮在肩旁（老样子，跟着跑跳）
+ * - `behind` 贴地跟在身后（会跟着你转身，左右只是偏移）
+ * - `still` 站在脚边不动（贴地、不浮动）
+ */
+export type PetFollow = 'shoulder' | 'behind' | 'still';
+const PET_FOLLOW_IDS: PetFollow[] = ['shoulder', 'behind', 'still'];
+/** 宠物在你左边还是右边（屏幕方向） */
+export type PetSide = 'left' | 'right';
+const PET_SIDE_IDS: PetSide[] = ['left', 'right'];
 const TRAIL_IDS: TrailId[] = [
   'none', 'classic', 'fire', 'ice', 'rainbow', 'electric', 'leaf', 'void', 'gold', 'pixel',
   'neon',
@@ -989,6 +1204,23 @@ const TRAIL_IDS: TrailId[] = [
   'aegisTrailA', 'aegisTrailB', 'chanTrailA', 'chanTrailB',
   'arcanTrailA', 'arcanTrailB', 'relicTrailA', 'relicTrailB',
   'playTrailA', 'playTrailB', 'yuanTrailA', 'yuanTrailB',
+  // 第三批新主题宝箱专属击球拖尾
+  'pirateTrailA', 'pirateTrailB', 'steamTrailA', 'steamTrailB',
+  'astroTrailA', 'astroTrailB', 'juraTrailA', 'juraTrailB',
+  'mushTrailA', 'mushTrailB', 'tropicTrailA', 'tropicTrailB',
+  'cryptTrailA', 'cryptTrailB', 'festivTrailA', 'festivTrailB',
+  'sushiTrailA', 'sushiTrailB', 'wildTrailA', 'wildTrailB',
+  // 第四批新主题宝箱专属击球拖尾
+  'vulcTrailA', 'vulcTrailB', 'trenchTrailA', 'trenchTrailB',
+  'dojoTrailA', 'dojoTrailB', 'inkwTrailA', 'inkwTrailB',
+  'fairyTrailA', 'fairyTrailB', 'racerTrailA', 'racerTrailB',
+  'vampTrailA', 'vampTrailB', 'autumnTrailA', 'autumnTrailB',
+  'pandaTrailA', 'pandaTrailB', 'jokerTrailA', 'jokerTrailB',
+  'pagodTrailA', 'pagodTrailB', 'stormTrailA', 'stormTrailB',
+  'lunarTrailA', 'lunarTrailB', 'vikingTrailA', 'vikingTrailB',
+  'safariTrailA', 'safariTrailB', 'theatTrailA', 'theatTrailB',
+  'boreaTrailA', 'boreaTrailB', 'venicTrailA', 'venicTrailB',
+  'olympTrailA', 'olympTrailB', 'sambaTrailA', 'sambaTrailB',
   'shanTrail',
   // 🏟 操场跑量里程碑专属
   'runTrail',
@@ -1006,6 +1238,14 @@ const SWING_TRAIL_IDS: SwingTrailId[] = [
   // 新主题宝箱专属挥拍拖尾
   'desSwing', 'nimbSwing', 'confSwing', 'bigtSwing', 'aegisSwing',
   'chanSwing', 'arcanSwing', 'relicSwing', 'playSwing', 'yuanSwing',
+  // 第三批新主题宝箱专属挥拍拖尾
+  'pirateSwing', 'steamSwing', 'astroSwing', 'juraSwing', 'mushSwing',
+  'tropicSwing', 'cryptSwing', 'festivSwing', 'sushiSwing', 'wildSwing',
+  // 第四批新主题宝箱专属挥拍拖尾
+  'vulcSwing', 'trenchSwing', 'dojoSwing', 'inkwSwing', 'fairySwing',
+  'racerSwing', 'vampSwing', 'autumnSwing', 'pandaSwing', 'jokerSwing',
+  'pagodSwing', 'stormSwing', 'lunarSwing', 'vikingSwing', 'safariSwing',
+  'theatSwing', 'boreaSwing', 'venicSwing', 'olympSwing', 'sambaSwing',
   'shanSwing',
   // 🏟 操场跑量里程碑专属
   'runSwing',
@@ -1026,6 +1266,14 @@ const MOUNT_IDS: MountId[] = [
   // 新主题宝箱专属坐骑
   'desCamel', 'nimbCloud', 'confCake', 'bigtBall', 'aegisSteed',
   'chanBoat', 'arcanOrb', 'relicBone', 'playHorse', 'yuanBoat',
+  // 第三批新主题宝箱专属坐骑
+  'pirateMount', 'steamMount', 'astroMount', 'juraMount', 'mushMount',
+  'tropicMount', 'cryptMount', 'festivMount', 'sushiMount', 'wildMount',
+  // 第四批新主题宝箱专属坐骑
+  'vulcHound', 'trenchRay', 'dojoCrest', 'inkwBoat', 'fairySnail',
+  'racerKart', 'vampStallion', 'autumnBoar', 'pandaSled', 'jokerCarriage',
+  'pagodPalanquin', 'stormGlider', 'lunarCloud', 'vikingDrakkar', 'safariElephant',
+  'theatSpotlight', 'boreaStag', 'venicGondola', 'olympChariot', 'sambaFloat',
   'shanMountKun',
 ];
 const RING_IDS: RingId[] = [
@@ -1040,6 +1288,14 @@ const RING_IDS: RingId[] = [
   // 新主题宝箱专属地环
   'desRing', 'nimbRing', 'confRing', 'bigtRing', 'aegisRing',
   'chanRing', 'arcanRing', 'relicRing', 'playRing', 'yuanRing',
+  // 第三批新主题宝箱专属地环
+  'pirateRing', 'steamRing', 'astroRing', 'juraRing', 'mushRing',
+  'tropicRing', 'cryptRing', 'festivRing', 'sushiRing', 'wildRing',
+  // 第四批新主题宝箱专属地环
+  'vulcRing', 'trenchRing', 'dojoRing', 'inkwRing', 'fairyRing',
+  'racerRing', 'vampRing', 'autumnRing', 'pandaRing', 'jokerRing',
+  'pagodRing', 'stormRing', 'lunarRing', 'vikingRing', 'safariRing',
+  'theatRing', 'boreaRing', 'venicRing', 'olympRing', 'sambaRing',
   'shanRing',
   // 🏟 操场跑量里程碑专属
   'runRing',
@@ -1065,6 +1321,22 @@ export const RING_COLORS: Record<RingId, number> = {
   bigtRing: 0xffd45c, aegisRing: 0xc0ccda, chanRing: 0x2f7a4a,
   arcanRing: 0xb46cff, relicRing: 0xd8c8a0, playRing: 0x4a90d9,
   yuanRing: 0xffd45c,
+  // 第三批新主题宝箱专属地环
+  pirateRing: 0xe8c86a, steamRing: 0xd8a24a, astroRing: 0x9fd8ff,
+  juraRing: 0x9fe86a, mushRing: 0xa8ff7a, tropicRing: 0x5fe8d0,
+  cryptRing: 0x9fd8a0, festivRing: 0xffffff, sushiRing: 0xd8c8a0,
+  wildRing: 0xffd45c,
+  // 第四批新主题宝箱专属地环
+  vulcRing: 0xff5a1a, trenchRing: 0x5fd0c0,
+  dojoRing: 0xc0392b, inkwRing: 0x3a4048,
+  fairyRing: 0xffb7d5, racerRing: 0xffd45c,
+  vampRing: 0xc0203a, autumnRing: 0xd4622a,
+  pandaRing: 0x8fbf5a, jokerRing: 0xe8404a,
+  pagodRing: 0xffd45c, stormRing: 0x9fd8ff,
+  lunarRing: 0xe8f0ff, vikingRing: 0xc0c8d0,
+  safariRing: 0xffb03a, theatRing: 0xffd45c,
+  boreaRing: 0x7dffc4, venicRing: 0x5fe8d0,
+  olympRing: 0xffd45c, sambaRing: 0xff8ad4,
   shanRing: 0x9fe8c0,
   // 🏟 操场跑量里程碑专属
   runRing: 0x39d0a0,
@@ -1087,6 +1359,22 @@ const AURA_IDS: AuraId[] = [
   'aegisBanner', 'aegisSteel', 'chanInkAura', 'chanPetalAura',
   'arcanRuneAura', 'arcanStarAura', 'relicDustAura', 'relicAmberAura',
   'playBallAura', 'playSparkAura', 'yuanFireAura', 'yuanLanternAura',
+  // 第三批新主题宝箱专属光环
+  'pirateAuraA', 'pirateAuraB', 'steamAuraA', 'steamAuraB', 'astroAuraA',
+  'astroAuraB', 'juraAuraA', 'juraAuraB', 'mushAuraA', 'mushAuraB',
+  'tropicAuraA', 'tropicAuraB', 'cryptAuraA', 'cryptAuraB', 'festivAuraA',
+  'festivAuraB',   'sushiAuraA', 'sushiAuraB', 'wildAuraA', 'wildAuraB',
+  // 第四批新主题宝箱专属光环
+  'vulcAuraA', 'vulcAuraB', 'trenchAuraA', 'trenchAuraB',
+  'dojoAuraA', 'dojoAuraB', 'inkwAuraA', 'inkwAuraB',
+  'fairyAuraA', 'fairyAuraB', 'racerAuraA', 'racerAuraB',
+  'vampAuraA', 'vampAuraB', 'autumnAuraA', 'autumnAuraB',
+  'pandaAuraA', 'pandaAuraB', 'jokerAuraA', 'jokerAuraB',
+  'pagodAuraA', 'pagodAuraB', 'stormAuraA', 'stormAuraB',
+  'lunarAuraA', 'lunarAuraB', 'vikingAuraA', 'vikingAuraB',
+  'safariAuraA', 'safariAuraB', 'theatAuraA', 'theatAuraB',
+  'boreaAuraA', 'boreaAuraB', 'venicAuraA', 'venicAuraB',
+  'olympAuraA', 'olympAuraB', 'sambaAuraA', 'sambaAuraB',
   'shanAuraSpirit', 'shanAuraStar',
   // 🏟 操场跑量里程碑专属
   'runAura',
@@ -1107,6 +1395,23 @@ const RACKET_SKIN_IDS: RacketSkinId[] = [
   'aegisRacketA', 'aegisRacketB', 'chanRacketA', 'chanRacketB',
   'arcanRacketA', 'arcanRacketB', 'relicRacketA', 'relicRacketB',
   'playRacketA', 'playRacketB', 'yuanRacketA', 'yuanRacketB',
+  // 第三批新主题宝箱专属球拍皮肤
+  'pirateRacketA', 'pirateRacketB', 'steamRacketA', 'steamRacketB',
+  'astroRacketA', 'astroRacketB', 'juraRacketA', 'juraRacketB',
+  'mushRacketA', 'mushRacketB', 'tropicRacketA', 'tropicRacketB',
+  'cryptRacketA', 'cryptRacketB', 'festivRacketA', 'festivRacketB',
+  'sushiRacketA', 'sushiRacketB', 'wildRacketA', 'wildRacketB',
+  // 第四批新主题宝箱专属球拍皮肤
+  'vulcRacketA', 'vulcRacketB', 'trenchRacketA', 'trenchRacketB',
+  'dojoRacketA', 'dojoRacketB', 'inkwRacketA', 'inkwRacketB',
+  'fairyRacketA', 'fairyRacketB', 'racerRacketA', 'racerRacketB',
+  'vampRacketA', 'vampRacketB', 'autumnRacketA', 'autumnRacketB',
+  'pandaRacketA', 'pandaRacketB', 'jokerRacketA', 'jokerRacketB',
+  'pagodRacketA', 'pagodRacketB', 'stormRacketA', 'stormRacketB',
+  'lunarRacketA', 'lunarRacketB', 'vikingRacketA', 'vikingRacketB',
+  'safariRacketA', 'safariRacketB', 'theatRacketA', 'theatRacketB',
+  'boreaRacketA', 'boreaRacketB', 'venicRacketA', 'venicRacketB',
+  'olympRacketA', 'olympRacketB', 'sambaRacketA', 'sambaRacketB',
   'shanRacketA', 'shanRacketB',
 ];
 
@@ -1195,6 +1500,38 @@ export const WING_COLORS: Record<WingId, number> = {
   relicBoneWing: 0xd8c8a0, relicAmberWing: 0xffb02a,
   playBlockWing: 0x4a90d9, playKiteWing: 0xffc04a,
   yuanLanternWing: 0xe8404a, yuanFireWing: 0xff8a3c,
+  // 第三批新主题宝箱专属翅膀
+  pirateWingA: 0xd8c8a0, pirateWingB: 0x3a8a8a,
+  steamWingA: 0xd8a24a, steamWingB: 0xb0b8c0,
+  astroWingA: 0x4a8ad8, astroWingB: 0xffb03a,
+  juraWingA: 0x7ed957, juraWingB: 0x8a7a4a,
+  mushWingA: 0xa8ff7a, mushWingB: 0xc08a5a,
+  tropicWingA: 0x5fe8d0, tropicWingB: 0xffb7a0,
+  cryptWingA: 0x4a4a5a, cryptWingB: 0x8a8a9a,
+  festivWingA: 0xffffff, festivWingB: 0xffd45c,
+  sushiWingA: 0xff8a6a, sushiWingB: 0xd8c8a0,
+  wildWingA: 0x8a6a4a, wildWingB: 0xd8c8a0,
+  // 第四批新主题宝箱专属翅膀
+  vulcWingA: 0xff7a2a, vulcWingB: 0xff5a1a,
+  trenchWingA: 0x5fd0c0, trenchWingB: 0x2a6a7a,
+  dojoWingA: 0xf0eee4, dojoWingB: 0xe8404a,
+  inkwWingA: 0xe8e4d8, inkwWingB: 0xd8d4c4,
+  fairyWingA: 0xffb7d5, fairyWingB: 0xfff2b0,
+  racerWingA: 0xdfe8f5, racerWingB: 0xffd45c,
+  vampWingA: 0x2a1a3a, vampWingB: 0x4a2a6a,
+  autumnWingA: 0xd4622a, autumnWingB: 0xffd45c,
+  pandaWingA: 0x8fbf5a, pandaWingB: 0xdcefff,
+  jokerWingA: 0xe8404a, jokerWingB: 0xff8ad4,
+  pagodWingA: 0xf0e8d8, pagodWingB: 0xffd45c,
+  stormWingA: 0xbfe8ff, stormWingB: 0x9fd8ff,
+  lunarWingA: 0xe8f0ff, lunarWingB: 0xffe89a,
+  vikingWingA: 0x3a3a44, vikingWingB: 0x8fb4de,
+  safariWingA: 0xd8c8a0, safariWingB: 0xff9a3c,
+  theatWingA: 0xff8ad4, theatWingB: 0xfff0c0,
+  boreaWingA: 0xbfe8ff, boreaWingB: 0x7dffc4,
+  venicWingA: 0xf0f4f8, venicWingB: 0x5fe8d0,
+  olympWingA: 0xf8f4ea, olympWingB: 0xffd45c,
+  sambaWingA: 0xff8ad4, sambaWingB: 0xffd45c,
   shanWingFeather: 0xd8e8ff, shanWingCloud: 0x9fe8c0,
 };
 
@@ -1316,6 +1653,68 @@ export const WING_SHAPE: Record<
   yuanLanternWing: { kind: 'ribbon', feathers: 4, len: 60, spread: 0.6, w: 8 },
   yuanFireWing: { kind: 'flame', feathers: 4, len: 58, spread: 0.6, w: 8 },
   // 山海宝箱普通货
+  // 第三批新主题宝箱专属翅膀（复用既有 silhouette kind）
+  pirateWingA: { kind: 'sail', feathers: 1, len: 68, spread: 0.5, w: 20 },
+  pirateWingB: { kind: 'fin', feathers: 4, len: 58, spread: 0.6, w: 14 },
+  steamWingA: { kind: 'mech', feathers: 4, len: 56, spread: 0.5, w: 11 },
+  steamWingB: { kind: 'sail', feathers: 1, len: 66, spread: 0.5, w: 20 },
+  astroWingA: { kind: 'mech', feathers: 3, len: 54, spread: 0.46, w: 12 },
+  astroWingB: { kind: 'ribbon', feathers: 4, len: 62, spread: 0.6, w: 8 },
+  juraWingA: { kind: 'leaf', feathers: 4, len: 56, spread: 0.7, w: 12 },
+  juraWingB: { kind: 'membrane', feathers: 5, len: 64, spread: 0.5, w: 11 },
+  mushWingA: { kind: 'butterfly', feathers: 3, len: 50, spread: 0.9, w: 12 },
+  mushWingB: { kind: 'leaf', feathers: 5, len: 56, spread: 0.72, w: 12 },
+  tropicWingA: { kind: 'fin', feathers: 4, len: 58, spread: 0.62, w: 14 },
+  tropicWingB: { kind: 'ribbon', feathers: 5, len: 62, spread: 0.58, w: 8 },
+  cryptWingA: { kind: 'membrane', feathers: 4, len: 58, spread: 0.5, w: 11 },
+  cryptWingB: { kind: 'ghost', feathers: 3, len: 58, spread: 0.6, w: 10 },
+  festivWingA: { kind: 'feather', feathers: 5, len: 62, spread: 0.8, w: 8 },
+  festivWingB: { kind: 'crystal', feathers: 4, len: 50, spread: 0.56, w: 7 },
+  sushiWingA: { kind: 'fin', feathers: 3, len: 60, spread: 0.5, w: 15 },
+  sushiWingB: { kind: 'blade', feathers: 4, len: 60, spread: 0.66, w: 6 },
+  wildWingA: { kind: 'feather', feathers: 4, len: 60, spread: 0.72, w: 9 },
+  wildWingB: { kind: 'ribbon', feathers: 3, len: 58, spread: 0.56, w: 8 },
+  // 第四批新主题宝箱专属翅膀（复用既有 silhouette kind）
+  vulcWingA: { kind: 'flame', feathers: 4, len: 58, spread: 0.6, w: 8 },
+  vulcWingB: { kind: 'membrane', feathers: 5, len: 62, spread: 0.52, w: 10 },
+  trenchWingA: { kind: 'fin', feathers: 4, len: 58, spread: 0.62, w: 13 },
+  trenchWingB: { kind: 'membrane', feathers: 5, len: 64, spread: 0.5, w: 11 },
+  dojoWingA: { kind: 'feather', feathers: 4, len: 60, spread: 0.72, w: 9 },
+  dojoWingB: { kind: 'membrane', feathers: 5, len: 64, spread: 0.5, w: 10 },
+  inkwWingA: { kind: 'ribbon', feathers: 3, len: 60, spread: 0.55, w: 7 },
+  inkwWingB: { kind: 'feather', feathers: 5, len: 64, spread: 0.82, w: 8 },
+  fairyWingA: { kind: 'butterfly', feathers: 2, len: 48, spread: 0.95, w: 13 },
+  fairyWingB: { kind: 'feather', feathers: 5, len: 64, spread: 0.84, w: 8 },
+  racerWingA: { kind: 'blade', feathers: 4, len: 60, spread: 0.66, w: 7 },
+  racerWingB: { kind: 'turbo', feathers: 2, len: 48, spread: 0.5, w: 13 },
+  vampWingA: { kind: 'membrane', feathers: 5, len: 62, spread: 0.5, w: 10 },
+  vampWingB: { kind: 'ghost', feathers: 3, len: 58, spread: 0.6, w: 10 },
+  autumnWingA: { kind: 'leaf', feathers: 4, len: 58, spread: 0.7, w: 11 },
+  autumnWingB: { kind: 'feather', feathers: 5, len: 64, spread: 0.8, w: 8 },
+  pandaWingA: { kind: 'leaf', feathers: 4, len: 58, spread: 0.68, w: 11 },
+  pandaWingB: { kind: 'feather', feathers: 4, len: 62, spread: 0.76, w: 8 },
+  jokerWingA: { kind: 'sail', feathers: 1, len: 68, spread: 0.5, w: 20 },
+  jokerWingB: { kind: 'butterfly', feathers: 3, len: 52, spread: 0.9, w: 12 },
+  pagodWingA: { kind: 'ribbon', feathers: 4, len: 62, spread: 0.6, w: 8 },
+  pagodWingB: { kind: 'membrane', feathers: 5, len: 64, spread: 0.5, w: 11 },
+  stormWingA: { kind: 'feather', feathers: 4, len: 60, spread: 0.74, w: 8 },
+  stormWingB: { kind: 'membrane', feathers: 5, len: 62, spread: 0.52, w: 10 },
+  lunarWingA: { kind: 'ribbon', feathers: 3, len: 60, spread: 0.55, w: 7 },
+  lunarWingB: { kind: 'feather', feathers: 5, len: 66, spread: 0.8, w: 8 },
+  vikingWingA: { kind: 'feather', feathers: 4, len: 58, spread: 0.7, w: 9 },
+  vikingWingB: { kind: 'sail', feathers: 1, len: 70, spread: 0.5, w: 20 },
+  safariWingA: { kind: 'feather', feathers: 4, len: 60, spread: 0.7, w: 9 },
+  safariWingB: { kind: 'flame', feathers: 4, len: 60, spread: 0.62, w: 8 },
+  theatWingA: { kind: 'ribbon', feathers: 4, len: 62, spread: 0.6, w: 8 },
+  theatWingB: { kind: 'crystal', feathers: 4, len: 54, spread: 0.58, w: 7 },
+  boreaWingA: { kind: 'crystal', feathers: 4, len: 56, spread: 0.56, w: 7 },
+  boreaWingB: { kind: 'ribbon', feathers: 4, len: 62, spread: 0.6, w: 8 },
+  venicWingA: { kind: 'feather', feathers: 4, len: 60, spread: 0.72, w: 9 },
+  venicWingB: { kind: 'fin', feathers: 4, len: 60, spread: 0.62, w: 13 },
+  olympWingA: { kind: 'feather', feathers: 5, len: 62, spread: 0.8, w: 9 },
+  olympWingB: { kind: 'membrane', feathers: 5, len: 64, spread: 0.5, w: 10 },
+  sambaWingA: { kind: 'feather', feathers: 5, len: 62, spread: 0.8, w: 8 },
+  sambaWingB: { kind: 'crystal', feathers: 4, len: 54, spread: 0.6, w: 7 },
   shanWingFeather: { kind: 'feather', feathers: 5, len: 66, spread: 0.85, w: 7 },
   shanWingCloud: { kind: 'leaf', feathers: 4, len: 58, spread: 0.72, w: 12 },
 };
@@ -1332,16 +1731,16 @@ export type CapeKind =
 export const CAPE_COLORS: Record<CapeId, number> = {
   none: 0x000000,
   hero: 0xd4542c,
-  shadow: 0x4a2a7a,
+  shadowCape: 0x4a2a7a,
   storm: 0x5f8bff,
-  ember: 0xff7a2a,
-  frost: 0xbfe8ff,
-  leaf: 0x7ed957,
+  emberCape: 0xff7a2a,
+  frostCape: 0xbfe8ff,
+  leafCape: 0x7ed957,
   royal: 0xb02a55,
   void: 0x7a3cc0,
-  dragon: 0x53e0a0,
-  angel: 0xfff2c4,
-  phoenix: 0xff5a2a,
+  dragonCape: 0x53e0a0,
+  angelCape: 0xfff2c4,
+  phoenixCape: 0xff5a2a,
   knight: 0xc0c8d8,
   mage: 0x6a3fb0,
   ninja: 0x2a2a34,
@@ -1399,6 +1798,38 @@ export const CAPE_COLORS: Record<CapeId, number> = {
   relicHide: 0x7a6440, relicDustCape: 0xd8c8a0,
   playCape: 0x4a90d9, playRibbonCape: 0xffc04a,
   yuanSilk: 0xffd45c, yuanLanternCape: 0xc0392b,
+  // 第三批新主题宝箱专属披风
+  pirateCape: 0x8a3a2a, pirateCloak: 0xd8c8a0,
+  steamCape: 0x6a5236, steamCloak: 0x8a6a3a,
+  astroCape: 0xd8e8ff, astroCloak: 0x2f4570,
+  juraCape: 0x7a6440, juraCloak: 0x395f2a,
+  mushCape: 0x5a7a3a, mushCloak: 0x8a5a8a,
+  tropicCape: 0x2f9a8a, tropicCloak: 0xbfe8f0,
+  cryptCape: 0x4a4a44, cryptCloak: 0x6a6a72,
+  festivCape: 0xd23b3b, festivCloak: 0x2c6a44,
+  sushiCape: 0x2a3a5a, sushiCloak: 0xd8c8a0,
+  wildCape: 0x8a6a3a, wildCloak: 0x6a4a2a,
+  // 第四批新主题宝箱专属披风
+  vulcCape: 0x5a3a2a, vulcCloak: 0xff5a1a,
+  trenchCape: 0x0d4258, trenchCloak: 0x2a6a7a,
+  dojoCape: 0xf0eee4, dojoCloak: 0xe8404a,
+  inkwCape: 0xe8e4d8, inkwCloak: 0x2a2e36,
+  fairyCape: 0xffb7d5, fairyCloak: 0x5aa85a,
+  racerCape: 0xe8404a, racerCloak: 0x1e222a,
+  vampCape: 0x1a1420, vampCloak: 0x4a1a4a,
+  autumnCape: 0xd8b070, autumnCloak: 0xd4622a,
+  pandaCape: 0x8a6a4a, pandaCloak: 0x5f8a3a,
+  jokerCape: 0x8a2a6a, jokerCloak: 0x4a2a8a,
+  pagodCape: 0x6a2a20, pagodCloak: 0xffd45c,
+  stormCape: 0xbfe8ff, stormCloak: 0x3d4c5c,
+  lunarCape: 0xe8f0ff, lunarCloak: 0xd8e8ff,
+  vikingCape: 0x6a5240, vikingCloak: 0x8fb4de,
+  safariCape: 0xd8c8a0, safariCloak: 0x8a6a3a,
+  theatCape: 0xa82a4a, theatCloak: 0x2a1a2e,
+  boreaCape: 0x8a705a, boreaCloak: 0x7dffc4,
+  venicCape: 0x2a5a8a, venicCloak: 0xe8404a,
+  olympCape: 0xf0ead8, olympCloak: 0x4a5a78,
+  sambaCape: 0xffd45c, sambaCloak: 0x2a9a5a,
   shanCapeScale: 0x2f8a6a, shanCapeMist: 0xbfe8d8,
 };
 
@@ -1406,16 +1837,16 @@ export const CAPE_COLORS: Record<CapeId, number> = {
 export const CAPE_SHAPE: Record<CapeId, { kind: CapeKind; len: number; w: number }> = {
   none: { kind: 'cloth', len: 0, w: 0 },
   hero: { kind: 'cloth', len: 54, w: 26 },
-  shadow: { kind: 'tatter', len: 56, w: 28 },
+  shadowCape: { kind: 'tatter', len: 56, w: 28 },
   storm: { kind: 'streak', len: 50, w: 26 },
-  ember: { kind: 'flame', len: 58, w: 26 },
-  frost: { kind: 'cloth', len: 52, w: 28 },
-  leaf: { kind: 'feather', len: 50, w: 28 },
+  emberCape: { kind: 'flame', len: 58, w: 26 },
+  frostCape: { kind: 'cloth', len: 52, w: 28 },
+  leafCape: { kind: 'feather', len: 50, w: 28 },
   royal: { kind: 'royal', len: 62, w: 32 },
   void: { kind: 'tatter', len: 60, w: 30 },
-  dragon: { kind: 'cloth', len: 58, w: 30 },
-  angel: { kind: 'feather', len: 56, w: 30 },
-  phoenix: { kind: 'flame', len: 60, w: 28 },
+  dragonCape: { kind: 'cloth', len: 58, w: 30 },
+  angelCape: { kind: 'feather', len: 56, w: 30 },
+  phoenixCape: { kind: 'flame', len: 60, w: 28 },
   knight: { kind: 'flag', len: 56, w: 30 },
   mage: { kind: 'royal', len: 64, w: 34 },
   ninja: { kind: 'split', len: 48, w: 24 },
@@ -1484,6 +1915,68 @@ export const CAPE_SHAPE: Record<CapeId, { kind: CapeKind; len: number; w: number
   playRibbonCape: { kind: 'antigrav', len: 56, w: 26 }, // 反重力彩带
   yuanSilk: { kind: 'flame', len: 58, w: 28 },          // 焰火绸
   yuanLanternCape: { kind: 'lanternrow', len: 62, w: 30 }, // 灯笼帘
+  // 第三批新主题宝箱专属披风（每个主题两种各不相同的剪影）
+  pirateCape: { kind: 'tatter', len: 58, w: 30 },        // 破帆布
+  pirateCloak: { kind: 'flag', len: 60, w: 30 },         // 海盗旗
+  steamCape: { kind: 'tentflap', len: 56, w: 30 },       // 工装帆布
+  steamCloak: { kind: 'gearhang', len: 58, w: 30 },      // 齿轮帘
+  astroCape: { kind: 'cloth', len: 56, w: 28 },          // 宇航布
+  astroCloak: { kind: 'starpelt', len: 60, w: 30 },      // 星图
+  juraCape: { kind: 'pelt', len: 56, w: 30 },            // 兽皮
+  juraCloak: { kind: 'leafcloak', len: 56, w: 30 },      // 蕨叶层叠
+  mushCape: { kind: 'puffcloud', len: 54, w: 30 },       // 孢子云
+  mushCloak: { kind: 'frostveil', len: 56, w: 30 },      // 菌丝帘
+  tropicCape: { kind: 'scales', len: 58, w: 30 },        // 鱼鳞
+  tropicCloak: { kind: 'puffcloud', len: 56, w: 30 },    // 泡沫云
+  cryptCape: { kind: 'tatter', len: 56, w: 30 },         // 破布
+  cryptCloak: { kind: 'gearhang', len: 56, w: 30 },      // 锁链帘
+  festivCape: { kind: 'pelt', len: 56, w: 32 },          // 红绒
+  festivCloak: { kind: 'royal', len: 58, w: 32 },        // 圣诞王袍
+  sushiCape: { kind: 'split', len: 54, w: 30 },          // 暖帘
+  sushiCloak: { kind: 'streak', len: 56, w: 26 },        // 条纹拉丝
+  wildCape: { kind: 'pelt', len: 56, w: 32 },            // 牛仔兽皮
+  wildCloak: { kind: 'tatter', len: 56, w: 30 },         // 风沙破布
+  // 第四批新主题宝箱专属披风（每个主题两种各不相同的剪影）
+  vulcCape: { kind: 'tatter', len: 54, w: 28 },          // 焦土破布
+  vulcCloak: { kind: 'flame', len: 58, w: 28 },          // 岩浆火舌
+  trenchCape: { kind: 'silkveil', len: 56, w: 28 },      // 水幕纱
+  trenchCloak: { kind: 'scales', len: 58, w: 30 },       // 海妖鳞
+  dojoCape: { kind: 'cloth', len: 54, w: 26 },           // 修行素布
+  dojoCloak: { kind: 'flag', len: 60, w: 30 },           // 龙旗
+  inkwCape: { kind: 'cloth', len: 56, w: 28 },           // 素衫
+  inkwCloak: { kind: 'inkflow', len: 62, w: 30 },        // 泼墨
+  fairyCape: { kind: 'petalrain', len: 54, w: 30 },      // 花瓣雨
+  fairyCloak: { kind: 'leafcloak', len: 56, w: 30 },     // 藤蔓层叠
+  racerCape: { kind: 'streak', len: 56, w: 26 },         // 尾焰拉丝
+  racerCloak: { kind: 'flag', len: 60, w: 30 },          // 格子旗
+  vampCape: { kind: 'royal', len: 62, w: 32 },           // 高领王袍
+  vampCloak: { kind: 'silkveil', len: 58, w: 28 },       // 血雾纱
+  autumnCape: { kind: 'pelt', len: 56, w: 32 },          // 麦束兽皮
+  autumnCloak: { kind: 'petalrain', len: 58, w: 30 },    // 落叶雨
+  pandaCape: { kind: 'pelt', len: 54, w: 30 },           // 蓑衣
+  pandaCloak: { kind: 'leafcloak', len: 56, w: 30 },     // 竹帘叶
+  jokerCape: { kind: 'ribboncurl', len: 54, w: 26 },     // 魔术卷带
+  jokerCloak: { kind: 'royal', len: 62, w: 32 },         // 王牌王袍
+  pagodCape: { kind: 'cloth', len: 58, w: 28 },          // 战袍
+  pagodCloak: { kind: 'scales', len: 60, w: 30 },        // 金鳞
+  stormCape: { kind: 'silkveil', len: 56, w: 28 },       // 风幕纱
+  stormCloak: { kind: 'streak', len: 58, w: 26 },        // 雷暴拉丝
+  lunarCape: { kind: 'cloth', len: 54, w: 28 },          // 月白布
+  lunarCloak: { kind: 'silkveil', len: 58, w: 28 },      // 桂香纱
+  vikingCape: { kind: 'pelt', len: 58, w: 32 },          // 粗布兽皮
+  vikingCloak: { kind: 'flag', len: 60, w: 30 },         // 战旗
+  safariCape: { kind: 'cloth', len: 54, w: 28 },         // 帆布
+  safariCloak: { kind: 'tatter', len: 56, w: 30 },       // 猎装破布
+  theatCape: { kind: 'royal', len: 60, w: 32 },          // 天鹅绒
+  theatCloak: { kind: 'starpelt', len: 60, w: 30 },      // 谢幕星幕
+  boreaCape: { kind: 'pelt', len: 56, w: 32 },           // 兽裘
+  boreaCloak: { kind: 'silkveil', len: 58, w: 28 },      // 极光纱
+  venicCape: { kind: 'cloth', len: 54, w: 28 },          // 船夫披肩
+  venicCloak: { kind: 'silkveil', len: 58, w: 28 },      // 面具纱
+  olympCape: { kind: 'cloth', len: 58, w: 28 },          // 托加
+  olympCloak: { kind: 'royal', len: 62, w: 32 },         // 神谕王袍
+  sambaCape: { kind: 'ribboncurl', len: 54, w: 26 },     // 流苏卷带
+  sambaCloak: { kind: 'feather', len: 58, w: 30 },       // 羽袍
   shanCapeScale: { kind: 'scales', len: 58, w: 30 },   // 鳞光
   shanCapeMist: { kind: 'frostveil', len: 60, w: 30 }, // 雾纱（冰棱帘）
 };
@@ -1796,6 +2289,38 @@ export const HAT_COLORS: Record<HatId, number> = {
   relicBone: 0xd8c8a0, relicAmber: 0xffb02a,
   playBlock: 0x4a90d9, playTop: 0xe8404a,
   yuanLamp: 0xe8404a, yuanMask: 0xffd45c,
+  // 第三批新主题宝箱专属头饰
+  pirateHat: 0x1e2a36, pirateCrown: 0xe8c86a,
+  steamHat: 0x4a3a2a, steamCrown: 0xd8a24a,
+  astroHat: 0xd8e8ff, astroCrown: 0xffb03a,
+  juraHat: 0xd8c8a0, juraCrown: 0xe8d07a,
+  mushHat: 0xd84a4a, mushCrown: 0xffb7d5,
+  tropicHat: 0xffe8d0, tropicCrown: 0xffb7a0,
+  cryptHat: 0x8a8a92, cryptCrown: 0xd8c8a0,
+  festivHat: 0xd23b3b, festivCrown: 0xffd45c,
+  sushiHat: 0x2a3a5a, sushiCrown: 0xffd45c,
+  wildHat: 0x8a6a3a, wildCrown: 0xffd45c,
+  // 第四批新主题宝箱专属头饰
+  vulcHelm: 0x4a2a22, vulcCrown: 0xffb347,
+  trenchDiver: 0x2a6a7a, trenchCrown: 0x5fd0c0,
+  dojoHachimaki: 0xf0eee4, dojoCrown: 0xe8404a,
+  inkwHat: 0x2a2e36, inkwCrown: 0x3a4048,
+  fairyHat: 0xffb7d5, fairyCrown: 0x5aa85a,
+  racerHelm: 0xe8404a, racerCrown: 0xffd45c,
+  vampHat: 0x1a1420, vampCrown: 0xc0203a,
+  autumnHat: 0xd8b070, autumnCrown: 0xd4622a,
+  pandaHat: 0x8fbf5a, pandaCrown: 0x5f8a3a,
+  jokerHat: 0x8a2a6a, jokerCrown: 0xffd45c,
+  pagodHat: 0x6a2a20, pagodCrown: 0xffd45c,
+  stormHat: 0x3d4c5c, stormCrown: 0x9fd8ff,
+  lunarHat: 0xe8f0ff, lunarCrown: 0xffe89a,
+  vikingHelm: 0x8a705a, vikingCrown: 0xd8e0e8,
+  safariHat: 0xd8c8a0, safariCrown: 0xb06a2a,
+  theatHat: 0xa82a4a, theatCrown: 0xffd45c,
+  boreaHat: 0x2a4258, boreaCrown: 0x7dffc4,
+  venicHat: 0xe0c88a, venicCrown: 0xffd8a0,
+  olympWreath: 0x8aa84a, olympCrown: 0xffd45c,
+  sambaHat: 0xff8ad4, sambaCrown: 0xffd45c,
   // 山海宝箱普通货
   shanHatFeather: 0xd8e8ff, shanHatDragon: 0xd42a2a,
   // 🏟 操场跑量里程碑专属
@@ -1957,6 +2482,23 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   arcanCap: 'themed', arcanCrown: 'themed', relicBone: 'themed', relicAmber: 'themed',
   playBlock: 'themed', playTop: 'themed', yuanLamp: 'themed', yuanMask: 'themed',
   shanHatFeather: 'themed', shanHatDragon: 'themed',
+  // 第三批新主题宝箱头饰：统一走 'themed'
+  pirateHat: 'themed', pirateCrown: 'themed', steamHat: 'themed', steamCrown: 'themed',
+  astroHat: 'themed', astroCrown: 'themed', juraHat: 'themed', juraCrown: 'themed',
+  mushHat: 'themed', mushCrown: 'themed', tropicHat: 'themed', tropicCrown: 'themed',
+  cryptHat: 'themed', cryptCrown: 'themed', festivHat: 'themed', festivCrown: 'themed',
+  sushiHat: 'themed', sushiCrown: 'themed', wildHat: 'themed', wildCrown: 'themed',
+  // 第四批新主题宝箱头饰：统一走 'themed'
+  vulcHelm: 'themed', vulcCrown: 'themed', trenchDiver: 'themed', trenchCrown: 'themed',
+  dojoHachimaki: 'themed', dojoCrown: 'themed', inkwHat: 'themed', inkwCrown: 'themed',
+  fairyHat: 'themed', fairyCrown: 'themed', racerHelm: 'themed', racerCrown: 'themed',
+  vampHat: 'themed', vampCrown: 'themed', autumnHat: 'themed', autumnCrown: 'themed',
+  pandaHat: 'themed', pandaCrown: 'themed', jokerHat: 'themed', jokerCrown: 'themed',
+  pagodHat: 'themed', pagodCrown: 'themed', stormHat: 'themed', stormCrown: 'themed',
+  lunarHat: 'themed', lunarCrown: 'themed', vikingHelm: 'themed', vikingCrown: 'themed',
+  safariHat: 'themed', safariCrown: 'themed', theatHat: 'themed', theatCrown: 'themed',
+  boreaHat: 'themed', boreaCrown: 'themed', venicHat: 'themed', venicCrown: 'themed',
+  olympWreath: 'themed', olympCrown: 'themed', sambaHat: 'themed', sambaCrown: 'themed',
   runHat: 'themed',
 };
 
@@ -2048,6 +2590,17 @@ export const SKIN_HEAD_H: Partial<Record<CharacterSkin, number>> = {
   aegisSpirit: 108,
   confSpirit: 112,
   arcanSpirit: 115,
+  // 第三批新主题宝箱的招牌形象
+  mushSpirit: 92,
+  cryptSpirit: 100,
+  festivSpirit: 104,
+  pirateSpirit: 106,
+  tropicSpirit: 106,
+  sushiSpirit: 106,
+  wildSpirit: 106,
+  astroSpirit: 108,
+  juraSpirit: 108,
+  steamSpirit: 108,
   // 🗺️ 山海经怪物皮肤（烛龙的鬃火最高；混沌是只没脸的口袋所以矮）
   hunDun: 95,
   qiongQi: 96,
@@ -2057,6 +2610,27 @@ export const SKIN_HEAD_H: Partial<Record<CharacterSkin, number>> = {
   baShe: 102,
   taoTie: 104,
   guDiao: 106,
+  // 第四批新主题宝箱的招牌形象
+  trenchSpirit: 72,
+  safariSpirit: 62,
+  fairySpirit: 80,
+  pandaSpirit: 84,
+  sambaSpirit: 84,
+  inkwSpirit: 92,
+  jokerSpirit: 92,
+  olympSpirit: 92,
+  vulcSpirit: 96,
+  dojoSpirit: 96,
+  vampSpirit: 94,
+  stormSpirit: 94,
+  boreaSpirit: 94,
+  theatSpirit: 96,
+  autumnSpirit: 100,
+  pagodSpirit: 100,
+  lunarSpirit: 90,
+  vikingSpirit: 92,
+  racerSpirit: 104,
+  venicSpirit: 100,
   zhuLong: 112,
   xiangLiu: 114,
 };
@@ -2126,6 +2700,38 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   relicTrailA: 0xd8c8a0, relicTrailB: 0xffb02a,
   playTrailA: 0x4a90d9, playTrailB: 0xffc04a,
   yuanTrailA: 0xffd45c, yuanTrailB: 0xff8a6a,
+  // 第三批新主题宝箱专属击球拖尾
+  pirateTrailA: 0x9fd8e8, pirateTrailB: 0xff8a3c,
+  steamTrailA: 0xcfd8e0, steamTrailB: 0xffb03a,
+  astroTrailA: 0x9fd8ff, astroTrailB: 0xffb03a,
+  juraTrailA: 0x9fe86a, juraTrailB: 0xff7a2a,
+  mushTrailA: 0xa8ff7a, mushTrailB: 0xffe89a,
+  tropicTrailA: 0x5fe8d0, tropicTrailB: 0xbfe8f0,
+  cryptTrailA: 0x9fd8a0, cryptTrailB: 0xffb03a,
+  festivTrailA: 0xffffff, festivTrailB: 0xff6a6a,
+  sushiTrailA: 0xffffff, sushiTrailB: 0x8a4a2a,
+  wildTrailA: 0xd8c8a0, wildTrailB: 0xffb03a,
+  // 第四批新主题宝箱专属击球拖尾
+  vulcTrailA: 0xff9a3c, vulcTrailB: 0xff5a1a,
+  trenchTrailA: 0x5fd0c0, trenchTrailB: 0x9ffcf0,
+  dojoTrailA: 0xf0eee4, dojoTrailB: 0xe8404a,
+  inkwTrailA: 0x3a4048, inkwTrailB: 0x9fd8c8,
+  fairyTrailA: 0xffb7d5, fairyTrailB: 0xfff2b0,
+  racerTrailA: 0xcfd8e0, racerTrailB: 0xffd45c,
+  vampTrailA: 0x4a2a6a, vampTrailB: 0xc0203a,
+  autumnTrailA: 0xd4622a, autumnTrailB: 0xffd45c,
+  pandaTrailA: 0x8fbf5a, pandaTrailB: 0xdcefff,
+  jokerTrailA: 0xff8ad4, jokerTrailB: 0xffd45c,
+  pagodTrailA: 0xffb03a, pagodTrailB: 0xffd45c,
+  stormTrailA: 0xbfe8ff, stormTrailB: 0x9fd8ff,
+  lunarTrailA: 0xffe89a, lunarTrailB: 0xd8e8ff,
+  vikingTrailA: 0xf0f4fa, vikingTrailB: 0xff8a3c,
+  safariTrailA: 0xd8c8a0, safariTrailB: 0xffb03a,
+  theatTrailA: 0xff8ad4, theatTrailB: 0xfff0c0,
+  boreaTrailA: 0xbfe8ff, boreaTrailB: 0x9ad4ff,
+  venicTrailA: 0x5fe8d0, venicTrailB: 0xffd8a0,
+  olympTrailA: 0xf0ead8, olympTrailB: 0xffd45c,
+  sambaTrailA: 0xff8ad4, sambaTrailB: 0xffd45c,
   shanTrail: 0x9fe8c0,
   // 🏟 操场跑量里程碑专属
   runTrail: 0x39d0a0,
@@ -2156,6 +2762,22 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   bigtSwing: 0xffd45c, aegisSwing: 0x8fb4de, chanSwing: 0x2f7a4a,
   arcanSwing: 0xb46cff, relicSwing: 0xd8c8a0, playSwing: 0x4a90d9,
   yuanSwing: 0xffd45c,
+  // 第三批新主题宝箱专属挥拍拖尾
+  pirateSwing: 0xe8c86a, steamSwing: 0xd8a24a, astroSwing: 0x9fd8ff,
+  juraSwing: 0x9fe86a, mushSwing: 0xffb7d5, tropicSwing: 0x5fe8d0,
+  cryptSwing: 0x9fd8a0, festivSwing: 0xffd45c, sushiSwing: 0xfff0d0,
+  wildSwing: 0xffd45c,
+  // 第四批新主题宝箱专属挥拍拖尾
+  vulcSwing: 0xff5a1a, trenchSwing: 0x5fd0c0,
+  dojoSwing: 0xf0eee4, inkwSwing: 0x2a2e36,
+  fairySwing: 0xffb7d5, racerSwing: 0xffd45c,
+  vampSwing: 0xc0203a, autumnSwing: 0xd4622a,
+  pandaSwing: 0x8fbf5a, jokerSwing: 0xffd45c,
+  pagodSwing: 0xffd45c, stormSwing: 0x9fd8ff,
+  lunarSwing: 0xffe89a, vikingSwing: 0xc0c8d0,
+  safariSwing: 0xffb03a, theatSwing: 0xfff0c0,
+  boreaSwing: 0x7dffc4, venicSwing: 0x5fe8d0,
+  olympSwing: 0xfff0b0, sambaSwing: 0xff8ad4,
   shanSwing: 0xff8a3c,
   // 🏟 操场跑量里程碑专属
   runSwing: 0x39d0a0,
@@ -2204,6 +2826,22 @@ export const MOUNT_COLORS: Record<MountId, number> = {
   bigtBall: 0xe8404a, aegisSteed: 0xaab4c2, chanBoat: 0x3a8a5a,
   arcanOrb: 0x9a86e8, relicBone: 0xd8c8a0, playHorse: 0xffc04a,
   yuanBoat: 0xe8404a,
+  // 第三批新主题宝箱专属坐骑
+  pirateMount: 0x8a5a2a, steamMount: 0x8a6a3a, astroMount: 0xd8e8ff,
+  juraMount: 0x6a9a4a, mushMount: 0x8a6a4a, tropicMount: 0x4aa88a,
+  cryptMount: 0xd8c8a0, festivMount: 0x8a5a2a, sushiMount: 0x8a6238,
+  wildMount: 0x8a5a2a,
+  // 第四批新主题宝箱专属坐骑
+  vulcHound: 0x5a2a1a, trenchRay: 0x2a6a7a,
+  dojoCrest: 0xc0392b, inkwBoat: 0x4a525c,
+  fairySnail: 0xd8b08a, racerKart: 0xe8404a,
+  vampStallion: 0x1a1a26, autumnBoar: 0x6a4a2a,
+  pandaSled: 0x8fbf5a, jokerCarriage: 0xe8404a,
+  pagodPalanquin: 0xc0392b, stormGlider: 0x7fd4ff,
+  lunarCloud: 0xe8f0ff, vikingDrakkar: 0x6a5240,
+  safariElephant: 0x9aa7b8, theatSpotlight: 0xfff0c0,
+  boreaStag: 0x8a705a, venicGondola: 0x2a3a4a,
+  olympChariot: 0xd8d0b8, sambaFloat: 0xffd45c,
   shanMountKun: 0x4aa8d8,
 };
 
@@ -2314,6 +2952,38 @@ export const AURA_COLORS: Record<AuraId, number> = {
   relicDustAura: 0xd8c8a0, relicAmberAura: 0xffb02a,
   playBallAura: 0x4a90d9, playSparkAura: 0xffc04a,
   yuanFireAura: 0xff8a3c, yuanLanternAura: 0xffd45c,
+  // 第三批新主题宝箱专属光环
+  pirateAuraA: 0x5fd0c0, pirateAuraB: 0xd8c8a0,
+  steamAuraA: 0xffb03a, steamAuraB: 0x8fd8ff,
+  astroAuraA: 0xffb03a, astroAuraB: 0x9fd8ff,
+  juraAuraA: 0x9fe86a, juraAuraB: 0xffb03a,
+  mushAuraA: 0xa8ff7a, mushAuraB: 0xffe89a,
+  tropicAuraA: 0xbfe8f0, tropicAuraB: 0x5fe8d0,
+  cryptAuraA: 0x9fd8a0, cryptAuraB: 0xffb03a,
+  festivAuraA: 0xffffff, festivAuraB: 0xffd45c,
+  sushiAuraA: 0xffffff, sushiAuraB: 0xffb7d5,
+  wildAuraA: 0xffb03a, wildAuraB: 0xff9a4a,
+  // 第四批新主题宝箱专属光环
+  vulcAuraA: 0xff5a1a, vulcAuraB: 0xffb347,
+  trenchAuraA: 0x5fd0c0, trenchAuraB: 0x9ffcf0,
+  dojoAuraA: 0xbfe8f0, dojoAuraB: 0xe8404a,
+  inkwAuraA: 0x3a4048, inkwAuraB: 0x9fd8c8,
+  fairyAuraA: 0xffb7d5, fairyAuraB: 0xfff2b0,
+  racerAuraA: 0xff8a4a, racerAuraB: 0xffd45c,
+  vampAuraA: 0x4a2a6a, vampAuraB: 0xc0203a,
+  autumnAuraA: 0xd4622a, autumnAuraB: 0xffd45c,
+  pandaAuraA: 0x8fbf5a, pandaAuraB: 0xdcefff,
+  jokerAuraA: 0xff8ad4, jokerAuraB: 0xffd45c,
+  pagodAuraA: 0xffb03a, pagodAuraB: 0xffd45c,
+  stormAuraA: 0x9fd8ff, stormAuraB: 0xffffff,
+  lunarAuraA: 0xe8f0ff, lunarAuraB: 0xffe89a,
+  vikingAuraA: 0xffb03a, vikingAuraB: 0x8fb4de,
+  safariAuraA: 0xd8c8a0, safariAuraB: 0xff9a4a,
+  theatAuraA: 0xffd45c, theatAuraB: 0xfff0c0,
+  boreaAuraA: 0xffffff, boreaAuraB: 0x7dffc4,
+  venicAuraA: 0xbfe8f0, venicAuraB: 0xffd8a0,
+  olympAuraA: 0xffd45c, olympAuraB: 0xfff0b0,
+  sambaAuraA: 0xff8ad4, sambaAuraB: 0xffd45c,
   shanAuraSpirit: 0x9fe8c0, shanAuraStar: 0xffe89a,
   // 🏟 操场跑量里程碑专属
   runAura: 0x39d0a0,
@@ -2395,6 +3065,38 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   relicRacketA: 0xd8c8a0, relicRacketB: 0x7a6440,
   playRacketA: 0x4a90d9, playRacketB: 0xffc04a,
   yuanRacketA: 0xe8404a, yuanRacketB: 0xffd45c,
+  // 第三批新主题宝箱专属球拍皮肤
+  pirateRacketA: 0xe8c86a, pirateRacketB: 0x8a9aa8,
+  steamRacketA: 0xd8a24a, steamRacketB: 0x6a5236,
+  astroRacketA: 0xd8e8ff, astroRacketB: 0xffb03a,
+  juraRacketA: 0xd8c8a0, juraRacketB: 0xffb02a,
+  mushRacketA: 0xd84a4a, mushRacketB: 0x8a6a4a,
+  tropicRacketA: 0x5fe8d0, tropicRacketB: 0xffb7a0,
+  cryptRacketA: 0x8a8a92, cryptRacketB: 0xd8c8a0,
+  festivRacketA: 0xd23b3b, festivRacketB: 0xffd45c,
+  sushiRacketA: 0x8a6238, sushiRacketB: 0xff8a6a,
+  wildRacketA: 0x8a6a3a, wildRacketB: 0xd8c8a0,
+  // 第四批新主题宝箱专属球拍皮肤
+  vulcRacketA: 0xff5a1a, vulcRacketB: 0xffb347,
+  trenchRacketA: 0x5fd0c0, trenchRacketB: 0x9ffcf0,
+  dojoRacketA: 0x8fbf5a, dojoRacketB: 0xe8404a,
+  inkwRacketA: 0x3a4048, inkwRacketB: 0x5a8a7a,
+  fairyRacketA: 0xffb7d5, fairyRacketB: 0xa8ff9a,
+  racerRacketA: 0xe8404a, racerRacketB: 0xffd45c,
+  vampRacketA: 0x4a2a6a, vampRacketB: 0xc0203a,
+  autumnRacketA: 0x8a5a2a, autumnRacketB: 0xd4622a,
+  pandaRacketA: 0x5f8a3a, pandaRacketB: 0x8fbf5a,
+  jokerRacketA: 0xffd45c, jokerRacketB: 0xe8404a,
+  pagodRacketA: 0xc0392b, pagodRacketB: 0xffd45c,
+  stormRacketA: 0x9fd8ff, stormRacketB: 0xffffff,
+  lunarRacketA: 0xffe89a, lunarRacketB: 0xd8e8ff,
+  vikingRacketA: 0xc0c8d0, vikingRacketB: 0x8fb4de,
+  safariRacketA: 0x9aa74a, safariRacketB: 0xf0e8d0,
+  theatRacketA: 0xffd45c, theatRacketB: 0xfff0c0,
+  boreaRacketA: 0x7dffc4, boreaRacketB: 0x9ad4ff,
+  venicRacketA: 0x8a5a2a, venicRacketB: 0x5fe8d0,
+  olympRacketA: 0xffd45c, olympRacketB: 0xfff0b0,
+  sambaRacketA: 0xff8ad4, sambaRacketB: 0xffd45c,
   shanRacketA: 0xd8e8ff, shanRacketB: 0xd42a2a,
 };
 
@@ -2413,13 +3115,14 @@ export const DEFAULT_COSMETIC: Cosmetic = {
   racket: 0x44586f,
   trail: 0x6f9fce,
   effect: 'ring',
-  wings: 'none',
-  cape: 'none',
+  back: 'none',
   aura: 'none',
   hat: 'none',
   ring: 'none',
   pet: 'none',
   petStar: 1,
+  petFollow: 'shoulder',
+  petSide: 'right',
   racketSkin: 'default',
   trailStyle: 'classic',
   swingTrail: 'none',
@@ -2433,13 +3136,14 @@ export const AI_COSMETIC: Cosmetic = {
   racket: 0x44586f,
   trail: 0xd4542c,
   effect: 'spark',
-  wings: 'none',
-  cape: 'none',
+  back: 'none',
   aura: 'none',
   hat: 'none',
   ring: 'none',
   pet: 'none',
   petStar: 1,
+  petFollow: 'shoulder',
+  petSide: 'right',
   racketSkin: 'default',
   trailStyle: 'classic',
   swingTrail: 'none',
@@ -2460,7 +3164,9 @@ function pick<T extends string>(ids: readonly T[], v: unknown, fallback: T): T {
 }
 
 /** coerce anything that arrived over the network into a safe cosmetic */
-export function sanitizeCosmetic(input: Partial<Cosmetic> | undefined): Cosmetic {
+export function sanitizeCosmetic(
+  input: (Partial<Cosmetic> & { wings?: unknown; cape?: unknown }) | undefined,
+): Cosmetic {
   const d = DEFAULT_COSMETIC;
   if (!input || typeof input !== 'object') return { ...d };
   return {
@@ -2469,8 +3175,15 @@ export function sanitizeCosmetic(input: Partial<Cosmetic> | undefined): Cosmetic
     racket: typeof input.racket === 'number' ? input.racket & 0xffffff : d.racket,
     trail: typeof input.trail === 'number' ? input.trail & 0xffffff : d.trail,
     effect: pick(HIT_STYLE_IDS, input.effect, d.effect),
-    wings: pick(WING_IDS, input.wings, d.wings),
-    cape: pick(CAPE_IDS, input.cape, d.cape),
+    back: (() => {
+      // 背部装饰：优先取合并后的 `back`；旧版本客户端报上来的 `wings` / `cape`
+      // 也认（两个都带时翅膀优先），sanitize 掉不认识的 id
+      const legacyWing = pick(WING_IDS, input.wings, 'none');
+      if (legacyWing !== 'none') return legacyWing;
+      const legacyCape = pick(CAPE_IDS, input.cape, 'none');
+      if (legacyCape !== 'none') return legacyCape;
+      return pick(BACK_IDS, input.back, d.back);
+    })(),
     ring: pick(RING_IDS, input.ring, d.ring),
     aura: pick(AURA_IDS, input.aura, d.aura),
     hat: pick(HAT_IDS, input.hat, d.hat),
@@ -2479,6 +3192,8 @@ export function sanitizeCosmetic(input: Partial<Cosmetic> | undefined): Cosmetic
       typeof input.petStar === 'number' && Number.isFinite(input.petStar)
         ? Math.min(5, Math.max(1, Math.round(input.petStar)))
         : d.petStar,
+    petFollow: pick(PET_FOLLOW_IDS, input.petFollow, d.petFollow),
+    petSide: pick(PET_SIDE_IDS, input.petSide, d.petSide),
     racketSkin: pick(RACKET_SKIN_IDS, input.racketSkin, d.racketSkin),
     trailStyle: pick(TRAIL_IDS, input.trailStyle, d.trailStyle),
     swingTrail: pick(SWING_TRAIL_IDS, input.swingTrail, d.swingTrail),

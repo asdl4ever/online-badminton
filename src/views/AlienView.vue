@@ -103,6 +103,8 @@ function onEnd(kills: number): void {
 
   const parts = [`🪙 +${r.coins}`, `🏅 +${r.honor}`];
   if (r.bonus > 0) parts.push(`🏁 里程碑 🪙 +${r.bonus}`);
+  // 🐾 宠物加的那份单独写出来，玩家才知道带宠物有用
+  if (r.petBonus > 0) parts.push(`🐾 宠物 🪙 +${r.petBonus}`);
   if (r.items.length) {
     sfx.win();
     celebrate(3, ['#6fe09a', '#9fe8ff', '#ffd45c']);

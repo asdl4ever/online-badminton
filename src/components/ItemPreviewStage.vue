@@ -31,12 +31,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <canvas ref="canvas" class="stage" />
+  <!-- ⚠️ 类名不能叫 `stage`：全局 `style.css` 里 `.page--playing .shell-ui__main .stage`
+       那条是给**游戏画面容器**用的（`position: absolute; inset: 0`），
+       在商城这种「带外壳的页面」里会把这块预览画布撑成整屏。 -->
+  <canvas ref="canvas" class="aps" />
 </template>
 
 <style scoped>
 /* 舞台是 260×200 的逻辑画面，这里只负责等比铺满、不拉伸 */
-.stage {
+.aps {
   display: block;
   width: 100%;
   aspect-ratio: 260 / 200;

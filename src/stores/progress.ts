@@ -41,6 +41,7 @@ import {
   type ItemSlot,
 } from '../game/items';
 import { pickChestPool, type ChestSlot } from '../game/chest';
+import type { PetBonus } from '../game/pets';
 import {
   BOAT_COST,
   FISH_TASKS,
@@ -308,6 +309,8 @@ export const useProgressStore = defineStore('progress', () => {
     drop?: Item;
     /** 这一档的限定物品是否已经全部拿到 */
     allOwned: boolean;
+    /** 🐾 宠物给这次金币额外加的那份（界面写「宠物加成 +X」用） */
+    petBonus: number;
   } {
     const cfg = GZ_DIFFS[difficulty];
     honor.value += cfg.honor;
@@ -326,12 +329,13 @@ export const useProgressStore = defineStore('progress', () => {
       keys: 0,
       drop: undefined as Item | undefined,
       allOwned: missing.length === 0,
+      petBonus: 0,
     };
 
     if (roll < GZ_REWARD_ODDS.coins) {
       // 🪙 金币档
       res.coins = cfg.coins;
-      coins.value += cfg.coins;
+      res.petBonus = gainCoins(cfg.coins);
       return { ...res, kind: 'coins' as const };
     }
 
@@ -400,6 +404,8 @@ export const useProgressStore = defineStore('progress', () => {
     honor: number;
     items: Item[];
     best: boolean;
+    /** 🐾 宠物给这次金币额外加的那份 */
+    petBonus: number;
   } {
     const coinsGained = kills * ALIEN_COINS_PER_KILL;
     const honorGained = kills * ALIEN_HONOR_PER_KILL;
@@ -423,14 +429,57 @@ export const useProgressStore = defineStore('progress', () => {
       if (!owned.value.includes(it.id)) owned.value = [...owned.value, it.id];
       unlocked.push(it);
     }
-    coins.value += coinsGained + bonus;
-    return { coins: coinsGained, bonus, honor: honorGained, items: unlocked, best };
+    const petExtra = gainCoins(coinsGained + bonus);
+    return { coins: coinsGained, bonus, honor: honorGained, items: unlocked, best, petBonus: petExtra };
   }
 
   /** ids of gacha items the player has won */
   const owned = useLocalStorage<string[]>('bmt-owned', []);
+  {
+    // 🧥 背部装饰合并迁移：老存档里的 `wings:X` / `cape:X` 键改成 `back:X`
+    //（披风家族与翅膀重名的 7 个 ref 已加 Cape 后缀，这里同步改名），
+    // 只在真的有变化时写回，避免每次启动都动存档。
+    const CAPE_RENAME: Record<string, string> = {
+      shadow: 'shadowCape', ember: 'emberCape', frost: 'frostCape', leaf: 'leafCape',
+      dragon: 'dragonCape', angel: 'angelCape', phoenix: 'phoenixCape',
+    };
+    let changed = false;
+    const next = owned.value.map((id) => {
+      const m = /^(wings|cape):(.+)$/.exec(id);
+      if (!m) return id;
+      changed = true;
+      const ref = m[1] === 'cape' ? (CAPE_RENAME[m[2]] ?? m[2]) : m[2];
+      return 'back:' + ref;
+    });
+    if (changed) owned.value = next;
+  }
   /** highest star level owned per pet ref (absent = not hatched yet) */
   const petStars = useLocalStorage<Record<string, number>>('bmt-pet-stars', {});
+
+  /**
+   * 🐾 当前宠物带来的加成（百分比）——由 `customize.ts` 那边的 watchEffect 写进来
+   * （它才知道你装备了哪只、几星）。金币与经验入账直接读这里，默认 0 等于没加成。
+   */
+  const petBonus = ref<PetBonus>({ coin: 0, xp: 0 });
+  function setPetBonus(v: PetBonus): void {
+    petBonus.value = v;
+  }
+
+  /**
+   * 🪙 金币入账的**唯一出口**（`gainCoins`）：顺手把宠物加成算上。
+   *
+   * ⚠️ **退款 / 重复折算**那几处（报名费退回、孵蛋重复、宝箱重复返还、限定重复折金币、
+   * 皮肤档拿齐后的折算）要走 `coins.value += ...` 或传 `bonus: false`——
+   * 不然「抽到重复 → 返还 → 又被宠物加成」就成了刷金币的口子。
+   *
+   * 返回这次**宠物额外加到的数额**（结算文案要写「🐾 +X」时用）。
+   */
+  function gainCoins(n: number, opts: { bonus?: boolean } = {}): number {
+    const rate = opts.bonus === false ? 0 : petBonus.value.coin;
+    const extra = rate > 0 ? Math.round((n * rate) / 100) : 0;
+    coins.value += n + extra;
+    return extra;
+  }
   /**
    * 宝箱钥匙：开宝箱的唯一货币（**不再花金币**）。
    * 来源：成就（主要）、发球机里程碑、段位奖励、每日钓鱼任务、晋级赛名次、小黄龙转盘。
@@ -534,9 +583,13 @@ export const useProgressStore = defineStore('progress', () => {
     if (takeCotton) cotton.value = 0;
     if (takeOre) ore.value = 0;
     if (takeFish) fishBox.value = [];
-    coins.value += gained;
+    const petExtra = gainCoins(gained);
     if (fishCoins > 0) noteSold(fishCoins);
-    return { ok: true, coins: gained, message: `换到 ¥${gained}` };
+    return {
+      ok: true,
+      coins: gained,
+      message: petExtra > 0 ? `换到 ¥${gained} · 🐾 宠物 +${petExtra}` : `换到 ¥${gained}`,
+    };
   }
   /** 成就专用的小计数器：卖鱼总额 / 下潜次数 / 出海次数 / 最深下潜（米）+ 鱼王 / 闪光 */
   const achStats = useLocalStorage<{
@@ -577,12 +630,31 @@ export const useProgressStore = defineStore('progress', () => {
   const trainLevels = useLocalStorage<TrainLevels>('bmt-train-levels', emptyLevels());
   const trainXp = useLocalStorage<TrainXp>('bmt-train-xp', emptyXp());
 
+  /** 把每个维度都乘同一个系数（宠物经验加成用） */
+  function scaleGains(
+    gains: Partial<Record<TrainKey, number>>,
+    mul: number,
+  ): Partial<Record<TrainKey, number>> {
+    if (mul === 1) return gains;
+    const out: Partial<Record<TrainKey, number>> = {};
+    for (const [k, v] of Object.entries(gains)) out[k as TrainKey] = (v ?? 0) * mul;
+    return out;
+  }
+
   /**
    * 给若干维加锻炼经验（健身房 / 操场 / 练球机打完一次调它）。
    * 返回这次练升了级的维度，页面据此弹提示。
+   *
+   * 🐾 **宠物经验加成在这里生效**（默认开）：上面那几条路都走这个口子。
+   * 对局经验自己已经在 `gainMatchXp` 里乘过一次，所以那边传 `petBonus: false`，
+   * 免得乘两遍。
    */
-  function train(gains: Partial<Record<TrainKey, number>>): TrainKey[] {
-    const res = addTrainXp(trainLevels.value, trainXp.value, gains);
+  function train(
+    gains: Partial<Record<TrainKey, number>>,
+    opts: { petBonus?: boolean } = {},
+  ): TrainKey[] {
+    const mul = opts.petBonus === false ? 1 : 1 + petBonus.value.xp / 100;
+    const res = addTrainXp(trainLevels.value, trainXp.value, scaleGains(gains, mul));
     trainLevels.value = res.levels;
     trainXp.value = res.xp;
     return res.up;
@@ -645,7 +717,9 @@ export const useProgressStore = defineStore('progress', () => {
         opponentMul(input.foeRating) *
         qualityMul(input.tally, input.win) *
         foeMul *
-        quotaMul,
+        quotaMul *
+        // 🐾 宠物经验加成（对局经验也吃；下面 train 传 petBonus:false，避免乘两遍）
+        (1 + petBonus.value.xp / 100),
     );
     let up: TrainKey[] = [];
     if (gains.length) {
@@ -655,7 +729,7 @@ export const useProgressStore = defineStore('progress', () => {
         byKey[g.key] = g.xp;
         total += g.xp;
       }
-      up = train(byKey);
+      up = train(byKey, { petBonus: false });
       matchXpDay.value = { day: today, xp: used + total };
     }
     // 记下「今天跟他也打过一场」（顺手把昨天的记录清掉）
@@ -780,9 +854,10 @@ export const useProgressStore = defineStore('progress', () => {
     const coin = win ? c.win : c.lose;
     const before = tierForPoints(points.value).id;
     points.value += gain;
-    coins.value += coin;
+    const petExtra = gainCoins(coin);
     const after = tierForPoints(points.value);
     let text = `+${gain} 积分 · 金币 +${coin}`;
+    if (petExtra > 0) text += ` · 🐾 宠物 +${petExtra}`;
     if (after.id !== before) text += ` · 晋级 ${after.label}！可领取奖励`;
     pushNotice(text);
     trackSeasonPeak();
@@ -948,8 +1023,9 @@ export const useProgressStore = defineStore('progress', () => {
     if (seasonId.value === cur) return;
     if (seasonId.value) {
       const reward = SEASON_REWARDS[TIERS.findIndex((t) => t.id === seasonPeak.value)] ?? 100;
-      coins.value += reward;
-      pushNotice(`赛季 ${seasonId.value} 结算：最高段位 ${tierById(seasonPeak.value).label}，奖励 🪙${reward}！积分已清零，新赛季加油！`);
+      const petExtra = gainCoins(reward);
+      const petText = petExtra > 0 ? `（🐾 宠物 +${petExtra}）` : '';
+      pushNotice(`赛季 ${seasonId.value} 结算：最高段位 ${tierById(seasonPeak.value).label}，奖励 🪙${reward}${petText}！积分已清零，新赛季加油！`);
       points.value = 0;
       seasonPeak.value = 'bronze';
     }
@@ -1085,7 +1161,7 @@ export const useProgressStore = defineStore('progress', () => {
    * 临时弱手的装扮：只从**普通 / 稀有**里挑帽子、球拍皮肤、击球拖尾，
    * 其余部位一律不穿——看上去就是个没见过世面的新手，不会一身传说。
    *
-   * 赛事身份带 `gear: 'mixed'` 时（防守派 / 老将组 / 综合赛）再补翅膀与披风，
+   * 赛事身份带 `gear: 'mixed'` 时（防守派 / 老将组 / 综合赛）再补一件背部装饰，
    * 同样是低星货，所以「装备齐但不高星」——看一眼就知道这批人不一样。
    */
   function rookieCosmetic(ev: ArenaEvent): Cosmetic {
@@ -1107,8 +1183,7 @@ export const useProgressStore = defineStore('progress', () => {
     c.racketSkin = pickLow('racketSkin') as Cosmetic['racketSkin'];
     c.trailStyle = pickLow('trail') as Cosmetic['trailStyle'];
     if (ev.gear === 'mixed' || ev.gear === 'full') {
-      c.wings = pickLow('wings') as Cosmetic['wings'];
-      c.cape = pickLow('cape') as Cosmetic['cape'];
+      c.back = pickLow('back') as Cosmetic['back'];
     }
     if (ev.gear === 'full') {
       c.aura = pickLow('aura') as Cosmetic['aura'];
@@ -1260,7 +1335,7 @@ export const useProgressStore = defineStore('progress', () => {
     const gain = pointsForPlace(a, place);
     // 荣誉点：冠亚季军才有，且随杯赛档位放大（荣誉商店的唯一货币，永久不清零）
     const hon = honorForPlace(run.tier, place);
-    coins.value += gold;
+    gainCoins(gold);
     honor.value += hon;
     const before = tierForPoints(points.value).id;
     points.value += gain;
@@ -1651,13 +1726,15 @@ export const useProgressStore = defineStore('progress', () => {
       return { ok: false, message: `任务还没完成（${fishTaskProg.value}/${task.goal}）` };
     }
     fishTaskClaimed.value = true;
-    coins.value += task.coins;
+    const petExtra = gainCoins(task.coins);
     honor.value += task.honor;
     // 每日任务的额外小奖励：1 把宝箱钥匙
     grantKeys(1);
     return {
       ok: true,
-      message: `任务完成！🪙 +${task.coins} · 🏅 +${task.honor} · 🔑 钥匙 +1`,
+      message:
+        `任务完成！🪙 +${task.coins} · 🏅 +${task.honor} · 🔑 钥匙 +1` +
+        (petExtra > 0 ? ` · 🐾 宠物 +${petExtra}` : ''),
     };
   }
 
@@ -1754,8 +1831,13 @@ export const useProgressStore = defineStore('progress', () => {
     nailongPity.value = prize.grand ? 0 : nailongPity.value + 1;
 
     if (prize.kind === 'coins') {
-      coins.value += prize.amount ?? 0;
-      return { ok: true, index, message: `金币 +${prize.amount}` };
+      const amount = prize.amount ?? 0;
+      const petExtra = gainCoins(amount);
+      return {
+        ok: true,
+        index,
+        message: petExtra > 0 ? `金币 +${amount}（🐾 宠物 +${petExtra}）` : `金币 +${amount}`,
+      };
     }
     if (prize.kind === 'honor') {
       honor.value += prize.amount ?? 0;
@@ -1969,8 +2051,8 @@ export const useProgressStore = defineStore('progress', () => {
     if (Math.random() < BAG_CHANCE) {
       if (Math.random() < BAG_COIN_SHARE) {
         const amount = COIN_BAG_MIN + Math.floor(Math.random() * COIN_BAG_RANGE);
-        coins.value += amount;
-        return { kind: 'bag', bag: 'coins', amount };
+        // 宠物加成算进「这一袋到手多少」：界面显示的数字就是真拿到的
+        return { kind: 'bag', bag: 'coins', amount: amount + gainCoins(amount) };
       }
       const amount = SHARD_BAG_MIN + Math.floor(Math.random() * SHARD_BAG_RANGE);
       shards.value += amount;
@@ -2071,6 +2153,8 @@ export const useProgressStore = defineStore('progress', () => {
     redeemShardItem,
     owned,
     petStars,
+    petBonus,
+    setPetBonus,
     tenTickets,
     notice,
     canFreeTen,

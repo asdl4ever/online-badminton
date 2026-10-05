@@ -89,7 +89,7 @@ export const GROUPS: Group[] = [
     points: 2200,
     color: 0xffb020,
     glyph: 'VII',
-    reward: '光环「王者」+ 披风「王袍」',
+    reward: '光环「王者」',
   },
   {
     id: 'god',
@@ -98,7 +98,7 @@ export const GROUPS: Group[] = [
     points: 3000,
     color: 0xff5a5a,
     glyph: 'VIII',
-    reward: '翅膀「圣光」+ 头饰「天使光环」',
+    reward: '背部装饰「圣光」+ 头饰「天使光环」',
   },
 ];
 

@@ -27,7 +27,7 @@ export type EventPool = 'rookie' | 'attack' | 'defense' | 'speed' | 'veteran' | 
 /** 对手强度标签（只用于卡面提示；同档内刻意保持基本持平） */
 export type EventPower = 'weak' | 'even' | 'strong';
 
-/** 装扮档次：bare 只有帽 / 球拍皮肤 / 拖尾；mixed 再补翅膀披风；full 再补光环 / 地环 / 宠物 */
+/** 装扮档次：bare 只有帽 / 球拍皮肤 / 拖尾；mixed 再补背部装饰；full 再补光环 / 地环 / 宠物 */
 export type EventGear = 'bare' | 'mixed' | 'full';
 
 export interface ArenaEvent {

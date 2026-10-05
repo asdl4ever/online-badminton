@@ -82,6 +82,11 @@ class Graphics2D {
     this.ctx.rotate(rad);
   }
 
+  /** 主题翅膀的镜像（scale(-1,1)）依赖它——之前 DOM 适配层忽略它导致图标里只剩一只右翼 */
+  scaleCanvas(sx: number, sy: number): void {
+    this.ctx.scale(sx, sy);
+  }
+
   // --- 实心形状 -----------------------------------------------------------
   fillRect(x: number, y: number, w: number, h: number): void {
     this.ctx.fillRect(x, y, w, h);

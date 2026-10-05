@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue';
 import ItemIcon from './ItemIcon.vue';
 import Stars from './ui/Stars.vue';
-import { COIN_SHOP_ITEMS, SLOT_LABELS, SLOT_ORDER, type ItemSlot } from '../game/items';
+import ShopTryOnModal from './ShopTryOnModal.vue';
+import { COIN_SHOP_ITEMS, SLOT_LABELS, SLOT_ORDER, type Item, type ItemSlot } from '../game/items';
 import { useProgressStore } from '../stores/progress';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { sfx } from '../game/audio';
@@ -41,6 +42,22 @@ function buy(id: string): void {
   sfx.point();
   toastGood(r.message);
 }
+
+/** 🛍️ 点货架 → 先弹试穿确认，确认后才真正扣钱 */
+const trying = ref<Item | null>(null);
+const tryingPrice = ref('');
+
+function onCard(item: Item, price: number): void {
+  if (progress.owned.includes(item.id)) return;
+  trying.value = item;
+  tryingPrice.value = `🪙 ${price}`;
+}
+
+function confirmBuy(): void {
+  if (!trying.value) return;
+  buy(trying.value.id);
+  trying.value = null;
+}
 </script>
 
 <template>
@@ -76,7 +93,7 @@ function buy(id: string): void {
         :class="{ 'is-owned': progress.owned.includes(e.item.id) }"
         type="button"
         :disabled="progress.owned.includes(e.item.id)"
-        @click="buy(e.item.id)"
+        @click="onCard(e.item, e.price)"
       >
         <span class="cs__icon"><ItemIcon :item="e.item" /></span>
         <span class="cs__label">{{ e.item.label }}</span>
@@ -86,6 +103,13 @@ function buy(id: string): void {
         </span>
       </button>
     </div>
+
+    <ShopTryOnModal
+      :item="trying"
+      :price-label="tryingPrice"
+      @close="trying = null"
+      @confirm="confirmBuy"
+    />
 
     <p class="muted cs__note">
       金币主要来自<b>把材料交给赚钱区的农场主</b>（棉花 / 矿石 / 鱼都找他换），另有对局结算、晋级赛名次与每日任务；

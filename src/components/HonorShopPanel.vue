@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import Button from './ui/Button.vue';
 import ItemIcon from './ItemIcon.vue';
+import ShopTryOnModal from './ShopTryOnModal.vue';
 import { HONOR_ITEMS, RARITY_META, type Item } from '../game/items';
 import type { CharacterSkin, MountId } from '../game/cosmetics';
 import { sfx } from '../game/audio';
@@ -47,6 +48,16 @@ function buy(item: Item): void {
     sfx.click();
     toastWarn(r.message);
   }
+}
+
+/** 🛍️ 点价格按钮 → 先弹试穿确认，确认后才真正兑换 */
+const trying = ref<Item | null>(null);
+const tryingPrice = ref('');
+
+function confirmBuy(): void {
+  if (!trying.value) return;
+  buy(trying.value);
+  trying.value = null;
 }
 </script>
 
@@ -94,13 +105,20 @@ function buy(item: Item): void {
             size="sm"
             block
             :disabled="progress.honor < e.price"
-            @click="buy(e.item)"
+            @click="((trying = e.item), (tryingPrice = `🏅 ${e.price}`))"
           >
             🏅 {{ e.price }}
           </Button>
         </div>
       </div>
     </div>
+
+    <ShopTryOnModal
+      :item="trying"
+      :price-label="tryingPrice"
+      @close="trying = null"
+      @confirm="confirmBuy"
+    />
   </div>
 </template>
 

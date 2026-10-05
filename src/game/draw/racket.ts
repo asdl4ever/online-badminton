@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { RACKET_SKIN_COLORS, type RacketSkinId } from '../cosmetics';
 import { P } from '../theme';
 import { drawThemeRacketFrame, drawThemeRacketTrim } from './themeart';
+import { drawWeapon } from './weapons';
 
 /** the skin's own colour, falling back to the player's racket tint */
 export function racketFrameColor(skin: RacketSkinId, tint: number): number {
@@ -16,6 +17,10 @@ export function racketFrameColor(skin: RacketSkinId, tint: number): number {
  * Shared by the match scene (which poses it from the aim offset) and the climb
  * scene (which poses it from a rigid body's angle).
  */
+
+/** 拍框（武器）中心在局部空间的 x——调用方要对准拍头点时往回挪它 */
+export const RACKET_HEAD_CX = 9;
+
 export function drawRacketHead(
   g: Phaser.GameObjects.Graphics,
   now: number,
@@ -30,6 +35,8 @@ export function drawRacketHead(
     g.lineStyle(12, frameColor, glow);
     g.strokeEllipse(9, 0, 34, 28);
   }
+  // 主题球拍武器化：是武器就画武器，不再套拍框
+  if (drawWeapon(g, now, skin)) return;
   // 拍框外形：主题皮肤 + 老皮肤都可以整个换掉（扇面 / 水滴 / 盾牌 / 月牙…）；
   // 有外形就画外形，没有才画常规椭圆。
   if (!drawThemeRacketFrame(g, now, skin, frameColor)) {
@@ -37,6 +44,116 @@ export function drawRacketHead(
     g.strokeEllipse(9, 0, 34, 28);
   }
   drawRacketTrim(g, now, skin, frameColor);
+  drawRacketFlair(g, now, skin, frameColor);
+}
+
+/**
+ * ★4~5 球拍皮肤专属华彩：47 款高星球拍在装饰层之外再套一层外光晕 / 星芒 /
+ * 环绕光点 / 脉冲环，逐件配置不同的种类与颜色，比低星球拍更醒目。
+ */
+type RacketFlairKind = 'aura' | 'spark' | 'orbit' | 'ring';
+const RACKET_FLAIR: Partial<Record<RacketSkinId, { k: RacketFlairKind; c?: number; n?: number }>> = {
+  // 4★
+  gold: { k: 'aura', c: 0xffd45c },
+  flame: { k: 'spark', c: 0xff5a2a, n: 5 },
+  crystal: { k: 'spark', c: 0xdcf4ff, n: 6 },
+  holy: { k: 'aura', c: 0xfff6c8 },
+  shadow: { k: 'orbit', c: 0x6a4a9a, n: 4 },
+  spike: { k: 'ring', c: 0x9fa8b8 },
+  plasma: { k: 'orbit', c: 0x5ac8ff, n: 5 },
+  galaxy: { k: 'spark', c: 0x9a7bff, n: 7 },
+  lava: { k: 'spark', c: 0xff7a2a, n: 5 },
+  thorn: { k: 'ring', c: 0x8a6a2a },
+  mirror: { k: 'aura', c: 0xdfe6f0 },
+  matrix: { k: 'spark', c: 0x7effa0, n: 6 },
+  aurora: { k: 'orbit', c: 0x7dffc4, n: 5 },
+  nebula: { k: 'spark', c: 0xff8ad4, n: 7 },
+  ruby: { k: 'aura', c: 0xff3a5a },
+  sapphire: { k: 'aura', c: 0x4a8aff },
+  quantum: { k: 'orbit', c: 0x9a7bff, n: 4 },
+  obsidian: { k: 'ring', c: 0xa8e8ff },
+  sunsteel: { k: 'spark', c: 0xfff2c4, n: 8 },
+  tsunami: { k: 'orbit', c: 0x5ac8ff, n: 5 },
+  magma: { k: 'spark', c: 0xff5a1a, n: 5 },
+  dragonbone: { k: 'ring', c: 0x2a3a5a },
+  goldthread: { k: 'orbit', c: 0xffd45c, n: 6 },
+  holo: { k: 'spark', c: 0x5ac8ff, n: 6 },
+  gravity: { k: 'orbit', c: 0x9a7bff, n: 4 },
+  blossom: { k: 'spark', c: 0xffb7d5, n: 6 },
+  meteorite: { k: 'spark', c: 0xffa04a, n: 5 },
+  desRacketB: { k: 'spark', c: 0xffb347, n: 5 },
+  nimbRacketB: { k: 'spark', c: 0x9ad4ff, n: 6 },
+  confRacketB: { k: 'spark', c: 0xffb7d5, n: 6 },
+  bigtRacketB: { k: 'orbit', c: 0xffd45c, n: 5 },
+  aegisRacketB: { k: 'aura', c: 0xffd45c },
+  chanRacketB: { k: 'aura', c: 0x9effd0 },
+  arcanRacketB: { k: 'orbit', c: 0x9a7bff, n: 5 },
+  relicRacketB: { k: 'aura', c: 0xffb347 },
+  playRacketB: { k: 'ring', c: 0x8fa6b8 },
+  yuanRacketB: { k: 'spark', c: 0xff7a2a, n: 6 },
+  // 5★
+  wood: { k: 'aura', c: 0x8a6238 },
+  void: { k: 'orbit', c: 0x8f6ae0, n: 6 },
+  rainbow: { k: 'spark', c: 0xff8ad4, n: 8 },
+  glitch: { k: 'ring', c: 0xff2a6a },
+  scale: { k: 'aura', c: 0x53e0a0 },
+  smoke: { k: 'orbit', c: 0x9aa7b8, n: 4 },
+  ember: { k: 'spark', c: 0xff9a3c, n: 6 },
+  starpiercer: { k: 'spark', c: 0xfff2c4, n: 8 },
+  phoenixF: { k: 'spark', c: 0xff7a2a, n: 7 },
+  chrono: { k: 'ring', c: 0xffd45c },
+};
+
+function drawRacketFlair(
+  g: Phaser.GameObjects.Graphics, now: number, skin: RacketSkinId, color: number,
+): void {
+  const spec = RACKET_FLAIR[skin];
+  if (!spec) return;
+  const c = spec.c ?? color;
+  const n = spec.n ?? 5;
+  const pulse = 0.5 + 0.5 * Math.sin(now / 420);
+  switch (spec.k) {
+    case 'aura': {
+      g.lineStyle(10, c, 0.16 * (0.6 + 0.4 * pulse));
+      g.strokeEllipse(9, 0, 48, 42);
+      break;
+    }
+    case 'spark': {
+      for (let k = 0; k < n; k++) {
+        const a = k * 2.399 + now / 2000;
+        const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 300 + k * 1.7));
+        const sx = 9 + Math.cos(a) * 22;
+        const sy = Math.sin(a) * 18;
+        const rr = 2 + 2.5 * tw;
+        g.fillStyle(c, 0.9 * tw);
+        g.fillRect(sx - 1, sy - rr, 2, rr * 2);
+        g.fillRect(sx - rr, sy - 1, rr * 2, 2);
+      }
+      break;
+    }
+    case 'orbit': {
+      for (let k = 0; k < n; k++) {
+        const a = now / 700 + (k / n) * Math.PI * 2;
+        const px = 9 + Math.cos(a) * 22;
+        const py = Math.sin(a) * 18;
+        g.fillStyle(c, 0.9);
+        g.fillCircle(px, py, 2.6);
+        g.fillStyle(0xffffff, 0.6);
+        g.fillCircle(px, py, 1.2);
+      }
+      break;
+    }
+    case 'ring': {
+      for (let k = 0; k < 2; k++) {
+        const ph = (now / 1200 + k * 0.5) % 1;
+        g.lineStyle(2, c, (1 - ph) * 0.6);
+        g.strokeEllipse(9, 0, 26 + ph * 40, 22 + ph * 34);
+      }
+      break;
+    }
+    default:
+      break;
+  }
 }
 
 /** extra ornament per racket skin, drawn in the racket's local space */

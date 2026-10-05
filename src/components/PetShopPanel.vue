@@ -6,6 +6,8 @@ import ItemIcon from './ItemIcon.vue';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { useProgressStore } from '../stores/progress';
 import { PETS, type Item } from '../game/items';
+import { petBonusOf, petBonusText } from '../game/pets';
+import type { PetId } from '../game/cosmetics';
 import { sfx } from '../game/audio';
 
 /**
@@ -91,6 +93,8 @@ function buy(pet: ShopPet): void {
         </div>
         <div class="pet-card__name">{{ pet.item.label }}</div>
         <Stars class="pet-card__stars" :value="pet.star" />
+        <!-- 🐾 每只宠物的加成不一样，星级越高越大（装备着才生效） -->
+        <div class="pet-card__bonus">🐾 {{ petBonusText(petBonusOf(pet.ref as PetId, pet.star)) }}</div>
         <div class="pet-card__price num">🪙 {{ pet.price }}</div>
         <Button size="sm" block :disabled="progress.coins < pet.price" @click="buy(pet)">
           {{ progress.coins < pet.price ? '金币不足' : '带它回家' }}
@@ -204,6 +208,13 @@ function buy(pet: ShopPet): void {
 
 .pet-card__stars {
   font-size: 12px;
+}
+
+.pet-card__bonus {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text-dim);
+  text-align: center;
 }
 
 .pet-card__price {

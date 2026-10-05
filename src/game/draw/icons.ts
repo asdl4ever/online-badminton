@@ -7,7 +7,9 @@ import {
   SWING_TRAIL_COLORS,
   TRAIL_COLORS,
   toHex,
+  isWingFamily,
   type AuraId,
+  type BackId,
   type CapeId,
   type Cosmetic,
   type HatId,
@@ -75,22 +77,23 @@ export function paintItemIcon(item: Item, canvas: HTMLCanvasElement): void {
       // 传 NOW：图标虽然是静止的一帧，但动态头饰要有个像样的姿态
       drawHat(g, 0, 0, item.ref as HatId, NOW);
       break;
-    case 'wings':
-      // 翅膀从肩部（topY+48）向两侧上后方展开
-      ctx.translate(c, ICON * 0.42);
-      ctx.scale(fit(190), fit(190));
-      drawWings(g, NOW, 0, 0, cos('wings', item.ref));
+    case 'back': {
+      // 背部装饰：按 id 家族分派——展开形（原翅膀）向上后方展开，垂坠形（原披风）往下长
+      if (isWingFamily(item.ref as BackId)) {
+        ctx.translate(c, ICON * 0.42);
+        ctx.scale(fit(190), fit(190));
+        drawWings(g, NOW, 0, 0, item.ref as BackId);
+      } else {
+        ctx.translate(c, ICON * 0.06);
+        ctx.scale(fit(150), fit(150));
+        drawCape(g, NOW, 0, 0, item.ref as BackId as CapeId);
+      }
       break;
-    case 'cape':
-      // 披风从肩部垂到脚下，往下长——锚点放高
-      ctx.translate(c, ICON * 0.06);
-      ctx.scale(fit(150), fit(150));
-      drawCape(g, NOW, 0, 0, item.ref as CapeId);
-      break;
+    }
     case 'aura': {
-      // 传入 y = PLAYER_H/2，光环中心正好落在图标中心
+      // 背景特效化的光环跨度更大（纵跨约 ±150）：缩放口径放宽，图标里看得更全
       ctx.translate(c, c);
-      ctx.scale(fit(190), fit(190));
+      ctx.scale(fit(260), fit(260));
       drawAura(g, NOW, 0, PLAYER_H / 2, item.ref as AuraId, AURA_COLORS[item.ref as AuraId] ?? 0xffd45c);
       break;
     }

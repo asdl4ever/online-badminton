@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import CharacterPreview from './CharacterPreview.vue';
+import ItemPreviewStage from './ItemPreviewStage.vue';
 import ItemIcon from './ItemIcon.vue';
 import Stars from './ui/Stars.vue';
 import Button from './ui/Button.vue';
@@ -13,23 +14,26 @@ import {
   RARITY_META,
   SLOT_LABELS,
   SLOT_ORDER,
+  wearItem,
   type Item,
   type ItemSlot,
 } from '../game/items';
 import { CHEST_THEMES, themeOf } from '../game/chest';
+import { hasPetBonus, petBonusOf, petBonusShort, petBonusText } from '../game/pets';
 import type {
   AuraId,
-  CapeId,
+  BackId,
   CharacterSkin,
   HatId,
   HitStyle,
   MountId,
+  PetFollow,
   PetId,
+  PetSide,
   RacketSkinId,
   RingId,
   SwingTrailId,
   TrailId,
-  WingId,
 } from '../game/cosmetics';
 
 const emit = defineEmits<{ 'open-chest': [] }>();
@@ -62,6 +66,35 @@ const sorts: { id: SortBy; label: string }[] = [
 /** pets show the star level the player actually hatched, not a fixed value */
 function displayStars(item: Item): number {
   return item.slot === 'pet' ? progress.petStar(item.ref) || 1 : item.stars;
+}
+
+/* --- 🐾 宠物：跟随方式（背包里选）+ 每只宠物的加成 --------------------------- */
+/** 三种跟随方式（`behind` / `still` 会画在人物身后、贴地） */
+const petFollows: { id: PetFollow; label: string; hint: string }[] = [
+  { id: 'shoulder', label: '肩旁悬浮', hint: '悬浮在肩旁，跟着你跑跳（老样子）' },
+  { id: 'behind', label: '贴地跟随', hint: '贴地跟在身后，会跟着你转身；左右只做偏移' },
+  { id: 'still', label: '站脚边', hint: '站在脚边不动，也不浮动' },
+];
+const petSides: { id: PetSide; label: string }[] = [
+  { id: 'left', label: '左边' },
+  { id: 'right', label: '右边' },
+];
+
+const followHint = computed(() => petFollows.find((f) => f.id === store.petFollow)?.hint ?? '');
+
+/** 这只宠物在当前星级下加多少（按**实际孵化星级**算，没孵化的按 1★） */
+function bonusOf(item: Item): string {
+  if (item.slot !== 'pet') return '';
+  const b = petBonusOf(item.ref as PetId, displayStars(item));
+  return hasPetBonus(b) ? petBonusShort(b) : '';
+}
+
+/** 悬停提示：名字 + 星级 + 加成（格子小，写不开） */
+function cellTitle(item: Item): string {
+  const head = `${item.label} · ${displayStars(item)}★`;
+  if (item.slot !== 'pet') return head;
+  const b = petBonusOf(item.ref as PetId, displayStars(item));
+  return hasPetBonus(b) ? `${head} · ${petBonusText(b)}（只有装备着才生效）` : head;
 }
 
 /* --- 筛选：星级（可多选）+ 宝箱主题（可多选） -------------------------------- */
@@ -137,10 +170,8 @@ function currentRef(slot: ItemSlot): string {
       return store.characterSkin;
     case 'hat':
       return store.hat;
-    case 'wings':
-      return store.wings;
-    case 'cape':
-      return store.cape;
+    case 'back':
+      return store.back;
     case 'aura':
       return store.aura;
     case 'ring':
@@ -172,11 +203,8 @@ function equip(item: Item): void {
     case 'hat':
       store.hat = item.ref as HatId;
       break;
-    case 'wings':
-      store.wings = item.ref as WingId;
-      break;
-    case 'cape':
-      store.cape = item.ref as CapeId;
+    case 'back':
+      store.back = item.ref as BackId;
       break;
     case 'aura':
       store.aura = item.ref as AuraId;
@@ -205,8 +233,41 @@ function equip(item: Item): void {
   }
 }
 
+/* --- 🎬 左边预览：动作类的部位换成「挥拍 + 球飞过」的小舞台（复用宝箱详情那份组件） --- */
+/**
+ * 只在动作里才看得见的部位：**击球拖尾 / 挥拍拖尾 / 命中特效**。
+ * 静着看它们什么都看不见（清一色空白），所以左边要演一段给你看——
+ * 口径与宝箱的「试穿效果」完全一致（那边也是这三类走 `ItemPreviewStage`）。
+ */
+const IN_GAME_ONLY: ItemSlot[] = ['trail', 'swingTrail', 'effect'];
+/** 刚点过的那一件（用来决定左边演谁；切页签会清掉） */
+const shown = ref<Item | null>(null);
+
+/**
+ * 左边这块演哪一件：
+ * 1. 刚点的那件是动作类 → 就演它；
+ * 2. 当前页签本身就是动作类（拖尾 / 挥拍拖尾 / 命中特效）→ 演身上穿着的那件；
+ * 3. 其余情况 → 回静态角色预览。
+ */
+const staged = computed<Item | null>(() => {
+  if (shown.value && IN_GAME_ONLY.includes(shown.value.slot)) return shown.value;
+  const f = filter.value;
+  if (f === 'all' || !IN_GAME_ONLY.includes(f)) return null;
+  return ITEMS.find((i) => i.slot === f && i.ref === currentRef(f)) ?? null;
+});
+
+/** 演示用的这一身 = 自己现在穿的（点了什么先把那件套上，看得就是它的效果） */
+const previewCos = computed(() =>
+  shown.value ? wearItem(store.cosmetic, shown.value) : store.cosmetic,
+);
+
+// 换页签就忘掉「刚点的那件」，回到「这个页签演什么」的默认判断
+watch(filter, () => (shown.value = null));
+
 function onCell(item: Item | null): void {
   if (!item) return;
+  // 动作类的点一下就在左边演起来（已装备的那件也让它再演一遍）
+  shown.value = IN_GAME_ONLY.includes(item.slot) ? item : null;
   if (isEquipped(item)) {
     toastWarn(`已经装备着「${item.label}」`);
     return;
@@ -231,7 +292,13 @@ function equippedLabel(slot: ItemSlot): string {
 <template>
   <div class="bp">
     <div class="bp__left">
-      <CharacterPreview />
+      <!-- 🎬 拖尾 / 挥拍拖尾 / 命中特效静着看什么都没有，左边换成会动的演示舞台
+           （组件与宝箱「试穿效果」里那个是同一个） -->
+      <ItemPreviewStage v-if="staged" :cosmetic="previewCos" :slot="staged.slot" />
+      <CharacterPreview v-else :cosmetic="previewCos" />
+      <p v-if="staged" class="muted bp__stage-hint">
+        🎬 左边演的就是它在球场上的样子（循环播放，换页签或点别的装扮就回静态）
+      </p>
       <div class="bp__loadout">
         <div v-for="slot in SLOT_ORDER" :key="slot" class="bp__loadout-row">
           <span class="bp__loadout-slot">{{ SLOT_LABELS[slot] }}</span>
@@ -273,6 +340,51 @@ function equippedLabel(slot: ItemSlot): string {
             {{ s.label }}
           </button>
         </div>
+      </div>
+
+      <!-- 🐾 宠物栏：跟随方式（左/右）+ 当前生效的加成 -->
+      <div v-if="filter === 'pet'" class="bp__pet">
+        <div class="bp__pet-row">
+          <span class="bp__sorts-label">跟随</span>
+          <div class="bp__chips">
+            <button
+              v-for="f in petFollows"
+              :key="f.id"
+              class="bp__chip"
+              :class="{ 'is-on': store.petFollow === f.id }"
+              type="button"
+              :title="f.hint"
+              @click="store.petFollow = f.id"
+            >
+              {{ f.label }}
+            </button>
+          </div>
+          <span class="bp__sorts-label">位置</span>
+          <div class="bp__chips">
+            <button
+              v-for="s in petSides"
+              :key="s.id"
+              class="bp__chip"
+              :class="{ 'is-on': store.petSide === s.id }"
+              type="button"
+              @click="store.petSide = s.id"
+            >
+              {{ s.label }}
+            </button>
+          </div>
+        </div>
+        <p class="bp__pet-note">
+          <template v-if="store.pet === 'none'">还没带宠物——点下面的宠物格子装备一只。</template>
+          <template v-else>
+            <b>{{ equippedLabel('pet') }}</b>
+            <template v-if="hasPetBonus(progress.petBonus)">
+              · {{ petBonusText(progress.petBonus) }}
+              <span class="muted">（只有装备着的这一只生效）</span>
+            </template>
+            <template v-else>· 这只宠物没有加成</template>
+            <span class="muted"> · {{ followHint }}</span>
+          </template>
+        </p>
       </div>
 
       <!-- 筛选：星级（多选）+ 宝箱主题（多选），可和上面的部位页签叠加 -->
@@ -321,6 +433,7 @@ function equippedLabel(slot: ItemSlot): string {
           :class="{ 'is-empty': !item, 'is-equipped': item && isEquipped(item) }"
           :style="item ? { '--rarity': RARITY_META[item.rarity].color } : undefined"
           type="button"
+          :title="item ? cellTitle(item) : undefined"
           :disabled="!item"
           @click="onCell(item)"
         >
@@ -328,6 +441,7 @@ function equippedLabel(slot: ItemSlot): string {
             <ItemIcon class="bp__cell-icon" :item="item" />
             <span class="bp__cell-label">{{ item.label }}</span>
             <Stars class="bp__cell-stars" :value="displayStars(item)" />
+            <span v-if="bonusOf(item)" class="bp__cell-bonus">{{ bonusOf(item) }}</span>
             <span v-if="isEquipped(item)" class="bp__cell-check">✓</span>
           </template>
         </button>
@@ -335,6 +449,8 @@ function equippedLabel(slot: ItemSlot): string {
 
       <p class="muted bp__note">
         点格子即可装备。宝箱开出的物品会直接进入背包，重复物品按稀有度返还金币；宠物在商城（🏪 → 皮肤 → 宠物）购买。
+        <br />🐾 每只宠物的加成不一样（有的偏金币、有的偏经验，见格子上的小字），
+        <b>只有装备着的那一只生效</b>，星级越高加成越大。
       </p>
     </div>
   </div>
@@ -354,6 +470,12 @@ function equippedLabel(slot: ItemSlot): string {
 
 .bp__main {
   min-width: 0;
+}
+
+.bp__stage-hint {
+  margin: var(--s2) 0 0;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .bp__loadout {
@@ -544,6 +666,36 @@ function equippedLabel(slot: ItemSlot): string {
 
 .bp__cell-stars {
   font-size: 9px;
+}
+
+/* 宠物格子上的加成（格子小，写短语，完整说明看悬停提示） */
+.bp__cell-bonus {
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* 🐾 宠物栏：跟随方式 + 当前加成（只在宠物页签出现） */
+.bp__pet {
+  margin-top: var(--s3);
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.bp__pet-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.bp__pet-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text);
 }
 
 .bp__cell-check {

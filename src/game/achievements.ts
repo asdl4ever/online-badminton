@@ -150,7 +150,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     goal: 10,
     metric: { kind: 'species' },
     keys: 3,
-    itemId: 'wings:seaWave',
+    itemId: 'back:seaWave',
   },
   {
     id: 'sea-best-10',
@@ -169,7 +169,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     goal: 30,
     metric: { kind: 'bestKg' },
     keys: 3,
-    itemId: 'wings:manta',
+    itemId: 'back:manta',
   },
   {
     id: 'sea-sold-3000',
@@ -228,7 +228,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     goal: 3,
     metric: { kind: 'trips' },
     keys: 2,
-    itemId: 'wings:sail',
+    itemId: 'back:sail',
   },
   {
     id: 'sea-gear-5',

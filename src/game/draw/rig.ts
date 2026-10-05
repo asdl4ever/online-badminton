@@ -4,8 +4,8 @@ import { SWING_TRAIL_COLORS, type Cosmetic, type SwingTrailId } from '../cosmeti
 import type { SwingSample } from '../racket';
 import { FONT_EMOJI, P } from '../theme';
 import { drawCharacter, type FaceSink } from './character';
-import { drawRacketHead, racketFrameColor } from './racket';
-import { THEME_SWINGS, drawThemeSwing } from './themeart';
+import { drawRacketHead, racketFrameColor, RACKET_HEAD_CX } from './racket';
+import { drawSwingCustom } from './swings-theme';
 
 /**
  * The shared player rig: emoji face + body + arm + racket, drawn exactly the
@@ -125,6 +125,9 @@ export function drawRigGraphics(
     g.save();
     g.translateCanvas(head.x, head.y);
     g.rotateCanvas(ang);
+    // drawRacketHead 把拍框中心画在局部 (RACKET_HEAD_CX, 0)——往回挪它，
+    // 让「看得见的拍面中心」正好落在模拟层的拍头点上（球在这里被判定击中）。
+    g.translateCanvas(-RACKET_HEAD_CX, 0);
     drawRacketHead(g, now, skin, frameColor);
     g.restore();
   }
@@ -140,9 +143,24 @@ export function drawRigGraphics(
 // ---- 挥拍拖尾 ---------------------------------------------------------------
 
 /** 拖尾寿命（秒）：挥过去这么久之后就完全淡掉 */
-const TRAIL_LIFE = 0.32;
+const TRAIL_LIFE = 0.46;
 /** 慢于这个速度的采样不算挥拍（举着拍走 / 慢慢挪不拖尾巴） */
-const TRAIL_MIN_SPEED = 220;
+const TRAIL_MIN_SPEED = 150;
+
+/** 5★ 挥拍拖尾：在全局增强（底光 + 更粗更亮）之上再叠一层星点 / 光环 */
+const FIVE_STAR_SWINGS = new Set<string>([
+  'atomic', 'drabreath', 'orbit', 'prism', 'voidcut',
+  'desSwing', 'nimbSwing', 'confSwing', 'bigtSwing', 'aegisSwing',
+  'chanSwing', 'arcanSwing', 'relicSwing', 'playSwing', 'yuanSwing',
+  // 第三批新主题的挥拍拖尾（5★）
+  'pirateSwing', 'steamSwing', 'astroSwing', 'juraSwing', 'mushSwing',
+  'tropicSwing', 'cryptSwing', 'festivSwing', 'sushiSwing', 'wildSwing',
+  // 第四批新主题的挥拍拖尾（5★）
+  'vulcSwing', 'trenchSwing', 'dojoSwing', 'inkwSwing', 'fairySwing',
+  'racerSwing', 'vampSwing', 'autumnSwing', 'pandaSwing', 'jokerSwing',
+  'pagodSwing', 'stormSwing', 'lunarSwing', 'vikingSwing', 'safariSwing',
+  'theatSwing', 'boreaSwing', 'venicSwing', 'olympSwing', 'sambaSwing',
+]);
 
 interface PathPt {
   x: number;
@@ -186,10 +204,10 @@ export function drawSwingTrail(
     if (age > TRAIL_LIFE || s.s < TRAIL_MIN_SPEED) continue;
     const fade = 1 - age / TRAIL_LIFE;
     const spd = Math.min(1, s.s / 1400);
-    pts.push({ x: sx + s.rx, y: sy + s.ry, a: fade * (0.22 + 0.62 * spd), w: 0 });
+    pts.push({ x: sx + s.rx, y: sy + s.ry, a: fade * (0.32 + 0.68 * spd), w: 0 });
   }
   if (pts.length < 2) return;
-  const base = 5 + 10 * hot;
+  const base = 7 + 13 * hot;
   for (let i = 0; i < pts.length; i++) {
     pts[i].w = base * (0.3 + 0.7 * (i / (pts.length - 1)));
   }
@@ -255,56 +273,111 @@ export function drawSwingTrail(
     return;
   }
 
-  // 新主题宝箱的挥拍拖尾：复用同一条真实轨迹，只是画法不同
-  const themeSwing = THEME_SWINGS[style];
-  if (themeSwing) {
-    drawThemeSwing(themeSwing, { g, color, n, ribbon, core, at, dot, wobble });
+  // 全局底光：所有风格都先垫两层又宽又淡的光晕，挥拍轨迹在任何球场上都读得出来
+  ribbon(3.2, color, 0.14);
+  ribbon(2.0, color, 0.22);
+
+  // 主题挥拍拖尾：逐款独立构图（draw/swings-theme/），复用同一条真实轨迹
+  if (drawSwingCustom(g, now, hot, style, { pts, n, ribbon, core, at, dot, wobble }, color)) {
+    if (FIVE_STAR_SWINGS.has(style)) starSwingExtras();
     return;
   }
 
+  /** 5★ 专属华彩：沿轨迹撒星点 + 拍头脉冲光环 + 外扩余波 */
+  function starSwingExtras(): void {
+    const h = pts[n - 1];
+    for (let i = 2; i < n; i += 2) {
+      const p = at(i);
+      const tw = 0.5 + 0.5 * Math.sin(now / 110 - i * 0.9);
+      g.fillStyle(0xffffff, Math.min(1, pts[i].a * (0.5 + 0.5 * tw)));
+      g.fillCircle(p.x, p.y, 1.4 + pts[i].w * 0.28);
+    }
+    g.lineStyle(2, color, Math.min(1, h.a * 0.9));
+    g.strokeCircle(h.x, h.y, 12 + 8 * hot + Math.sin(now / 150) * 2.5);
+    g.fillStyle(0xffffff, Math.min(1, 0.4 + 0.5 * hot));
+    g.fillCircle(h.x, h.y, 4 + 4 * hot);
+  }
+
   switch (style) {
-    case 'slash':
-      // 斩击：宽弧 + 白芯
+    case 'slash': {
+      // 斩击：宽刃带 + 白芯 + 拍头处一道大月牙斩弧
       ribbon(1.7, color, 1);
+      ribbon(1.1, color, 0.55, 8);
       core(0.4, 1.2);
+      const h1 = pts[n - 1];
+      const a1 = Math.atan2(h1.y - pts[n - 3].y, h1.x - pts[n - 3].x);
+      g.lineStyle(5 + 4 * hot, color, Math.min(1, h1.a * 1.2));
+      g.beginPath();
+      g.arc(h1.x, h1.y, 26 + 14 * hot, a1 - 1.15, a1 + 0.75);
+      g.strokePath();
+      g.lineStyle(2, 0xffffff, Math.min(1, h1.a * 1.1));
+      g.beginPath();
+      g.arc(h1.x, h1.y, 26 + 14 * hot, a1 - 0.9, a1 + 0.4);
+      g.strokePath();
       break;
+    }
     case 'atomic':
-      // 原子吐息：深色底 + 三层电蓝 + 白芯
+      // 原子吐息：深色底 + 三层电蓝 + 白芯 + 环绕电子
       ribbon(2.3, 0x123a4a, 0.85);
       ribbon(1.3, color, 1);
       ribbon(0.6, color, 0.85);
       core(0.3, 1);
+      for (let k = 0; k < 3; k++) {
+        const i = (Math.floor(now / 130) + k * 3) % n;
+        const p = at(i);
+        g.lineStyle(1.6, 0x9fe8ff, Math.min(1, pts[i].a));
+        g.strokeCircle(p.x, p.y, 6 + 4 * hot);
+      }
       break;
     case 'tempo':
-      // 节拍器：细弧 + 等距刻度
+      // 节拍器：细弧 + 交替长短刻度（节拍感）+ 拍头音符点
       ribbon(1, color, 1);
       for (let i = 2; i < n; i += 3) {
         const p = perp(i);
-        g.lineStyle(2, 0xffffff, Math.min(1, pts[i].a * 1.2));
+        const long = (i / 3) % 2 === 0;
+        const len = long ? 10 + 9 * hot : 5;
+        g.lineStyle(long ? 2.6 : 1.6, long ? 0xffffff : color, Math.min(1, pts[i].a * 1.3));
         g.lineBetween(
-          pts[i].x - p.x * 5,
-          pts[i].y - p.y * 5,
-          pts[i].x + p.x * (5 + 7 * hot),
-          pts[i].y + p.y * (5 + 7 * hot),
+          pts[i].x - p.x * 4,
+          pts[i].y - p.y * 4,
+          pts[i].x + p.x * (4 + len),
+          pts[i].y + p.y * (4 + len),
         );
       }
       break;
     case 'shock':
-      // 冲击：三条错开的余波 + 拍头一圈
+      // 冲击：三条错开的余波 + 拍头三重扩散环
       ribbon(1.1, color, 1);
       ribbon(0.7, color, 0.7, 6);
       ribbon(0.5, color, 0.45, -6);
-      g.lineStyle(2, color, Math.min(1, pts[n - 1].a * 1.3));
-      g.strokeCircle(pts[n - 1].x, pts[n - 1].y, 10 + 16 * hot);
+      for (let k = 0; k < 3; k++) {
+        const rr = 8 + k * 9 + 16 * hot + Math.sin(now / 130 - k) * 3;
+        g.lineStyle(2.4 - k * 0.7, k === 0 ? 0xffffff : color, Math.min(1, pts[n - 1].a * (1.2 - k * 0.3)));
+        g.strokeCircle(pts[n - 1].x, pts[n - 1].y, rr);
+      }
       break;
-    case 'cyclone':
-      // 旋风：轨迹上叠一道驻波
+    case 'cyclone': {
+      // 旋风：轨迹上叠两道反向驻波 + 卷起的螺旋点
       wobble((i) => Math.sin((i / n) * Math.PI * 5) * 9, 0.9, color, 1.1);
+      wobble((i) => -Math.sin((i / n) * Math.PI * 5 + 1.2) * 13, 0.5, color, 0.8);
       core(0.25, 1);
+      for (let k = 0; k < 4; k++) {
+        const i = (Math.floor(now / 110) + k * 4) % n;
+        const q = at(i, Math.sin(i * 0.8 + now / 160) * 12);
+        g.fillStyle(color, Math.min(1, pts[i].a));
+        g.fillCircle(q.x, q.y, 2 + (k % 2) * 1.4);
+      }
       break;
+    }
     case 'afterimage':
-      // 残像：同一条轨迹往法线方向再描两道
+      // 残像：同一条轨迹往法线方向再描两道 + 各带一颗残影点
       for (let k = 0; k < 3; k++) ribbon(1.15 - k * 0.28, color, 1 - k * 0.3, k * 5);
+      for (let k = 1; k < 3; k++) {
+        const i = Math.max(1, n - 1 - k * 4);
+        const p = at(i, k * 5);
+        g.fillStyle(0xffffff, Math.min(1, pts[i].a * (0.8 - k * 0.2)));
+        g.fillCircle(p.x, p.y, 3.4 - k);
+      }
       break;
     case 'bolt':
       // 落雷：锯齿
@@ -323,24 +396,48 @@ export function drawSwingTrail(
         g.fillTriangle(q.x, q.y, q.x + p.x * len, q.y + p.y * len, q.x - p.y * 3, q.y + p.x * 3);
       }
       break;
-    case 'frostbite':
-      // 冰痕：白芯 + 沿路冰晶
+    case 'frostbite': {
+      // 冰痕：白芯 + 沿路六角冰晶（旋转）
       ribbon(0.9, color, 1);
       core(0.4, 1.2);
-      for (let i = 1; i < n; i += 2) dot(i, 2 + 2.5 * hot, 0xdcf4ff, 1.4);
-      break;
-    case 'orbit': {
-      // 星轨：细弧 + 几个沿路径跑的光点
-      ribbon(0.55, color, 1);
-      const head0 = Math.floor(now / 90) % n;
-      for (let k = 0; k < 5; k++) dot((head0 + k * 3) % n, 2 + 2.5 * hot, 0xfff2b0, 1.6);
+      for (let i = 1; i < n; i += 2) {
+        const q = at(i);
+        const r = 2.4 + 2.6 * hot;
+        g.save();
+        g.translateCanvas(q.x, q.y);
+        g.rotateCanvas(now / 400 + i);
+        g.lineStyle(1.4, 0xdcf4ff, Math.min(1, pts[i].a * 1.5));
+        for (let k = 0; k < 3; k++) {
+          const a = (k / 3) * Math.PI;
+          g.lineBetween(-Math.cos(a) * r, -Math.sin(a) * r, Math.cos(a) * r, Math.sin(a) * r);
+        }
+        g.restore();
+      }
       break;
     }
-    case 'wave':
-      // 波浪：随时间起伏的带子
-      wobble((i) => Math.sin(i * 0.9 + now / 90) * 6, 0.8, color, 1.2);
+    case 'orbit': {
+      // 星轨：细弧 + 几个沿路径跑的光点（带拖尾）
+      ribbon(0.55, color, 1);
+      const head0 = Math.floor(now / 90) % n;
+      for (let k = 0; k < 5; k++) {
+        const i = (head0 + k * 3) % n;
+        dot(i, 2 + 2.5 * hot, 0xfff2b0, 1.6);
+        if (i > 1) {
+          const q0 = at(i);
+          const q1 = at(i - 1);
+          g.lineStyle(1.6, 0xfff2b0, Math.min(1, pts[i].a * 0.9));
+          g.lineBetween(q1.x, q1.y, q0.x, q0.y);
+        }
+      }
+      break;
+    }
+    case 'wave': {
+      // 波浪：两条反向起伏的带子交织
+      wobble((i) => Math.sin(i * 0.9 + now / 90) * 8, 0.8, color, 1.2);
+      wobble((i) => -Math.sin(i * 0.9 + now / 90) * 8, 0.55, 0xffffff, 0.9);
       core(0.2, 1);
       break;
+    }
     case 'thorn':
       // 荆棘：带子 + 垂直尖刺
       ribbon(0.8, color, 1);
@@ -400,15 +497,25 @@ export function drawSwingTrail(
       g.fillCircle(h.x, h.y, 3 + 4 * hot);
       break;
     }
-    case 'voidcut':
-      // 虚空斩：深紫底 + 亮芯
+    case 'voidcut': {
+      // 虚空斩：深紫底 + 亮刃口白线 + 沿路被吸进去的暗影点
       ribbon(2.3, 0x1a0b2e, 0.85);
       ribbon(0.8, color, 1);
+      ribbon(0.35, 0xffffff, 1, -3);
       core(0.3, 1.1);
+      for (let k = 0; k < 4; k++) {
+        const i = (Math.floor(now / 100) + k * 3) % n;
+        const q = at(i, Math.sin(i * 0.7 + now / 130) * 8);
+        g.fillStyle(0x1a0b2e, Math.min(1, pts[i].a * 0.9));
+        g.fillCircle(q.x, q.y, 2.4);
+      }
       break;
+    }
   }
 
+  if (FIVE_STAR_SWINGS.has(style)) starSwingExtras();
+
   // 拍头那一点始终最亮：这是「正在挥拍」的视觉锚点
-  g.fillStyle(0xffffff, Math.min(1, 0.2 + 0.5 * hot));
-  g.fillCircle(pts[n - 1].x, pts[n - 1].y, 2.5 + 3.5 * hot);
+  g.fillStyle(0xffffff, Math.min(1, 0.25 + 0.55 * hot));
+  g.fillCircle(pts[n - 1].x, pts[n - 1].y, 3 + 4.5 * hot);
 }

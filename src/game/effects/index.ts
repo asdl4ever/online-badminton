@@ -1,3 +1,4 @@
+import type Phaser from 'phaser';
 import type { HitStyle } from '../cosmetics';
 import { spark, slash, burst, shock, frost, star, prism, vortex, ripple, hex, spiral, shatter, nova, rune, ringburst, ringdance, prismfan } from './basic';
 import { shards, cross, sword, swordcross, shuriken, claw, icicle, boulder, quake, meteor, meteorrain, arrow, aim, shield, chain, thorn, thorncrown } from './shard';
@@ -11,7 +12,7 @@ import { meteorBurst } from './alienburst';
 import { shardpop, drastar } from './crystal';
 import { PLUS_PAINTERS, PLUS_SPAN } from './plus';
 import { paintDefault } from './basic';
-import type { EffectPainter } from './types';
+import type { EffectPainter, HitFlash } from './types';
 
 export type { EffectPainter, HitFlash } from './types';
 export { paintDefault };
@@ -220,3 +221,198 @@ export const EFFECT_PAINTERS: Partial<Record<HitStyle, EffectPainter>> = {
   web,
   wind,
 };
+
+// ---- ★5 命中特效的「高星华彩」----------------------------------------------
+// 22 款 5★ 命中特效在各自画法之上再叠一层：按形态分成爆发 / 星芒 / 旋涡 / 电弧 / 雾散
+// 五种，件件可见地更重、更大、更亮；1~4★ 的特效不受影响（保持原有的朴素观感）。
+type Flourish = (g: Phaser.GameObjects.Graphics, f: HitFlash, t: number, a: number, size: number) => void;
+
+/** 爆发：双环扩张 + 一圈放射尖芒 */
+const flourishNova: Flourish = (g, f, t, a, size) => {
+  const r = (10 + t * 64) * size;
+  for (let k = 0; k < 12; k++) {
+    const ang = (k / 12) * Math.PI * 2 + f.ang;
+    g.lineStyle(2 * size, k % 2 ? 0xffffff : f.color, a * 0.7);
+    g.lineBetween(f.x + Math.cos(ang) * r * 0.7, f.y + Math.sin(ang) * r * 0.7, f.x + Math.cos(ang) * r * 1.18, f.y + Math.sin(ang) * r * 1.18);
+  }
+  g.lineStyle(3 * size, 0xffffff, a * 0.5);
+  g.strokeCircle(f.x, f.y, r);
+  g.lineStyle(5 * size, f.color, a * 0.35);
+  g.strokeCircle(f.x, f.y, r * 0.82);
+};
+
+/** 星芒：一片四散的大小星点 + 一圈光环 */
+const flourishStar: Flourish = (g, f, t, a, size) => {
+  for (let k = 0; k < 16; k++) {
+    const ang = k * 2.399 + f.seed;
+    const rr = (12 + t * 72) * size;
+    const tw = 0.5 + 0.5 * Math.sin(f.seed * 7 + k * 1.7);
+    g.fillStyle(k % 3 === 0 ? 0xffffff : f.color, a * (0.5 + 0.5 * tw));
+    g.fillCircle(f.x + Math.cos(ang) * rr, f.y + Math.sin(ang) * rr, (1.6 + 2.6 * (1 - t)) * size);
+  }
+  g.lineStyle(2 * size, 0xffffff, a * 0.6);
+  g.strokeCircle(f.x, f.y, (14 + t * 44) * size);
+};
+
+/** 旋涡：三条甩出去又收拢的旋臂 */
+const flourishVortex: Flourish = (g, f, t, a, size) => {
+  for (let arm = 0; arm < 3; arm++) {
+    g.lineStyle(2.4 * size, arm % 2 ? f.color : 0xffffff, a * 0.6);
+    g.beginPath();
+    for (let s = 0; s <= 12; s++) {
+      const u = s / 12;
+      const ang = (arm / 3) * Math.PI * 2 + u * 4 + t * 5;
+      const rr = u * (14 + t * 62) * size;
+      const px = f.x + Math.cos(ang) * rr;
+      const py = f.y + Math.sin(ang) * rr;
+      if (s === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+  }
+};
+
+/** 电弧：三股沿击球方向窜出、带随机折角的雷 */
+const flourishBolt: Flourish = (g, f, t, a, size) => {
+  for (let k = 0; k < 3; k++) {
+    const base = f.ang + (k - 1) * 0.7;
+    let px = f.x;
+    let py = f.y;
+    g.lineStyle(2.4 * size, 0xffffff, a * 0.8);
+    for (let s = 1; s <= 6; s++) {
+      const len = (8 + t * 62) * (s / 6) * size;
+      const jitter = Math.sin(f.seed * 5 + s * 3 + k) * 7 * size;
+      const nx = f.x + Math.cos(base) * len - Math.sin(base) * jitter;
+      const ny = f.y + Math.sin(base) * len + Math.cos(base) * jitter;
+      g.lineBetween(px, py, nx, ny);
+      px = nx;
+      py = ny;
+    }
+  }
+};
+
+/** 雾散：一团向外飘散的浓雾颗粒 */
+const flourishMist: Flourish = (g, f, t, a, size) => {
+  for (let k = 0; k < 18; k++) {
+    const ang = k * 2.399 + f.seed;
+    const rr = (6 + t * 70) * size;
+    g.fillStyle(f.color, a * 0.45 * (1 - t));
+    g.fillCircle(f.x + Math.cos(ang) * rr, f.y + Math.sin(ang) * rr, (2 + 3.4 * (1 - t)) * size);
+  }
+};
+
+/** 棱片：八片彩色三角碎片边自转边螺旋飞散 */
+const flourishShard: Flourish = (g, f, t, a, size) => {
+  const hues = [0xff5a5a, 0xffb347, 0xffe86a, 0x7ed957, 0x5fd0c0, 0x5aa8ff, 0x9a7bff, 0xff8ad4];
+  for (let k = 0; k < 8; k++) {
+    const ang = f.ang + (k / 8) * Math.PI * 2 + t * 2.2;
+    const rr = (8 + t * 58) * size;
+    const px = f.x + Math.cos(ang) * rr;
+    const py = f.y + Math.sin(ang) * rr;
+    const s = (4 + 3 * (1 - t)) * size;
+    g.save();
+    g.translateCanvas(px, py);
+    g.rotateCanvas(ang + t * 6 + f.seed);
+    g.fillStyle(hues[k], a * 0.85 * (1 - t * 0.4));
+    g.fillTriangle(-s, s * 0.6, s, s * 0.6, 0, -s * 1.2);
+    g.fillStyle(0xffffff, a * 0.5 * (1 - t));
+    g.fillTriangle(-s * 0.4, s * 0.3, s * 0.4, s * 0.3, 0, -s * 0.6);
+    g.restore();
+  }
+};
+
+/** 流星：五条沿击球方向射出、拖着尾的流光 */
+const flourishComet: Flourish = (g, f, t, a, size) => {
+  for (let k = 0; k < 5; k++) {
+    const spread = (k - 2) * 0.26;
+    const ang = f.ang + spread + Math.sin(f.seed + k) * 0.12;
+    const len = (14 + t * 74) * size;
+    const tx = f.x + Math.cos(ang) * len;
+    const ty = f.y + Math.sin(ang) * len;
+    const bx = f.x + Math.cos(ang) * Math.max(0, len - 26 * size);
+    const by = f.y + Math.sin(ang) * Math.max(0, len - 26 * size);
+    g.lineStyle(3 * size * (1 - t * 0.5), k % 2 ? f.color : 0xffffff, a * 0.8 * (1 - t * 0.3));
+    g.lineBetween(bx, by, tx, ty);
+    g.fillStyle(0xffffff, a * 0.9 * (1 - t));
+    g.fillCircle(tx, ty, 2.2 * size);
+  }
+};
+
+/** 引力：两圈向内收拢的环 + 中心聚成一点的白光 */
+const flourishGrav: Flourish = (g, f, t, a, size) => {
+  const r = (64 - t * 48) * size;
+  g.lineStyle(3 * size, f.color, a * 0.55);
+  g.strokeCircle(f.x, f.y, Math.max(2, r));
+  g.lineStyle(1.6 * size, 0xffffff, a * 0.4);
+  g.strokeCircle(f.x, f.y, Math.max(1, r * 1.3));
+  for (let k = 0; k < 10; k++) {
+    const ang = k * 2.399 + f.seed + t * 3;
+    const rr = r * (0.5 + 0.5 * ((k % 3) / 3));
+    g.fillStyle(k % 2 ? 0xffffff : f.color, a * 0.7);
+    g.fillCircle(f.x + Math.cos(ang) * rr, f.y + Math.sin(ang) * rr, 1.8 * size);
+  }
+  g.fillStyle(0xffffff, a * 0.85 * (1 - t * 0.5));
+  g.fillCircle(f.x, f.y, (3 + 5 * t) * size);
+};
+
+/** 微华彩（4★）：一圈细环 + 六个沿环闪烁的小亮点——轻，但一眼看得出「高了一档」 */
+const flourishGlint: Flourish = (g, f, t, a, size) => {
+  const r = (12 + t * 40) * size;
+  g.lineStyle(1.4 * size, 0xffffff, a * 0.4);
+  g.strokeCircle(f.x, f.y, r);
+  for (let k = 0; k < 6; k++) {
+    const ang = f.ang + (k / 6) * Math.PI * 2 + t * 1.5;
+    const tw = 0.5 + 0.5 * Math.sin(f.seed * 3 + k * 2.1);
+    g.fillStyle(0xffffff, a * (0.3 + 0.5 * tw));
+    g.fillCircle(f.x + Math.cos(ang) * r, f.y + Math.sin(ang) * r, (1.2 + 1.2 * (1 - t)) * size);
+  }
+};
+
+/** 5★ 命中特效 → 用哪种华彩 */
+const FIVE_STAR_FLOURISH: Partial<Record<HitStyle, Flourish>> = {
+  nova: flourishNova, sun: flourishNova, flamenova: flourishNova, gzfire: flourishNova, holy: flourishNova,
+  star: flourishStar, rune: flourishStar, petal: flourishStar, moon: flourishStar, shield: flourishStar, beam: flourishStar,
+  vortex: flourishVortex, portal: flourishVortex,
+  lightning: flourishBolt,
+  ink: flourishMist, phantom: flourishMist,
+  // 换了更贴题的新华彩：棱光 / 崩裂 → 彩色棱片，流星雨 / 星系 → 流光，黑洞 / 原子 → 引力坍缩
+  prism: flourishShard, shatter: flourishShard,
+  meteorrain: flourishComet, galaxy: flourishComet,
+  blackhole: flourishGrav, atom: flourishGrav,
+};
+
+for (const id of Object.keys(FIVE_STAR_FLOURISH) as HitStyle[]) {
+  const base = EFFECT_PAINTERS[id];
+  const extra = FIVE_STAR_FLOURISH[id];
+  if (!base || !extra) continue;
+  EFFECT_PAINTERS[id] = (g, f, t, a, size) => {
+    base(g, f, t, a, size);
+    extra(g, f, t, a, size);
+  };
+}
+
+/**
+ * **4★ 命中特效的「微华彩」**：在各自画法之上叠一层 `flourishGlint`
+ * （细环 + 闪烁点）——比 1~3★ 明显亮一档，又不会盖过 5★ 那套全场华彩。
+ */
+const FOUR_STAR_GLOW: Partial<Record<HitStyle, Flourish>> = {};
+for (const id of [
+  'burst', 'shock', 'cross', 'spiral', 'feather', 'comet', 'sonic', 'gear', 'bomb', 'sword',
+  'claw', 'meteor', 'poison', 'chain', 'thorn', 'blossom', 'cube', 'pyramid', 'eye', 'dna',
+  'acid', 'heart', 'firework', 'ringburst', 'swordcross', 'boulder', 'quake', 'tornado',
+  'blizzard', 'volcano', 'tsunami', 'aurora', 'starlight', 'rainbow', 'laser', 'plasma',
+  'mushroom', 'pixelate', 'glitch', 'binary', 'ringdance', 'butterfly', 'thorncrown', 'tide',
+  'prismfan', 'pow', 'shardpop', 'drastar', 'meteorBurst',
+] as HitStyle[]) {
+  FOUR_STAR_GLOW[id] = flourishGlint;
+}
+
+for (const id of Object.keys(FOUR_STAR_GLOW) as HitStyle[]) {
+  const base = EFFECT_PAINTERS[id];
+  const extra = FOUR_STAR_GLOW[id];
+  if (!base || !extra) continue;
+  EFFECT_PAINTERS[id] = (g, f, t, a, size) => {
+    base(g, f, t, a, size);
+    extra(g, f, t, a, size);
+  };
+}

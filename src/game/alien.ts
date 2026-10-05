@@ -51,7 +51,7 @@ export const ALIEN_MILESTONES: AlienMilestone[] = [
   { kills: 42, id: 'trail:stardust' },
   { kills: 48, id: 'swingTrail:beam' },
   { kills: 54, id: 'racketSkin:meteorite' },
-  { kills: 60, id: 'cape:antigrav' },
+  { kills: 60, id: 'back:antigrav' },
   { kills: 66, id: 'ring:orbit' },
   { kills: 72, id: 'skin:alien' },
 ];

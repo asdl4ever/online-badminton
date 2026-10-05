@@ -47,6 +47,59 @@ function particle(g: Phaser.GameObjects.Graphics, shape: Shape, x: number, y: nu
   }
 }
 
+// ---- layered extras ---------------------------------------------------------
+// 100 个特效不再是「圆点对称炸开」：在原型之上按 arch 叠加
+// 方向偏置（朝挥拍方向飞得更远）+ 斩击弧 / 冲击核 / 延迟余烬的二段结构。
+
+/** 方向偏置：位于挥拍方向 ±100° 扇面内的粒子被拉长 1.4 倍 */
+function dirBias(f: { ang: number }, ang: number, t: number, size: number): { dx: number; dy: number } {
+  let d = ang - f.ang;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  const bias = Math.abs(d) < 1.75 ? (1.75 - Math.abs(d)) * 0.26 * t * size : 0;
+  return { dx: Math.cos(f.ang) * bias * 40, dy: Math.sin(f.ang) * bias * 40 };
+}
+
+/** 方向斩击弧：沿挥拍方向甩出的一道新月弧 */
+function slashLayer(g: Phaser.GameObjects.Graphics, f: { x: number; y: number; ang: number }, t: number, a: number, size: number, c1: number, c2: number): void {
+  const reach = (18 + t * 62) * size;
+  g.save();
+  g.translateCanvas(f.x, f.y);
+  g.rotateCanvas(f.ang);
+  g.lineStyle((5 * (1 - t) + 1) * size, c1, a * 0.9);
+  g.beginPath();
+  g.arc(-reach * 0.25, 0, reach * 0.85, -1.05, 1.05);
+  g.strokePath();
+  g.lineStyle((2.2 * (1 - t) + 0.5) * size, c2, a * 0.8);
+  g.beginPath();
+  g.arc(-reach * 0.25, 0, reach * 0.6, -0.9, 0.9);
+  g.strokePath();
+  g.restore();
+}
+
+/** 白闪冲击核：命中瞬间的一点白 + 快速消散的光斑 */
+function impactLayer(g: Phaser.GameObjects.Graphics, f: { x: number; y: number }, t: number, a: number, size: number, c2: number): void {
+  const flash = Math.max(0, 1 - t * 2.4);
+  if (flash <= 0) return;
+  g.fillStyle(0xffffff, a * flash);
+  g.fillCircle(f.x, f.y, (9 * flash + 2) * size);
+  g.fillStyle(c2, a * flash * 0.7);
+  g.fillCircle(f.x, f.y, (15 * flash + 3) * size);
+}
+
+/** 延迟余烬二段：后半程才出现、往挥拍方向坠的小火星 */
+function emberLayer(g: Phaser.GameObjects.Graphics, f: { x: number; y: number; ang: number; seed: number }, t: number, a: number, size: number, c2: number): void {
+  if (t < 0.35) return;
+  const tt = (t - 0.35) / 0.65;
+  for (let k = 0; k < 6; k++) {
+    const sp = 0.5 + ((f.seed * 13 + k * 7) % 10) / 10;
+    const d = tt * 60 * sp * size;
+    const spread = Math.sin(k * 2.7 + f.seed) * 16 * size;
+    g.fillStyle(k % 2 ? c2 : 0xffffff, a * 0.75 * (1 - tt));
+    g.fillCircle(f.x + Math.cos(f.ang) * d - Math.sin(f.ang) * spread, f.y + Math.sin(f.ang) * d + Math.cos(f.ang) * spread + tt * 18 * size, (2.2 * (1 - tt) + 0.6) * size);
+  }
+}
+
 // ---- archetype painters -----------------------------------------------------
 function makePainter(spec: Spec): EffectPainter {
   const pal = PALETTES[spec.pal];
@@ -58,7 +111,8 @@ function makePainter(spec: Spec): EffectPainter {
         const dist = (10 + t * 52) * size;
         for (let k = 0; k < count; k++) {
           const ang = f.seed + (k / count) * Math.PI * 2 + t * twist;
-          particle(g, shape, f.x + Math.cos(ang) * dist, f.y + Math.sin(ang) * dist, (4.5 * (1 - t) + 1.5) * size, k % 2 ? pal.c1 : pal.c2, a * 0.9);
+          const bias = dirBias(f, ang, t, size);
+          particle(g, shape, f.x + Math.cos(ang) * dist + bias.dx, f.y + Math.sin(ang) * dist + bias.dy, (4.5 * (1 - t) + 1.5) * size, k % 2 ? pal.c1 : pal.c2, a * 0.9);
         }
         g.fillStyle(pal.c2, a);
         g.fillCircle(f.x, f.y, 4 * size * a + 1);
@@ -79,7 +133,8 @@ function makePainter(spec: Spec): EffectPainter {
         const golden = Math.PI * (3 - Math.sqrt(5));
         for (let k = 0; k < count; k++) {
           const ang = f.seed + k * golden + t * twist * 2.4;
-          particle(g, shape, f.x + Math.cos(ang) * dist, f.y + Math.sin(ang) * dist, (3.6 * (1 - t) + 1.2) * size, k % 3 ? pal.c1 : pal.c2, a * 0.9);
+          const bias = dirBias(f, ang, t, size);
+          particle(g, shape, f.x + Math.cos(ang) * dist + bias.dx, f.y + Math.sin(ang) * dist + bias.dy, (3.6 * (1 - t) + 1.2) * size, k % 3 ? pal.c1 : pal.c2, a * 0.9);
         }
       };
     case 'rain':
@@ -188,8 +243,9 @@ function makePainter(spec: Spec): EffectPainter {
         for (let k = 0; k < count; k++) {
           const ang = f.seed + (k / count) * Math.PI * 2;
           const spread = (8 + t * 34) * size;
-          const px = f.x + Math.cos(ang) * spread + Math.sin(t * twist * 5 + k) * 6 * size;
-          const py = f.y + Math.sin(ang) * spread * 0.3 - lift;
+          const bias = dirBias(f, ang, t, size);
+          const px = f.x + Math.cos(ang) * spread + Math.sin(t * twist * 5 + k) * 6 * size + bias.dx;
+          const py = f.y + Math.sin(ang) * spread * 0.3 - lift + bias.dy;
           particle(g, shape, px, py, (3.4 * (1 - t) + 1) * size, k % 2 ? pal.c1 : pal.c2, a * 0.85);
         }
       };
@@ -252,8 +308,27 @@ function makePainter(spec: Spec): EffectPainter {
 export const PLUS_PAINTERS: Record<PlusEffectId, EffectPainter> = {};
 export const PLUS_SPAN: Record<PlusEffectId, number> = {};
 
+/** 每个原型叠加哪几层复合结构：impact = 白闪冲击核，slash = 方向斩击弧，ember = 延迟余烬二段 */
+const LAYER_MODE: Partial<Record<string, string>> = {
+  burst: 'impact+ember', shards: 'impact+ember', converge: 'impact',
+  cross: 'slash', bolts: 'slash', spinStar: 'slash',
+  rain: 'ember', rise: 'ember', orbit: 'ember', spiral: 'ember',
+};
+
 SPECS.forEach((spec, i) => {
   const id = `p${i + 1}` as PlusEffectId;
-  PLUS_PAINTERS[id] = makePainter(spec);
+  const base = makePainter(spec);
+  const mode = LAYER_MODE[spec.arch] ?? '';
+  if (!mode) {
+    PLUS_PAINTERS[id] = base;
+  } else {
+    const pal = PALETTES[spec.pal];
+    PLUS_PAINTERS[id] = (g, f, t, a, size) => {
+      if (mode.includes('impact')) impactLayer(g, f, t, a, size, pal.c2);
+      base(g, f, t, a, size);
+      if (mode.includes('slash')) slashLayer(g, f, t, a, size, pal.c1, pal.c2);
+      if (mode.includes('ember')) emberLayer(g, f, t, a, size, pal.c2);
+    };
+  }
   PLUS_SPAN[id] = spec.span;
 });

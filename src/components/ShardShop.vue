@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import ItemIcon from './ItemIcon.vue';
 import Stars from './ui/Stars.vue';
-import { SHARD_SHOP_ITEMS } from '../game/items';
+import ShopTryOnModal from './ShopTryOnModal.vue';
+import { SHARD_SHOP_ITEMS, type Item } from '../game/items';
 import { useProgressStore } from '../stores/progress';
 import { toastGood, toastWarn } from '../composables/useToast';
 import { sfx } from '../game/audio';
@@ -24,6 +26,16 @@ function redeem(id: string): void {
   sfx.point();
   toastGood(r.message);
 }
+
+/** 🛍️ 点货架 → 先弹试穿确认，确认后才真正兑换 */
+const trying = ref<Item | null>(null);
+const tryingPrice = ref('');
+
+function confirmRedeem(): void {
+  if (!trying.value) return;
+  redeem(trying.value.id);
+  trying.value = null;
+}
 </script>
 
 <template>
@@ -45,7 +57,7 @@ function redeem(id: string): void {
         :class="{ 'is-owned': progress.owned.includes(e.item.id) }"
         type="button"
         :disabled="progress.owned.includes(e.item.id)"
-        @click="redeem(e.item.id)"
+        @click="((trying = e.item), (tryingPrice = `🧩 ${e.price}`))"
       >
         <span class="ss__icon"><ItemIcon :item="e.item" /></span>
         <span class="ss__label">{{ e.item.label }}</span>
@@ -55,6 +67,13 @@ function redeem(id: string): void {
         </span>
       </button>
     </div>
+
+    <ShopTryOnModal
+      :item="trying"
+      :price-label="tryingPrice"
+      @close="trying = null"
+      @confirm="confirmRedeem"
+    />
 
     <p class="muted ss__note">
       碎片来自<b>开箱的袋子档</b>（约每 5 把钥匙一袋，每袋 🧩9~20）。
