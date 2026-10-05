@@ -21,7 +21,7 @@ export function cline(g: G, pts: Array<[number, number]>, w: number, c: number, 
 /** 多边形填充 */
 export function cpoly(g: G, pts: Array<[number, number]>, c: number, a = 1): void {
   g.fillStyle(c, a);
-  g.fillPoints(pts.map(([x, y]) => ({ x, y })), true);
+  g.fillPoints(pts.map(([x, y]) => ({ x, y })) as never, true);
 }
 
 /** 多边形填充（命名对齐 wings 包的 wpoly） */
