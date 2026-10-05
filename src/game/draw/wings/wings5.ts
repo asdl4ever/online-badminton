@@ -275,4 +275,131 @@ export const WINGS_5: Record<string, WingArt> = {
       g.fillCircle(30 + k * 13, -44 - f - ph * 18, 1.8 * (1 - ph) + 0.6);
     }
   } },
+  // 光羽：五根发光羽轴（轴心白热、外晕呼吸）
+  light: { c: 0xfff6d8, a: 0xffe08a, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    for (let k = 0; k < 5; k++) {
+      const t = k / 4;
+      const bx = 4 + t * 10, by = 4 - t * (12 + f);
+      const ang = -1.35 + t * 0.75;
+      const len = 46 + (k % 2) * 14;
+      g.lineStyle(5, a, 0.22);
+      g.lineBetween(bx, by, bx + Math.cos(ang) * len, by + Math.sin(ang) * len);
+      g.lineStyle(2.2, 0xffffff, 0.85);
+      g.lineBetween(bx, by, bx + Math.cos(ang) * len, by + Math.sin(ang) * len);
+      g.fillStyle(0xffffff, 0.7);
+      g.fillCircle(bx + Math.cos(ang) * len, by + Math.sin(ang) * len, 2.2);
+    }
+  } },
+  // 圣光：垂直光刃翼（四道光柱 + 顶部光冠）
+  shine: { c: 0xfff8e0, a: 0xf2c14a, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (let k = 0; k < 4; k++) {
+      const bx = 8 + k * 17;
+      const h = 40 - Math.abs(k - 1.5) * 10 + f;
+      g.fillStyle(c, 0.22);
+      g.fillRect(bx - 5, -h - 8, 10, h + 8);
+      g.fillStyle(0xffffff, 0.85);
+      g.fillRect(bx - 1.6, -h - 6, 3.2, h + 6);
+      g.fillStyle(a, 0.7);
+      g.fillCircle(bx, -h - 8, 2.6);
+    }
+    const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 280));
+    g.fillStyle(a, tw);
+    g.fillCircle(34, -58 - f, 3);
+  } },
+  // 星辰：星座翼（星点连线成翼形）
+  star: { c: 0x2a2a44, a: 0xfff0b0, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    const pts: Array<[number, number]> = [[4, 4], [20, -18 - f], [40, -36 - f], [62, -46 - f], [84, -40 - f], [66, -18 - f], [44, -6 - f], [24, 4]];
+    wline(g, pts, 1.2, a, 0.55);
+    for (let k = 0; k < pts.length; k++) {
+      const [px, py] = pts[k];
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(now / 300 + k * 1.7));
+      g.fillStyle(a, tw);
+      g.fillRect(px - 2.4, py - 0.8, 4.8, 1.6);
+      g.fillRect(px - 0.8, py - 2.4, 1.6, 4.8);
+    }
+    g.fillStyle(c, 0.5);
+    g.fillCircle(44, -22 - f, 8);
+  } },
+  // 虹翼：七色叠弧（波纹流动）
+  rainbow: { c: 0xffffff, a: 0xff8ad4, draw: (g, now, flap, _c, _a) => {
+    const cols = [0xe8404a, 0xff8a3c, 0xffd45c, 0x8fd45a, 0x4ac8ff, 0x5a6ae8, 0xa86ae8];
+    for (let k = 0; k < 7; k++) {
+      const r = 26 + k * 8;
+      const ph = now / 300 + k * 0.14;
+      g.lineStyle(4.4, cols[k], 0.85 - k * 0.04);
+      g.beginPath();
+      g.arc(0, 4, r, -Math.PI * 0.95 + ph * 0.05 + flap * 0.08, -Math.PI * 0.1 + ph * 0.05 + flap * 0.08);
+      g.strokePath();
+    }
+  } },
+  // 星河：紫罗兰星云翼 + 旋臂星尘
+  galaxy: { c: 0x6a4ae8, a: 0xd8c8ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 2], [28, -30 - f], [58, -52 - f], [86, -40 - f], [60, -6], [30, 8]], c, 0.55);
+    wpoly(g, [[8, 0], [30, -24 - f], [52, -40 - f], [70, -30 - f], [48, -2]], 0x9a7aff, 0.4);
+    // 旋臂星尘
+    for (let k = 0; k < 10; k++) {
+      const t = k / 9;
+      const ang = -1.2 + t * 1.9 + now / 2400;
+      const r = 14 + t * 60;
+      const px = 8 + Math.cos(ang) * r, py = -6 + Math.sin(ang) * r * 0.62;
+      g.fillStyle(k % 3 ? a : 0xffffff, 0.35 + 0.55 * Math.abs(Math.sin(now / 320 + k * 2)));
+      g.fillCircle(px, py, 1.6 - t);
+    }
+  } },
+  // 棱光：折射棱镜翼（三棱镜 + 七彩分光束）
+  prism: { c: 0xe8f0ff, a: 0x8ad8ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[6, 6], [26, -14 - f], [46, 6]], c, 0.5);
+    g.lineStyle(1.6, a, 0.9);
+    g.strokeTriangle(6, 6, 26, -14 - f, 46, 6);
+    const cols = [0xe8404a, 0xff8a3c, 0xffd45c, 0x8fd45a, 0x4ac8ff, 0xa86ae8];
+    for (let k = 0; k < 6; k++) {
+      const ang = -0.42 - k * 0.12;
+      const len = 30 + k * 8 + Math.sin(now / 300 + k) * 3;
+      g.lineStyle(2, cols[k], 0.8);
+      g.lineBetween(30, -8 - f, 30 + Math.cos(ang) * len, -8 - f + Math.sin(ang) * len);
+    }
+  } },
+  // 云羽：卷云羽片（丝缕状，缓慢流动）
+  cirrus: { c: 0xeaf2fb, a: 0x9ac8ee, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (let k = 0; k < 5; k++) {
+      const t = k / 4;
+      const bx = 4 + t * 14, by = 2 - t * (16 + f);
+      const len = 44 - k * 4;
+      g.lineStyle(7 - k, k % 2 ? c : 0xffffff, 0.75 - t * 0.15);
+      g.beginPath();
+      for (let s = 0; s <= 5; s++) {
+        const u = s / 5;
+        const px = bx + u * len;
+        const py = by + Math.sin(u * 4 + now / 500 + k) * 3.4 - u * 6;
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+  } },
+  // 烈阳：日轮翼（放射光芒 + 日冕环）
+  solaris: { c: 0xffb03a, a: 0xfff0b0, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    const cx = 34, cy = -26 - f;
+    for (let k = 0; k < 12; k++) {
+      const ang = (k / 12) * Math.PI * 2 + now / 1800;
+      const r1 = 20, r2 = 34 + (k % 2) * 8;
+      wpoly(g, [
+        [cx + Math.cos(ang - 0.05) * r1, cy + Math.sin(ang - 0.05) * r1],
+        [cx + Math.cos(ang) * r2, cy + Math.sin(ang) * r2],
+        [cx + Math.cos(ang + 0.05) * r1, cy + Math.sin(ang + 0.05) * r1],
+      ], k % 2 ? c : a, 0.8);
+    }
+    g.fillStyle(c, 0.95);
+    g.fillCircle(cx, cy, 15);
+    g.fillStyle(0xfff6d8, 0.9);
+    g.fillCircle(cx, cy, 10);
+    g.lineStyle(1.6, a, 0.6);
+    g.strokeCircle(cx, cy, 20 + Math.sin(now / 300) * 1.6);
+  } },
 };
