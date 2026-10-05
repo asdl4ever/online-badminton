@@ -745,5 +745,153 @@ export const WINGS_5: Record<string, WingArt> = {
       g.strokePath();
     }
     wline(g, [[2, 4], [26, -32 - f], [56, -50 - f], [84, -38 - f]], 1.6, a, 0.7);
-  } },
-};
+    } },
+    // 蝶翼：上下双叶 + 翅脉 + 缘点
+    butterfly: { c: 0xff8ad4, a: 0x1a1a22, draw: (g, _now, flap, c, a) => {
+    const f = flap * 9;
+    g.fillStyle(c, 0.95);
+    g.fillEllipse(30, -30 - f * 0.6, 52, 34);
+    g.fillStyle(0xd8587a, 0.9);
+    g.fillEllipse(24, -4 - f * 0.4, 38, 24);
+    g.lineStyle(1.4, a, 0.6);
+    g.lineBetween(4, 0, 48, -34 - f * 0.6);
+    g.lineBetween(4, 0, 40, -4 - f * 0.4);
+    g.fillStyle(0xffffff, 0.85);
+    for (const [dx, dy] of [[48, -36 - f * 0.6], [20, -14 - f * 0.4], [40, -12 - f * 0.4]] as const) {
+    g.fillCircle(dx, dy, 2.4);
+    }
+    } },
+    // 精灵：透光薄翼（四叶透明 + 光尘）
+    fairy: { c: 0xd8fff0, a: 0x9effd0, draw: (g, now, flap, c, a) => {
+    const f = flap * 10;
+    g.fillStyle(c, 0.55);
+    g.fillEllipse(26, -32 - f, 40, 26);
+    g.fillEllipse(20, -2 - f * 0.5, 32, 20);
+    g.fillStyle(0xffffff, 0.5);
+    g.fillEllipse(22, -36 - f, 16, 8);
+    g.lineStyle(1.2, a, 0.8);
+    g.lineBetween(4, 0, 44, -34 - f);
+    g.lineBetween(4, 0, 34, -2 - f * 0.5);
+    for (let k = 0; k < 3; k++) {
+    const ph = (now / 700 + k / 3) % 1;
+    g.fillStyle(a, 0.7 * (1 - ph));
+    g.fillCircle(30 + k * 10, -40 - f - ph * 10, 1.4);
+    }
+    } },
+    // 蛾皇：厚重皇蛾翼（双对叶 + 双眼斑 + 皇纹）
+    mothKing: { c: 0xc9955a, a: 0x8a5a2a, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 0], [18, -38 - f], [52, -48 - f], [58, -24 - f], [34, -2]], c, 0.96);
+    wpoly(g, [[2, 4], [14, -14 - f * 0.6], [38, -20 - f * 0.6], [42, -4 - f * 0.6], [22, 10]], a, 0.9);
+    for (const [ex, ey, r] of [[36, -30 - f, 6.4], [26, -8 - f * 0.6, 4.4]] as const) {
+    g.fillStyle(0x2a1a10, 0.9);
+    g.fillCircle(ex, ey, r);
+    g.fillStyle(0xfff0c0, 0.95);
+    g.fillCircle(ex, ey, r * 0.45);
+    g.lineStyle(1.2, 0x2a1a10, 0.7);
+    g.strokeCircle(ex, ey, r);
+    }
+    g.lineStyle(1.4, 0x2a1a10, 0.5);
+    g.lineBetween(10, -6 - f, 48, -34 - f);
+    } },
+    // 纸翼：折纸鹤翼（折面 + 折痕）
+    paper: { c: 0xfaf6e8, a: 0xc9b88a, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 4], [30, -30 - f], [80, -44 - f], [46, -6 - f]], c, 1);
+    wpoly(g, [[2, 4], [24, -12 - f], [60, -20 - f], [30, 6]], 0xfffdf2, 0.95);
+    g.lineStyle(1.4, a, 0.8);
+    g.lineBetween(2, 4, 30, -30 - f);
+    g.lineBetween(2, 4, 80, -44 - f);
+    g.lineBetween(30, -30 - f, 80, -44 - f);
+    g.lineBetween(2, 4, 46, -6 - f);
+    } },
+    // 珊瑚鳍：扇形鳍膜（放射鳍条 + 斑点）
+    coralFin: { c: 0xff8a7a, a: 0xd85848, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    for (let k = 0; k < 7; k++) {
+    const ang = -1.4 + (k / 6) * 1.5 + flap * 0.1;
+    wline(g, [[4, 0], [4 + Math.cos(ang) * 62, Math.sin(ang) * 62]], 2.2, a, 0.85);
+    }
+    g.fillStyle(c, 0.6);
+    g.beginPath();
+    g.arc(4, 0, 58, -1.5 + flap * 0.1, 0.15 + flap * 0.1);
+    g.closePath(); g.fillPath();
+    g.fillStyle(0xffffff, 0.4);
+    for (let k = 0; k < 4; k++) {
+    g.fillCircle(20 + k * 12, -16 - k * 5 - f, 2.4 - k * 0.4);
+    }
+    } },
+    // 冠鳍：龙鱼冠鳍（锯齿背鳍 + 鳍刺）
+    crest: { c: 0x4ac8b4, a: 0x1a6a5a, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 6], [14, -22 - f], [30, -40 - f], [48, -50 - f], [66, -46 - f], [80, -32 - f], [86, -12 - f], [58, 4], [24, 8]], c, 0.95);
+    wline(g, [[2, 6], [24, -18 - f], [48, -44 - f], [86, -12 - f]], 2, a, 0.9);
+    for (let k = 0; k < 4; k++) {
+    const sx = 20 + k * 16;
+    wline(g, [[sx, -24 - f - k * 4], [sx + 3, -34 - f - k * 4]], 1.6, a, 0.8);
+    }
+    } },
+    // 蝠鲼：滑翔双翼（扑动翼尖 + 尾）
+    manta: { c: 0x4a5a74, a: 0x9fd8ff, draw: (g, now, _flap, c, a) => {
+    const f = Math.sin(now / 480) * 10;
+    wpoly(g, [[2, 0], [40, -30 - f], [80, -18 - f], [92, 0 - f], [56, 12], [20, 10]], c, 0.96);
+    wpoly(g, [[10, 4], [40, -8 - f * 0.6], [66, 2 - f * 0.6], [48, 10]], 0x5a6a88, 0.7);
+    wline(g, [[6, 2], [40, -26 - f], [88, -2 - f]], 2, a, 0.7);
+    g.lineStyle(2.4, c, 0.9);
+    g.lineBetween(4, 4, -14, 10 + Math.sin(now / 400) * 3);
+    g.fillStyle(a, 0.9);
+    g.fillCircle(44, -14 - f, 2.4);
+    } },
+    // 珊瑚：枝状珊瑚翼（分叉枝 + 顶端息肉）
+    reef: { c: 0xff7a5a, a: 0xd84838, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (const [tx, ty, ang, len] of [[8, 4, -1.2, 40], [20, 2, -0.8, 48], [34, 2, -0.5, 42], [48, 4, -0.2, 32]] as const) {
+    const bx = tx, by = ty - f * 0.4;
+    wline(g, [[bx, by], [bx + Math.cos(ang) * len * 0.5, by + Math.sin(ang) * len * 0.5], [bx + Math.cos(ang) * len, by + Math.sin(ang) * len + 6]], 5 - Math.abs(ang) * 1.4, c, 0.95);
+    g.fillStyle(a, 0.95);
+    g.fillCircle(bx + Math.cos(ang) * len, by + Math.sin(ang) * len + 6, 3.4);
+    }
+    for (let k = 0; k < 3; k++) {
+    const ph = (now / 800 + k / 3) % 1;
+    g.fillStyle(0xffd0c0, 0.6 * (1 - ph));
+    g.fillCircle(20 + k * 14, -34 - f - ph * 10, 1.4);
+    }
+    } },
+    // 海波：海浪翼（双波卷 + 浪花）
+    seaWave: { c: 0x4a90d9, a: 0xffffff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    for (let k = 0; k < 2; k++) {
+    g.lineStyle(8 - k * 3, k % 2 ? c : a, 0.85 - k * 0.25);
+    g.beginPath();
+    for (let s = 0; s <= 6; s++) {
+      const u = s / 6;
+      const px = 4 + u * 76;
+      const py = -6 - k * 14 - f + Math.sin(u * 4.6 + now / 280 + k * 2) * (7 + u * 5);
+      if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+    }
+    g.strokePath();
+    }
+    for (let k = 0; k < 3; k++) {
+    const ph = (now / 500 + k / 3) % 1;
+    g.fillStyle(0xffffff, 0.6 * (1 - ph));
+    g.fillCircle(24 + k * 18, -30 - f - ph * 8, 2.4 * (1 - ph) + 0.8);
+    }
+    } },
+    // 潮浪：月引潮汐翼（双潮峰对涌）
+    wave: { c: 0x3a7ab4, a: 0xbfe8ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    const t1 = Math.sin(now / 400), t2 = Math.sin(now / 400 + 2.2);
+    wpoly(g, [[2, 6], [26, -18 - f - t1 * 6], [52, -30 - f], [78, -16 - f - t2 * 6], [86, 2], [50, 10], [20, 8]], c, 0.9);
+    g.lineStyle(2.4, a, 0.8);
+    g.beginPath();
+    for (let s = 0; s <= 6; s++) {
+    const u = s / 6;
+    const px = 4 + u * 80;
+    const py = -14 - f + Math.sin(u * 5.4 + now / 240) * 5 - u * 4;
+    if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+    }
+    g.strokePath();
+    g.fillStyle(0xffffff, 0.7);
+    g.fillCircle(50, -30 - f, 2.6);
+    } },
+    };
