@@ -276,7 +276,7 @@ export const WINGS_5: Record<string, WingArt> = {
     }
   } },
   // 光羽：五根发光羽轴（轴心白热、外晕呼吸）
-  light: { c: 0xfff6d8, a: 0xffe08a, draw: (g, _now, flap, c, a) => {
+  light: { c: 0xfff6d8, a: 0xffe08a, draw: (g, _now, flap, _c, a) => {
     const f = flap * 6;
     for (let k = 0; k < 5; k++) {
       const t = k / 4;
@@ -365,7 +365,7 @@ export const WINGS_5: Record<string, WingArt> = {
     }
   } },
   // 云羽：卷云羽片（丝缕状，缓慢流动）
-  cirrus: { c: 0xeaf2fb, a: 0x9ac8ee, draw: (g, now, flap, c, a) => {
+  cirrus: { c: 0xeaf2fb, a: 0x9ac8ee, draw: (g, now, flap, c, _a) => {
     const f = flap * 5;
     for (let k = 0; k < 5; k++) {
       const t = k / 4;
