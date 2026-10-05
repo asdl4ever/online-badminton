@@ -24,6 +24,11 @@ export function cpoly(g: G, pts: Array<[number, number]>, c: number, a = 1): voi
   g.fillPoints(pts.map(([x, y]) => ({ x, y })), true);
 }
 
+/** 多边形填充（命名对齐 wings 包的 wpoly） */
+export function wpoly(g: G, pts: Array<[number, number]>, c: number, a = 1): void {
+  cpoly(g, pts, c, a);
+}
+
 export interface CapeArt {
   c: number;
   a: number;

@@ -1,4 +1,4 @@
-import { cpoly, cline, type CapeArt } from './shared';
+import { cpoly, cline, wpoly, type CapeArt } from './shared';
 
 /**
  * 第五批披风——老款迁移精绘（flame / cloth / antigrav / towel 系）。
@@ -310,6 +310,177 @@ export const CAPES_5: Record<string, CapeArt> = {
       g.fillStyle(a, tw);
       g.fillRect(-10 + k * 7, 24 + (k % 2) * 18, 4.8, 1.4);
       g.fillRect(-8.2 + k * 7, 22.2 + (k % 2) * 18, 1.4, 4.8);
+    }
+  } },
+  // 船长披风：海军蓝披（金锚扣 + 双排扣纹）
+  captainCape: { c: 0x2a3a6a, a: 0xffd45c, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [16, 8], [20, 44 + sway * 0.3], [11, 76], [-13, 74], [-20, 42], [-15, 8]], c, 1);
+    cline(g, [[0, 2], [0, 72 + sway * 0.3]], 1.6, a, 0.7);
+    g.fillStyle(a, 0.9);
+    for (let k = 0; k < 4; k++) g.fillCircle(-8 + k * 5.4, 20 + k * 4, 1.4);
+    // 金锚徽
+    g.lineStyle(2, a, 1);
+    g.strokeCircle(0, 12, 4);
+    g.lineBetween(0, 8, 0, 16);
+    g.lineBetween(-3, 13, 3, 13);
+  } },
+  // 鎏金王袍：黑金袍（鎏金流纹 + 金珠列）
+  goldRoyal: { c: 0x1a1a22, a: 0xffd45c, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [17, 8], [21, 46 + sway * 0.3], [11, 80], [-14, 78], [-21, 44], [-15, 8]], c, 1);
+    cline(g, [[0, 2], [0, 74 + sway * 0.3]], 1.8, a, 0.85);
+    g.lineStyle(1.4, a, 0.7);
+    g.lineBetween(-12, 22, 12, 30);
+    g.lineBetween(-11, 40, 11, 48);
+    g.lineBetween(-10, 58, 10, 64);
+    g.fillStyle(a, 0.95);
+    for (let k = 0; k < 5; k++) g.fillCircle(0, 14 + k * 13, 1.8);
+    g.fillStyle(0xffffff, 0.3);
+    g.fillCircle(-1, 13, 0.8);
+  } },
+  // 骑士披风：骑士团披（团徽 + 铆钉缘）
+  knight: { c: 0x8a1a2a, a: 0xffd45c, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [16, 8], [20, 44 + sway * 0.3], [11, 76], [-13, 74], [-20, 42], [-15, 8]], c, 1);
+    // 团徽（盾形十字）
+    g.fillStyle(a, 0.95);
+    wpoly(g, [[-7, 16], [7, 16], [7, 26], [0, 34], [-7, 26]], a, 0.95);
+    g.fillStyle(c, 1);
+    g.fillRect(-1.6, 18, 3.2, 12);
+    g.fillRect(-5, 21.4, 10, 3.2);
+    // 铆钉缘
+    g.fillStyle(a, 0.7);
+    for (let k = 0; k < 4; k++) g.fillCircle(-12 + k * 8, 44, 1.3);
+  } },
+  // 极光披风：垂落极光纱（光带流动）
+  auroraCape: { c: 0x7dffc4, a: 0x9ad4ff, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 0.35);
+    for (let k = 0; k < 3; k++) {
+      g.lineStyle(4 - k, k % 2 ? a : c, 0.55 - k * 0.1);
+      g.beginPath();
+      for (let s = 0; s <= 5; s++) {
+        const u = s / 5;
+        const px = -14 + u * 30;
+        const py = 12 + k * 16 + Math.sin(u * 5 + now / 350 + k) * 4 + sway * 0.3 * u;
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+    for (let k = 0; k < 3; k++) {
+      const ph = (now / 800 + k / 3) % 1;
+      g.fillStyle(0xffffff, 0.5 * (1 - ph));
+      g.fillCircle(-8 + k * 8, 20 - ph * 12, 1.3);
+    }
+  } },
+  // 法老圣袍：金条纹圣袍（圣甲虫纹 + 头巾缘）
+  pharaoh: { c: 0xf2d8a0, a: 0x2a6a9a, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [16, 8], [20, 46 + sway * 0.3], [10, 80], [-13, 78], [-19, 44], [-14, 8]], c, 1);
+    g.lineStyle(2, a, 0.85);
+    for (let k = 0; k < 4; k++) g.lineBetween(-16 + k * 2, 10 + k * 2, -2, 74 + sway * 0.3);
+    for (let k = 0; k < 4; k++) g.lineBetween(16 - k * 2, 10 + k * 2, 2, 74 + sway * 0.3);
+    g.fillStyle(a, 1);
+    wpoly(g, [[-4, 22], [4, 22], [3, 28], [0, 31], [-3, 28]], a, 1);
+    g.fillStyle(0xffd45c, 0.9);
+    g.fillCircle(0, 24.5, 1.6);
+  } },
+  // 月光纱：透月纱披（纱层 + 月晕）
+  mooncloak: { c: 0xd8e4ff, a: 0xffe89a, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 0.55);
+    cpoly(g, [[0, 4], [9, 12], [13, 40 + sway * 0.3], [4, 64], [-10, 62], [-13, 36]], 0xeef2ff, 0.4);
+    // 月晕
+    g.fillStyle(a, 0.25);
+    g.fillCircle(6, 26, 8);
+    g.fillStyle(a, 0.85);
+    g.fillCircle(6, 26, 5);
+    g.fillStyle(c, 0.9);
+    g.fillCircle(7.6, 25, 4.2);
+    for (let k = 0; k < 3; k++) {
+      const tw = 0.3 + 0.7 * Math.abs(Math.sin(now / 300 + k * 2));
+      g.fillStyle(0xffffff, tw);
+      g.fillCircle(-8 + k * 8, 16 + k * 14, 1.2);
+    }
+  } },
+  // 碎晶披风：悬浮碎晶披（晶片绕体浮游）
+  shardcape: { c: 0x6a4ab8, a: 0xe8d8ff, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [19, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 0.85);
+    cpoly(g, [[0, 4], [9, 12], [12, 42 + sway * 0.3], [4, 66], [-10, 64], [-13, 36]], 0x8a6ad8, 0.5);
+    for (let k = 0; k < 5; k++) {
+      const px = -10 + k * 5, py = 18 + (k % 3) * 16 + Math.sin(now / 300 + k * 2) * 3;
+      g.save();
+      g.translateCanvas(px, py);
+      g.rotateCanvas(now / 350 + k);
+      wpoly(g, [[0, -4.4], [3.4, 0], [0, 4.4], [-3.4, 0]], k % 2 ? a : 0xffffff, 0.9);
+      g.restore();
+    }
+  } },
+  // 深渊披风：渊黑雾披（边缘侵蚀 + 幽紫眼点）
+  abyssCape: { c: 0x14101f, a: 0x7a5aff, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 0.98);
+    for (let k = 0; k < 5; k++) {
+      const ph = (now / 850 + k / 5) % 1;
+      g.fillStyle(a, 0.35 * (1 - ph));
+      g.fillCircle(-12 + k * 6, 50 + ph * 18, 3.4 * (1 - ph) + 1);
+    }
+    const p = 0.5 + 0.5 * Math.sin(now / 280);
+    g.fillStyle(a, 0.4 + p * 0.5);
+    g.fillCircle(-5, 30, 1.8);
+    g.fillCircle(6, 44, 1.4);
+  } },
+  // 虚空披风：虚空裂口披（星洞 + 内吸星点）
+  voidCape: { c: 0x0e0c1a, a: 0xb46cff, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 1);
+    g.fillStyle(0x1a1430, 0.9);
+    g.fillCircle(0, 36, 12);
+    for (let k = 0; k < 4; k++) {
+      const t = (now / 500 + k / 4) % 1;
+      const ang = k * 1.6 + now / 800;
+      g.fillStyle(a, 0.8 * (1 - t));
+      g.fillCircle(Math.cos(ang) * 11 * (1 - t), 36 + Math.sin(ang) * 11 * (1 - t), 1.6 * (1 - t) + 0.5);
+    }
+    g.lineStyle(1.4, a, 0.4);
+    g.strokeCircle(0, 36, 12);
+  } },
+  // 忍者披风：短分叉披（两幅利落分叉）
+  ninja: { c: 0x2a2a34, a: 0x1a1a22, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [13, 8], [16, 36 + sway * 0.3], [6, 58 + sway * 0.5], [2, 40], [0, 56 + sway * 0.4], [-4, 38], [-8, 56 + sway * 0.5], [-14, 34], [-13, 8]], c, 1);
+    cline(g, [[0, 0], [13, 8], [16, 36 + sway * 0.3]], 1.4, a, 0.6);
+  } },
+  // 星辰披风：双幅星披（分叉 + 两幅各缀星）
+  starCape: { c: 0x23234a, a: 0xfff0b0, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [14, 8], [17, 38 + sway * 0.3], [8, 66 + sway * 0.5], [2, 42], [-2, 64 + sway * 0.4], [-9, 36], [-14, 8]], c, 1);
+    for (let k = 0; k < 5; k++) {
+      const sx = k % 2 ? 7 : -6, sy = 26 + (k % 3) * 14;
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(now / 300 + k * 1.9));
+      g.fillStyle(a, tw);
+      g.fillRect(sx - 2.2, sy - 0.7, 4.4, 1.4);
+      g.fillRect(sx - 0.7, sy - 2.2, 1.4, 4.4);
+    }
+  } },
+  // 毒液披风：齿轮毒雾披（毒绿齿轮 + 滴毒）
+  venomCape: { c: 0x4a6a2a, a: 0x9effd0, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 0.95);
+    for (const [gx, gy, r] of [[-8, 24, 7], [8, 36, 5.6], [0, 54, 6.4]] as const) {
+      g.fillStyle(0x2a3a1a, 0.9);
+      g.fillCircle(gx, gy, r);
+      g.lineStyle(1.4, a, 0.7);
+      for (let k = 0; k < 6; k++) {
+        const ang = now / 400 + (k / 6) * Math.PI * 2;
+        g.lineBetween(gx + Math.cos(ang) * r, gy + Math.sin(ang) * r, gx + Math.cos(ang) * (r + 3), gy + Math.sin(ang) * (r + 3));
+      }
+    }
+    const ph = (now / 700) % 1;
+    g.fillStyle(a, 0.7 * (1 - ph));
+    g.fillCircle(14, 48 + ph * 16, 2);
+  } },
+  // 虚行者：星尘云披（云雾状 + 星粒内嵌）
+  voidwalker: { c: 0x3a3450, a: 0xfff0b0, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [16, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 0.9);
+    for (let k = 0; k < 4; k++) {
+      g.fillStyle(0x4a4468, 0.7);
+      g.fillCircle(-8 + k * 5.4, 24 + k * 13, 6 - k);
+    }
+    for (let k = 0; k < 5; k++) {
+      const tw = 0.3 + 0.7 * Math.abs(Math.sin(now / 300 + k * 2.2));
+      g.fillStyle(a, tw);
+      g.fillCircle(-9 + k * 4.6, 30 + (k % 3) * 15, 1.3);
     }
   } },
 };
