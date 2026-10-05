@@ -1019,5 +1019,120 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(a, 0.95);
     g.fillRect(22, -44 - f, 1.4, 5);
     g.fillRect(20.3, -42.3 - f, 4.8, 1.4);
-    } },
-    };
+  } },
+  // 尖刺：六根后掠硬刺翼
+  spike: { c: 0x8a92a2, a: 0xd8e0ea, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (let k = 0; k < 6; k++) {
+      const t = k / 5;
+      const bx = 4 + t * 40, by = 4 - t * (20 + f);
+      const ang = -0.9 - t * 0.35;
+      const len = 34 - k * 2;
+      wpoly(g, [
+        [bx, by - 3], [bx + Math.cos(ang) * len, by + Math.sin(ang) * len], [bx, by + 3],
+      ], k % 2 ? a : c, 0.95);
+    }
+    g.fillStyle(a, 0.6 + 0.4 * Math.sin(now / 300));
+    g.fillCircle(42, -24 - f, 2.4);
+  } },
+  // 荆棘：荆棘藤翼（主藤 + 弯刺 + 小叶）
+  thorn: { c: 0x4a6a3a, a: 0x2a3a1a, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    wline(g, [[2, 6], [26, -22 - f], [54, -44 - f], [80, -46 - f]], 4, c, 1);
+    wline(g, [[14, 0], [36, -30 - f], [62, -40 - f]], 3, c, 0.9);
+    for (let k = 0; k < 6; k++) {
+      const t = 0.15 + k * 0.14;
+      const bx = 2 + t * 76, by = 6 - t * (48 + f) - Math.sin(t * 3) * 4;
+      const s = k % 2 ? 1 : -1;
+      wpoly(g, [[bx, by], [bx + s * 8, by - 4], [bx + s * 2, by + 3]], a, 0.95);
+    }
+    g.fillStyle(0x6fae4f, 0.9);
+    g.fillEllipse(30, -30 - f, 8, 4);
+    g.fillEllipse(58, -40 - f, 8, 4);
+  } },
+  // 黑曜：黑曜石棱刺翼（暗面 + 刃口寒光）
+  obsidian: { c: 0x1a1a24, a: 0x8a7aff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 4], [30, -36 - f], [62, -54 - f], [88, -38 - f], [56, -6], [28, 8]], c, 0.98);
+    wpoly(g, [[30, -36 - f], [62, -54 - f], [50, -30 - f]], 0x2a2a3c, 0.9);
+    const gl = Math.abs(Math.sin(now / 220));
+    g.lineStyle(1.8, a, 0.25 + gl * 0.5);
+    g.lineBetween(2, 4, 30, -36 - f);
+    g.lineBetween(30, -36 - f, 62, -54 - f);
+    g.lineBetween(62, -54 - f, 88, -38 - f);
+    g.fillStyle(a, gl);
+    g.fillCircle(62, -54 - f, 2.6);
+  } },
+  // 晶簇：多面晶簇翼（随机朝向晶体生长）
+  quartz: { c: 0xd8b8ff, a: 0x8a5aff, draw: (g, _now, flap, c, a) => {
+    const f = flap * 5;
+    wpoly(g, [[4, 8], [18, -12 - f], [34, -8 - f], [24, 8]], c, 0.4);
+    for (let k = 0; k < 5; k++) {
+      const t = k / 4;
+      const bx = 6 + t * 52, by = 2 - t * (20 + f);
+      const hh = 22 - k * 2;
+      g.save();
+      g.translateCanvas(bx, by);
+      g.rotateCanvas(-0.25 + k * 0.14);
+      wpoly(g, [[-5, 0], [0, -hh], [5, 0]], k % 2 ? c : a, 0.9);
+      wpoly(g, [[-5, 0], [0, -hh], [0, 0]], 0xffffff, 0.35);
+      g.restore();
+    }
+  } },
+  // 刃簇：晶刃扇（五刃扇形展开）
+  shard: { c: 0xe8587a, a: 0xffd0e0, draw: (g, _now, flap, c, a) => {
+    for (let k = 0; k < 5; k++) {
+      const ang = -1.35 + (k / 4) * 1.1 + flap * 0.06;
+      const bx = 4, by = 0;
+      const len = 44 + (k % 2) * 12;
+      g.save();
+      g.translateCanvas(bx, by);
+      g.rotateCanvas(ang);
+      wpoly(g, [[0, -4], [len, 0], [0, 4]], k % 2 ? c : a, 0.92);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillRect(len * 0.25, -0.8, len * 0.45, 1.2);
+      g.restore();
+    }
+  } },
+  // 时空：时计翼（表盘双环 + 指针 + 齿隙时光粒）
+  chrono: { c: 0x8ad8e8, a: 0xffd45c, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    const cx = 36, cy = -26 - f;
+    g.lineStyle(2.4, c, 0.9);
+    g.strokeCircle(cx, cy, 30);
+    g.lineStyle(1.4, c, 0.55);
+    g.strokeCircle(cx, cy, 22);
+    for (let k = 0; k < 12; k++) {
+      const ang = (k / 12) * Math.PI * 2;
+      g.lineBetween(cx + Math.cos(ang) * 26, cy + Math.sin(ang) * 26, cx + Math.cos(ang) * 30, cy + Math.sin(ang) * 30);
+    }
+    g.lineStyle(2.2, a, 0.95);
+    g.lineBetween(cx, cy, cx + Math.cos(now / 500) * 18, cy + Math.sin(now / 500) * 18);
+    g.lineStyle(1.6, 0xffffff, 0.85);
+    g.lineBetween(cx, cy, cx + Math.cos(-now / 900) * 12, cy + Math.sin(-now / 900) * 12);
+    g.fillStyle(a, 0.9);
+    g.fillCircle(cx, cy, 2.6);
+  } },
+  // 涡轮双翼：喷气涡轮（叶轮速转 + 尾焰）
+  turbo: { c: 0x55627a, a: 0x9fd8ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (const [tx, ty, r] of [[24, -18 - f, 16], [52, -30 - f, 12]] as const) {
+      g.fillStyle(c, 1);
+      g.fillCircle(tx, ty, r);
+      g.lineStyle(2.4, 0x3a4252, 0.95);
+      g.strokeCircle(tx, ty, r);
+      g.lineStyle(2, a, 0.8);
+      for (let k = 0; k < 5; k++) {
+        const ang = now / 60 + (k / 5) * Math.PI * 2;
+        g.lineBetween(tx, ty, tx + Math.cos(ang) * (r - 3), ty + Math.sin(ang) * (r - 3));
+      }
+      g.fillStyle(0xd0d8e2, 1);
+      g.fillCircle(tx, ty, 3.2);
+    }
+    const th = 0.6 + 0.4 * Math.sin(now / 70);
+    g.fillStyle(a, th);
+    g.fillCircle(6, -8, 4.4);
+    g.fillStyle(0xffffff, th * 0.7);
+    g.fillCircle(4, -8, 2);
+  } },
+};
