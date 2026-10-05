@@ -3,6 +3,7 @@ import { CAPES_1 } from './capes1';
 import { CAPES_2 } from './capes2';
 import { CAPES_3 } from './capes3';
 import { CAPES_4 } from './capes4';
+import { CAPES_5 } from './capes5';
 
 /**
  * 主题披风的**独立剪影**总入口（分文件见 capes1~4.ts）。
@@ -13,6 +14,7 @@ const CAPES: Record<string, (typeof CAPES_1)[string]> = {
   ...CAPES_2,
   ...CAPES_3,
   ...CAPES_4,
+  ...CAPES_5,
 };
 
 export function hasCustomCape(id: string): boolean {
