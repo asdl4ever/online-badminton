@@ -140,7 +140,7 @@ export const WINGS_5: Record<string, WingArt> = {
     }
   } },
   // 夜鹰：镰刀状疾翼 + 白翼杠 + 残影
-  nightjar: { c: 0x2a3442, a: 0xe8ecf4, draw: (g, now, flap, c, a) => {
+  nightjar: { c: 0x2a3442, a: 0xe8ecf4, draw: (g, _now, flap, c, a) => {
     const f = flap * 8;
     wpoly(g, [[2, 0], [40, -40 - f], [88, -50 - f], [58, -14 - f], [24, 6]], c, 0.96);
     wline(g, [[2, 0], [40, -40 - f], [86, -48 - f]], 2, a, 0.9);
