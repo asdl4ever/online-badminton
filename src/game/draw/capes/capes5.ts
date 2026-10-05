@@ -146,4 +146,170 @@ export const CAPES_5: Record<string, CapeArt> = {
     g.fillCircle(10, 40, 1.6);
     g.fillCircle(8, 52, 1.2);
   } },
+  // 鳞甲披风：金属叠鳞（鳞片高光 + 铆钉边）
+  scalecape: { c: 0x8a94a2, a: 0xffd45c, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [19, 42 + sway * 0.3], [10, 76], [-13, 74], [-19, 40], [-14, 8]], c, 1);
+    for (let r = 0; r < 4; r++) {
+      const yy = 18 + r * 15;
+      for (let k = -2; k <= 2; k++) {
+        g.fillStyle(r % 2 ? 0x98a2b2 : 0x7a8492, 0.95);
+        g.beginPath();
+        g.arc(k * 8, yy + sway * 0.15 * r, 6, Math.PI * 0.1, Math.PI * 0.9, false, 0);
+        g.closePath(); g.fillPath();
+        g.fillStyle(0xffffff, 0.3);
+        g.fillCircle(k * 8 - 2, yy - 2 + sway * 0.15 * r, 1.2);
+      }
+    }
+    g.fillStyle(a, 0.85);
+    for (let k = 0; k < 3; k++) g.fillCircle(-10 + k * 10, 10, 1.4);
+  } },
+  // 铁甲披风：甲片拼板（板缝 + 铆钉）
+  ironclad: { c: 0x6a7482, a: 0xffd45c, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [19, 42 + sway * 0.3], [10, 76], [-13, 74], [-19, 40], [-14, 8]], c, 1);
+    for (let r = 0; r < 4; r++) {
+      g.fillStyle(0x5a6472, 0.9);
+      g.fillRect(-17 + r % 2, 14 + r * 15, 34 - Math.abs(r - 1.5) * 3, 12);
+      g.lineStyle(1.4, 0x4a5462, 0.9);
+      g.strokeRect(-17 + r % 2, 14 + r * 15, 34 - Math.abs(r - 1.5) * 3, 12);
+    }
+    g.fillStyle(a, 0.9);
+    for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++) {
+      g.fillCircle(-12 + k * 11, 20 + r * 15, 1.3);
+    }
+  } },
+  // 翡翠长袍：玉色长袍（玉纹 + 流光 + 坠玉）
+  jadeRobe: { c: 0x3f8a6a, a: 0xd9b45c, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [16, 8], [20, 46 + sway * 0.3], [10, 80], [-13, 78], [-20, 42], [-14, 8]], c, 1);
+    cpoly(g, [[0, 2], [9, 10], [12, 44 + sway * 0.3], [3, 70], [-11, 68], [-14, 38]], 0x5fae82, 0.6);
+    cline(g, [[0, 2], [10, 12], [14, 46 + sway * 0.3]], 1.8, a, 0.8);
+    g.lineStyle(1.2, a, 0.5);
+    g.lineBetween(-8, 24, 8, 30);
+    g.lineBetween(-7, 40, 7, 46);
+    g.fillStyle(a, 0.95);
+    g.fillCircle(0, 3, 3);
+    g.fillStyle(0xffffff, 0.4);
+    g.fillCircle(-1, 2.2, 1.2);
+  } },
+  // 龙翼披风：鳞翼披（翼骨收拢 + 膜）
+  drakewing: { c: 0x2f6a3f, a: 0xd9b45c, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 42 + sway * 0.3], [10, 76], [-13, 74], [-19, 40], [-14, 8]], c, 1);
+    // 折拢的翼骨
+    cline(g, [[0, 4], [14, 20], [10, 40]], 3.4, 0x24523a, 1);
+    cline(g, [[2, 4], [18, 16], [16, 36]], 2.6, 0x24523a, 0.9);
+    g.lineStyle(1.4, a, 0.6);
+    g.lineBetween(0, 4, 14, 20);
+    // 膜上鳞光
+    g.fillStyle(a, 0.4 + 0.3 * Math.sin(now / 300));
+    g.fillCircle(8, 30, 2);
+  } },
+  // 王袍：紫金王袍（毛边领 + 金纹十字 + 垂坠）
+  royal: { c: 0x5a2a8a, a: 0xffd45c, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [17, 8], [21, 46 + sway * 0.3], [11, 80], [-14, 78], [-21, 44], [-15, 8]], c, 1);
+    // 毛边领
+    g.fillStyle(0xffd45c, 0.95);
+    g.fillEllipse(-14, 8, 8, 14);
+    g.fillEllipse(14, 8, 8, 14);
+    g.fillStyle(0xf2ead8, 0.85);
+    g.fillEllipse(-14, 8, 4, 9);
+    g.fillEllipse(14, 8, 4, 9);
+    // 金纹
+    cline(g, [[0, 4], [0, 70 + sway * 0.3]], 1.6, a, 0.7);
+    g.lineStyle(1.2, a, 0.5);
+    g.lineBetween(-10, 28, 10, 34);
+    g.lineBetween(-9, 44, 9, 50);
+  } },
+  // 法袍：法师星纹袍（符文点缀）
+  mage: { c: 0x2a3a7a, a: 0xb46cff, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [16, 8], [20, 46 + sway * 0.3], [10, 80], [-13, 78], [-20, 44], [-14, 8]], c, 1);
+    cline(g, [[0, 2], [0, 72 + sway * 0.3]], 1.4, a, 0.5);
+    for (let k = 0; k < 4; k++) {
+      const yy = 18 + k * 15, xx = k % 2 ? 6 : -6;
+      g.fillStyle(a, 0.5 + 0.5 * Math.sin(now / 300 + k));
+      g.fillRect(xx - 2, yy - 4, 4, 8);
+      g.fillRect(xx - 4, yy - 2, 8, 4);
+    }
+    g.fillStyle(a, 0.9);
+    g.fillCircle(0, 3, 2.6);
+  } },
+  // 冰侯披风：霜纹王袍（毛领结霜 + 冰纹）
+  frostlord: { c: 0x8ab4d8, a: 0xffffff, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [17, 8], [21, 46 + sway * 0.3], [11, 80], [-14, 78], [-21, 44], [-15, 8]], c, 1);
+    g.fillStyle(0xe8f4ff, 0.9);
+    g.fillEllipse(-14, 8, 8, 13);
+    g.fillEllipse(14, 8, 8, 13);
+    // 冰纹（三道枝状）
+    g.lineStyle(1.4, a, 0.7);
+    for (let k = 0; k < 3; k++) {
+      const bx = -8 + k * 8;
+      cline(g, [[bx, 20 + k * 4], [bx + 3, 34 + k * 4], [bx - 2, 48 + k * 4]], 1.4, a, 0.7);
+    }
+    const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 320));
+    g.fillStyle(a, tw * 0.7);
+    g.fillCircle(6, 18, 1.6);
+    g.fillCircle(-9, 52, 1.4);
+  } },
+  // 雷君披风：星毛披（黑毛底 + 金星芒 + 电花）
+  stormlord: { c: 0x2a2a34, a: 0xffd45c, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [16, 8], [21, 46 + sway * 0.3], [11, 78], [-14, 76], [-21, 44], [-15, 8]], c, 1);
+    // 星毛（金色星斑散布）
+    for (let k = 0; k < 6; k++) {
+      const sx = -12 + k * 5, sy = 20 + (k % 3) * 16;
+      const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 280 + k * 1.9));
+      g.fillStyle(a, tw);
+      g.fillRect(sx - 2, sy - 0.7, 4, 1.4);
+      g.fillRect(sx - 0.7, sy - 2, 1.4, 4);
+    }
+    // 电花
+    if (Math.sin(now / 160) > 0.3) {
+      cline(g, [[-8, 40], [0, 30], [8, 44]], 1.6, a, 0.9);
+    }
+  } },
+  // 绯红王袍：红灯笼穗王袍（灯笼列 + 金缘）
+  crimsonlord: { c: 0xa8324a, a: 0xffd45c, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [17, 8], [21, 46 + sway * 0.3], [11, 80], [-14, 78], [-21, 44], [-15, 8]], c, 1);
+    cline(g, [[0, 2], [0, 74 + sway * 0.3]], 1.6, a, 0.75);
+    // 灯笼穗（三列小灯笼）
+    for (let k = 0; k < 3; k++) {
+      const lx = -10 + k * 10, ly = 30 + (k % 2) * 14 + Math.sin(now / 300 + k) * 2;
+      g.lineStyle(1, a, 0.7);
+      g.lineBetween(lx, ly - 8, lx, ly - 4);
+      g.fillStyle(k % 2 ? 0xe84848 : c, 1);
+      g.fillEllipse(lx, ly, 7, 9);
+      g.fillStyle(0xffe89a, 0.8);
+      g.fillEllipse(lx, ly, 2.6, 5);
+    }
+  } },
+  // 战神披风：兽皮战披（毛边 + 缝线 + 战痕）
+  warlord: { c: 0x6a4a2a, a: 0xd8c8a0, draw: (g, _now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 1);
+    // 毛边（下缘锯齿）
+    for (let k = 0; k < 6; k++) {
+      const bx = -16 + k * 5.4;
+      cpoly(g, [[bx - 2.4, 72 + sway * 0.4], [bx, 78 + sway * 0.4], [bx + 2.4, 72 + sway * 0.4]], c, 1);
+    }
+    // 缝线
+    g.lineStyle(1.2, a, 0.6);
+    g.lineBetween(-12, 24, 12, 30);
+    g.lineBetween(-11, 48, 11, 54);
+    // 战痕
+    g.lineStyle(2, 0x3a2410, 0.8);
+    g.lineBetween(-4, 38, 4, 46);
+    g.fillStyle(a, 0.5);
+    g.fillCircle(-8, 58, 2);
+  } },
+  // 冬雪披风：雪白毛披（绒毛边 + 雪花）
+  winter: { c: 0xeaf2fa, a: 0x9ac8ee, draw: (g, now, sway, c, a) => {
+    cpoly(g, [[0, 0], [15, 8], [20, 44 + sway * 0.3], [10, 76], [-13, 74], [-19, 42], [-14, 8]], c, 1);
+    // 绒毛边
+    g.fillStyle(0xffffff, 0.95);
+    for (let k = 0; k < 6; k++) g.fillCircle(-15 + k * 6, 72 + sway * 0.4, 3);
+    g.fillStyle(0xd0e4f2, 0.6);
+    g.fillEllipse(-6, 30, 12, 20);
+    for (let k = 0; k < 4; k++) {
+      const tw = 0.3 + 0.7 * Math.abs(Math.sin(now / 320 + k * 2));
+      g.fillStyle(a, tw);
+      g.fillRect(-10 + k * 7, 24 + (k % 2) * 18, 4.8, 1.4);
+      g.fillRect(-8.2 + k * 7, 22.2 + (k % 2) * 18, 1.4, 4.8);
+    }
+  } },
 };
