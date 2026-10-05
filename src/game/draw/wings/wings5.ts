@@ -894,4 +894,130 @@ export const WINGS_5: Record<string, WingArt> = {
     g.fillStyle(0xffffff, 0.7);
     g.fillCircle(50, -30 - f, 2.6);
     } },
+    // 烈焰：焰膜翼（内焰翻涌 + 火星）
+    flame: { c: 0xe8562a, a: 0xffd45c, draw: (g, now, flap, c, a) => {
+    const f = flap * 7;
+    wpoly(g, [[2, 4], [28, -34 - f], [58, -54 - f], [84, -40 - f], [56, -6], [28, 8]], c, 0.95);
+    wpoly(g, [[8, 0], [30, -26 - f], [54, -42 - f], [72, -30 - f], [48, -2]], a, 0.6);
+    for (let k = 0; k < 4; k++) {
+    const ph = (now / 450 + k / 4) % 1;
+    g.fillStyle(0xfff0b0, 0.8 * (1 - ph));
+    g.fillCircle(28 + k * 14, -46 - f - ph * 16, 2.4 * (1 - ph) + 0.7);
+    }
+    } },
+    // 日炎：白日焰翼（金白色焰舌）
+    sunfire: { c: 0xffc02a, a: 0xfff6d8, draw: (g, now, flap, c, _a2) => {
+    const f = flap * 7;
+    wpoly(g, [[2, 4], [26, -34 - f], [56, -54 - f], [84, -40 - f], [56, -6], [28, 8]], c, 0.95);
+    wpoly(g, [[8, 0], [30, -28 - f], [54, -44 - f], [74, -32 - f], [48, -2]], 0xfff6d8, 0.7);
+    for (let k = 0; k < 3; k++) {
+    const fl = Math.sin(now / 90 + k * 2) * 3;
+    wpoly(g, [[34 + k * 16, -40 - f], [38 + k * 16, -52 - f - fl], [42 + k * 16, -40 - f]], 0xffffff, 0.55);
+    }
+    } },
+    // 余烬（gacha）：焦膜 + 阴燃红缝
+    ember: { c: 0x4a3230, a: 0xff6a3a, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[2, 4], [26, -32 - f], [56, -50 - f], [82, -38 - f], [56, -6], [28, 8]], c, 0.97);
+    const p = 0.5 + 0.5 * Math.sin(now / 300);
+    g.lineStyle(1.8, a, 0.3 + p * 0.4);
+    g.lineBetween(16, -12, 30, -28 - f);
+    g.lineBetween(44, -34 - f, 58, -44 - f);
+    g.fillStyle(a, 0.4 + p * 0.4);
+    g.fillCircle(30, -28 - f, 1.8);
+    g.fillCircle(58, -44 - f, 1.5);
+    } },
+    // 机械：装板翼（四块装甲 + 液压杆）
+    mech: { c: 0x9aa7b8, a: 0x5ac8ff, draw: (g, _now, flap, c, a) => {
+    const f = flap * 5;
+    for (let k = 0; k < 4; k++) {
+    const bx = 4 + k * 20, by = 4 - k * (11 + f * 0.5);
+    g.fillStyle(k % 2 ? 0x8a96a6 : c, 0.98);
+    g.fillRoundedRect(bx, by - 7, 26 - k * 2, 13, 3);
+    g.fillStyle(0x6a7482, 0.9);
+    g.fillRect(bx, by - 7, 26 - k * 2, 4);
+    g.fillStyle(a, 0.85);
+    g.fillCircle(bx + 4, by, 1.6);
+    }
+    } },
+    // 赛博：全息数据翼（网格 + 流动数据块）
+    cyber: { c: 0x39ffd0, a: 0x1a2a4a, draw: (g, now, flap, c, _a) => {
+    const f = flap * 6;
+    g.lineStyle(1.2, c, 0.7);
+    for (let k = 0; k < 4; k++) g.lineBetween(6 + k * 18, 4 - k * (9 + f * 0.5), 22 + k * 18, -20 - k * (9 + f * 0.5));
+    for (let k = 0; k < 4; k++) g.lineBetween(6 + k * 9, 4 - k * 2, 60 + k * 6, -34 - f - k * 5);
+    for (let k = 0; k < 5; k++) {
+    const t = (now / 400 + k / 5) % 1;
+    g.fillStyle(c, 0.85);
+    g.fillRect(8 + t * 60, -8 - t * (26 + f), 4, 4);
+    }
+    } },
+    // 齿魂：齿轮翼（三齿轮咬合转动）
+    gearsoul: { c: 0xb08a4a, a: 0xffd45c, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (const [gx, gy, r, sp] of [[20, -14 - f, 14, 1], [46, -30 - f, 11, -1.4], [66, -14 - f * 0.5, 8, 1.8]] as const) {
+    g.fillStyle(c, 0.95);
+    g.fillCircle(gx, gy, r);
+    g.lineStyle(2, a, 0.85);
+    for (let k = 0; k < 8; k++) {
+      const ang = now / 500 * sp + (k / 8) * Math.PI * 2;
+      g.lineBetween(gx + Math.cos(ang) * r, gy + Math.sin(ang) * r, gx + Math.cos(ang) * (r + 4), gy + Math.sin(ang) * (r + 4));
+    }
+    g.fillStyle(a, 0.9);
+    g.fillCircle(gx, gy, 3);
+    }
+    } },
+    // 叶翼：双子大叶（叶身 + 主侧脉）
+    leaf: { c: 0x6fae4f, a: 0x3a6a2a, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    wpoly(g, [[4, 4], [24, -36 - f], [52, -52 - f], [58, -26 - f], [34, 8]], c, 0.97);
+    wpoly(g, [[10, 6], [28, -18 - f], [48, -28 - f], [38, 6]], 0x8fce6a, 0.8);
+    wline(g, [[6, 4], [30, -32 - f], [52, -48 - f]], 2.2, a, 0.9);
+    for (let k = 0; k < 4; k++) {
+    const t = 0.22 + k * 0.18;
+    wline(g, [[6 + 24 * t, 4 - 34 * t - f * t], [6 + 24 * t + 11, 4 - 34 * t - f * t - 5]], 1.2, a, 0.65);
+    }
+    } },
+    // 竹叶：三竿竹叶翼（细长叶 + 竹节）
+    bambooLeaf: { c: 0x8fbf5a, a: 0x4a6a2a, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    for (let k = 0; k < 3; k++) {
+    const bx = 8 + k * 18, by = 2 - k * (8 + f * 0.4);
+    const ang = -1.1 - k * 0.12;
+    const len = 54 - k * 6;
+    g.save();
+    g.translateCanvas(bx, by);
+    g.rotateCanvas(ang + Math.sin(now / 400 + k) * 0.06);
+    wpoly(g, [[0, -2.4], [len, 0], [0, 2.4]], k % 2 ? c : 0xa8d87a, 0.96);
+    g.lineStyle(1, a, 0.6);
+    g.lineBetween(0, 0, len, 0);
+    g.restore();
+    }
+    } },
+    // 风帆：扬帆翼（帆面 + 帆骨 + 缆绳）
+    sail: { c: 0xf0ead8, a: 0xc0392b, draw: (g, _now, flap, c, a) => {
+    const f = flap * 5;
+    wpoly(g, [[6, 6], [10, -46 - f], [34, -38 - f], [30, 4]], c, 0.97);
+    wpoly(g, [[38, 4], [40, -40 - f], [62, -32 - f], [58, 4]], 0xe0d0b0, 0.9);
+    wline(g, [[6, 6], [10, -46 - f]], 3, 0x6a4a2a, 1);
+    g.lineStyle(1.4, a, 0.8);
+    g.lineBetween(10, -42 - f, 34, -36 - f);
+    g.lineBetween(40, -36 - f, 62, -30 - f);
+    g.fillStyle(a, 0.9);
+    g.fillCircle(6, 6, 2.6);
+    } },
+    // 星帆：夜空星帆（帆面星图 + 北极星）
+    sailStar: { c: 0x2a2a4a, a: 0xfff0b0, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    wpoly(g, [[6, 6], [10, -46 - f], [36, -40 - f], [32, 4]], c, 0.95);
+    wpoly(g, [[42, 4], [44, -40 - f], [66, -32 - f], [62, 4]], 0x3a3a5e, 0.95);
+    for (let k = 0; k < 6; k++) {
+    const tw = 0.3 + 0.7 * Math.abs(Math.sin(now / 300 + k * 1.8));
+    g.fillStyle(a, tw);
+    g.fillCircle(14 + (k % 3) * 12, -14 - f - (k % 2) * 12, 1.4);
+    }
+    g.fillStyle(a, 0.95);
+    g.fillRect(22, -44 - f, 1.4, 5);
+    g.fillRect(20.3, -42.3 - f, 4.8, 1.4);
+    } },
     };
