@@ -629,4 +629,121 @@ export const WINGS_5: Record<string, WingArt> = {
       g.strokePath();
     }
   } },
+  // 极光：垂落光带（多层缓摆 + 星屑坠落）
+  aurora: { c: 0x7dffc4, a: 0x9ad4ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (let k = 0; k < 3; k++) {
+      g.lineStyle(6 - k, k % 2 ? a : c, 0.4 - k * 0.08);
+      g.beginPath();
+      for (let s = 0; s <= 5; s++) {
+        const u = s / 5;
+        const px = 4 + u * 78;
+        const py = -10 - k * 14 - f + Math.sin(u * 4.4 + now / 600 + k) * 8 - u * 14;
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+    for (let k = 0; k < 3; k++) {
+      const ph = (now / 900 + k / 3) % 1;
+      g.fillStyle(0xffffff, 0.6 * (1 - ph));
+      g.fillCircle(16 + k * 24, -30 - f + ph * 24, 1.4);
+    }
+  } },
+  // 极夜：冷紫夜幕翼 + 一轮细月 + 寒星
+  auroraBore: { c: 0x2a2450, a: 0xb8a8ff, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    wpoly(g, [[2, 4], [26, -34 - f], [58, -52 - f], [84, -38 - f], [56, -6], [28, 8]], c, 0.95);
+    wpoly(g, [[8, 0], [30, -26 - f], [54, -42 - f], [72, -30 - f], [46, -2]], 0x3a3468, 0.7);
+    // 细月
+    g.fillStyle(a, 0.95);
+    g.fillCircle(62, -40 - f, 7);
+    g.fillStyle(c, 1);
+    g.fillCircle(65, -42 - f, 6);
+    for (let k = 0; k < 4; k++) {
+      const tw = 0.3 + 0.7 * Math.abs(Math.sin(now / 340 + k * 2));
+      g.fillStyle(0xffffff, tw);
+      g.fillCircle(20 + k * 16, -20 - f - (k % 2) * 10, 1.2);
+    }
+  } },
+  // 彗尾：核 + 扫帚尾（尘埃带散开）
+  comet: { c: 0x9fd8ff, a: 0xffffff, draw: (g, _now, flap, c, a) => {
+    const f = flap * 6;
+    const hx = 70, hy2 = -44 - f;
+    wpoly(g, [[hx - 8, hy2 - 6], [hx + 8, hy2], [hx - 8, hy2 + 6]], 0xffffff, 0.95);
+    g.fillStyle(c, 0.9);
+    g.fillCircle(hx, hy2, 6);
+    for (let k = 0; k < 7; k++) {
+      const t = (k / 6) * 0.9;
+      const spread = t * 16;
+      g.fillStyle(k % 2 ? c : a, 0.6 * (1 - t));
+      g.fillCircle(hx - 8 - t * 62, hy2 + Math.sin(k * 2.4) * spread, 3.4 * (1 - t) + 0.8);
+    }
+  } },
+  // 流光：贯体流光翼（光带穿梭）
+  glow: { c: 0xffe89a, a: 0xffffff, draw: (g, now, flap, c, a) => {
+    const f = flap * 6;
+    for (let k = 0; k < 4; k++) {
+      const t = k / 3;
+      const px = 6 + t * 62, py = -4 - t * (30 + f);
+      g.fillStyle(c, 0.16);
+      g.fillCircle(px, py, 9 - t * 2);
+      g.fillStyle(0xffffff, 0.9);
+      g.fillCircle(px, py, 3 - t);
+    }
+    g.lineStyle(1.4, a, 0.4);
+    g.beginPath();
+    for (let s = 0; s <= 5; s++) {
+      const u = s / 5;
+      const px = 6 + u * 66, py = -4 - u * (30 + f) + Math.sin(u * 6 + now / 250) * 4;
+      if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+    }
+    g.strokePath();
+  } },
+  // 月帘：垂落月色纱帘（细带 + 末端月牙坠）
+  moonveil: { c: 0xd8e0ff, a: 0xffe89a, draw: (g, now, flap, c, a) => {
+    const f = flap * 4;
+    for (let k = 0; k < 4; k++) {
+      const bx = 10 + k * 16;
+      const sway = Math.sin(now / 400 + k) * 3;
+      g.lineStyle(2.6, c, 0.7 - k * 0.08);
+      g.lineBetween(bx, -8, bx + sway, 30 - f * 0.4 - k * 4);
+      g.fillStyle(a, 0.9);
+      g.fillCircle(bx + sway, 33 - f * 0.4 - k * 4, 2.4);
+    }
+    g.lineStyle(1.6, c, 0.4);
+    g.lineBetween(4, -8, 62, -8);
+  } },
+  // 飘带：双绸带翻转（交替上下）
+  ribbonDance: { c: 0xff8ad4, a: 0xffd45c, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    for (let k = 0; k < 2; k++) {
+      g.lineStyle(6 - k * 2, k % 2 ? a : c, 0.9);
+      g.beginPath();
+      for (let s = 0; s <= 6; s++) {
+        const u = s / 6;
+        const px = 4 + u * 80;
+        const py = -6 - k * 10 - f + Math.sin(u * 5 + now / 240 + k * 2.4) * (10 + u * 6);
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+  } },
+  // 丝绸：绸面翼（缎面高光流动）
+  silk: { c: 0xf0d8e8, a: 0xc86a9a, draw: (g, now, flap, c, a) => {
+    const f = flap * 5;
+    wpoly(g, [[2, 4], [26, -32 - f], [56, -50 - f], [84, -38 - f], [56, -6], [28, 8]], c, 0.95);
+    // 缎面流光（两道波状高光移动）
+    for (let k = 0; k < 2; k++) {
+      g.lineStyle(3, 0xffffff, 0.35);
+      g.beginPath();
+      for (let s = 0; s <= 5; s++) {
+        const u = s / 5;
+        const px = 6 + u * 72;
+        const py = -8 - k * 12 - f * 0.8 + Math.sin(u * 5 + now / 400 + k * 2) * 4 - u * 8;
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+    wline(g, [[2, 4], [26, -32 - f], [56, -50 - f], [84, -38 - f]], 1.6, a, 0.7);
+  } },
 };
