@@ -421,7 +421,7 @@ export const WINGS_5: Record<string, WingArt> = {
     g.lineBetween(6, -14 - f, 66, -40 - f);
   } },
   // 蜻蜓：四片透明复翼（脉纹 + 高速颤动）
-  dragonfly: { c: 0xbfe8f4, a: 0x5a8ab4, draw: (g, now, flap, c, a) => {
+  dragonfly: { c: 0xbfe8f4, a: 0x5a8ab4, draw: (g, now, _flap, c, a) => {
     const tr = Math.sin(now / 60) * 3;
     for (const [dx, dy] of [[10, -22], [16, -4], [26, -30], [32, -12]] as const) {
       g.fillStyle(c, 0.45);
@@ -487,7 +487,7 @@ export const WINGS_5: Record<string, WingArt> = {
     }
   } },
   // 冰晶：霜花六棱翼（生长呼吸）
-  frost: { c: 0xbfe8ff, a: 0xffffff, draw: (g, now, _flap, c, a) => {
+  frost: { c: 0xbfe8ff, a: 0xffffff, draw: (g, now, flap, c, a) => {
     const f = flap * 5;
     const cx = 34, cy = -24 - f;
     const grow = 0.85 + 0.15 * Math.sin(now / 500);
