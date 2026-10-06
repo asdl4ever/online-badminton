@@ -4,6 +4,11 @@ import { SWINGS_2 } from './swings2';
 import { SWINGS_3 } from './swings3';
 import { SWINGS_4 } from './swings4';
 import { SWINGS_5 } from './swings5';
+import { SWINGS_6 } from './swings6';
+import { SWINGS_7 } from './swings7';
+import { SWINGS_8 } from './swings8';
+import { SWINGS_9 } from './swings9';
+import { SWINGS_10 } from './swings10';
 import type { SwingKit } from './shared';
 
 /**
@@ -17,6 +22,11 @@ const SWINGS: Record<string, (typeof SWINGS_1)[string]> = {
   ...SWINGS_3,
   ...SWINGS_4,
   ...SWINGS_5,
+  ...SWINGS_6,
+  ...SWINGS_7,
+  ...SWINGS_8,
+  ...SWINGS_9,
+  ...SWINGS_10,
 };
 
 export function drawSwingCustom(

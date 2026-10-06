@@ -55,6 +55,12 @@ export const router = createRouter({
       name: 'mine',
       component: () => import('../views/MineView.vue'),
     },
+    // 画室：你画我猜（联机轮流画猜，画笔复用击球拖尾特效）
+    {
+      path: '/paint',
+      name: 'paint',
+      component: () => import('../views/PaintView.vue'),
+    },
     {
       path: '/barber',
       name: 'barber',

@@ -5,6 +5,11 @@ import {
 import { shnSpirit, mcaSpirit } from './batch2';
 import { otmSpirit, kjuSpirit } from './batch3';
 import { xySpirit, sgmSpirit } from './batch4';
+import { wxSpirit, norseSpirit } from './batch5';
+import { egSpirit, njaSpirit } from './batch6';
+import { cybSpirit, dgSpirit, chronoSpirit } from './batch7';
+import { dunSpirit, aztSpirit, angSpirit } from './batch8';
+import { taleSpirit, dinSpirit, catSpirit } from './batch9';
 
 /**
  * 皮肤覆盖层总入口：按 ref 提供重绘后的 painter。
@@ -13,10 +18,22 @@ import { xySpirit, sgmSpirit } from './batch4';
  */
 export const SKIN_OVERRIDES: Record<string, import('./shared').SkinPainter> = {
   // 🗺️ 山海十怪（重绘批一）
+  zhuLong, xiangLiu, qiongQi, taoTie, taoWu,
+  hunDun, jiuweiHu, baShe, guDiao, yuYu,
   // 上古神话 / 重装机甲（重绘批二）
   shnSpirit, mcaSpirit,
   // 光之巨人 / 怪兽之王（批三）
   otmSpirit, kjuSpirit,
   // 西游降魔 / 三国烽火（批四）
   xySpirit, sgmSpirit,
+  // 武侠江湖 / 北欧神域（批五）
+  wxSpirit, norseSpirit,
+  // 法老秘葬 / 暗部忍道（批六）
+  egSpirit, njaSpirit,
+  // 赛博都市 / 东海龙宫 / 时空旅行（批七）
+  cybSpirit, dgSpirit, chronoSpirit,
+  // 敦煌飞天 / 羽蛇神殿 / 圣辉天界（批八）
+  dunSpirit, aztSpirit, angSpirit,
+  // 童话王国 / 深夜食堂 / 猫咖物语（批九）
+  taleSpirit, dinSpirit, catSpirit,
 };

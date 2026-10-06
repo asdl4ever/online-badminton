@@ -13,9 +13,9 @@ export type LobbyConnState = 'off' | 'connecting' | 'online';
  * Which screen an invite belongs to. The host invites from the room he is
  * sitting in; the guest is routed to the matching page on accept.
  */
-export type InviteKind = 'match' | 'map' | 'fish' | 'mine';
+export type InviteKind = 'match' | 'map' | 'fish' | 'mine' | 'paint';
 
-export const INVITE_KINDS: readonly InviteKind[] = ['match', 'map', 'fish', 'mine'];
+export const INVITE_KINDS: readonly InviteKind[] = ['match', 'map', 'fish', 'mine', 'paint'];
 
 export function normaliseInviteKind(raw: unknown): InviteKind {
   return typeof raw === 'string' && (INVITE_KINDS as readonly string[]).includes(raw)
@@ -37,6 +37,7 @@ export type SceneId =
   | 'nailong'
   | 'godzilla'
   | 'alien'
+  | 'paint'
   | 'watch';
 
 export const SCENE_IDS: readonly SceneId[] = [
@@ -52,6 +53,7 @@ export const SCENE_IDS: readonly SceneId[] = [
   'nailong',
   'godzilla',
   'alien',
+  'paint',
   'watch',
 ];
 

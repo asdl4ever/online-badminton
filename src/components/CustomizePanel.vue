@@ -1,10 +1,34 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import { VTextField } from 'vuetify/components';
 import CharacterPreview from './CharacterPreview.vue';
 import { useCustomizeStore } from '../stores/customize';
 import { COLOR_PRESETS, EMOJI_PRESETS, toHex } from '../game/cosmetics';
+import { isSingleBack } from '../game/draw/wings';
+import { getBackTune, setBackTune } from '../game/backTune';
 
 const store = useCustomizeStore();
+
+/** 背挂逐件微调：当前装备的背部是「单件背挂物件」时，可以调画层与水平位置 */
+const ver = ref(0); // 手动版本号：调参改的是 localStorage，用它让 computed 重新读
+const backId = computed(() => store.cosmetic.back);
+const tunable = computed(() => {
+  ver.value;
+  return backId.value !== 'none' && isSingleBack(backId.value);
+});
+const tune = computed(() => {
+  ver.value;
+  return getBackTune(backId.value);
+});
+
+function retune(patch: { front?: boolean; ox?: number }): void {
+  const cur = getBackTune(backId.value);
+  setBackTune(backId.value, {
+    front: patch.front ?? cur.front,
+    ox: Math.max(-40, Math.min(40, patch.ox ?? cur.ox)),
+  });
+  ver.value++;
+}
 </script>
 
 <template>
@@ -12,6 +36,50 @@ const store = useCustomizeStore();
     <CharacterPreview />
 
     <div class="cz__controls">
+      <div
+        v-if="tunable"
+        class="cz__row"
+      >
+        <label class="cz__label">背挂调整</label>
+        <div class="cz__control cz__tune">
+          <button
+            class="cz__tune-btn"
+            :class="{ 'is-front': tune.front }"
+            type="button"
+            :title="tune.front ? '当前：画在身前（点击切回身后）' : '当前：画在身后（点击移到身前，不被身体挡住）'"
+            @click="retune({ front: !tune.front })"
+          >
+            {{ tune.front ? '身前' : '身后' }}
+          </button>
+          <button
+            class="cz__tune-btn"
+            type="button"
+            title="向左移"
+            @click="retune({ ox: tune.ox - 2 })"
+          >
+            ←
+          </button>
+          <span class="cz__ox num">{{ tune.ox > 0 ? `+${tune.ox}` : tune.ox }}</span>
+          <button
+            class="cz__tune-btn"
+            type="button"
+            title="向右移"
+            @click="retune({ ox: tune.ox + 2 })"
+          >
+            →
+          </button>
+          <button
+            v-if="tune.ox !== 0 || tune.front"
+            class="cz__tune-btn cz__tune-reset"
+            type="button"
+            title="恢复默认"
+            @click="retune({ front: false, ox: 0 })"
+          >
+            ↺
+          </button>
+        </div>
+      </div>
+
       <div class="cz__row">
         <label class="cz__label">角色表情</label>
         <div class="cz__control">
@@ -127,6 +195,37 @@ const store = useCustomizeStore();
   flex-wrap: wrap;
   gap: var(--s3);
   align-items: center;
+}
+
+.cz__tune {
+  gap: 8px;
+}
+
+.cz__tune-btn {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cz__tune-btn.is-front {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.cz__tune-reset {
+  color: var(--text-dim);
+}
+
+.cz__ox {
+  min-width: 34px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .cz__emoji-field {

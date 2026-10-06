@@ -231,6 +231,58 @@ export type WingId =
   | 'sgmBackB'
   | 'sgmBackC'
   | 'sgmBackD'
+  | 'wxBackA'
+  | 'wxBackB'
+  | 'wxBackC'
+  | 'wxBackD'
+  | 'norseBackA'
+  | 'norseBackB'
+  | 'norseBackC'
+  | 'norseBackD'
+  | 'egBackA'
+  | 'egBackB'
+  | 'egBackC'
+  | 'egBackD'
+  | 'njaBackA'
+  | 'njaBackB'
+  | 'njaBackC'
+  | 'njaBackD'
+  | 'cybBackA'
+  | 'cybBackB'
+  | 'cybBackC'
+  | 'cybBackD'
+  | 'dgBackA'
+  | 'dgBackB'
+  | 'dgBackC'
+  | 'dgBackD'
+  | 'chronoBackA'
+  | 'chronoBackB'
+  | 'chronoBackC'
+  | 'chronoBackD'
+  | 'dunBackA'
+  | 'dunBackB'
+  | 'dunBackC'
+  | 'dunBackD'
+  | 'aztBackA'
+  | 'aztBackB'
+  | 'aztBackC'
+  | 'aztBackD'
+  | 'angBackA'
+  | 'angBackB'
+  | 'angBackC'
+  | 'angBackD'
+  | 'taleBackA'
+  | 'taleBackB'
+  | 'taleBackC'
+  | 'taleBackD'
+  | 'dinBackA'
+  | 'dinBackB'
+  | 'dinBackC'
+  | 'dinBackD'
+  | 'catBackA'
+  | 'catBackB'
+  | 'catBackC'
+  | 'catBackD'
   | 'shanWingFeather' | 'shanWingCloud';
 
 export type CapeId =
@@ -521,6 +573,32 @@ export type HatId =
   | 'xyHatB'
   | 'sgmHatA'
   | 'sgmHatB'
+  | 'wxHatA'
+  | 'wxHatB'
+  | 'norseHatA'
+  | 'norseHatB'
+  | 'egHatA'
+  | 'egHatB'
+  | 'njaHatA'
+  | 'njaHatB'
+  | 'cybHatA'
+  | 'cybHatB'
+  | 'dgHatA'
+  | 'dgHatB'
+  | 'chronoHatA'
+  | 'chronoHatB'
+  | 'dunHatA'
+  | 'dunHatB'
+  | 'aztHatA'
+  | 'aztHatB'
+  | 'angHatA'
+  | 'angHatB'
+  | 'taleHatA'
+  | 'taleHatB'
+  | 'dinHatA'
+  | 'dinHatB'
+  | 'catHatA'
+  | 'catHatB'
   | 'runHat';
 
 export type PetId =
@@ -590,6 +668,32 @@ export type TrailId =
   | 'xyTrailB'
   | 'sgmTrailA'
   | 'sgmTrailB'
+  | 'wxTrailA'
+  | 'wxTrailB'
+  | 'norseTrailA'
+  | 'norseTrailB'
+  | 'egTrailA'
+  | 'egTrailB'
+  | 'njaTrailA'
+  | 'njaTrailB'
+  | 'cybTrailA'
+  | 'cybTrailB'
+  | 'dgTrailA'
+  | 'dgTrailB'
+  | 'chronoTrailA'
+  | 'chronoTrailB'
+  | 'dunTrailA'
+  | 'dunTrailB'
+  | 'aztTrailA'
+  | 'aztTrailB'
+  | 'angTrailA'
+  | 'angTrailB'
+  | 'taleTrailA'
+  | 'taleTrailB'
+  | 'dinTrailA'
+  | 'dinTrailB'
+  | 'catTrailA'
+  | 'catTrailB'
   | 'runTrail';
 
 /**
@@ -639,6 +743,19 @@ export type SwingTrailId =
   | 'kjuSwing'
   | 'xySwing'
   | 'sgmSwing'
+  | 'wxSwing'
+  | 'norseSwing'
+  | 'egSwing'
+  | 'njaSwing'
+  | 'cybSwing'
+  | 'dgSwing'
+  | 'chronoSwing'
+  | 'dunSwing'
+  | 'aztSwing'
+  | 'angSwing'
+  | 'taleSwing'
+  | 'dinSwing'
+  | 'catSwing'
   | 'runSwing';
 
 /**
@@ -703,6 +820,19 @@ export type MountId =
   | 'kjuMount'
   | 'xyMount'
   | 'sgmMount'
+  | 'wxMount'
+  | 'norseMount'
+  | 'egMount'
+  | 'njaMount'
+  | 'cybMount'
+  | 'dgMount'
+  | 'chronoMount'
+  | 'dunMount'
+  | 'aztMount'
+  | 'angMount'
+  | 'taleMount'
+  | 'dinMount'
+  | 'catMount'
   | 'shanMountKun';
 
 /** 地环：显示在角色脚下的装饰环（积分荣誉奖励） */
@@ -743,6 +873,19 @@ export type RingId =
   | 'kjuRing'
   | 'xyRing'
   | 'sgmRing'
+  | 'wxRing'
+  | 'norseRing'
+  | 'egRing'
+  | 'njaRing'
+  | 'cybRing'
+  | 'dgRing'
+  | 'chronoRing'
+  | 'dunRing'
+  | 'aztRing'
+  | 'angRing'
+  | 'taleRing'
+  | 'dinRing'
+  | 'catRing'
   | 'runRing';
 
 export type AuraId =
@@ -882,6 +1025,32 @@ export type AuraId =
   | 'xyAuraB'
   | 'sgmAuraA'
   | 'sgmAuraB'
+  | 'wxAuraA'
+  | 'wxAuraB'
+  | 'norseAuraA'
+  | 'norseAuraB'
+  | 'egAuraA'
+  | 'egAuraB'
+  | 'njaAuraA'
+  | 'njaAuraB'
+  | 'cybAuraA'
+  | 'cybAuraB'
+  | 'dgAuraA'
+  | 'dgAuraB'
+  | 'chronoAuraA'
+  | 'chronoAuraB'
+  | 'dunAuraA'
+  | 'dunAuraB'
+  | 'aztAuraA'
+  | 'aztAuraB'
+  | 'angAuraA'
+  | 'angAuraB'
+  | 'taleAuraA'
+  | 'taleAuraB'
+  | 'dinAuraA'
+  | 'dinAuraB'
+  | 'catAuraA'
+  | 'catAuraB'
   | 'runAura';
 
 export type RacketSkinId =
@@ -987,6 +1156,32 @@ export type RacketSkinId =
   | 'xyRacketB'
   | 'sgmRacketA'
   | 'sgmRacketB'
+  | 'wxRacketA'
+  | 'wxRacketB'
+  | 'norseRacketA'
+  | 'norseRacketB'
+  | 'egRacketA'
+  | 'egRacketB'
+  | 'njaRacketA'
+  | 'njaRacketB'
+  | 'cybRacketA'
+  | 'cybRacketB'
+  | 'dgRacketA'
+  | 'dgRacketB'
+  | 'chronoRacketA'
+  | 'chronoRacketB'
+  | 'dunRacketA'
+  | 'dunRacketB'
+  | 'aztRacketA'
+  | 'aztRacketB'
+  | 'angRacketA'
+  | 'angRacketB'
+  | 'taleRacketA'
+  | 'taleRacketB'
+  | 'dinRacketA'
+  | 'dinRacketB'
+  | 'catRacketA'
+  | 'catRacketB'
   | 'shanRacketA' | 'shanRacketB';
 
 /**
@@ -1050,6 +1245,19 @@ export type CharacterSkin =
   | 'kjuSpirit'
   | 'xySpirit'
   | 'sgmSpirit'
+  | 'wxSpirit'
+  | 'norseSpirit'
+  | 'egSpirit'
+  | 'njaSpirit'
+  | 'cybSpirit'
+  | 'dgSpirit'
+  | 'chronoSpirit'
+  | 'dunSpirit'
+  | 'aztSpirit'
+  | 'angSpirit'
+  | 'taleSpirit'
+  | 'dinSpirit'
+  | 'catSpirit'
   | 'hunDun' | 'jiuweiHu' | 'baShe' | 'guDiao' | 'yuYu';
 const SKIN_IDS: CharacterSkin[] = [
   'none',
@@ -1096,6 +1304,19 @@ const SKIN_IDS: CharacterSkin[] = [
   'kjuSpirit',
   'xySpirit',
   'sgmSpirit',
+  'wxSpirit',
+  'norseSpirit',
+  'egSpirit',
+  'njaSpirit',
+  'cybSpirit',
+  'dgSpirit',
+  'chronoSpirit',
+  'dunSpirit',
+  'aztSpirit',
+  'angSpirit',
+  'taleSpirit',
+  'dinSpirit',
+  'catSpirit',
 ];
 
 export interface Cosmetic {
@@ -1191,6 +1412,58 @@ const WING_IDS: WingId[] = [
   'sgmBackB',
   'sgmBackC',
   'sgmBackD',
+  'wxBackA',
+  'wxBackB',
+  'wxBackC',
+  'wxBackD',
+  'norseBackA',
+  'norseBackB',
+  'norseBackC',
+  'norseBackD',
+  'egBackA',
+  'egBackB',
+  'egBackC',
+  'egBackD',
+  'njaBackA',
+  'njaBackB',
+  'njaBackC',
+  'njaBackD',
+  'cybBackA',
+  'cybBackB',
+  'cybBackC',
+  'cybBackD',
+  'dgBackA',
+  'dgBackB',
+  'dgBackC',
+  'dgBackD',
+  'chronoBackA',
+  'chronoBackB',
+  'chronoBackC',
+  'chronoBackD',
+  'dunBackA',
+  'dunBackB',
+  'dunBackC',
+  'dunBackD',
+  'aztBackA',
+  'aztBackB',
+  'aztBackC',
+  'aztBackD',
+  'angBackA',
+  'angBackB',
+  'angBackC',
+  'angBackD',
+  'taleBackA',
+  'taleBackB',
+  'taleBackC',
+  'taleBackD',
+  'dinBackA',
+  'dinBackB',
+  'dinBackC',
+  'dinBackD',
+  'catBackA',
+  'catBackB',
+  'catBackC',
+  'catBackD',
 ];
 const CAPE_IDS: CapeId[] = [
   'none', 'hero', 'shadowCape', 'storm', 'emberCape', 'frostCape', 'leafCape', 'royal', 'void', 'dragonCape', 'angelCape', 'phoenixCape',
@@ -1317,6 +1590,32 @@ const HAT_IDS: HatId[] = [
   'xyHatB',
   'sgmHatA',
   'sgmHatB',
+  'wxHatA',
+  'wxHatB',
+  'norseHatA',
+  'norseHatB',
+  'egHatA',
+  'egHatB',
+  'njaHatA',
+  'njaHatB',
+  'cybHatA',
+  'cybHatB',
+  'dgHatA',
+  'dgHatB',
+  'chronoHatA',
+  'chronoHatB',
+  'dunHatA',
+  'dunHatB',
+  'aztHatA',
+  'aztHatB',
+  'angHatA',
+  'angHatB',
+  'taleHatA',
+  'taleHatB',
+  'dinHatA',
+  'dinHatB',
+  'catHatA',
+  'catHatB',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
@@ -1377,6 +1676,32 @@ const TRAIL_IDS: TrailId[] = [
   'xyTrailB',
   'sgmTrailA',
   'sgmTrailB',
+  'wxTrailA',
+  'wxTrailB',
+  'norseTrailA',
+  'norseTrailB',
+  'egTrailA',
+  'egTrailB',
+  'njaTrailA',
+  'njaTrailB',
+  'cybTrailA',
+  'cybTrailB',
+  'dgTrailA',
+  'dgTrailB',
+  'chronoTrailA',
+  'chronoTrailB',
+  'dunTrailA',
+  'dunTrailB',
+  'aztTrailA',
+  'aztTrailB',
+  'angTrailA',
+  'angTrailB',
+  'taleTrailA',
+  'taleTrailB',
+  'dinTrailA',
+  'dinTrailB',
+  'catTrailA',
+  'catTrailB',
 ];
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
@@ -1408,6 +1733,19 @@ const SWING_TRAIL_IDS: SwingTrailId[] = [
   'kjuSwing',
   'xySwing',
   'sgmSwing',
+  'wxSwing',
+  'norseSwing',
+  'egSwing',
+  'njaSwing',
+  'cybSwing',
+  'dgSwing',
+  'chronoSwing',
+  'dunSwing',
+  'aztSwing',
+  'angSwing',
+  'taleSwing',
+  'dinSwing',
+  'catSwing',
 ];
 const MOUNT_IDS: MountId[] = [
   'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
@@ -1440,6 +1778,19 @@ const MOUNT_IDS: MountId[] = [
   'kjuMount',
   'xyMount',
   'sgmMount',
+  'wxMount',
+  'norseMount',
+  'egMount',
+  'njaMount',
+  'cybMount',
+  'dgMount',
+  'chronoMount',
+  'dunMount',
+  'aztMount',
+  'angMount',
+  'taleMount',
+  'dinMount',
+  'catMount',
 ];
 const RING_IDS: RingId[] = [
   'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
@@ -1470,6 +1821,19 @@ const RING_IDS: RingId[] = [
   'kjuRing',
   'xyRing',
   'sgmRing',
+  'wxRing',
+  'norseRing',
+  'egRing',
+  'njaRing',
+  'cybRing',
+  'dgRing',
+  'chronoRing',
+  'dunRing',
+  'aztRing',
+  'angRing',
+  'taleRing',
+  'dinRing',
+  'catRing',
 ];
 
 /** 地环配色（跟着组别走） */
@@ -1518,6 +1882,19 @@ export const RING_COLORS: Record<RingId, number> = {
   kjuRing: 0x8ae86a,
   xyRing: 0xffd45c,
   sgmRing: 0xe8404a,
+  wxRing: 0xd9a84a,
+  norseRing: 0x7fd4ff,
+  egRing: 0x3a5a8a,
+  njaRing: 0xb08ad0,
+  cybRing: 0x39ffd0,
+  dgRing: 0x7fd4ff,
+  chronoRing: 0xffd45c,
+  dunRing: 0xff9adf,
+  aztRing: 0x3ad49a,
+  angRing: 0xfff6d8,
+  taleRing: 0xff9adf,
+  dinRing: 0xf0ead8,
+  catRing: 0xffb0c8,
 };
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
@@ -1568,6 +1945,32 @@ const AURA_IDS: AuraId[] = [
   'xyAuraB',
   'sgmAuraA',
   'sgmAuraB',
+  'wxAuraA',
+  'wxAuraB',
+  'norseAuraA',
+  'norseAuraB',
+  'egAuraA',
+  'egAuraB',
+  'njaAuraA',
+  'njaAuraB',
+  'cybAuraA',
+  'cybAuraB',
+  'dgAuraA',
+  'dgAuraB',
+  'chronoAuraA',
+  'chronoAuraB',
+  'dunAuraA',
+  'dunAuraB',
+  'aztAuraA',
+  'aztAuraB',
+  'angAuraA',
+  'angAuraB',
+  'taleAuraA',
+  'taleAuraB',
+  'dinAuraA',
+  'dinAuraB',
+  'catAuraA',
+  'catAuraB',
 ];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
@@ -1615,6 +2018,32 @@ const RACKET_SKIN_IDS: RacketSkinId[] = [
   'xyRacketB',
   'sgmRacketA',
   'sgmRacketB',
+  'wxRacketA',
+  'wxRacketB',
+  'norseRacketA',
+  'norseRacketB',
+  'egRacketA',
+  'egRacketB',
+  'njaRacketA',
+  'njaRacketB',
+  'cybRacketA',
+  'cybRacketB',
+  'dgRacketA',
+  'dgRacketB',
+  'chronoRacketA',
+  'chronoRacketB',
+  'dunRacketA',
+  'dunRacketB',
+  'aztRacketA',
+  'aztRacketB',
+  'angRacketA',
+  'angRacketB',
+  'taleRacketA',
+  'taleRacketB',
+  'dinRacketA',
+  'dinRacketB',
+  'catRacketA',
+  'catRacketB',
 ];
 
 export const WING_COLORS: Record<WingId, number> = {
@@ -1756,6 +2185,58 @@ export const WING_COLORS: Record<WingId, number> = {
   sgmBackB: 0xe8404a,
   sgmBackC: 0x8a6a3a,
   sgmBackD: 0xd8d0c0,
+  wxBackA: 0xd8d8e0,
+  wxBackB: 0x8a5a2a,
+  wxBackC: 0xa06a3a,
+  wxBackD: 0x4a4a52,
+  norseBackA: 0x8a94a2,
+  norseBackB: 0x7de87d,
+  norseBackC: 0xb08a5a,
+  norseBackD: 0x9fd8ff,
+  egBackA: 0xd9b45c,
+  egBackB: 0x3a5a8a,
+  egBackC: 0xffd45c,
+  egBackD: 0xd9c88a,
+  njaBackA: 0x8a94a2,
+  njaBackB: 0xb8c0cc,
+  njaBackC: 0xd9c8a0,
+  njaBackD: 0xb08ad0,
+  cybBackA: 0x39ffd0,
+  cybBackB: 0xff3bd4,
+  cybBackC: 0x5ac8ff,
+  cybBackD: 0x39424e,
+  dgBackA: 0xffd45c,
+  dgBackB: 0xd9b45c,
+  dgBackC: 0xff8a9a,
+  dgBackD: 0x7fd4ff,
+  chronoBackA: 0xffd45c,
+  chronoBackB: 0x9b5cff,
+  chronoBackC: 0xd9b45c,
+  chronoBackD: 0xbfe8f5,
+  dunBackA: 0xffb070,
+  dunBackB: 0xc08a3a,
+  dunBackC: 0xc07830,
+  dunBackD: 0xd9b45c,
+  aztBackA: 0x3ad49a,
+  aztBackB: 0xffd45c,
+  aztBackC: 0x4ac8a0,
+  aztBackD: 0xff7a3a,
+  angBackA: 0xfff6d8,
+  angBackB: 0xd9b45c,
+  angBackC: 0xe8c88a,
+  angBackD: 0xfff6d8,
+  taleBackA: 0x9b5cff,
+  taleBackB: 0xffd45c,
+  taleBackC: 0xb8c0cc,
+  taleBackD: 0x8fd8ff,
+  dinBackA: 0xe8404a,
+  dinBackB: 0x39424e,
+  dinBackC: 0x8a6a3a,
+  dinBackD: 0xd8453a,
+  catBackA: 0xffb0c8,
+  catBackB: 0xd9b45c,
+  catBackC: 0xc08a3a,
+  catBackD: 0xf0d8b8,
 };
 
 /** which silhouette a wing draws with; lets styles look genuinely different */
@@ -1960,6 +2441,58 @@ export const WING_SHAPE: Record<
   sgmBackB: { kind: 'sail', feathers: 3, len: 66, spread: 0.9, w: 18 },
   sgmBackC: { kind: 'mech', feathers: 3, len: 56, spread: 0.7, w: 16 },
   sgmBackD: { kind: 'ghost', feathers: 3, len: 58, spread: 0.7, w: 14 },
+  wxBackA: { kind: 'blade', feathers: 3, len: 80, spread: 0.6, w: 10 },
+  wxBackB: { kind: 'membrane', feathers: 3, len: 50, spread: 0.6, w: 16 },
+  wxBackC: { kind: 'sail', feathers: 3, len: 64, spread: 0.9, w: 18 },
+  wxBackD: { kind: 'mech', feathers: 3, len: 52, spread: 0.7, w: 14 },
+  norseBackA: { kind: 'mech', feathers: 3, len: 60, spread: 0.6, w: 20 },
+  norseBackB: { kind: 'leaf', feathers: 3, len: 68, spread: 0.8, w: 14 },
+  norseBackC: { kind: 'membrane', feathers: 3, len: 56, spread: 1, w: 22 },
+  norseBackD: { kind: 'ghost', feathers: 3, len: 60, spread: 0.8, w: 16 },
+  egBackA: { kind: 'blade', feathers: 3, len: 66, spread: 0.6, w: 12 },
+  egBackB: { kind: 'butterfly', feathers: 3, len: 60, spread: 1, w: 18 },
+  egBackC: { kind: 'ghost', feathers: 3, len: 48, spread: 0.7, w: 16 },
+  egBackD: { kind: 'sail', feathers: 3, len: 58, spread: 0.8, w: 18 },
+  njaBackA: { kind: 'blade', feathers: 3, len: 78, spread: 0.5, w: 8 },
+  njaBackB: { kind: 'mech', feathers: 3, len: 58, spread: 1, w: 20 },
+  njaBackC: { kind: 'sail', feathers: 3, len: 54, spread: 0.7, w: 16 },
+  njaBackD: { kind: 'ghost', feathers: 3, len: 58, spread: 0.8, w: 16 },
+  cybBackA: { kind: 'circuit', feathers: 3, len: 52, spread: 0.7, w: 12 },
+  cybBackB: { kind: 'mech', feathers: 3, len: 46, spread: 0.8, w: 16 },
+  cybBackC: { kind: 'circuit', feathers: 3, len: 50, spread: 0.8, w: 14 },
+  cybBackD: { kind: 'mech', feathers: 3, len: 56, spread: 0.7, w: 20 },
+  dgBackA: { kind: 'ghost', feathers: 3, len: 44, spread: 0.8, w: 14 },
+  dgBackB: { kind: 'mech', feathers: 3, len: 84, spread: 0.5, w: 10 },
+  dgBackC: { kind: 'leaf', feathers: 3, len: 56, spread: 0.8, w: 14 },
+  dgBackD: { kind: 'circuit', feathers: 3, len: 54, spread: 1, w: 16 },
+  chronoBackA: { kind: 'circuit', feathers: 3, len: 48, spread: 0.8, w: 16 },
+  chronoBackB: { kind: 'ghost', feathers: 3, len: 56, spread: 1, w: 18 },
+  chronoBackC: { kind: 'mech', feathers: 3, len: 50, spread: 0.8, w: 18 },
+  chronoBackD: { kind: 'membrane', feathers: 3, len: 52, spread: 0.6, w: 14 },
+  dunBackA: { kind: 'ribbon', feathers: 4, len: 78, spread: 1, w: 14 },
+  dunBackB: { kind: 'sail', feathers: 3, len: 60, spread: 0.8, w: 18 },
+  dunBackC: { kind: 'membrane', feathers: 3, len: 46, spread: 0.7, w: 16 },
+  dunBackD: { kind: 'sail', feathers: 3, len: 62, spread: 0.8, w: 16 },
+  aztBackA: { kind: 'blade', feathers: 3, len: 70, spread: 0.6, w: 12 },
+  aztBackB: { kind: 'circuit', feathers: 3, len: 56, spread: 1, w: 22 },
+  aztBackC: { kind: 'ghost', feathers: 3, len: 46, spread: 0.7, w: 16 },
+  aztBackD: { kind: 'membrane', feathers: 3, len: 50, spread: 0.7, w: 18 },
+  angBackA: { kind: 'feather', feathers: 5, len: 62, spread: 1, w: 14 },
+  angBackB: { kind: 'membrane', feathers: 3, len: 54, spread: 0.7, w: 18 },
+  angBackC: { kind: 'sail', feathers: 3, len: 58, spread: 0.6, w: 14 },
+  angBackD: { kind: 'circuit', feathers: 3, len: 48, spread: 0.7, w: 16 },
+  taleBackA: { kind: 'circuit', feathers: 3, len: 50, spread: 0.7, w: 16 },
+  taleBackB: { kind: 'mech', feathers: 3, len: 50, spread: 0.8, w: 18 },
+  taleBackC: { kind: 'blade', feathers: 3, len: 64, spread: 0.5, w: 10 },
+  taleBackD: { kind: 'ghost', feathers: 3, len: 46, spread: 0.8, w: 16 },
+  dinBackA: { kind: 'sail', feathers: 3, len: 56, spread: 0.9, w: 16 },
+  dinBackB: { kind: 'membrane', feathers: 3, len: 48, spread: 0.8, w: 20 },
+  dinBackC: { kind: 'circuit', feathers: 3, len: 50, spread: 0.7, w: 16 },
+  dinBackD: { kind: 'mech', feathers: 3, len: 50, spread: 0.7, w: 18 },
+  catBackA: { kind: 'circuit', feathers: 3, len: 44, spread: 0.8, w: 16 },
+  catBackB: { kind: 'sail', feathers: 3, len: 52, spread: 0.8, w: 14 },
+  catBackC: { kind: 'mech', feathers: 3, len: 52, spread: 0.7, w: 18 },
+  catBackD: { kind: 'membrane', feathers: 3, len: 48, spread: 0.7, w: 18 },
 };
 
 export type CapeKind =
@@ -2592,6 +3125,32 @@ export const HAT_COLORS: Record<HatId, number> = {
   xyHatB: 0x8a5a2a,
   sgmHatA: 0xe8404a,
   sgmHatB: 0xd9b45c,
+  wxHatA: 0xcfc4a0,
+  wxHatB: 0x2a2a30,
+  norseHatA: 0x8a94a2,
+  norseHatB: 0x8a6a3a,
+  egHatA: 0xffd45c,
+  egHatB: 0xd9b45c,
+  njaHatA: 0x2a2a34,
+  njaHatB: 0xd8d0c0,
+  cybHatA: 0x39ffd0,
+  cybHatB: 0x232a3c,
+  dgHatA: 0xe88a7a,
+  dgHatB: 0xd9b45c,
+  chronoHatA: 0xb8943a,
+  chronoHatB: 0xd9b45c,
+  dunHatA: 0xff9adf,
+  dunHatB: 0xffd45c,
+  aztHatA: 0x3ad49a,
+  aztHatB: 0xd9b45c,
+  angHatA: 0xffd45c,
+  angHatB: 0xfff6d8,
+  taleHatA: 0xffd45c,
+  taleHatB: 0x9b5cff,
+  dinHatA: 0xf0ead8,
+  dinHatB: 0xd9453a,
+  catHatA: 0x2a2a30,
+  catHatB: 0x2a2a30,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -2779,6 +3338,32 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   xyHatB: 'crown',
   sgmHatA: 'band',
   sgmHatB: 'helm',
+  wxHatA: 'band',
+  wxHatB: 'crown',
+  norseHatA: 'helm',
+  norseHatB: 'band',
+  egHatA: 'band',
+  egHatB: 'crown',
+  njaHatA: 'band',
+  njaHatB: 'helm',
+  cybHatA: 'band',
+  cybHatB: 'helm',
+  dgHatA: 'helm',
+  dgHatB: 'crown',
+  chronoHatA: 'band',
+  chronoHatB: 'crown',
+  dunHatA: 'crown',
+  dunHatB: 'crown',
+  aztHatA: 'crown',
+  aztHatB: 'helm',
+  angHatA: 'crown',
+  angHatB: 'crown',
+  taleHatA: 'crown',
+  taleHatB: 'crown',
+  dinHatA: 'crown',
+  dinHatB: 'band',
+  catHatA: 'band',
+  catHatB: 'crown',
 };
 
 /**
@@ -3027,6 +3612,32 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   xyTrailB: 0xffb0c8,
   sgmTrailA: 0xb8a890,
   sgmTrailB: 0xff5a1a,
+  wxTrailA: 0xdfe8f5,
+  wxTrailB: 0x2a2a30,
+  norseTrailA: 0xffe15c,
+  norseTrailB: 0xbfe8ff,
+  egTrailA: 0xd9a84a,
+  egTrailB: 0xffd45c,
+  njaTrailA: 0xb08ad0,
+  njaTrailB: 0xc0c8d0,
+  cybTrailA: 0x39ffd0,
+  cybTrailB: 0xff3bd4,
+  dgTrailA: 0x7fd4ff,
+  dgTrailB: 0x5affd0,
+  chronoTrailA: 0x9b5cff,
+  chronoTrailB: 0xbfe8ff,
+  dunTrailA: 0xffd45c,
+  dunTrailB: 0xffb0c8,
+  aztTrailA: 0x3ad49a,
+  aztTrailB: 0xffd45c,
+  angTrailA: 0xffd45c,
+  angTrailB: 0xfff6d8,
+  taleTrailA: 0xffd45c,
+  taleTrailB: 0xff9adf,
+  dinTrailA: 0xffe0b0,
+  dinTrailB: 0xff9a3c,
+  catTrailA: 0xffb0c8,
+  catTrailB: 0xffb070,
 };
 
 /** 挥拍拖尾各风格的主色 */
@@ -3080,6 +3691,19 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   kjuSwing: 0x8ae86a,
   xySwing: 0xffd45c,
   sgmSwing: 0x6ad0a0,
+  wxSwing: 0xdfe8f5,
+  norseSwing: 0xffe15c,
+  egSwing: 0x5ac8ff,
+  njaSwing: 0xdfe8f5,
+  cybSwing: 0xff3bd4,
+  dgSwing: 0x7fd4ff,
+  chronoSwing: 0x9b5cff,
+  dunSwing: 0xffb070,
+  aztSwing: 0xffb070,
+  angSwing: 0xffd45c,
+  taleSwing: 0x9b5cff,
+  dinSwing: 0xff7a3a,
+  catSwing: 0xe8a050,
 };
 
 /** 坐骑各款的主色 */
@@ -3149,6 +3773,19 @@ export const MOUNT_COLORS: Record<MountId, number> = {
   kjuMount: 0x4a5a3a,
   xyMount: 0xf0ead8,
   sgmMount: 0x8a3a2a,
+  wxMount: 0x8ac85a,
+  norseMount: 0xd8d0c0,
+  egMount: 0x3a5a8a,
+  njaMount: 0x8a7a5a,
+  cybMount: 0xff3bd4,
+  dgMount: 0xff8a5c,
+  chronoMount: 0x9b5cff,
+  dunMount: 0xffb0c8,
+  aztMount: 0xd9b45c,
+  angMount: 0xfff6d8,
+  taleMount: 0xffffff,
+  dinMount: 0x39424e,
+  catMount: 0xe8a050,
 };
 
 export const AURA_COLORS: Record<AuraId, number> = {
@@ -3306,6 +3943,32 @@ export const AURA_COLORS: Record<AuraId, number> = {
   xyAuraB: 0xff9a3c,
   sgmAuraA: 0xffd45c,
   sgmAuraB: 0xff5a1a,
+  wxAuraA: 0xdfe8f5,
+  wxAuraB: 0xc0d0e8,
+  norseAuraA: 0x7fd4ff,
+  norseAuraB: 0x9fe8c0,
+  egAuraA: 0xd9a84a,
+  egAuraB: 0xffd45c,
+  njaAuraA: 0xc0c8d0,
+  njaAuraB: 0xe8404a,
+  cybAuraA: 0xff3bd4,
+  cybAuraB: 0x39ffd0,
+  dgAuraA: 0x7fd4ff,
+  dgAuraB: 0x5affd0,
+  chronoAuraA: 0x9b5cff,
+  chronoAuraB: 0x5ac8ff,
+  dunAuraA: 0xffd45c,
+  dunAuraB: 0xffb070,
+  aztAuraA: 0x3ad49a,
+  aztAuraB: 0xff4a3a,
+  angAuraA: 0xfff6d8,
+  angAuraB: 0xffd45c,
+  taleAuraA: 0x9b5cff,
+  taleAuraB: 0xff9adf,
+  dinAuraA: 0xff9a3c,
+  dinAuraB: 0xffd45c,
+  catAuraA: 0xffb070,
+  catAuraB: 0xffd8a8,
 };
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
@@ -3430,6 +4093,32 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   xyRacketB: 0x9a6ad0,
   sgmRacketA: 0x6ad0a0,
   sgmRacketB: 0x8a94a2,
+  wxRacketA: 0xdfe8f5,
+  wxRacketB: 0x8a6a3a,
+  norseRacketA: 0x8a94a2,
+  norseRacketB: 0xbfe8ff,
+  egRacketA: 0xd9b45c,
+  egRacketB: 0x8a94a2,
+  njaRacketA: 0x8a94a2,
+  njaRacketB: 0x6a4a2a,
+  cybRacketA: 0x39ffd0,
+  cybRacketB: 0xff3bd4,
+  dgRacketA: 0xd9b45c,
+  dgRacketB: 0xf0ead8,
+  chronoRacketA: 0xffd45c,
+  chronoRacketB: 0x9b5cff,
+  dunRacketA: 0xffb070,
+  dunRacketB: 0xc08a3a,
+  aztRacketA: 0x2a2a34,
+  aztRacketB: 0x3ad49a,
+  angRacketA: 0xfff6d8,
+  angRacketB: 0xd9b45c,
+  taleRacketA: 0xffd45c,
+  taleRacketB: 0xdfe8f5,
+  dinRacketA: 0xc08a3a,
+  dinRacketB: 0x39424e,
+  catRacketA: 0xffb0c8,
+  catRacketB: 0xe8a050,
 };
 
 export const EMOJI_PRESETS = [

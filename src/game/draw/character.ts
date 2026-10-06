@@ -33,6 +33,7 @@ import { drawWingsCustom } from './wings';
 import { drawCapeCustom } from './capes';
 import { drawAuraCustom } from './auras';
 import { drawHatCustom } from './hats-theme';
+import { SKIN_OVERRIDES } from './skins';
 import { drawRingCustom } from './rings-theme';
 import {
   THEME_AURAS,
@@ -6197,20 +6198,25 @@ export function drawAura(
   }
 }
 
-/** 背部装饰统一入口：按 id 家族分派——展开形（原翅膀，肩部锚点 +48）/ 垂坠形（原披风，+30） */
+/** 背部装饰统一入口：按 id 家族分派——展开形（原翅膀，肩部锚点 +48）/ 垂坠形（原披风，+30）。
+ *  `pass`：双层绘制——'back' 画身体之前（默认），'front' 画身体之后（身前型背挂）。
+ *  两遍都会被调用，装饰只在属于自己的那遍真正下笔。 */
 export function drawBack(
   g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: BackId,
   move = 0, facing: 1 | -1 = 1,
+  pass: 'back' | 'front' = 'back',
 ): void {
-  if (isWingFamily(id)) drawWings(g, now, x, topY, id);
-  else drawCape(g, now, x, topY, id as CapeId, move, facing);
+  if (isWingFamily(id)) drawWings(g, now, x, topY, id, pass);
+  else if (pass === 'back') drawCape(g, now, x, topY, id as CapeId, move, facing);
 }
 
 /** wings; the silhouette is chosen by the wing's kind, not just its colour */
-export function drawWings(g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: BackId): void {
+export function drawWings(g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: BackId, pass: 'back' | 'front' = 'back'): void {
   const baseY = topY + 48;
   // 主题翅膀：每款一对独立剪影（见 draw/wings/），命中就不再走通用 kind
-  if (drawWingsCustom(g, now, id, x, baseY, Math.sin(now / 100) * 0.5)) return;
+  if (drawWingsCustom(g, now, id, x, baseY, Math.sin(now / 100) * 0.5, pass)) return;
+  // 通用 kind 翅膀永远属于身后层
+  if (pass !== 'back') return;
   const shape = WING_SHAPE[id as WingId];
   const color = WING_COLORS[id as WingId];
   if (!shape || shape.feathers === 0) return;
@@ -9119,7 +9125,11 @@ export function drawCharacter(
     });
   }
 
-  if (cos.characterSkin === 'ubear') {
+  // 皮肤覆盖层（draw/skins/）：命中完全走新画法，未命中走下面的 else-if 链 / THEME_SKIN_ART
+  const skinOverride = SKIN_OVERRIDES[cos.characterSkin];
+  if (skinOverride) {
+    skinOverride(g, now, pose);
+  } else if (cos.characterSkin === 'ubear') {
     drawUBear(g, now, pose);
   } else if (cos.characterSkin === 'godzilla') {
     drawGodzilla(g, now, pose);
@@ -9188,6 +9198,12 @@ export function drawCharacter(
       g.fillStyle(pose.color, 1);
       g.fillRoundedRect(pose.x - 14, topY + 26, 28, PLAYER_H - 26, 10);
     }
+  }
+
+  // 背挂物件第二遍（'front' 层）：调参里标成「身前」的背挂在这里画，
+  // 叠在本体之上、帽子之下——不被躯干挡住。
+  if (cos.back !== 'none' && isWingFamily(cos.back)) {
+    drawBack(g, now, accX, accTopY, cos.back, pose.move ?? 0, pose.facing, 'front');
   }
 
   // ★5 角色形象的专属华彩层（粒子 / 绕体光点 / 身周辉光 / 地面能量环），

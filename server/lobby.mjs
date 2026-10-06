@@ -23,7 +23,7 @@ function send(ws, obj) {
  * Which screen an invite should open on. The hub only relays the label; the
  * client decides what to do with it. Anything unknown falls back to a match.
  */
-const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine']);
+const INVITE_KINDS = new Set(['match', 'map', 'fish', 'mine', 'paint']);
 
 /**
  * Screens a player can report being in ("我在玩什么"). Friends watch each other
@@ -41,6 +41,7 @@ const SCENES = new Set([
   'fish',
   'mine',
   'climb',
+  'paint',
   'petshop',
   'farm',
   'nailong',

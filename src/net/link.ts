@@ -37,6 +37,20 @@ export type NetMessage =
   | { t: 'mineBreak'; ore: string; units: number }
   /** world map: where the other player is standing (light pose, ~12Hz) */
   | { t: 'mapPose'; x: number; y: number; f: 1 | -1 }
+  /** 你画我猜：房主开新一轮（turn=谁画；word 只在房主自己是猜手/或房主生成时带上） */
+  | { t: 'paintRound'; round: number; turn: 'host' | 'guest'; options: string[] }
+  /** 你画我猜：画家从 4 选 1 里定了词（双方由此开始计时；猜手端拿它判对错） */
+  | { t: 'paintPick'; round: number; word: string }
+  /** 你画我猜：画笔轨迹增量（pts = x,y,x,y… 归一化画布坐标；done=1 收笔） */
+  | { t: 'paintStroke'; id: string; s: string; c: number; pts: number[]; done?: 1 }
+  | { t: 'paintUndo' }
+  | { t: 'paintClear' }
+  /** 你画我猜：猜手的作答（双方都显示在聊天区；对错由猜手端自己判） */
+  | { t: 'paintGuess'; round: number; text: string }
+  /** 你画我猜：猜手端确认猜中了 */
+  | { t: 'paintSolved'; round: number }
+  /** 你画我猜：任意一方点「下一题」 */
+  | { t: 'paintNext'; round: number }
   /** latency probe — the sender stamps it and measures its own round trip */
   | { t: 'ping'; ts: number }
   | { t: 'pong'; ts: number };

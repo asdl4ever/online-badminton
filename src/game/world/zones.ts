@@ -131,6 +131,15 @@ export const WORLD_ZONES: WorldZone[] = [
     meta: '砸矿拿金币',
     route: '/mine',
   },
+  {
+    id: 'atelier',
+    x: 1140,
+    y: 1235,
+    sign: '🎨',
+    name: '画室',
+    meta: '你画我猜 · 联机轮流画猜',
+    route: '/paint',
+  },
   // ---- 活动和商场区（右上角地块，接着理发店排）----
   // 商城把原来的商店 + 宠物店合成了一家：皮肤（金币 / 荣誉 / 宠物 / 碎片）· 宝箱 · 背包
   {

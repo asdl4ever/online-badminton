@@ -10,6 +10,12 @@ import { WINGS_8 } from './wings8';
 import { WINGS_9 } from './wings9';
 import { WINGS_10 } from './wings10';
 import { WINGS_11 } from './wings11';
+import { WINGS_12 } from './wings12';
+import { WINGS_13 } from './wings13';
+import { WINGS_14 } from './wings14';
+import { WINGS_15 } from './wings15';
+import { WINGS_16 } from './wings16';
+import { BACK_DEFAULT_OX, getBackTune } from '../../backTune';
 
 /**
  * 主题翅膀的**独立剪影**总入口（分文件见 wings1~4.ts）。
@@ -30,13 +36,30 @@ const WINGS: Record<string, (typeof WINGS_1)[string]> = {
   ...WINGS_9,
   ...WINGS_10,
   ...WINGS_11,
+  ...WINGS_12,
+  ...WINGS_13,
+  ...WINGS_14,
+  ...WINGS_15,
+  ...WINGS_16,
 };
 
 export function hasCustomWings(id: string): boolean {
   return !!WINGS[id];
 }
 
-/** 画一对主题翅膀；(x, baseY) = 肩部锚点，flap = 扇动量（与通用画法同源） */
+/** 这件背部装饰是不是「单件背挂物件」（非成对翅膀）——给调参 UI 判断用 */
+export function isSingleBack(id: string): boolean {
+  return !!WINGS[id]?.single;
+}
+
+/**
+ * 画一对主题翅膀 / 一件背挂物件；(x, baseY) = 肩部锚点，flap = 扇动量。
+ *
+ * `pass`：双层绘制——背挂物件按逐件调参画在「身前」或「身后」：
+ * - `'back'`（默认）：画身体之前调用，成对翅膀与身后型背挂在这里画；
+ * - `'front'`：画身体之后调用，身前型背挂（`bmt-back-tune` 里 front = true）在这里画。
+ * 两遍都会调用，painter 只在属于自己的那遍真正下笔。
+ */
 export function drawWingsCustom(
   g: Phaser.GameObjects.Graphics,
   now: number,
@@ -44,17 +67,23 @@ export function drawWingsCustom(
   x: number,
   baseY: number,
   flap: number,
+  pass: 'back' | 'front' = 'back',
 ): boolean {
   const art = WINGS[id];
   if (!art) return false;
-  // 不对称背挂物件：只画一次，不镜像、不随扇动旋转（动效自己画）
+  // 不对称背挂物件：只画一次，不镜像、不随扇动旋转（动效自己画）。
+  // 逐件调参决定画层（身前/身后）与水平微调；默认向身后偏移避免被躯干挡住。
   if (art.single) {
+    const tune = getBackTune(id);
+    if ((tune.front ? 'front' : 'back') !== pass) return false;
     g.save();
-    g.translateCanvas(x, baseY);
+    g.translateCanvas(x + BACK_DEFAULT_OX + tune.ox, baseY);
     art.draw(g, now, flap, art.c, art.a);
     g.restore();
     return true;
   }
+  // 成对翅膀永远画在身后层
+  if (pass !== 'back') return false;
   for (const dir of [-1, 1]) {
     g.save();
     g.translateCanvas(x, baseY);

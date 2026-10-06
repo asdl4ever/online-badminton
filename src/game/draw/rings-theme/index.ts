@@ -4,6 +4,11 @@ import { RINGS_2 } from './rings2';
 import { RINGS_3 } from './rings3';
 import { RINGS_4 } from './rings4';
 import { RINGS_5 } from './rings5';
+import { RINGS_6 } from './rings6';
+import { RINGS_7 } from './rings7';
+import { RINGS_8 } from './rings8';
+import { RINGS_9 } from './rings9';
+import { RINGS_10 } from './rings10';
 
 /**
  * 主题地环的**逐款独立画**总入口（分文件见 rings1~2.ts）。
@@ -16,6 +21,11 @@ const RINGS: Record<string, (typeof RINGS_1)[string]> = {
   ...RINGS_3,
   ...RINGS_4,
   ...RINGS_5,
+  ...RINGS_6,
+  ...RINGS_7,
+  ...RINGS_8,
+  ...RINGS_9,
+  ...RINGS_10,
 };
 
 export function hasCustomRing(id: string): boolean {

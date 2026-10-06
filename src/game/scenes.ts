@@ -25,6 +25,7 @@ export const SCENE_META: Record<SceneId, SceneMeta> = {
   match: { label: '在联机对局', icon: '🏸', route: '/online', kind: 'match' },
   fish: { label: '在海湾潜水', icon: '🤿', route: '/fish', kind: 'fish' },
   mine: { label: '在矿洞', icon: '⛏️', route: '/mine', kind: 'mine' },
+  paint: { label: '在画室玩你画我猜', icon: '🎨', route: '/paint', kind: 'paint' },
   climb: { label: '在攀岩', icon: '🧗', route: '/climb' },
   // 场景 id 沿用 'petshop'（老客户端 / 服务端白名单里都这么写）；界面本身已经是商城的「宠物」栏
   petshop: { label: '在商城', icon: '🏪', route: '/shop' },
@@ -41,6 +42,7 @@ export const SCENE_KIND: Partial<Record<SceneId, InviteKind>> = {
   match: 'match',
   fish: 'fish',
   mine: 'mine',
+  paint: 'paint',
   // 旧版本客户端可能还报着 'home'（那屏现在是大地图了）
   home: 'map',
 };
@@ -90,6 +92,7 @@ export function sceneFromPath(path: string): SceneId {
   if (path.startsWith('/online')) return 'match';
   if (path.startsWith('/fish')) return 'fish';
   if (path.startsWith('/mine')) return 'mine';
+  if (path.startsWith('/paint')) return 'paint';
   if (path.startsWith('/climb')) return 'climb';
   if (path.startsWith('/petshop') || path.startsWith('/shop')) return 'petshop';
   if (path.startsWith('/watch')) return 'watch';

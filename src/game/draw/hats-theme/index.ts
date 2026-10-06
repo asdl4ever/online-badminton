@@ -6,6 +6,11 @@ import { HATS_4 } from './hats4';
 import { HATS_5 } from './hats5';
 import { HATS_6 } from './hats6';
 import { HATS_7 } from './hats7';
+import { HATS_8 } from './hats8';
+import { HATS_9 } from './hats9';
+import { HATS_10 } from './hats10';
+import { HATS_11 } from './hats11';
+import { HATS_12 } from './hats12';
 
 /**
  * 主题头饰的**逐顶独立画**总入口（分文件见 hats1~4.ts）。
@@ -20,6 +25,11 @@ const HATS: Record<string, (typeof HATS_1)[string]> = {
   ...HATS_5,
   ...HATS_6,
   ...HATS_7,
+  ...HATS_8,
+  ...HATS_9,
+  ...HATS_10,
+  ...HATS_11,
+  ...HATS_12,
 };
 
 export function hasCustomHat(id: string): boolean {

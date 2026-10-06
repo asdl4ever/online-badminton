@@ -6,6 +6,11 @@ import { MOUNTS_3 } from './mounts3';
 import { MOUNTS_4 } from './mounts4';
 import { MOUNTS_5 } from './mounts5';
 import { MOUNTS_6 } from './mounts6';
+import { MOUNTS_7 } from './mounts7';
+import { MOUNTS_8 } from './mounts8';
+import { MOUNTS_9 } from './mounts9';
+import { MOUNTS_10 } from './mounts10';
+import { MOUNTS_11 } from './mounts11';
 
 /**
  * 主题坐骑的**逐款独立画**总入口（分文件见 mounts1~3.ts）。
@@ -19,6 +24,11 @@ const MOUNTS: Record<string, (typeof MOUNTS_1)[string]> = {
   ...MOUNTS_4,
   ...MOUNTS_5,
   ...MOUNTS_6,
+  ...MOUNTS_7,
+  ...MOUNTS_8,
+  ...MOUNTS_9,
+  ...MOUNTS_10,
+  ...MOUNTS_11,
 };
 
 export function hasCustomMount(id: string): boolean {

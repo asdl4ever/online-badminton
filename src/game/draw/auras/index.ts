@@ -8,6 +8,11 @@ import { AURAS_6 } from './auras6';
 import { AURAS_7 } from './auras7';
 import { AURAS_8 } from './auras8';
 import { AURAS_9 } from './auras9';
+import { AURAS_10 } from './auras10';
+import { AURAS_11 } from './auras11';
+import { AURAS_12 } from './auras12';
+import { AURAS_13 } from './auras13';
+import { AURAS_14 } from './auras14';
 
 /**
  * 主题光环的**背景特效化**总入口（分文件见 auras1~4.ts）。
@@ -26,6 +31,11 @@ const AURAS: Record<string, (typeof AURAS_1)[string]> = {
   ...AURAS_7,
   ...AURAS_8,
   ...AURAS_9,
+  ...AURAS_10,
+  ...AURAS_11,
+  ...AURAS_12,
+  ...AURAS_13,
+  ...AURAS_14,
 };
 
 export function hasCustomAura(id: string): boolean {

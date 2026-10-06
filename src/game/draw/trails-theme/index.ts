@@ -4,6 +4,11 @@ import { TRAILS_2 } from './trails2';
 import { TRAILS_3 } from './trails3';
 import { TRAILS_4 } from './trails4';
 import { TRAILS_5 } from './trails5';
+import { TRAILS_6 } from './trails6';
+import { TRAILS_7 } from './trails7';
+import { TRAILS_8 } from './trails8';
+import { TRAILS_9 } from './trails9';
+import { TRAILS_10 } from './trails10';
 
 /**
  * 主题击球拖尾的**整条轨迹**画法总入口（分文件见 trails1~2.ts）。
@@ -19,6 +24,11 @@ const TRAILS: Record<string, (typeof TRAILS_1)[string]> = {
   ...TRAILS_3,
   ...TRAILS_4,
   ...TRAILS_5,
+  ...TRAILS_6,
+  ...TRAILS_7,
+  ...TRAILS_8,
+  ...TRAILS_9,
+  ...TRAILS_10,
 };
 
 export function hasCustomTrail(id: string): boolean {

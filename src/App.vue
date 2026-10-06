@@ -32,6 +32,7 @@ const INVITE_LANDING: Record<InviteKind, { path: string; label: string }> = {
   map: { path: '/', label: '大世界' },
   fish: { path: '/fish', label: '钓鱼塘' },
   mine: { path: '/mine', label: '矿洞' },
+  paint: { path: '/paint', label: '画室' },
 };
 
 function inviteLabel(inv: Invite): string {
