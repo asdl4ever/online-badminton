@@ -3,6 +3,9 @@ import type { CharacterPose } from '../character';
 import { MOUNTS_1 } from './mounts1';
 import { MOUNTS_2 } from './mounts2';
 import { MOUNTS_3 } from './mounts3';
+import { MOUNTS_4 } from './mounts4';
+import { MOUNTS_5 } from './mounts5';
+import { MOUNTS_6 } from './mounts6';
 
 /**
  * 主题坐骑的**逐款独立画**总入口（分文件见 mounts1~3.ts）。
@@ -13,6 +16,9 @@ const MOUNTS: Record<string, (typeof MOUNTS_1)[string]> = {
   ...MOUNTS_1,
   ...MOUNTS_2,
   ...MOUNTS_3,
+  ...MOUNTS_4,
+  ...MOUNTS_5,
+  ...MOUNTS_6,
 };
 
 export function hasCustomMount(id: string): boolean {

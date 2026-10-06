@@ -15,12 +15,23 @@ export const HATS_2: Record<string, HatArt> = {
     g.fillCircle(x - 1.4, hy - 6, 0.9); g.fillCircle(x + 1.4, hy - 6, 0.9);
   } },
   pirateCrown: { c: 0xd9b45c, a: 0x1a1a22, draw: (g, now, x, hy, c, a) => {
-    // 船长之冠：金冠 + 交叉刀剑徽
+    // 船长之冠：鎏金冠 + 红宝石 + 交叉刀剑徽 + 金光 + 缠绳
     hpoly(g, [[x - 16, hy + 2], [x - 10, hy - 14], [x - 3, hy - 6], [x, hy - 16], [x + 3, hy - 6], [x + 10, hy - 14], [x + 16, hy + 2]], c);
-    g.fillStyle(0xfff0c0, 0.6); g.fillRect(x - 16, hy - 1, 32, 3);
-    g.lineStyle(1.6, a, 0.9);
-    g.lineBetween(x - 7, hy - 10, x + 7, hy - 3);
-    g.lineBetween(x + 7, hy - 10, x - 7, hy - 3); // 交叉剑
+    hpoly(g, [[x - 16, hy + 2], [x - 10, hy - 14], [x - 3, hy - 6], [x, hy - 16], [0, hy + 2]], 0xf0d88a); // 亮面
+    g.fillStyle(0x8a6a1a, 0.5);
+    g.fillRect(x - 16, hy, 32, 2); g.fillRect(x - 14, hy - 6, 28, 1.6); // 錾纹
+    g.lineStyle(2.2, a, 0.95);
+    g.lineBetween(x - 8, hy - 11, x + 8, hy - 3);
+    g.lineBetween(x + 8, hy - 11, x - 8, hy - 3);
+    g.fillStyle(0xd9b45c, 1);
+    g.fillRect(x - 9.4, hy - 13, 3.4, 3.4); g.fillRect(x + 6, hy - 13, 3.4, 3.4); // 剑柄
+    g.fillStyle(0xd42a3a, 1);
+    g.fillCircle(x, hy - 18, 3); // 红宝石
+    g.fillStyle(0xff8a9a, 0.8);
+    g.fillCircle(x - 1, hy - 19, 1);
+    const gl = 0.4 + 0.4 * Math.sin(now / 320);
+    g.fillStyle(0xfff0c0, gl);
+    g.fillRect(x - 0.8, hy - 24, 1.6, 5); g.fillRect(x - 2.5, hy - 22.5, 5, 1.6); // 宝石闪光
   } },
   steamHat: { c: 0x8a6a4a, a: 0x9aa7b8, draw: (g, now, x, hy, c, a) => {
     // 护目镜帽：皮质帽 + 双镜片护目镜
@@ -64,16 +75,27 @@ export const HATS_2: Record<string, HatArt> = {
     g.fillStyle(a, bl); g.fillCircle(x + 20, hy - 17, 1.8);
   } },
   astroCrown: { c: 0x2a3a6a, a: 0xffd45c, draw: (g, now, x, hy, c, a) => {
-    // 指令长冠：深蓝冠 + 金色军衔星
+    // 指令长冠：深蓝舰桥冠 + 金色军衔星 + 警灯 + 通讯波纹
     hpoly(g, [[x - 16, hy + 2], [x - 12, hy - 12], [x, hy - 18], [x + 12, hy - 12], [x + 16, hy + 2]], c);
-    g.lineStyle(2, a, 0.9); hline(g, [[x - 16, hy + 1], [x + 16, hy + 1]], 2, a, 0.9);
+    hpoly(g, [[x - 16, hy + 2], [x - 12, hy - 12], [x, hy - 18], [0, hy + 2]], 0x3d5290); // 亮面
+    hline(g, [[x - 16, hy + 1], [x + 16, hy + 1]], 2.4, a, 0.95);
+    hline(g, [[x - 13, hy - 4], [x + 13, hy - 4]], 1.2, a, 0.5);
     for (let k = -1; k <= 1; k++) {
       const tw = 0.6 + 0.4 * Math.sin(now / 260 + k * 2);
       g.fillStyle(a, tw);
       g.fillRect(x + k * 9 - 1.4, hy - 10, 2.8, 2.8);
       g.fillRect(x + k * 9 - 0.7, hy - 10.7, 1.4, 4.2);
     }
-    g.fillStyle(a, 0.8); g.fillCircle(x, hy - 18, 2.6); // 顶珠
+    const bl = Math.abs(Math.sin(now / 220));
+    g.fillStyle(0xff5a5a, bl);
+    g.fillCircle(x - 8, hy - 15, 2); // 左舷警灯
+    g.fillStyle(0x5aff8a, Math.abs(Math.cos(now / 220)));
+    g.fillCircle(x + 8, hy - 15, 2); // 右舷警灯
+    g.fillStyle(a, 0.9); g.fillCircle(x, hy - 18.5, 2.6);
+    g.lineStyle(1, a, 0.35);
+    g.beginPath();
+    g.arc(x, hy - 18.5, 6 + Math.abs(Math.sin(now / 400)) * 4, -2.4, -0.7);
+    g.strokePath(); // 通讯波纹
   } },
   juraHat: { c: 0x8fbf5a, a: 0xd8cba8, draw: (g, now, x, hy, c, a) => {
     // 恐龙蛋帽：半颗破壳的蛋扣在头上
@@ -226,11 +248,14 @@ export const HATS_2: Record<string, HatArt> = {
     g.fillStyle(a, 0.9); g.fillCircle(x, hy - 2.5, 2.2); // 帽扣
   } },
   wildCrown: { c: 0x8a5a2a, a: 0xffd45c, draw: (g, now, x, hy, c, a) => {
-    // 警长徽章冠：皮冠 + 大警星
+    // 警长徽章冠：皮冠 + 缝线 + 鎏金大警星 + 星光 + 弹带
     g.fillStyle(c, 1);
     g.fillRect(x - 15, hy - 6, 30, 8);
     g.fillRect(x - 17, hy - 2, 34, 4);
-    g.fillStyle(a, 1);
+    g.lineStyle(1, 0xd8c8a0, 0.5);
+    g.lineBetween(x - 13, hy - 4, x + 13, hy - 4); // 缝线
+    g.fillStyle(0x4a3a22, 0.9);
+    for (let k = -1; k <= 1; k++) g.fillCircle(x + k * 12, hy + 0.5, 1.4); // 铆扣
     const pts: Array<[number, number]> = [];
     for (let k = 0; k < 10; k++) {
       const ang = -Math.PI / 2 + (k / 10) * TAU;
@@ -238,8 +263,16 @@ export const HATS_2: Record<string, HatArt> = {
       pts.push([x + Math.cos(ang) * r, hy - 14 + Math.sin(ang) * r]);
     }
     hpoly(g, pts, a);
-    g.fillStyle(0x6a4a2a, 0.8);
+    hpoly(g, [pts[0], pts[1], pts[2], pts[3], pts[4]], 0xfff0b0, 0.55); // 亮面
+    g.fillStyle(0x6a4a2a, 0.85);
     g.fillCircle(x, hy - 14, 1.6);
+    const tw = 0.5 + 0.5 * Math.sin(now / 300);
+    g.fillStyle(0xffffff, tw * 0.9);
+    g.fillRect(x - 4, hy - 19, 8, 1.2); g.fillRect(x - 0.6, hy - 22, 1.2, 7); // 星光十字
+    g.lineStyle(2.4, 0x4a3a22, 0.8);
+    g.lineBetween(x - 16, hy + 1, x - 8, hy - 5); // 斜挎弹带
+    g.fillStyle(0xd9b45c, 0.9);
+    g.fillCircle(x - 12, hy - 3, 1.2); g.fillCircle(x - 9, hy - 5, 1.2);
   } },
 };
 

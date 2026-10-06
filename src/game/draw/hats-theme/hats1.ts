@@ -37,15 +37,27 @@ export const HATS_1: Record<string, HatArt> = {
     g.fillCircle(x, hy - 24 + fl, 22);
   } },
   nimbCrown: { c: 0xffffff, a: 0x9ad4ff, draw: (g, now, x, hy, c, a) => {
-    // 云冠：一排云朵排成冠
-    for (let k = 0; k < 5; k++) {
-      const px = x - 16 + k * 8;
-      const h = k === 2 ? 18 : 12;
-      g.fillStyle(k % 2 ? c : 0xf0f8ff, 0.97);
-      g.fillCircle(px, hy - h, 7);
-      g.fillStyle(a, 0.35); g.fillCircle(px + 2, hy - h - 2, 3.4);
+    // 云冠：前后两层云堆出的立体云冠 + 云隙金光 + 飘散云絮
+    g.fillStyle(0xd8e8f8, 0.95);
+    for (let k = 0; k < 4; k++) g.fillCircle(x - 15 + k * 10, hy - 10, 6.4); // 后层云
+    g.fillStyle(0xbfe0ff, 0.9); g.fillCircle(x - 5, hy - 15, 8); g.fillCircle(x + 6, hy - 14, 7);
+    const gl = 0.5 + 0.5 * Math.sin(now / 400);
+    g.fillStyle(0xffe89a, 0.55 * gl);
+    g.fillCircle(x, hy - 18, 5); // 云隙间的金光
+    g.fillStyle(0xffffff, 0.95);
+    for (let k = 0; k < 3; k++) {
+      const px = x - 13 + k * 13;
+      g.fillCircle(px, hy - 6, 7);
+      g.fillCircle(px - 5, hy - 3, 5); g.fillCircle(px + 5, hy - 3, 5); // 前层大云团
     }
     g.fillStyle(c, 1); g.fillRect(x - 18, hy - 2, 36, 5);
+    g.lineStyle(1.6, a, 0.7);
+    g.strokeRect(x - 18, hy - 2, 36, 5);
+    for (let k = 0; k < 3; k++) {
+      const ph = (now / 1300 + k / 3) % 1;
+      g.fillStyle(0xffffff, 0.7 * (1 - ph));
+      g.fillCircle(x - 14 + k * 14 + Math.sin(ph * 4 + k) * 4, hy - 24 - ph * 10, 2.4 * (1 - ph) + 0.6); // 飘散云絮
+    }
   } },
   confCake: { c: 0xfff0e0, a: 0xff869c, draw: (g, now, x, hy, c, a) => {
     // 蛋糕帽：双层小蛋糕 + 顶樱桃
@@ -56,19 +68,33 @@ export const HATS_1: Record<string, HatArt> = {
     g.lineStyle(1.4, 0x5a8a3a, 0.9); g.lineBetween(x, hy - 31, x + 3, hy - 34);
   } },
   confCrown: { c: 0xffb7d5, a: 0xfff0e0, draw: (g, now, x, hy, c, a) => {
-    // 糖霜冠：挤出来的糖霜尖 + 淌下的糖
-    g.fillStyle(c, 1);
+    // 糖霜冠：双层挤糖尖 + 淋酱 + 彩糖粒 + 顶樱桃 + 糖光
+    g.fillStyle(c, 1); g.fillRect(x - 17, hy + 1, 34, 4);
     for (let k = 0; k < 4; k++) {
       const px = x - 14 + k * 9.4;
       hpoly(g, [[px - 5, hy + 2], [px + 5, hy + 2], [px, hy - 16 - (k === 1 || k === 2 ? 5 : 0)]], c);
+      hpoly(g, [[px - 2, hy + 1], [px + 2, hy + 1], [px + 0.6, hy - 10 - (k === 1 || k === 2 ? 4 : 0)]], 0xffd0e4); // 高光面
     }
     g.fillStyle(a, 0.95);
     for (let k = 0; k < 4; k++) {
       const px = x - 14 + k * 9.4;
       const drop = 4 + Math.abs(Math.sin(now / 500 + k)) * 3;
       g.fillCircle(px, hy + 2 + drop * 0.5, 2.6);
+      g.fillEllipse(px + 3, hy + 3, 1.6, 4 + drop * 0.4); // 淋酱条
     }
-    g.fillStyle(a, 1); g.fillRect(x - 17, hy + 1, 34, 4);
+    const sprinkle = [0xff5a5a, 0x9effd0, 0xffd45c, 0x4ac8ff];
+    for (let k = 0; k < 7; k++) {
+      const px = x - 13 + k * 4.6, py = hy - 6 - (k % 3) * 5;
+      g.save();
+      g.translateCanvas(px, py);
+      g.rotateCanvas(k * 1.3);
+      g.fillStyle(sprinkle[k % 4], 0.95);
+      g.fillRect(-1.6, -0.7, 3.2, 1.4);
+      g.restore();
+    }
+    const tw = 0.6 + 0.4 * Math.sin(now / 300);
+    g.fillStyle(0xffffff, tw * 0.9);
+    g.fillCircle(x - 4, hy - 15, 1.4); g.fillCircle(x + 6, hy - 18, 1.1);
   } },
   bigtClown: { c: 0xe8404a, a: 0xffd45c, draw: (g, now, x, hy, c, a) => {
     // 小丑帽：三根歪斜的尖角各带铃铛
@@ -81,15 +107,33 @@ export const HATS_1: Record<string, HatArt> = {
     g.fillStyle(a, 1); g.fillRect(x - 14, hy + 1, 28, 4);
   } },
   bigtRing: { c: 0xffd45c, a: 0xe8404a, draw: (g, now, x, hy, c, a) => {
-    // 彩环头饰：头顶旋转的彩环
+    // 彩环头饰：十字双环旋转 + 彩珠拖尾光 + 环心闪光
     const fl = Math.sin(now / 400) * 2;
-    g.lineStyle(5, c, 0.9);
-    g.beginPath(); g.ellipse ? g.arc(x, hy - 24 + fl, 20, 0, TAU) : g.arc(x, hy - 24 + fl, 20, 0, TAU); g.strokePath();
-    for (let k = 0; k < 6; k++) {
-      const ang = (k / 6) * TAU + now / 600;
-      g.fillStyle(k % 2 ? a : 0x4ac8ff, 0.95);
-      g.fillCircle(x + Math.cos(ang) * 20, hy - 24 + fl + Math.sin(ang) * 7, 2.6);
+    const rot = now / 700;
+    for (let k = 0; k < 2; k++) {
+      g.save();
+      g.translateCanvas(x, hy - 22 + fl);
+      g.rotateCanvas(k * Math.PI / 2 + Math.sin(now / 500 + k) * 0.12);
+      g.lineStyle(4.4, k ? a : c, 0.9);
+      g.beginPath(); g.arc(0, 0, 19 - k * 3, 0.3, Math.PI + 0.3); g.strokePath();
+      g.lineStyle(1.6, 0xffffff, 0.5);
+      g.beginPath(); g.arc(0, 0, 19 - k * 3, 0.3, Math.PI + 0.3); g.strokePath();
+      g.restore();
     }
+    const cols = [c, a, 0x4ac8ff, 0x9effd0];
+    for (let k = 0; k < 4; k++) {
+      const ang = rot + (k / 4) * TAU;
+      const px = x + Math.cos(ang) * 19, py = hy - 22 + fl + Math.sin(ang) * 8;
+      g.fillStyle(cols[k], 0.95);
+      g.fillCircle(px, py, 3);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillCircle(px - 1, py - 1, 1);
+      g.fillStyle(cols[k], 0.25);
+      g.fillCircle(px - Math.cos(ang) * 5, py - Math.sin(ang) * 2.4, 1.8); // 拖尾
+    }
+    const tw = 0.5 + 0.5 * Math.sin(now / 260);
+    g.fillStyle(0xffffff, tw * 0.9);
+    g.fillRect(x - 1, hy - 24 + fl - 3, 2, 6); g.fillRect(x - 3, hy - 24 + fl - 1, 6, 2);
   } },
   aegisHelm: { c: 0xc0ccda, a: 0x8a94a2, draw: (g, now, x, hy, c, a) => {
     // 骑士盔：钢盔 + 面甲缝
@@ -196,19 +240,35 @@ export const HATS_1: Record<string, HatArt> = {
     g.fillRect(x - 4, hy - 19, 8, 2);
   } },
   playTop: { c: 0x4a90d9, a: 0xe8404a, draw: (g, now, x, hy, c, a) => {
-    // 陀螺头饰：会转的陀螺
+    // 陀螺头饰：条纹锥体 + 旋转残影圈 + 底尖火花 + 飞舞彩带
     const rot = now / 300;
     g.save();
-    g.translateCanvas(x, hy - 10);
+    g.translateCanvas(x, hy - 12);
     g.rotateCanvas(Math.sin(rot) * 0.15);
-    hpoly(g, [[-10, -4], [10, -4], [3, 8], [-3, 8]], c);
-    g.fillStyle(a, 1); g.fillRect(-10, -6, 20, 3);
-    g.lineStyle(2, 0xffd45c, 0.9); g.lineBetween(0, 8, 0, 12);
+    hpoly(g, [[-11, -4], [11, -4], [3, 9], [-3, 9]], c);
+    hpoly(g, [[0, -4], [11, -4], [3, 9]], 0x6ab0f0); // 亮面
+    g.fillStyle(a, 1); g.fillRect(-11, -7, 22, 3.4);
+    g.fillStyle(0xffd45c, 1); g.fillRect(-11, -7, 22, 1.4);
+    g.lineStyle(2, 0xffd45c, 0.9); g.lineBetween(0, 9, 0, 13);
+    g.fillStyle(0xffd45c, 0.9); g.fillCircle(0, 13.4, 1.4);
     g.restore();
-    for (let k = 0; k < 3; k++) {
-      const ang = rot * 2 + (k / 3) * TAU;
-      g.fillStyle(a, 0.5);
-      g.fillCircle(x + Math.cos(ang) * 14, hy - 12 + Math.sin(ang) * 5, 1.4); // 转出的残影
+    for (let k = 0; k < 5; k++) {
+      const ang = rot * 2 + (k / 5) * TAU;
+      const al = 0.4 - k * 0.07;
+      g.fillStyle(a, al);
+      g.fillCircle(x + Math.cos(ang) * (14 + k), hy - 14 + Math.sin(ang) * 5, 1.6 - k * 0.2);
+    }
+    const spark = 0.5 + 0.5 * Math.sin(now / 160);
+    g.fillStyle(0xffd45c, spark * 0.9);
+    g.fillCircle(x, hy + 2, 1.8 + spark); // 底尖摩擦火花
+    for (let k = 0; k < 2; k++) {
+      const ph = (now / 600 + k / 2) % 1;
+      g.save();
+      g.translateCanvas(x - 12 + ph * 24, hy - 22 - Math.sin(ph * Math.PI) * 8);
+      g.rotateCanvas(Math.sin(now / 300 + k) * 1.2);
+      g.fillStyle(k ? a : 0x9effd0, 0.7 * (1 - ph));
+      g.fillRect(-3, -1.4, 6, 2.8);
+      g.restore();
     }
   } },
   yuanLamp: { c: 0xe8404a, a: 0xffd45c, draw: (g, now, x, hy, c, a) => {
@@ -225,15 +285,34 @@ export const HATS_1: Record<string, HatArt> = {
     g.fillEllipse(x + sway, hy - 12, 7, 12);
   } },
   yuanMask: { c: 0xe8404a, a: 0xffd45c, draw: (g, now, x, hy, c, a) => {
-    // 面具头饰：斜插的opera面具
+    // 面具头饰：华丽歌剧面具——金饰边 + 羽饰 + 亮片 + 面容微摆
+    const sway = Math.sin(now / 600) * 1.4;
     g.save();
-    g.translateCanvas(x + 8, hy - 8);
-    g.rotateCanvas(0.35);
+    g.translateCanvas(x + 8 + sway * 0.5, hy - 8);
+    g.rotateCanvas(0.32 + sway * 0.02);
+    // 羽饰（面具左上三根）
+    for (let k = -1; k <= 1; k++) {
+      g.save();
+      g.translateCanvas(k * 4 - 8, -6);
+      g.rotateCanvas(-0.6 + k * 0.4);
+      g.fillStyle(k === 0 ? a : 0x4ac8ff, 0.9);
+      g.fillEllipse(0, -7, 4.4, 14);
+      g.restore();
+    }
     g.fillStyle(c, 0.95);
     hpoly(g, [[-12, -4], [12, -4], [10, 6], [0, 10], [-10, 6]], c);
-    g.fillStyle(a, 0.95);
-    g.fillEllipse(-5, 0, 5, 3); g.fillEllipse(5, 0, 5, 3); // 眼孔
-    g.fillStyle(0xffd45c, 1); g.fillRect(-2, 4, 4, 2); // 额饰
+    g.fillStyle(0x6a1020, 0.35);
+    hpoly(g, [[-12, -4], [0, -4], [0, 10], [-10, 6]], 0x6a1020, 0.3); // 暗面
+    g.lineStyle(1.6, a, 0.9);
+    g.beginPath();
+    g.moveTo(-12, -4); g.lineTo(12, -4); g.lineTo(10, 6); g.lineTo(0, 10); g.lineTo(-10, 6);
+    g.closePath(); g.strokePath();
+    g.fillStyle(0x1a1a2a, 0.95);
+    g.fillEllipse(-5, 0, 5, 3); g.fillEllipse(5, 0, 5, 3);
+    g.fillStyle(a, 1); g.fillRect(-2, 4, 4, 2);
+    const gl = 0.5 + 0.5 * Math.sin(now / 280);
+    g.fillStyle(0xffffff, gl * 0.9);
+    g.fillCircle(-9, -1, 1); g.fillCircle(8.4, 2, 0.8); g.fillCircle(0, 7, 0.8); // 亮片
     g.restore();
   } },
   shanHatFeather: { c: 0xd8e8ff, a: 0x3a9a7a, draw: (g, now, x, hy, c, a) => {

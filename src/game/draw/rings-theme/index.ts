@@ -1,6 +1,9 @@
 import type Phaser from 'phaser';
 import { RINGS_1 } from './rings1';
 import { RINGS_2 } from './rings2';
+import { RINGS_3 } from './rings3';
+import { RINGS_4 } from './rings4';
+import { RINGS_5 } from './rings5';
 
 /**
  * 主题地环的**逐款独立画**总入口（分文件见 rings1~2.ts）。
@@ -10,6 +13,9 @@ import { RINGS_2 } from './rings2';
 const RINGS: Record<string, (typeof RINGS_1)[string]> = {
   ...RINGS_1,
   ...RINGS_2,
+  ...RINGS_3,
+  ...RINGS_4,
+  ...RINGS_5,
 };
 
 export function hasCustomRing(id: string): boolean {

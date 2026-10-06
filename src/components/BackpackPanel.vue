@@ -4,6 +4,7 @@ import { vAutoAnimate } from '@formkit/auto-animate/vue';
 import CharacterPreview from './CharacterPreview.vue';
 import ItemPreviewStage from './ItemPreviewStage.vue';
 import ItemIcon from './ItemIcon.vue';
+import CosmeticsCodex from './CosmeticsCodex.vue';
 import Stars from './ui/Stars.vue';
 import Button from './ui/Button.vue';
 import { toastGood, toastWarn } from '../composables/useToast';
@@ -37,6 +38,9 @@ import type {
 } from '../game/cosmetics';
 
 const emit = defineEmits<{ 'open-chest': [] }>();
+
+/** 📖 装扮图鉴弹窗 */
+const codexOpen = ref(false);
 
 const store = useCustomizeStore();
 const progress = useProgressStore();
@@ -312,6 +316,7 @@ function equippedLabel(slot: ItemSlot): string {
         <div class="bp__wallet">
           <span class="bp__coin">🪙</span>
           <span class="num bp__coin-num">{{ progress.coins }}</span>
+          <Button size="sm" variant="quiet" @click="codexOpen = true">📖 图鉴</Button>
           <Button size="sm" variant="primary" @click="emit('open-chest')">去开宝箱</Button>
         </div>
         <div class="bp__tabs">
@@ -453,6 +458,9 @@ function equippedLabel(slot: ItemSlot): string {
         <b>只有装备着的那一只生效</b>，星级越高加成越大。
       </p>
     </div>
+
+    <!-- 📖 装扮图鉴：全部装扮一墙看，点图标看试穿 -->
+    <CosmeticsCodex v-model="codexOpen" />
   </div>
 </template>
 

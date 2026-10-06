@@ -28,4 +28,9 @@ export interface WingArt {
   c: number;
   a: number;
   draw: (g: G, now: number, flap: number, c: number, a: number) => void;
+  /**
+   * **不对称背挂物件**（蝠鲼 / 蜻蜓 / 钟盘这类「不是一双翼」的东西）：
+   * 为 true 时入口只画一次、不做镜像也不做挥动旋转（动效全在 painter 里）。
+   */
+  single?: boolean;
 }

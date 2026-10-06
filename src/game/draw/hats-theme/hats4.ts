@@ -39,13 +39,31 @@ export const HATS_4: Record<string, HatArt> = {
     g.fillCircle(x - 8, hy - 6, 4); g.fillCircle(x + 8, hy - 6, 4);
   } },
   stormCrown: { c: 0x3a4a6a, a: 0x7ae0ff, draw: (g, now, x, hy, c, a) => {
-    // 雷云之冠：云齿冠 + 云隙闪电
+    // 雷云之冠：双层积雨云冠 + 云隙劈雷 + 雨丝 + 电离光
+    g.fillStyle(0x2c3a56, 0.95);
+    for (let k = 0; k < 4; k++) g.fillCircle(x - 12 + k * 8, hy - 6, 6.4); // 后层暗云
     g.fillStyle(c, 1);
-    for (let k = 0; k < 5; k++) g.fillCircle(x - 13 + k * 6.5, hy - 8, 6);
+    for (let k = 0; k < 5; k++) g.fillCircle(x - 13 + k * 6.5, hy - 9, 6.4);
+    g.fillStyle(0x4a5c80, 0.6);
+    g.fillCircle(x - 8, hy - 13, 4); g.fillCircle(x + 9, hy - 12, 3.4); // 云顶亮团
     g.fillRect(x - 16, hy - 4, 32, 6);
-    g.lineStyle(1.8, a, 0.7 + 0.3 * Math.sin(now / 90));
-    hline(g, [[x - 5, hy - 12], [x - 1, hy - 7], [x - 4, hy - 5]], 1.8, a, 0.9); // 小闪
-    hline(g, [[x + 7, hy - 11], [x + 10, hy - 6]], 1.8, a, 0.7);
+    g.lineStyle(1.2, a, 0.3);
+    for (let k = 0; k < 4; k++) {
+      const ph = (now / 400 + k / 4) % 1;
+      g.lineBetween(x - 12 + k * 8, hy - 2, x - 13 + k * 8, hy + 2 + ph * 4); // 雨丝
+    }
+    const strike = Math.sin(now / 170) > 0.55;
+    if (strike) {
+      g.lineStyle(2.4, a, 0.95);
+      hline(g, [[x - 5, hy - 14], [x - 1, hy - 8], [x - 5, hy - 4]], 2.4, 0xffffff, 0.95);
+      g.lineStyle(5, a, 0.25);
+      hline(g, [[x - 5, hy - 14], [x - 1, hy - 8], [x - 5, hy - 4]], 5, a, 0.3);
+    }
+    g.lineStyle(1.6, a, 0.6 + 0.3 * Math.sin(now / 90));
+    hline(g, [[x + 7, hy - 12], [x + 10, hy - 6]], 1.6, a, 0.7);
+    const p1 = 0.5 + 0.5 * Math.sin(now / 240);
+    g.fillStyle(a, 0.1 + p1 * 0.08);
+    g.fillCircle(x, hy - 10, 20); // 电离光
   } },
   lunarHat: { c: 0xd8c8a0, a: 0x8a5a2a, draw: (g, now, x, hy, c, a) => {
     // 桂枝帽：布帽 + 一枝桂花
@@ -58,12 +76,27 @@ export const HATS_4: Record<string, HatArt> = {
     for (let k = 0; k < 4; k++) g.fillCircle(x - 6 + k * 2.6, hy - 8 - k * 2.4, 2);
   } },
   lunarCrown: { c: 0xe8e8f8, a: 0xffd45c, draw: (g, now, x, hy, c, a) => {
-    // 月轮王冠：银冠 + 满月
+    // 月轮王冠：银冠 + 悬浮满月 + 月晕 + 环绕星子 + 银河光带
     hpoly(g, [[x - 15, hy + 2], [x - 9, hy - 14], [x, hy - 8], [x + 9, hy - 14], [x + 15, hy + 2]], c);
-    const gl = 0.5 + 0.3 * Math.sin(now / 400);
-    g.fillStyle(a, gl); g.fillCircle(x, hy - 20, 6.4); // 满月
-    g.fillStyle(0xc8c8dc, 0.6); g.fillCircle(x - 2, hy - 22, 1.6);
+    hpoly(g, [[x - 15, hy + 2], [x - 9, hy - 14], [x, hy - 8], [0, hy + 2]], 0xf8f8ff, 0.6);
     g.fillStyle(a, 0.8); g.fillRect(x - 15, hy, 30, 2);
+    g.fillStyle(0x8f9ad0, 0.5);
+    g.fillRect(x - 13, hy - 5, 26, 1.2); // 錾银纹
+    const gl = 0.5 + 0.3 * Math.sin(now / 400);
+    g.fillStyle(a, gl * 0.3);
+    g.fillCircle(x, hy - 20, 11); // 月晕
+    g.fillStyle(a, gl);
+    g.fillCircle(x, hy - 20, 6.4);
+    g.fillStyle(0xc8c8dc, 0.7); g.fillCircle(x - 2, hy - 22, 1.6); g.fillCircle(x + 2.6, hy - 18.4, 1.1);
+    for (let k = 0; k < 3; k++) {
+      const ang = now / 1100 + (k / 3) * TAU;
+      const px = x + Math.cos(ang) * 13, py = hy - 20 + Math.sin(ang) * 6;
+      const tw = 0.5 + 0.5 * Math.sin(now / 240 + k * 2);
+      g.fillStyle(0xffffff, tw);
+      g.fillRect(px - 1.6, py - 0.5, 3.2, 1); g.fillRect(px - 0.5, py - 1.6, 1, 3.2); // 环绕星子
+    }
+    g.fillStyle(0xdfe8ff, 0.35);
+    g.fillRect(x - 15, hy - 3.4, 30, 1); // 银河光带
   } },
   vikingHelm: { c: 0x8a8a94, a: 0x6a4a2a, draw: (g, now, x, hy, c, a) => {
     // 角斗头盔：钢盔 + 一对弯角
@@ -197,19 +230,36 @@ export const HATS_4: Record<string, HatArt> = {
     g.fillEllipse(x - 6, hy - 10, 3.4, 5); g.fillEllipse(x + 6, hy - 10, 3.4, 5); // 金橄榄
   } },
   olympCrown: { c: 0xffd45c, a: 0xfff6d0, draw: (g, now, x, hy, c, a) => {
-    // 神祇之冠：光芒神冠
+    // 神祇之冠：双层光芒神冠 + 錾纹冠带 + 圣光核 + 飞升金屑
     for (let k = 0; k < 9; k++) {
       const ang = Math.PI * 1.06 + (k / 9) * Math.PI * 0.88;
       const long = k % 2 === 0;
+      const breathe = 1 + Math.sin(now / 500 + k) * 0.05;
       hpoly(g, [
         [x + Math.cos(ang - 0.05) * 10, hy - 4 + Math.sin(ang - 0.05) * 10],
-        [x + Math.cos(ang) * (long ? 26 : 18), hy - 4 + Math.sin(ang) * (long ? 26 : 18)],
+        [x + Math.cos(ang) * (long ? 26 : 18) * breathe, hy - 4 + Math.sin(ang) * (long ? 26 : 18) * breathe],
         [x + Math.cos(ang + 0.05) * 10, hy - 4 + Math.sin(ang + 0.05) * 10],
       ], long ? c : a, 0.95);
     }
+    for (let k = 0; k < 9; k += 2) {
+      const ang = Math.PI * 1.06 + (k / 9) * Math.PI * 0.88;
+      g.fillStyle(0xffffff, 0.35);
+      g.fillCircle(x + Math.cos(ang) * 20, hy - 4 + Math.sin(ang) * 20, 1.2); // 芒尖光珠
+    }
     g.fillStyle(c, 1); g.fillRect(x - 15, hy - 4, 30, 5);
+    g.fillStyle(0xb08a2a, 0.7);
+    g.fillRect(x - 15, hy - 1.4, 30, 1.4);
+    for (let k = -1; k <= 1; k++) g.fillCircle(x + k * 10, hy - 1.5, 1.4); // 錾纹宝石座
     const gl = 0.4 + 0.3 * Math.sin(now / 300);
-    g.fillStyle(0xffffff, gl); g.fillCircle(x, hy - 8, 4);
+    g.fillStyle(0xffffff, gl * 0.4);
+    g.fillCircle(x, hy - 8, 8);
+    g.fillStyle(0xffffff, gl);
+    g.fillCircle(x, hy - 8, 4); // 圣光核
+    for (let k = 0; k < 3; k++) {
+      const ph = (now / 1000 + k / 3) % 1;
+      g.fillStyle(a, 0.7 * (1 - ph));
+      g.fillCircle(x - 10 + k * 10 + Math.sin(ph * 4 + k) * 3, hy - 18 - ph * 12, 1.4 * (1 - ph) + 0.3); // 飞升金屑
+    }
   } },
   sambaHat: { c: 0x3aa05a, a: 0xffd45c, draw: (g, now, x, hy, c, a) => {
     // 羽饰头冠：绿冠座 + 彩羽排

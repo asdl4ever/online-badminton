@@ -58,16 +58,23 @@ import {
 
 
 /** a cape streaming down the player's back; shape depends on the kind */
-export function drawCape(g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: CapeId): void {
+export function drawCape(
+  g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: CapeId,
+  move = 0, facing: 1 | -1 = 1,
+): void {
   const shape = CAPE_SHAPE[id];
   const color = CAPE_COLORS[id];
   if (!shape || shape.len === 0) return;
   // 主题披风：每款一件独立剪影（见 draw/capes/），命中就不再走通用 kind
-  if (drawCapeCustom(g, now, id, x, topY + 30)) return;
-  const sway = Math.sin(now / 420) * 6;
+  if (drawCapeCustom(g, now, id, x, topY + 30, move, facing)) return;
+  const sway = Math.sin(now / 420) * 6 + Math.sin(now / 95) * move * 6;
   const baseY = topY + 30;
-  const w = shape.w;
-  const len = shape.len;
+  const w = shape.w * 1.28;
+  const len = shape.len * 1.06;
+  const px = x - facing * move * 7; // 跑动时披风甩向身后
+  {
+    // 块级遮蔽：通用 kind 画法里引用的 x 全部换成偏移后的 px
+    const x = px;
 
   switch (shape.kind) {
     case 'cloth': {
@@ -504,7 +511,8 @@ export function drawCape(g: Phaser.GameObjects.Graphics, now: number, x: number,
       break;
     }
   }
-  drawCapeFlair(g, now, x, baseY, len, w, id, color);
+  }
+  drawCapeFlair(g, now, px, baseY, len, w, id, color);
 }
 
 /**
@@ -778,7 +786,10 @@ export function drawHat(
   const color = HAT_COLORS[id];
   const hy = topY + 4;
   // 主题头饰：逐顶独立画（draw/hats-theme/），命中就不再走模板
-  if (drawHatCustom(g, now, id, x, hy)) return;
+  if (drawHatCustom(g, now, id, x, hy)) {
+    drawHatFlair(g, x, topY, id, now, color);
+    return;
+  }
   // 新主题宝箱的头饰：统一走 themeart 的通用画法
   const themeHat = THEME_HATS[id];
   if (themeHat) {
@@ -887,19 +898,47 @@ export function drawHat(
       break;
     }
     case 'halo': {
-      // 天使光环：双环 + 辉光 + 绕环小闪
-      g.fillStyle(color, 0.12);
-      g.fillEllipse(x, hy - 8, 44, 18);
-      g.lineStyle(3.4, color, 0.4);
-      g.strokeEllipse(x, hy - 8, 40, 15);
+      // 天使光环：三重环 + 呼吸辉光 + 绕环的带翼精灵球 + 飘落的圣羽
+      const p1 = 0.5 + 0.5 * Math.sin(now / 420);
+      g.fillStyle(color, 0.1 + p1 * 0.08);
+      g.fillEllipse(x, hy - 8, 48, 20);
+      g.lineStyle(3.4, color, 0.35);
+      g.strokeEllipse(x, hy - 8, 44, 17);
       g.lineStyle(3, color, 0.95);
       g.strokeEllipse(x, hy - 8, 34, 12);
+      g.lineStyle(1.2, 0xfff6d8, 0.7);
+      g.strokeEllipse(x, hy - 8, 28, 8.4); // 内环细金线
       g.fillStyle(0xffffff, 0.85);
       g.fillEllipse(x - 8, hy - 12.4, 7, 2.2);
+      // 绕环的精灵球（前后景深 + 小翅膀扑动 + 光晕）
       for (let k = 0; k < 3; k++) {
-        const a = now / 700 + (k / 3) * Math.PI * 2;
-        g.fillStyle(0xffffff, 0.5 + 0.4 * Math.sin(now / 260 + k));
-        g.fillCircle(x + Math.cos(a) * 17, hy - 8 + Math.sin(a) * 6, 1.4);
+        const a = now / 800 + (k / 3) * Math.PI * 2;
+        const px = x + Math.cos(a) * 18;
+        const py = hy - 8 + Math.sin(a) * 6.4;
+        const depth = Math.sin(a); // <0 在环后
+        const flap = Math.sin(now / 90 + k * 2) * 2.4;
+        const r = 2.2 + (depth > 0 ? 0.8 : 0);
+        g.fillStyle(color, 0.35);
+        g.fillCircle(px, py, r + 3); // 光晕
+        // 小翅膀（左右各一片）
+        g.fillStyle(0xffffff, 0.85);
+        g.fillEllipse(px - r - 2, py - 1.2, 4.4, 2 + flap * 0.4);
+        g.fillEllipse(px + r + 2, py - 1.2, 4.4, 2 + flap * 0.4);
+        // 球体
+        g.fillStyle(k % 2 ? 0xfff2c4 : color, 0.95);
+        g.fillCircle(px, py, r);
+        g.fillStyle(0xffffff, 0.9);
+        g.fillCircle(px - r * 0.3, py - r * 0.3, r * 0.3);
+      }
+      // 飘落的圣羽
+      for (let k = 0; k < 3; k++) {
+        const ph = (now / 1600 + k / 3) % 1;
+        g.save();
+        g.translateCanvas(x + Math.sin(k * 2.4) * 16 + Math.sin(ph * 5 + k) * 5, hy - 26 + ph * 26);
+        g.rotateCanvas(Math.sin(now / 400 + k) * 0.6);
+        g.fillStyle(0xffffff, 0.75 * (1 - ph));
+        g.fillEllipse(0, 0, 2.4, 6);
+        g.restore();
       }
       break;
     }
@@ -1026,6 +1065,74 @@ export function drawHat(
       g.fillRect(x - 10, hy + 1, 20, 2);
       g.fillStyle(0xe86a6a, 0.95);
       g.fillCircle(x, hy, 2.2);
+      // 🐇 帽子里蹦兔子的魔术：周期性从帽口弹起探头 → 左右张望 → 缩回去
+      {
+        const cyc = (now / 2600) % 1;
+        if (cyc < 0.62) {
+          // 弹起(0~0.18) → 张望(0.18~0.44) → 缩回(0.44~0.62)
+          let up: number; // 兔头从帽口升起的像素
+          let look = 0; // 张望偏移
+          if (cyc < 0.18) {
+            const t = cyc / 0.18;
+            up = (1 - Math.pow(1 - t, 2)) * 15; // easeOut
+          } else if (cyc < 0.44) {
+            up = 15;
+            look = Math.sin(((cyc - 0.18) / 0.26) * Math.PI * 2) * 2.4;
+          } else {
+            const t = (cyc - 0.44) / 0.18;
+            up = (1 - t * t) * 15;
+          }
+          const bx = x + look;
+          const by = hy - 18 - up; // 兔头中心（帽顶为 0 起点）
+          // 耳朵（先出来，带一点弯曲和摆动）
+          const earWig = Math.sin(now / 180) * 1.6;
+          for (const s of [-1, 1]) {
+            g.fillStyle(0xf5f0e8, 1);
+            g.fillEllipse(bx + s * 3.4, by - 7 - up * 0.12 + earWig * 0.3, 2.8, 9);
+            g.fillStyle(0xffc4d0, 0.9);
+            g.fillEllipse(bx + s * 3.4, by - 6 - up * 0.12 + earWig * 0.3, 1.2, 5.4); // 耳心
+          }
+          // 头（圆 + 光泽）
+          g.fillStyle(0xf5f0e8, 1);
+          g.fillCircle(bx, by, 6);
+          g.fillStyle(0xffffff, 0.5);
+          g.fillCircle(bx - 2, by - 2.2, 2);
+          // 眼睛（缩回时闭眼）
+          const hiding = cyc >= 0.44;
+          if (!hiding) {
+            const blink = Math.sin(now / 900) > 0.94;
+            if (blink) {
+              g.lineStyle(1, 0x1a1a22, 0.9);
+              g.lineBetween(bx - 3.4, by - 0.6, bx - 1, by - 0.6);
+              g.lineBetween(bx + 1, by - 0.6, bx + 3.4, by - 0.6);
+            } else {
+              g.fillStyle(0x1a1a22, 1);
+              g.fillCircle(bx - 2.4, by - 0.6, 1.1);
+              g.fillCircle(bx + 2.4, by - 0.6, 1.1);
+              g.fillStyle(0xffffff, 0.9);
+              g.fillCircle(bx - 2.1, by - 1, 0.4);
+              g.fillCircle(bx + 2.7, by - 1, 0.4);
+            }
+            g.fillStyle(0xffa8a8, 0.9); // 鼻
+            g.fillTriangle(bx - 1.2, by + 1.8, bx + 1.2, by + 1.8, bx, by + 3.2);
+          } else {
+            g.lineStyle(1, 0x1a1a22, 0.8);
+            g.lineBetween(bx - 3.4, by - 0.6, bx - 1, by - 0.6);
+            g.lineBetween(bx + 1, by - 0.6, bx + 3.4, by - 0.6);
+          }
+          // 魔术星屑（弹起时洒出）
+          if (cyc < 0.3) {
+            for (let k = 0; k < 4; k++) {
+              const ph = (cyc / 0.3 + k / 4) % 1;
+              const sx = bx + Math.sin(k * 2.4) * (6 + ph * 10);
+              const sy = by - 4 - ph * 12;
+              g.fillStyle(0xfff0b0, 0.85 * (1 - ph));
+              g.fillRect(sx - 1.4, sy - 0.4, 2.8, 0.8);
+              g.fillRect(sx - 0.4, sy - 1.4, 0.8, 2.8);
+            }
+          }
+        }
+      }
       break;
     }
     case 'helm': {
@@ -1356,28 +1463,54 @@ export function drawHat(
       break;
     }
     case 'frostCrown': {
-      // 冰晶王冠：五根参差冰棱（折面 + 内亮线）+ 霜环 + 冰晶闪
+      // 冰晶王冠：后层淡冰棱 + 主冰棱（折面 + 亮芯 + 侧枝）+ 霜环 + 绕冠冰晶闪 + 升腾寒雾
+      const p1 = 0.5 + 0.5 * Math.sin(now / 500);
+      g.fillStyle(0xd0f0ff, 0.14 + p1 * 0.05);
+      g.fillEllipse(x, hy - 8, 40, 30); // 冷光底
       g.lineStyle(2, color, 0.5);
       g.strokeEllipse(x, hy + 6, 34, 8);
+      // 后层淡冰棱
+      for (const dx of [-11, 3, 11]) {
+        g.fillStyle(0xbfe8ff, 0.4);
+        g.fillPoints([
+          { x: x + dx - 2.6, y: hy + 5 }, { x: x + dx, y: hy + 5 - 16 }, { x: x + dx + 2.6, y: hy + 5 },
+        ], true);
+      }
+      // 主冰棱
       for (const [dx, h] of [[-14, 14], [-7, 18], [0, 22], [7, 17], [14, 13]] as const) {
         g.fillStyle(color, 0.92);
         g.fillPoints([
           { x: x + dx - 3.4, y: hy + 6 }, { x: x + dx, y: hy + 6 - h }, { x: x + dx + 3.4, y: hy + 6 },
         ], true);
-        // 冰棱内亮芯
         g.fillStyle(0xffffff, 0.55);
         g.fillPoints([
           { x: x + dx - 1.2, y: hy + 4 }, { x: x + dx, y: hy + 6 - h * 0.72 }, { x: x + dx + 1.2, y: hy + 4 },
         ], true);
+        if (h >= 17) {
+          // 高冰棱的侧枝
+          g.fillStyle(color, 0.8);
+          g.fillPoints([
+            { x: x + dx - 3.2, y: hy + 6 - h * 0.45 }, { x: x + dx - 6.4, y: hy + 6 - h * 0.62 }, { x: x + dx - 3.4, y: hy + 6 - h * 0.68 },
+          ], true);
+          g.fillStyle(0xffffff, 0.7);
+          g.fillCircle(x + dx, hy + 6 - h, 1.1); // 棱尖亮珠
+        }
       }
-      // 霜环高光 + 冰晶闪
       g.fillStyle(0xffffff, 0.4);
       g.fillRect(x - 16, hy + 5.4, 32, 1.2);
-      const spark = Math.sin(now / 300);
-      if (spark > 0.3) {
-        g.fillStyle(0xffffff, 0.9);
-        g.fillCircle(x - 14, hy - 8, 1.4);
-        g.fillCircle(x + 12, hy - 12, 1.2);
+      // 绕冠转动的冰晶闪（四芒）
+      for (let k = 0; k < 3; k++) {
+        const a = now / 900 + (k / 3) * Math.PI * 2;
+        const px = x + Math.cos(a) * 18, py = hy - 6 + Math.sin(a) * 12;
+        const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 200 + k * 1.8));
+        g.fillStyle(0xffffff, tw);
+        g.fillRect(px - 2.2, py - 0.5, 4.4, 1); g.fillRect(px - 0.5, py - 2.2, 1, 4.4);
+      }
+      // 升腾的寒雾
+      for (let k = 0; k < 3; k++) {
+        const ph = (now / 1400 + k / 3) % 1;
+        g.fillStyle(0xdff4ff, 0.25 * Math.sin(ph * Math.PI) * (0.5 + p1 * 0.5));
+        g.fillEllipse(x - 10 + k * 10 + Math.sin(ph * 4 + k) * 4, hy - 14 - ph * 14, 8 + ph * 6, 4);
       }
       break;
     }
@@ -1398,12 +1531,22 @@ export function drawHat(
         g.fillStyle(0xfff2c4, 0.9);
         g.fillTriangle(x + k * 7 - 2, hy + 3, x + k * 7 + 2, hy + 3, x + k * 7, hy + 4 - h * 0.55);
       }
-      // 火星
-      for (let k = 0; k < 2; k++) {
-        const t = (now / 700 + k / 2) % 1;
+      // 火星（三道上升 + 热浪扭曲弧 + 火光底晕）
+      for (let k = 0; k < 3; k++) {
+        const t = (now / 600 + k / 3) % 1;
         g.fillStyle(0xffd07a, 0.6 * (1 - t));
-        g.fillCircle(x + Math.sin(t * 5 + k) * 8, hy - 14 - t * 10, 1.6 - t);
+        g.fillCircle(x + Math.sin(t * 5 + k) * 8, hy - 14 - t * 12, 1.6 - t);
       }
+      for (let k = 0; k < 2; k++) {
+        const ph = (now / 800 + k / 2) % 1;
+        g.lineStyle(1.4, 0xff8a3a, 0.3 * Math.sin(ph * Math.PI));
+        g.beginPath();
+        g.arc(x, hy + 2, 20 + ph * 8, -Math.PI * 0.82 + k * 0.5, -Math.PI * 0.5 + k * 0.5);
+        g.strokePath();
+      }
+      const glow = 0.5 + 0.5 * Math.sin(now / 220);
+      g.fillStyle(0xff8a3a, 0.12 + glow * 0.08);
+      g.fillEllipse(x, hy - 10, 40, 30);
       break;
     }
     case 'witch': {
@@ -1870,6 +2013,18 @@ export function drawHat(
       // 鼻孔红点（呼吸感）
       g.fillStyle(0xff5a2a, 0.7 + 0.25 * Math.sin(now / 300));
       g.fillCircle(x, hy - 2, 2.5);
+      // 角尖龙息（火苗摇曳）+ 环绕的龙焰光点
+      for (const s of [-1, 1]) {
+        const fx = x + s * 23, fy = hy - 18;
+        g.fillStyle(0xffd45c, 0.75 + 0.25 * Math.sin(now / 150 + s));
+        g.fillTriangle(fx - 1.6, fy, fx + 1.6, fy, fx + Math.sin(now / 140 + s) * 1.6, fy - 5 - Math.sin(now / 170 + s) * 2);
+      }
+      for (let k = 0; k < 3; k++) {
+        const a = now / 700 + (k / 3) * Math.PI * 2;
+        const px = x + Math.cos(a) * 20, py = hy - 6 + Math.sin(a) * 12;
+        g.fillStyle(0xff8a3a, 0.6 * (0.5 + 0.5 * Math.sin(now / 200 + k * 2)));
+        g.fillCircle(px, py, 1.6);
+      }
       break;
     }
     // ==================== 后加的 50 款：每款一个独立造型 ====================
@@ -2473,19 +2628,41 @@ export function drawHat(
       break;
     }
     case 'brideVeil': {
-      // 婚纱头纱：脑后的长纱 + 花饰
+      // 婚纱头纱：飘摆的双层长纱 + 纱面光泽线 + 花冠（花心闪）+ 飘落的花瓣
+      const sway = Math.sin(now / 700) * 3;
+      g.fillStyle(0xffe4ee, 0.45);
+      g.beginPath();
+      g.moveTo(x - 21, hy - 6);
+      g.lineTo(x - 30 + sway * 0.6, hy + 36);
+      g.lineTo(x + 30 + sway * 0.6, hy + 36);
+      g.lineTo(x + 21, hy - 6);
+      g.closePath();
+      g.fillPath();
       g.fillStyle(color, 0.75);
       g.beginPath();
       g.moveTo(x - 18, hy - 6);
-      g.lineTo(x - 26, hy + 34);
-      g.lineTo(x + 26, hy + 34);
+      g.lineTo(x - 26 + sway, hy + 34);
+      g.lineTo(x + 26 + sway, hy + 34);
       g.lineTo(x + 18, hy - 6);
       g.closePath();
       g.fillPath();
+      g.lineStyle(1, 0xffffff, 0.5);
+      g.lineBetween(x - 12, hy - 2, x - 16 + sway * 0.8, hy + 30);
+      g.lineBetween(x + 12, hy - 2, x + 16 + sway * 0.8, hy + 30); // 纱褶光
       g.fillStyle(0xffb7d5, 1);
       g.fillCircle(x, hy - 10, 4);
       g.fillCircle(x - 8, hy - 7, 3);
       g.fillCircle(x + 8, hy - 7, 3);
+      const tw = 0.5 + 0.5 * Math.sin(now / 300);
+      g.fillStyle(0xfff0b0, tw);
+      g.fillCircle(x, hy - 10, 1.4);
+      g.fillCircle(x - 8.6, hy - 7.6, 1);
+      g.fillCircle(x + 8.6, hy - 7.6, 1);
+      for (let k = 0; k < 3; k++) {
+        const ph = (now / 1500 + k / 3) % 1;
+        g.fillStyle(0xffd0e0, 0.8 * (1 - ph));
+        g.fillEllipse(x - 14 + k * 14 + Math.sin(ph * 5 + k) * 5, hy - 8 + ph * 40, 4, 2.4);
+      }
       break;
     }
     case 'headband': {
@@ -2680,33 +2857,85 @@ export function drawHat(
       g.fillEllipse(x, hy + 11, 7, 2.4);
       g.lineStyle(1.3, 0x000000, 0.25);
       g.strokeEllipse(x, hy + 4, 32, 26);
+      // 金色额饰 + 面具气场（猩红氤氲 + 明灭）
+      g.fillStyle(0xd9b45c, 0.95);
+      g.fillEllipse(x, hy - 9.4, 6, 2.6);
+      g.fillStyle(0xd9b45c, 0.6);
+      g.fillRect(x - 0.8, hy - 13.4, 1.6, 3); // 额饰小柱
+      const aura = 0.5 + 0.5 * Math.sin(now / 350);
+      g.fillStyle(0xd42a3a, 0.08 + aura * 0.07);
+      g.fillEllipse(x, hy + 4, 40, 34);
+      for (let k = 0; k < 3; k++) {
+        const ph = (now / 1300 + k / 3) % 1;
+        g.fillStyle(0xd42a3a, 0.5 * (1 - ph));
+        g.fillEllipse(Math.sin(k * 2.4) * 22 + Math.sin(ph * 4 + k) * 4, hy - 8 - ph * 20, 3, 5);
+      }
       break;
     }
     case 'eyepatch': {
-      // 眼罩：斜跨的皮眼罩 + 绑带
+      // 眼罩：斜跨皮眼罩 + 缝线 + 金属扣 + 绑带
       g.lineStyle(2.5, color, 0.9);
       g.lineBetween(x - 20, hy - 6, x + 20, hy - 2);
+      g.fillStyle(0x1a1a22, 0.35);
+      g.fillEllipse(x - 7, hy - 2.6, 15.4, 12.4);
       g.fillStyle(color, 1);
       g.fillEllipse(x - 7, hy - 3, 15, 12);
+      g.fillStyle(0xffffff, 0.12);
+      g.fillEllipse(x - 9, hy - 5, 7, 4); // 皮面高光
+      g.lineStyle(0.8, 0xffffff, 0.3);
+      g.lineBetween(x - 12, hy - 1, x - 2, hy - 5); // 缝线
+      g.fillStyle(0xd9b45c, 1);
+      g.fillCircle(x - 1, hy - 3.6, 1.8); // 金属扣
       break;
     }
     case 'monocle': {
-      // 单片眼镜：一只圆镜片 + 垂链
-      g.fillStyle(0x9be8ff, 0.3);
+      // 单片眼镜：金框圆镜片 + 双层反光 + 垂链 + 链坠
+      const gl = 0.4 + 0.3 * Math.sin(now / 450);
+      g.fillStyle(0x9be8ff, 0.25);
+      g.fillCircle(x + 8, hy - 2, 8.4);
+      g.fillStyle(0xd0f0ff, gl * 0.5);
       g.fillCircle(x + 8, hy - 2, 7);
-      g.lineStyle(2.5, color, 1);
+      g.lineStyle(2.5, 0xd9b45c, 1);
       g.strokeCircle(x + 8, hy - 2, 8);
-      g.lineStyle(1.5, color, 0.8);
-      g.lineBetween(x + 14, hy + 4, x + 18, hy + 18);
+      g.lineStyle(1, 0xfff0c0, 0.9);
+      g.strokeCircle(x + 8, hy - 2, 9.2); // 金框内缘
+      g.fillStyle(0xffffff, 0.75);
+      g.fillEllipse(x + 5, hy - 4.6, 5, 2.2); // 反光
+      g.fillStyle(0xffffff, 0.4);
+      g.fillCircle(x + 11, hy + 0.4, 1.4);
+      g.lineStyle(1.5, 0xd9b45c, 0.9);
+      g.lineBetween(x + 14, hy + 4, x + 16, hy + 10);
+      g.lineBetween(x + 16, hy + 10, x + 15, hy + 15); // 垂链
+      g.fillStyle(0xd9b45c, 1);
+      g.fillCircle(x + 15, hy + 17, 2.2); // 链坠
+      g.fillStyle(0xfff0c0, 0.8);
+      g.fillCircle(x + 14.4, hy + 16.4, 0.8);
       break;
     }
     case 'sailorHat': {
-      // 水手帽：白色圆帽 + 蓝帽檐 + 蓝绒球
+      // 水手帽：白色圆帽 + 蓝檐滚边 + 舵轮徽 + 绒球 + 飘带
       g.fillStyle(color, 1);
       g.fillEllipse(x, hy - 2, 32, 18);
+      g.fillStyle(0xe4ecf6, 0.7);
+      g.fillEllipse(x - 5, hy - 6, 14, 7); // 帽面高光
       g.fillStyle(0x2a5fbf, 1);
       g.fillRect(x - 16, hy + 2, 32, 5);
-      g.fillCircle(x, hy - 12, 4);
+      g.fillStyle(0xffffff, 0.7);
+      g.fillRect(x - 16, hy + 2, 32, 1.2); // 檐上滚边
+      g.fillStyle(0x2a5fbf, 0.9);
+      for (let k = 0; k < 2; k++) g.fillRect(x - 4 + k * 8, hy - 4, 1.4, 4); // 帽面短飘带
+      const rot = now / 900;
+      g.fillStyle(0x2a5fbf, 0.95);
+      for (let k = 0; k < 4; k++) {
+        const a2 = rot + (k / 4) * Math.PI * 2;
+        g.fillRect(x + Math.cos(a2) * 3 - 1, hy - 9 + Math.sin(a2) * 3 - 1, 2, 2); // 舵轮
+      }
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(x, hy - 9, 3.4); // 舵轮心
+      g.fillStyle(0xdfe8f4, 0.95);
+      g.fillCircle(x, hy - 13.4, 2.8); // 绒球
+      g.fillStyle(0xffffff, 0.9);
+      g.fillCircle(x - 1, hy - 14.4, 1);
       break;
     }
     case 'gasMask': {
@@ -2722,33 +2951,70 @@ export function drawHat(
       break;
     }
     case 'skullMask': {
-      // 骷髅面：白头骨 + 黑眼窝 + 牙
+      // 骷髅面：白头骨 + 黑眼窝 + 眼窝幽火明灭 + 牙 + 环绕的冥雾
       g.fillStyle(color, 1);
       g.fillCircle(x, hy + 4, 16);
       g.fillRect(x - 11, hy + 10, 22, 10);
       g.fillStyle(0x1a1a22, 1);
       g.fillEllipse(x - 6, hy + 1, 8, 9);
       g.fillEllipse(x + 6, hy + 1, 8, 9);
+      // 眼窝幽火（青磷明灭 + 光晕）
+      const fl1 = 0.5 + 0.5 * Math.sin(now / 240);
+      const fl2 = 0.5 + 0.5 * Math.sin(now / 240 + 1.4);
+      g.fillStyle(0x6affd0, 0.2 + fl1 * 0.15);
+      g.fillCircle(x - 6, hy + 1, 6);
+      g.fillStyle(0x6affd0, 0.2 + fl2 * 0.15);
+      g.fillCircle(x + 6, hy + 1, 6);
+      g.fillStyle(0xa0ffe0, 0.7 + fl1 * 0.3);
+      g.fillCircle(x - 6, hy + 1, 2);
+      g.fillStyle(0xa0ffe0, 0.7 + fl2 * 0.3);
+      g.fillCircle(x + 6, hy + 1, 2);
       g.fillTriangle(x, hy + 8, x - 3, hy + 12, x + 3, hy + 12);
       g.fillRect(x - 4, hy + 14, 2, 6);
       g.fillRect(x + 2, hy + 14, 2, 6);
+      g.lineStyle(1, 0xb8c4d0, 0.5); // 骨缝
+      g.lineBetween(x - 8, hy - 8, x - 5, hy - 3);
+      g.lineBetween(x + 8, hy - 8, x + 5, hy - 3);
+      for (let k = 0; k < 3; k++) {
+        const ph = (now / 1100 + k / 3) % 1;
+        g.fillStyle(0x6affd0, 0.35 * (1 - ph));
+        g.fillCircle(Math.sin(k * 2.6) * 22 + Math.sin(ph * 4 + k) * 4, hy + 6 - ph * 30, 1.6 * (1 - ph) + 0.4);
+      }
       break;
     }
     case 'ghostHat': {
-      // 幽灵帽：半透明飘浮的幽灵头
-      g.fillStyle(color, 0.72);
-      g.fillCircle(x, hy - 16, 11);
-      g.fillRect(x - 11, hy - 16, 22, 8);
+      // 幽灵帽：半透明幽灵头（漂浮 + 下摆波动 + 透明度呼吸）+ 环绕的小鬼火
+      const bob = Math.sin(now / 600) * 2.4;
+      const alpha = 0.6 + 0.14 * Math.sin(now / 500);
+      g.fillStyle(color, alpha * 0.5);
+      g.fillCircle(x, hy - 16 + bob, 13); // 外层幽光
+      g.fillStyle(color, alpha);
+      g.fillCircle(x, hy - 16 + bob, 11);
+      g.fillRect(x - 11, hy - 16 + bob, 22, 8);
       for (let k = 0; k < 3; k++) {
+        const wave = Math.sin(now / 300 + k * 2) * 1.6;
         g.fillTriangle(
-          x - 11 + k * 7.4, hy - 8,
-          x - 3.6 + k * 7.4, hy - 8,
-          x - 7.3 + k * 7.4, hy - 1,
+          x - 11 + k * 7.4, hy - 8 + bob,
+          x - 3.6 + k * 7.4, hy - 8 + bob,
+          x - 7.3 + k * 7.4 + wave, hy - 1 + bob + wave,
         );
       }
       g.fillStyle(0x2a3442, 0.75);
-      g.fillCircle(x - 4, hy - 18, 2.2);
-      g.fillCircle(x + 4, hy - 18, 2.2);
+      g.fillCircle(x - 4, hy - 18 + bob, 2.2);
+      g.fillCircle(x + 4, hy - 18 + bob, 2.2);
+      g.fillStyle(0xffffff, 0.6);
+      g.fillCircle(x - 4.6, hy - 18.6 + bob, 0.7);
+      g.fillCircle(x + 3.4, hy - 18.6 + bob, 0.7);
+      for (let k = 0; k < 3; k++) {
+        const ph = now / 1000 + k * 2.1;
+        const gx = x + Math.sin(ph) * 18;
+        const gy = hy - 20 + Math.cos(ph * 1.2) * 10;
+        const gl = 0.5 + 0.5 * Math.sin(now / 230 + k * 2);
+        g.fillStyle(0xbfe8ff, gl * 0.35);
+        g.fillEllipse(gx, gy, 6, 9);
+        g.fillStyle(0xffffff, gl * 0.8);
+        g.fillCircle(gx, gy + 2, 1.2);
+      }
       break;
     }
     case 'pumpkin': {
@@ -2763,6 +3029,28 @@ export function drawHat(
       g.fillTriangle(x - 10, hy - 6, x - 4, hy - 6, x - 7, hy - 1);
       g.fillTriangle(x + 10, hy - 6, x + 4, hy - 6, x + 7, hy - 1);
       g.fillTriangle(x - 8, hy + 6, x + 8, hy + 6, x, hy + 1);
+      // 瓜内烛光（从眼嘴透出的闪烁光）+ 藤蔓卷须 + 环绕萤火
+      const flick = 0.6 + 0.4 * Math.sin(now / 130) * Math.sin(now / 90);
+      g.fillStyle(0xffd45c, 0.55 * flick);
+      g.fillTriangle(x - 9.4, hy - 5.4, x - 4.6, hy - 5.4, x - 7, hy - 1.6);
+      g.fillTriangle(x + 9.4, hy - 5.4, x + 4.6, hy - 5.4, x + 7, hy - 1.6);
+      g.fillStyle(0xffd45c, 0.4 * flick);
+      g.fillTriangle(x - 7, hy + 5.4, x + 7, hy + 5.4, x, hy + 1.6);
+      g.lineStyle(1.6, 0x2f7a3a, 0.85);
+      g.beginPath();
+      for (let s = 0; s <= 8; s++) {
+        const u = s / 8;
+        const px = x + 1 + u * 7;
+        const py = hy - 18 - Math.sin(u * Math.PI) * 5 + u * 4;
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath(); // 卷须
+      for (let k = 0; k < 3; k++) {
+        const ph = now / 900 + k * 2.1;
+        const gl = Math.max(0, Math.sin(ph * 1.7));
+        g.fillStyle(0xd8ff8a, gl);
+        g.fillCircle(Math.sin(ph * 0.8 + k) * 24, hy - 6 + Math.sin(ph * 1.1 + k) * 16, 1.4 + gl);
+      }
       break;
     }
     case 'iceCream': {
@@ -2873,15 +3161,31 @@ export function drawHat(
       break;
     }
     case 'gear': {
-      // 齿轮：八轮齿 + 轴心
-      g.fillStyle(color, 1);
-      for (let k = 0; k < 8; k++) {
-        const a = (k / 8) * Math.PI * 2;
-        g.fillRect(x + Math.cos(a) * 16 - 4, hy - 2 + Math.sin(a) * 16 - 4, 8, 8);
+      // 齿轮：双层咬合齿轮（一顺一逆转）+ 铆钉 + 铜芯 + 蒸汽
+      const rot = now / 1400;
+      const drawCog = (cx: number, cy: number, r: number, teeth: number, rr: number, base: number, alpha: number): void => {
+        g.fillStyle(base, alpha);
+        for (let k = 0; k < teeth; k++) {
+          const a2 = rr + (k / teeth) * Math.PI * 2;
+          g.fillRect(cx + Math.cos(a2) * r - 3.4, cy + Math.sin(a2) * r - 3.4, 6.8, 6.8);
+        }
+        g.fillCircle(cx, cy, r);
+        g.fillStyle(0x5a4a2a, alpha);
+        g.fillCircle(cx, cy, r * 0.38);
+        g.fillStyle(0xc9a04a, alpha);
+        g.fillCircle(cx, cy, r * 0.14);
+      };
+      drawCog(x, hy - 2, 14, 8, rot, color, 1);
+      drawCog(x + 15, hy - 13, 7, 6, -rot * 1.4, 0xb08a4a, 0.95);
+      g.fillStyle(0xfff0c0, 0.5);
+      g.fillCircle(x - 4, hy - 8, 2.2); // 亮斑
+      g.fillStyle(0xd9b45c, 0.9);
+      g.fillCircle(x - 10, hy + 4, 1.2); g.fillCircle(x + 10, hy + 4, 1.2); // 铆钉
+      for (let k = 0; k < 2; k++) {
+        const ph = (now / 700 + k / 2) % 1;
+        g.fillStyle(0xffffff, 0.4 * (1 - ph));
+        g.fillCircle(x + 15 + Math.sin(ph * 4) * 3, hy - 20 - ph * 12, 2 * (1 - ph) + 0.5); // 蒸汽
       }
-      g.fillCircle(x, hy - 2, 15);
-      g.fillStyle(0x5a4a2a, 1);
-      g.fillCircle(x, hy - 2, 6);
       break;
     }
     case 'minerLamp': {
@@ -2897,20 +3201,40 @@ export function drawHat(
       break;
     }
     case 'candle': {
-      // 蜡烛：白蜡烛 + 跳动的火苗
+      // 蜡烛：白蜡烛 + 流蜡滴 + 三层火苗（外焰摇/中焰稳/焰心亮）+ 光晕呼吸 + 上升热星
       g.fillStyle(color, 1);
       g.fillRoundedRect(x - 7, hy - 10, 14, 18, 4);
+      g.fillStyle(0xffffff, 0.35);
+      g.fillRect(x - 5, hy - 9, 3, 16); // 柱面高光
+      g.fillStyle(0xe8e0d0, 0.9); // 流蜡
+      g.fillEllipse(x - 4, hy + 6, 3.4, 5.4);
+      g.fillEllipse(x + 4.4, hy + 4, 3, 4.4);
       g.fillStyle(0x9aa7b8, 1);
       g.fillRect(x - 1.5, hy - 14, 3, 5);
+      const flick = Math.sin(now / 130) * 1.4 + Math.sin(now / 77) * 0.9;
+      g.fillStyle(0xff8a3a, 0.55);
+      g.fillEllipse(x + flick * 0.5, hy - 20, 13, 19); // 外焰光晕
       g.fillStyle(0xffb03a, 0.95);
-      g.fillEllipse(x, hy - 20, 9, 14);
+      g.fillEllipse(x + flick * 0.6, hy - 20, 9, 14);
       g.fillStyle(0xfff0b0, 1);
-      g.fillEllipse(x, hy - 20, 4.5, 8);
+      g.fillEllipse(x + flick * 0.7, hy - 20, 4.5, 8);
+      g.fillStyle(0xffffff, 0.9);
+      g.fillCircle(x + flick * 0.7, hy - 22.4, 1.4); // 焰心
+      const p1 = 0.5 + 0.5 * Math.sin(now / 180);
+      g.fillStyle(0xffd07a, 0.1 + p1 * 0.1);
+      g.fillCircle(x, hy - 18, 18); // 光晕呼吸
+      for (let k = 0; k < 2; k++) {
+        const t = (now / 800 + k / 2) % 1;
+        g.fillStyle(0xffd07a, 0.7 * (1 - t));
+        g.fillCircle(x + Math.sin(t * 5 + k) * 6, hy - 28 - t * 12, 1.4 * (1 - t) + 0.4); // 热星
+      }
       break;
     }
     case 'starCrown': {
-      // 星星冠：三颗五角星串成的冠
-      const star = (cx: number, cy: number, r: number): void => {
+      // 星星冠：悬浮三星（主星+双伴星）+ 光晕 + 环绕星尘 + 星轨连线 + 星芒闪烁
+      const star = (cx: number, cy: number, r: number, glow: number): void => {
+        g.fillStyle(color, glow * 0.25);
+        g.fillCircle(cx, cy, r * 1.5);
         g.fillStyle(color, 1);
         for (let k = 0; k < 5; k++) {
           const a = -Math.PI / 2 + (k / 5) * Math.PI * 2;
@@ -2921,20 +3245,52 @@ export function drawHat(
           );
         }
         g.fillCircle(cx, cy, r * 0.45);
+        g.fillStyle(0xfff6d8, 0.8);
+        g.fillCircle(cx - r * 0.14, cy - r * 0.14, r * 0.16); // 星心亮斑
       };
-      star(x, hy - 16, 13);
-      star(x - 15, hy - 7, 8);
-      star(x + 15, hy - 7, 8);
+      const bob = Math.sin(now / 500) * 2;
+      star(x, hy - 18 + bob, 13, 0.7 + 0.3 * Math.sin(now / 350));
+      star(x - 15, hy - 8 + bob * 0.6, 8, 0.6);
+      star(x + 15, hy - 7 + bob * 0.6, 8, 0.6);
+      g.lineStyle(1, color, 0.3);
+      g.beginPath();
+      g.moveTo(x - 15, hy - 8 + bob * 0.6);
+      g.lineTo(x, hy - 18 + bob);
+      g.lineTo(x + 15, hy - 7 + bob * 0.6);
+      g.strokePath(); // 星轨连线
+      for (let k = 0; k < 4; k++) {
+        const ang = now / 800 + (k / 4) * Math.PI * 2;
+        const px = x + Math.cos(ang) * 20, py = hy - 14 + Math.sin(ang) * 12;
+        const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 220 + k * 1.7));
+        g.fillStyle(0xfff6d8, tw);
+        g.fillRect(px - 2, py - 0.6, 4, 1.2); g.fillRect(px - 0.6, py - 2, 1.2, 4); // 环绕星尘
+      }
       break;
     }
     case 'moonCrown': {
-      // 月牙冠：一道粗弯月 + 两颗小星
+      // 月牙冠：粗弯月 + 月晕 + 环月星子 + 弦月线 + 星芒
+      const p1 = 0.5 + 0.5 * Math.sin(now / 500);
+      g.fillStyle(color, p1 * 0.2);
+      g.fillCircle(x, hy - 10, 22); // 月晕
       g.lineStyle(8, color, 1);
       g.beginPath();
       g.arc(x, hy - 8, 13, Math.PI * 0.35, Math.PI * 1.15, false, 0);
       g.strokePath();
+      g.lineStyle(2.4, 0xfff6d8, 0.8);
+      g.beginPath();
+      g.arc(x, hy - 8, 13, Math.PI * 0.5, Math.PI * 0.95, false, 0);
+      g.strokePath(); // 弦月高光
+      for (let k = 0; k < 4; k++) {
+        const ang = now / 900 + (k / 4) * Math.PI * 2;
+        const px = x + Math.cos(ang) * 17, py = hy - 10 + Math.sin(ang) * 10;
+        const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 240 + k * 1.9));
+        g.fillStyle(0xfff0b0, tw);
+        g.fillRect(px - 1.8, py - 0.5, 3.6, 1); g.fillRect(px - 0.5, py - 1.8, 1, 3.6); // 环月星子
+      }
       g.fillStyle(0xfff0b0, 1);
       g.fillCircle(x + 14, hy - 20, 2.5);
+      g.fillStyle(0xffffff, 0.8);
+      g.fillRect(x + 12.4, hy - 21.6, 0.8, 4); g.fillRect(x + 10.8, hy - 20, 4, 0.8); // 大星星芒
       g.fillCircle(x - 12, hy - 22, 2);
       break;
     }
@@ -5842,16 +6198,19 @@ export function drawAura(
 }
 
 /** 背部装饰统一入口：按 id 家族分派——展开形（原翅膀，肩部锚点 +48）/ 垂坠形（原披风，+30） */
-export function drawBack(g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: BackId): void {
+export function drawBack(
+  g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: BackId,
+  move = 0, facing: 1 | -1 = 1,
+): void {
   if (isWingFamily(id)) drawWings(g, now, x, topY, id);
-  else drawCape(g, now, x, topY, id as CapeId);
+  else drawCape(g, now, x, topY, id as CapeId, move, facing);
 }
 
 /** wings; the silhouette is chosen by the wing's kind, not just its colour */
 export function drawWings(g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: BackId): void {
   const baseY = topY + 48;
   // 主题翅膀：每款一对独立剪影（见 draw/wings/），命中就不再走通用 kind
-  if (drawWingsCustom(g, now, id, x, baseY, Math.sin(now / 110) * 0.35)) return;
+  if (drawWingsCustom(g, now, id, x, baseY, Math.sin(now / 100) * 0.5)) return;
   const shape = WING_SHAPE[id as WingId];
   const color = WING_COLORS[id as WingId];
   if (!shape || shape.feathers === 0) return;
@@ -8748,7 +9107,7 @@ export function drawCharacter(
   }
 
   if (cos.aura !== 'none') drawAura(g, now, pose.x, pose.feetY, cos.aura, AURA_COLORS[cos.aura]);
-  if (cos.back !== 'none') withAcc(g, () => drawBack(g, now, accX, accTopY, cos.back));
+  if (cos.back !== 'none') withAcc(g, () => drawBack(g, now, accX, accTopY, cos.back, pose.move ?? 0, pose.facing));
 
   // 🐾 宠物「贴地跟在身后 / 站在脚边」这两种要压在**人身后**，所以在画身体之前先画。
   // 也不套 `withAcc`——头顶的弹跳位移不该把地上的宠物一起带着动。

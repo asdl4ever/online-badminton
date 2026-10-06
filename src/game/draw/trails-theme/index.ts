@@ -1,6 +1,9 @@
 import type Phaser from 'phaser';
 import { TRAILS_1 } from './trails1';
 import { TRAILS_2 } from './trails2';
+import { TRAILS_3 } from './trails3';
+import { TRAILS_4 } from './trails4';
+import { TRAILS_5 } from './trails5';
 
 /**
  * 主题击球拖尾的**整条轨迹**画法总入口（分文件见 trails1~2.ts）。
@@ -13,6 +16,9 @@ type Ctx = { g: Phaser.GameObjects.Graphics; pts: readonly Pt[]; fade: number; n
 const TRAILS: Record<string, (typeof TRAILS_1)[string]> = {
   ...TRAILS_1,
   ...TRAILS_2,
+  ...TRAILS_3,
+  ...TRAILS_4,
+  ...TRAILS_5,
 };
 
 export function hasCustomTrail(id: string): boolean {

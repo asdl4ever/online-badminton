@@ -257,7 +257,7 @@ export const CHEST_THEMES: ChestTheme[] = [
     ],
   },
   // ---- 第二批 10 个主题：全部是「纯主题」宝箱 ----------------------------------
-  // 每个主题 16 件定制物品（形象 / 坐骑 / 2 头饰 / 4 背部装饰（翅膀·披风）/ 2 光环 /
+  // 每个主题 16 件定制物品（形象 / 坐骑 / 2 头饰 / 4 背部装饰（翅膀·披风）/ 2 背景 /
   // 地环 / 2 球拍皮肤 / 2 拖尾 / 挥拍拖尾），ref 统一带主题码，靠 `refPrefix`
   // 整批认领；物品墙 = 整池 16 件（15~30 格，见 `pure` / `bannerSize`）。
   {
@@ -787,7 +787,82 @@ export const CHEST_THEMES: ChestTheme[] = [
     complement: true,
     tierTarget: PREMIUM_TIER_TARGET,
   },
+
+  // ---- 新批次：上古神话 / 重装机甲 -------------------------------------------
+  {
+    id: 'shenhua',
+    name: '上古神话',
+    emoji: '🐲',
+    tagline: '开天辟地那会儿的东西，都在这里',
+    palette: { base: '#7a4a1a', lid: '#a86a2a', trim: '#ffd45c', glow: '#ffe08a', ink: '#3a2208' },
+    decor: ['🐲', '⛰️', '☁️', '🔥'],
+    keywords: [],
+    refPrefix: ['shn'],
+    pure: true,
+    bannerSize: 16,
+  },
+  {
+    id: 'mecha',
+    name: '重装机甲',
+    emoji: '🤖',
+    tagline: '启动引擎，装填完毕',
+    palette: { base: '#22303e', lid: '#3a4f62', trim: '#5ac8ff', glow: '#8fe0ff', ink: '#0e1620' },
+    decor: ['🤖', '⚙️', '🛰️', '⚡'],
+    keywords: [],
+    refPrefix: ['mca'],
+    pure: true,
+    bannerSize: 16,
+  },
+  {
+    id: 'otm',
+    name: '光之巨人',
+    emoji: '🦸',
+    tagline: '银色巨人从光里走出来，眼睛会发光',
+    palette: { base: '#3a4656', lid: '#55647a', trim: '#e8f0f8', glow: '#ff4a5c', ink: '#1a222c' },
+    decor: ['🦸', '⚡', '🔴', '✨'],
+    keywords: [],
+    refPrefix: ['otm'],
+    pure: true,
+    bannerSize: 16,
+  },
+  {
+    id: 'kaiju',
+    name: '怪兽之王',
+    emoji: '🦖',
+    tagline: '听，海面下有脚步声',
+    palette: { base: '#1e2a20', lid: '#2f4032', trim: '#7de87d', glow: '#5ac8ff', ink: '#101810' },
+    decor: ['🦖', '🌊', '☢️', '🐾'],
+    keywords: [],
+    refPrefix: ['kju'],
+    pure: true,
+    bannerSize: 16,
+  },
+  {
+    id: 'xiyou',
+    name: '西游降魔',
+    emoji: '🐵',
+    tagline: '五百年前压在山下的那箱',
+    palette: { base: '#3a2a1a', lid: '#5a422a', trim: '#ffd45c', glow: '#ff9a3c', ink: '#241a0c' },
+    decor: ['🐵', '🌀', '⛰️', '🍑'],
+    keywords: [],
+    refPrefix: ['xy'],
+    pure: true,
+    bannerSize: 16,
+  },
+  {
+    id: 'sanguo',
+    name: '三国烽火',
+    emoji: '⚔️',
+    tagline: '赤壁的东风把它吹到了这里',
+    palette: { base: '#2a222a', lid: '#42343c', trim: '#e8404a', glow: '#ffd45c', ink: '#160f14' },
+    decor: ['⚔️', '🐎', '🔥', '🛡️'],
+    keywords: [],
+    refPrefix: ['sgm'],
+    pure: true,
+    bannerSize: 16,
+  },
 ];
+
 
 /** 一期 12 件（**纯主题宝箱**用各自的 `bannerSize`，15~30 格，见 `ChestTheme.pure`） */
 export const BANNER_SIZE = 12;

@@ -211,6 +211,26 @@ export type WingId =
   | 'boreaWingA' | 'boreaWingB' | 'venicWingA' | 'venicWingB'
   | 'olympWingA' | 'olympWingB' | 'sambaWingA' | 'sambaWingB'
   // 🗺️ 山海宝箱的普通货
+  | 'shnWingA'
+  | 'shnWingB'
+  | 'mcaWingA'
+  | 'mcaWingB'
+  | 'otmBackA'
+  | 'otmBackB'
+  | 'otmBackC'
+  | 'otmBackD'
+  | 'kjuBackA'
+  | 'kjuBackB'
+  | 'kjuBackC'
+  | 'kjuBackD'
+  | 'xyBackA'
+  | 'xyBackB'
+  | 'xyBackC'
+  | 'xyBackD'
+  | 'sgmBackA'
+  | 'sgmBackB'
+  | 'sgmBackC'
+  | 'sgmBackD'
   | 'shanWingFeather' | 'shanWingCloud';
 
 export type CapeId =
@@ -300,6 +320,11 @@ export type CapeId =
   | 'boreaCape' | 'boreaCloak' | 'venicCape' | 'venicCloak'
   | 'olympCape' | 'olympCloak' | 'sambaCape' | 'sambaCloak'
   // 🗺️ 山海宝箱的普通货
+  | 'shnCapeA'
+  | 'shnCapeB'
+  | 'mcaCapeA'
+  | 'mcaCapeB'
+
   | 'shanCapeScale' | 'shanCapeMist';
 
 export type HatId =
@@ -484,6 +509,18 @@ export type HatId =
   // 🗺️ 山海宝箱的普通货
   | 'shanHatFeather' | 'shanHatDragon'
   // 🏟 操场跑量里程碑专属
+  | 'shnHatA'
+  | 'shnHatB'
+  | 'mcaHatA'
+  | 'mcaHatB'
+  | 'otmHatA'
+  | 'otmHatB'
+  | 'kjuHatA'
+  | 'kjuHatB'
+  | 'xyHatA'
+  | 'xyHatB'
+  | 'sgmHatA'
+  | 'sgmHatB'
   | 'runHat';
 
 export type PetId =
@@ -541,6 +578,18 @@ export type TrailId =
   // 🗺️ 山海宝箱的普通货
   | 'shanTrail'
   // 🏟 操场跑量里程碑专属
+  | 'shnTrailA'
+  | 'shnTrailB'
+  | 'mcaTrailA'
+  | 'mcaTrailB'
+  | 'otmTrailA'
+  | 'otmTrailB'
+  | 'kjuTrailA'
+  | 'kjuTrailB'
+  | 'xyTrailA'
+  | 'xyTrailB'
+  | 'sgmTrailA'
+  | 'sgmTrailB'
   | 'runTrail';
 
 /**
@@ -584,6 +633,12 @@ export type SwingTrailId =
   // 🗺️ 山海宝箱的普通货
   | 'shanSwing'
   // 🏟 操场跑量里程碑专属
+  | 'shnSwing'
+  | 'mcaSwing'
+  | 'otmSwing'
+  | 'kjuSwing'
+  | 'xySwing'
+  | 'sgmSwing'
   | 'runSwing';
 
 /**
@@ -642,6 +697,12 @@ export type MountId =
   | 'pagodPalanquin' | 'stormGlider' | 'lunarCloud' | 'vikingDrakkar' | 'safariElephant'
   | 'theatSpotlight' | 'boreaStag' | 'venicGondola' | 'olympChariot' | 'sambaFloat'
   // 🗺️ 山海宝箱的普通货
+  | 'shnMount'
+  | 'mcaMount'
+  | 'otmMount'
+  | 'kjuMount'
+  | 'xyMount'
+  | 'sgmMount'
   | 'shanMountKun';
 
 /** 地环：显示在角色脚下的装饰环（积分荣誉奖励） */
@@ -676,6 +737,12 @@ export type RingId =
   // 🗺️ 山海宝箱的普通货
   | 'shanRing'
   // 🏟 操场跑量里程碑专属
+  | 'shnRing'
+  | 'mcaRing'
+  | 'otmRing'
+  | 'kjuRing'
+  | 'xyRing'
+  | 'sgmRing'
   | 'runRing';
 
 export type AuraId =
@@ -803,6 +870,18 @@ export type AuraId =
   // 🗺️ 山海宝箱的普通货
   | 'shanAuraSpirit' | 'shanAuraStar'
   // 🏟 操场跑量里程碑专属
+  | 'shnAuraA'
+  | 'shnAuraB'
+  | 'mcaAuraA'
+  | 'mcaAuraB'
+  | 'otmAuraA'
+  | 'otmAuraB'
+  | 'kjuAuraA'
+  | 'kjuAuraB'
+  | 'xyAuraA'
+  | 'xyAuraB'
+  | 'sgmAuraA'
+  | 'sgmAuraB'
   | 'runAura';
 
 export type RacketSkinId =
@@ -896,6 +975,18 @@ export type RacketSkinId =
   | 'boreaRacketA' | 'boreaRacketB' | 'venicRacketA' | 'venicRacketB'
   | 'olympRacketA' | 'olympRacketB' | 'sambaRacketA' | 'sambaRacketB'
   // 🗺️ 山海宝箱的普通货
+  | 'shnRacketA'
+  | 'shnRacketB'
+  | 'mcaRacketA'
+  | 'mcaRacketB'
+  | 'otmRacketA'
+  | 'otmRacketB'
+  | 'kjuRacketA'
+  | 'kjuRacketB'
+  | 'xyRacketA'
+  | 'xyRacketB'
+  | 'sgmRacketA'
+  | 'sgmRacketB'
   | 'shanRacketA' | 'shanRacketB';
 
 /**
@@ -952,6 +1043,13 @@ export type CharacterSkin =
   | 'theatSpirit' | 'boreaSpirit' | 'venicSpirit' | 'olympSpirit' | 'sambaSpirit'
   // 🗺️ 山海宝箱：10 只《山海经》怪物皮肤（宝箱专属、极低概率）
   | 'zhuLong' | 'xiangLiu' | 'qiongQi' | 'taoTie' | 'taoWu'
+  // 上古神话 / 重装机甲（重绘批二）+ 光之巨人 / 怪兽之王（批三），见 game/draw/skins/
+  | 'shnSpirit'
+  | 'mcaSpirit'
+  | 'otmSpirit'
+  | 'kjuSpirit'
+  | 'xySpirit'
+  | 'sgmSpirit'
   | 'hunDun' | 'jiuweiHu' | 'baShe' | 'guDiao' | 'yuYu';
 const SKIN_IDS: CharacterSkin[] = [
   'none',
@@ -992,6 +1090,12 @@ const SKIN_IDS: CharacterSkin[] = [
   // 山海怪物皮肤
   'zhuLong', 'xiangLiu', 'qiongQi', 'taoTie', 'taoWu',
   'hunDun', 'jiuweiHu', 'baShe', 'guDiao', 'yuYu',
+  'shnSpirit',
+  'mcaSpirit',
+  'otmSpirit',
+  'kjuSpirit',
+  'xySpirit',
+  'sgmSpirit',
 ];
 
 export interface Cosmetic {
@@ -1067,6 +1171,26 @@ const WING_IDS: WingId[] = [
   'boreaWingA', 'boreaWingB', 'venicWingA', 'venicWingB',
   'olympWingA', 'olympWingB', 'sambaWingA', 'sambaWingB',
   'shanWingFeather', 'shanWingCloud',
+  'shnWingA',
+  'shnWingB',
+  'mcaWingA',
+  'mcaWingB',
+  'otmBackA',
+  'otmBackB',
+  'otmBackC',
+  'otmBackD',
+  'kjuBackA',
+  'kjuBackB',
+  'kjuBackC',
+  'kjuBackD',
+  'xyBackA',
+  'xyBackB',
+  'xyBackC',
+  'xyBackD',
+  'sgmBackA',
+  'sgmBackB',
+  'sgmBackC',
+  'sgmBackD',
 ];
 const CAPE_IDS: CapeId[] = [
   'none', 'hero', 'shadowCape', 'storm', 'emberCape', 'frostCape', 'leafCape', 'royal', 'void', 'dragonCape', 'angelCape', 'phoenixCape',
@@ -1108,6 +1232,11 @@ const CAPE_IDS: CapeId[] = [
   'boreaCape', 'boreaCloak', 'venicCape', 'venicCloak',
   'olympCape', 'olympCloak', 'sambaCape', 'sambaCloak',
   'shanCapeScale', 'shanCapeMist',
+  'shnCapeA',
+  'shnCapeB',
+  'mcaCapeA',
+  'mcaCapeB',
+
 ];
 /**
  * 🧥 背部装饰：翅膀与披风合并后的统一部位。
@@ -1176,6 +1305,18 @@ const HAT_IDS: HatId[] = [
   'shanHatFeather', 'shanHatDragon',
   // 🏟 操场跑量里程碑专属
   'runHat',
+  'shnHatA',
+  'shnHatB',
+  'mcaHatA',
+  'mcaHatB',
+  'otmHatA',
+  'otmHatB',
+  'kjuHatA',
+  'kjuHatB',
+  'xyHatA',
+  'xyHatB',
+  'sgmHatA',
+  'sgmHatB',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
@@ -1224,6 +1365,18 @@ const TRAIL_IDS: TrailId[] = [
   'shanTrail',
   // 🏟 操场跑量里程碑专属
   'runTrail',
+  'shnTrailA',
+  'shnTrailB',
+  'mcaTrailA',
+  'mcaTrailB',
+  'otmTrailA',
+  'otmTrailB',
+  'kjuTrailA',
+  'kjuTrailB',
+  'xyTrailA',
+  'xyTrailB',
+  'sgmTrailA',
+  'sgmTrailB',
 ];
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
@@ -1249,6 +1402,12 @@ const SWING_TRAIL_IDS: SwingTrailId[] = [
   'shanSwing',
   // 🏟 操场跑量里程碑专属
   'runSwing',
+  'shnSwing',
+  'mcaSwing',
+  'otmSwing',
+  'kjuSwing',
+  'xySwing',
+  'sgmSwing',
 ];
 const MOUNT_IDS: MountId[] = [
   'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
@@ -1275,6 +1434,12 @@ const MOUNT_IDS: MountId[] = [
   'pagodPalanquin', 'stormGlider', 'lunarCloud', 'vikingDrakkar', 'safariElephant',
   'theatSpotlight', 'boreaStag', 'venicGondola', 'olympChariot', 'sambaFloat',
   'shanMountKun',
+  'shnMount',
+  'mcaMount',
+  'otmMount',
+  'kjuMount',
+  'xyMount',
+  'sgmMount',
 ];
 const RING_IDS: RingId[] = [
   'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
@@ -1299,6 +1464,12 @@ const RING_IDS: RingId[] = [
   'shanRing',
   // 🏟 操场跑量里程碑专属
   'runRing',
+  'shnRing',
+  'mcaRing',
+  'otmRing',
+  'kjuRing',
+  'xyRing',
+  'sgmRing',
 ];
 
 /** 地环配色（跟着组别走） */
@@ -1340,6 +1511,13 @@ export const RING_COLORS: Record<RingId, number> = {
   shanRing: 0x9fe8c0,
   // 🏟 操场跑量里程碑专属
   runRing: 0x39d0a0,
+  // shenhua / mecha 主题
+  shnRing: 16766044,
+  mcaRing: 5949695,
+  otmRing: 0x9fd8ff,
+  kjuRing: 0x8ae86a,
+  xyRing: 0xffd45c,
+  sgmRing: 0xe8404a,
 };
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
@@ -1378,6 +1556,18 @@ const AURA_IDS: AuraId[] = [
   'shanAuraSpirit', 'shanAuraStar',
   // 🏟 操场跑量里程碑专属
   'runAura',
+  'shnAuraA',
+  'shnAuraB',
+  'mcaAuraA',
+  'mcaAuraB',
+  'otmAuraA',
+  'otmAuraB',
+  'kjuAuraA',
+  'kjuAuraB',
+  'xyAuraA',
+  'xyAuraB',
+  'sgmAuraA',
+  'sgmAuraB',
 ];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
@@ -1413,6 +1603,18 @@ const RACKET_SKIN_IDS: RacketSkinId[] = [
   'boreaRacketA', 'boreaRacketB', 'venicRacketA', 'venicRacketB',
   'olympRacketA', 'olympRacketB', 'sambaRacketA', 'sambaRacketB',
   'shanRacketA', 'shanRacketB',
+  'shnRacketA',
+  'shnRacketB',
+  'mcaRacketA',
+  'mcaRacketB',
+  'otmRacketA',
+  'otmRacketB',
+  'kjuRacketA',
+  'kjuRacketB',
+  'xyRacketA',
+  'xyRacketB',
+  'sgmRacketA',
+  'sgmRacketB',
 ];
 
 export const WING_COLORS: Record<WingId, number> = {
@@ -1533,6 +1735,27 @@ export const WING_COLORS: Record<WingId, number> = {
   olympWingA: 0xf8f4ea, olympWingB: 0xffd45c,
   sambaWingA: 0xff8ad4, sambaWingB: 0xffd45c,
   shanWingFeather: 0xd8e8ff, shanWingCloud: 0x9fe8c0,
+  // shenhua / mecha 主题
+  shnWingA: 16765160,
+  shnWingB: 14170186,
+  mcaWingA: 5949695,
+  mcaWingB: 10135480,
+  otmBackA: 0xdfe8f5,
+  otmBackB: 0x9fd8ff,
+  otmBackC: 0xdfe8f5,
+  otmBackD: 0xb8c8dc,
+  kjuBackA: 0x5a7a4a,
+  kjuBackB: 0x3a5a6a,
+  kjuBackC: 0xcfc4a0,
+  kjuBackD: 0x7de87d,
+  xyBackA: 0xd9b45c,
+  xyBackB: 0x8ac85a,
+  xyBackC: 0x9a6a3a,
+  xyBackD: 0xffd45c,
+  sgmBackA: 0x6ad0a0,
+  sgmBackB: 0xe8404a,
+  sgmBackC: 0x8a6a3a,
+  sgmBackD: 0xd8d0c0,
 };
 
 /** which silhouette a wing draws with; lets styles look genuinely different */
@@ -1717,6 +1940,26 @@ export const WING_SHAPE: Record<
   sambaWingB: { kind: 'crystal', feathers: 4, len: 54, spread: 0.6, w: 7 },
   shanWingFeather: { kind: 'feather', feathers: 5, len: 66, spread: 0.85, w: 7 },
   shanWingCloud: { kind: 'leaf', feathers: 4, len: 58, spread: 0.72, w: 12 },
+  shnWingA: { kind: 'feather', feathers: 5, len: 74, spread: 1, w: 16 },
+  shnWingB: { kind: 'ribbon', feathers: 4, len: 80, spread: 1, w: 14 },
+  mcaWingA: { kind: 'mech', feathers: 3, len: 76, spread: 1, w: 18 },
+  mcaWingB: { kind: 'blade', feathers: 3, len: 78, spread: 1, w: 12 },
+  otmBackA: { kind: 'ribbon', feathers: 4, len: 60, spread: 1, w: 14 },
+  otmBackB: { kind: 'mech', feathers: 3, len: 70, spread: 1, w: 18 },
+  otmBackC: { kind: 'feather', feathers: 3, len: 56, spread: 0.8, w: 12 },
+  otmBackD: { kind: 'membrane', feathers: 3, len: 58, spread: 0.6, w: 12 },
+  kjuBackA: { kind: 'ribbon', feathers: 4, len: 78, spread: 1, w: 14 },
+  kjuBackB: { kind: 'blade', feathers: 3, len: 74, spread: 1, w: 14 },
+  kjuBackC: { kind: 'mech', feathers: 3, len: 62, spread: 0.8, w: 16 },
+  kjuBackD: { kind: 'membrane', feathers: 3, len: 56, spread: 0.6, w: 14 },
+  xyBackA: { kind: 'mech', feathers: 3, len: 80, spread: 0.6, w: 10 },
+  xyBackB: { kind: 'leaf', feathers: 3, len: 62, spread: 0.9, w: 20 },
+  xyBackC: { kind: 'membrane', feathers: 3, len: 50, spread: 0.6, w: 16 },
+  xyBackD: { kind: 'circuit', feathers: 3, len: 64, spread: 1, w: 16 },
+  sgmBackA: { kind: 'blade', feathers: 3, len: 82, spread: 0.6, w: 12 },
+  sgmBackB: { kind: 'sail', feathers: 3, len: 66, spread: 0.9, w: 18 },
+  sgmBackC: { kind: 'mech', feathers: 3, len: 56, spread: 0.7, w: 16 },
+  sgmBackD: { kind: 'ghost', feathers: 3, len: 58, spread: 0.7, w: 14 },
 };
 
 export type CapeKind =
@@ -1831,6 +2074,12 @@ export const CAPE_COLORS: Record<CapeId, number> = {
   olympCape: 0xf0ead8, olympCloak: 0x4a5a78,
   sambaCape: 0xffd45c, sambaCloak: 0x2a9a5a,
   shanCapeScale: 0x2f8a6a, shanCapeMist: 0xbfe8d8,
+  // shenhua / mecha 主题
+  shnCapeA: 16756952,
+  shnCapeB: 13215818,
+  mcaCapeA: 2767450,
+  mcaCapeB: 4872762,
+
 };
 
 /** cape silhouette: length, base width and the kind of motion it uses */
@@ -1979,6 +2228,11 @@ export const CAPE_SHAPE: Record<CapeId, { kind: CapeKind; len: number; w: number
   sambaCloak: { kind: 'feather', len: 58, w: 30 },       // 羽袍
   shanCapeScale: { kind: 'scales', len: 58, w: 30 },   // 鳞光
   shanCapeMist: { kind: 'frostveil', len: 60, w: 30 }, // 雾纱（冰棱帘）
+  // shenhua / mecha 主题
+  shnCapeA: { kind: 'silkveil', len: 60, w: 28 },
+  shnCapeB: { kind: 'flag', len: 62, w: 30 },
+  mcaCapeA: { kind: 'cloth', len: 56, w: 30 },
+  mcaCapeB: { kind: 'pelt', len: 54, w: 30 },
 };
 
 export type HatKind =
@@ -2325,6 +2579,19 @@ export const HAT_COLORS: Record<HatId, number> = {
   shanHatFeather: 0xd8e8ff, shanHatDragon: 0xd42a2a,
   // 🏟 操场跑量里程碑专属
   runHat: 0x39d0a0,
+  // shenhua / mecha 主题
+  shnHatA: 16766044,
+  shnHatB: 16756936,
+  mcaHatA: 9429247,
+  mcaHatB: 5923954,
+  otmHatA: 0xe8f0f8,
+  otmHatB: 0xff4a5c,
+  kjuHatA: 0x7de87d,
+  kjuHatB: 0x4a5a3a,
+  xyHatA: 0xd9b45c,
+  xyHatB: 0x8a5a2a,
+  sgmHatA: 0xe8404a,
+  sgmHatB: 0xd9b45c,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -2500,6 +2767,18 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   boreaHat: 'themed', boreaCrown: 'themed', venicHat: 'themed', venicCrown: 'themed',
   olympWreath: 'themed', olympCrown: 'themed', sambaHat: 'themed', sambaCrown: 'themed',
   runHat: 'themed',
+  shnHatA: 'crown',
+  shnHatB: 'flower',
+  mcaHatA: 'band',
+  mcaHatB: 'helm',
+  otmHatA: 'crown',
+  otmHatB: 'band',
+  kjuHatA: 'crown',
+  kjuHatB: 'helm',
+  xyHatA: 'band',
+  xyHatB: 'crown',
+  sgmHatA: 'band',
+  sgmHatB: 'helm',
 };
 
 /**
@@ -2735,6 +3014,19 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   shanTrail: 0x9fe8c0,
   // 🏟 操场跑量里程碑专属
   runTrail: 0x39d0a0,
+  // shenhua / mecha 主题
+  shnTrailA: 16769162,
+  shnTrailB: 16747220,
+  mcaTrailA: 16747066,
+  mcaTrailB: 8052991,
+  otmTrailA: 0x9fd8ff,
+  otmTrailB: 0xffe89a,
+  kjuTrailA: 0xff9a3c,
+  kjuTrailB: 0x5ac8ff,
+  xyTrailA: 0xf0ead8,
+  xyTrailB: 0xffb0c8,
+  sgmTrailA: 0xb8a890,
+  sgmTrailB: 0xff5a1a,
 };
 
 /** 挥拍拖尾各风格的主色 */
@@ -2781,6 +3073,13 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   shanSwing: 0xff8a3c,
   // 🏟 操场跑量里程碑专属
   runSwing: 0x39d0a0,
+  // shenhua / mecha 主题
+  shnSwing: 16761418,
+  mcaSwing: 5949695,
+  otmSwing: 0xe8f0f8,
+  kjuSwing: 0x8ae86a,
+  xySwing: 0xffd45c,
+  sgmSwing: 0x6ad0a0,
 };
 
 /** 坐骑各款的主色 */
@@ -2843,6 +3142,13 @@ export const MOUNT_COLORS: Record<MountId, number> = {
   boreaStag: 0x8a705a, venicGondola: 0x2a3a4a,
   olympChariot: 0xd8d0b8, sambaFloat: 0xffd45c,
   shanMountKun: 0x4aa8d8,
+  // shenhua / mecha 主题
+  shnMount: 15251530,
+  mcaMount: 6977158,
+  otmMount: 0xb8c8dc,
+  kjuMount: 0x4a5a3a,
+  xyMount: 0xf0ead8,
+  sgmMount: 0x8a3a2a,
 };
 
 export const AURA_COLORS: Record<AuraId, number> = {
@@ -2987,6 +3293,19 @@ export const AURA_COLORS: Record<AuraId, number> = {
   shanAuraSpirit: 0x9fe8c0, shanAuraStar: 0xffe89a,
   // 🏟 操场跑量里程碑专属
   runAura: 0x39d0a0,
+  // shenhua / mecha 主题
+  shnAuraA: 16769162,
+  shnAuraB: 10473727,
+  mcaAuraA: 8377599,
+  mcaAuraB: 16769372,
+  otmAuraA: 0x9fd8ff,
+  otmAuraB: 0xffe8a0,
+  kjuAuraA: 0x5ac8ff,
+  kjuAuraB: 0x7de87d,
+  xyAuraA: 0xffe08a,
+  xyAuraB: 0xff9a3c,
+  sgmAuraA: 0xffd45c,
+  sgmAuraB: 0xff5a1a,
 };
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
@@ -3098,6 +3417,19 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   olympRacketA: 0xffd45c, olympRacketB: 0xfff0b0,
   sambaRacketA: 0xff8ad4, sambaRacketB: 0xffd45c,
   shanRacketA: 0xd8e8ff, shanRacketB: 0xd42a2a,
+  // shenhua / mecha 主题
+  shnRacketA: 14267484,
+  shnRacketB: 9425151,
+  mcaRacketA: 3801040,
+  mcaRacketB: 16726996,
+  otmRacketA: 0xdfe8f5,
+  otmRacketB: 0xff4a5c,
+  kjuRacketA: 0xd8c8a0,
+  kjuRacketB: 0x5ac8ff,
+  xyRacketA: 0xd9b45c,
+  xyRacketB: 0x9a6ad0,
+  sgmRacketA: 0x6ad0a0,
+  sgmRacketB: 0x8a94a2,
 };
 
 export const EMOJI_PRESETS = [

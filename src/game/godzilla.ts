@@ -87,7 +87,7 @@ export const GZ_DIFFS: Record<GzDifficulty, GzDiffConfig> = {
 export const GZ_DIFF_ORDER: GzDifficulty[] = ['easy', 'normal', 'hell'];
 
 /**
- * 限定套装「哥斯拉来袭」：**哥斯拉形象** + 背鳍光焰（光环）· 鳞甲披风（披风）·
+ * 限定套装「哥斯拉来袭」：**哥斯拉形象** + 背鳍光焰（背景）· 鳞甲披风（披风）·
  * 原子吐息（挥拍拖尾）· 原子烈焰（命中特效）。只能从哥斯拉身上掉，不可购买。
  */
 export const GZ_SET_IDS = [
