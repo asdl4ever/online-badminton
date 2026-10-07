@@ -41,8 +41,24 @@ export type NetMessage =
   | { t: 'paintRound'; round: number; turn: 'host' | 'guest'; options: string[] }
   /** 你画我猜：画家从 4 选 1 里定了词（双方由此开始计时；猜手端拿它判对错） */
   | { t: 'paintPick'; round: number; word: string }
-  /** 你画我猜：画笔轨迹增量（pts = x,y,x,y… 归一化画布坐标；done=1 收笔） */
-  | { t: 'paintStroke'; id: string; s: string; c: number; pts: number[]; done?: 1 }
+  /**
+   * 你画我猜：画笔轨迹增量。b=笔型、s=拖尾风格、c=颜色、w=粗细倍率；
+   * pts = x,y,x,y… 画板坐标；done=1 收笔。
+   */
+  | {
+      t: 'paintStroke';
+      id: string;
+      b: string;
+      s: string;
+      c: number;
+      w: number;
+      pts: number[];
+      done?: 1;
+    }
+  /** 你画我猜：作画阶段点了「完成」（双方都点就提前进入猜） */
+  | { t: 'paintReady'; round: number }
+  /** 你画我猜：橡皮擦擦掉的整笔（撤销式） */
+  | { t: 'paintErase'; ids: string[] }
   | { t: 'paintUndo' }
   | { t: 'paintClear' }
   /** 你画我猜：猜手的作答（双方都显示在聊天区；对错由猜手端自己判） */

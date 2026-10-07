@@ -1,38 +1,60 @@
 <script setup lang="ts">
 import Phaser from 'phaser';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import PageShell from '../components/ui/PageShell.vue';
 import Button from '../components/ui/Button.vue';
 import AppModal from '../components/ui/AppModal.vue';
 import { PaintScene, PAINT_COLORS, type PaintSceneData } from '../game/paint/PaintScene';
+import {
+  PAINT_BRUSHES,
+  SIZE_DEFAULT,
+  SIZE_MAX,
+  SIZE_MIN,
+  type BrushId,
+} from '../game/paint/brushes';
 import { guessMatches, pickWords } from '../game/paint/words';
 import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import { applyTheme, DEFAULT_THEME } from '../game/theme';
 import { sfx } from '../game/audio';
-import { toastWarn } from '../composables/useToast';
+import { toastGood, toastWarn } from '../composables/useToast';
 import { hostOpen, joinMatch } from '../net/connect';
 import { waitForRoomCode } from '../composables/useInviteRoom';
 import { type NetLink } from '../net/link';
 import { useCustomizeStore } from '../stores/customize';
 import { useLobbyStore } from '../stores/lobby';
+import { useProgressStore } from '../stores/progress';
 
 /**
  * 你画我猜（联机小玩法，和钓鱼/挖矿一个套路）：
  * - 轮流当画家：每轮系统给 4 个词，画家挑 1 个画，对方打字猜；
- * - 画笔特效**复用击球拖尾**（`game/draw/trails.ts`）——自己装备的拖尾风格直接长在笔迹上；
+ * - 画笔六种（马克笔 / 铅笔 / 荧光 / 喷雾 / 毛笔 / 橡皮），**特效复用击球拖尾**
+ *   （`game/draw/trails.ts`）——自己装备的拖尾风格直接长在笔迹上；
+ * - 画板旁边站着你的角色（复用 `draw/rig.ts`，带装备与挥拍动作）；
+ * - 金币：猜中「猜手 +120，画家 +80」；超时不扣；单机自由涂鸦不结算。
  * - 游戏本体在 `game/paint/PaintScene.ts`（画板），这里只管回合状态机与联机收发。
  * 房主是发牌员：开局/换轮都由房主生成词组并广播（`paintRound`）。
  */
 const router = useRouter();
 const customize = useCustomizeStore();
 const lobby = useLobbyStore();
+const progress = useProgressStore();
+
+/** 猜中一局的钱：猜手拿大头，画家也有份 */
+const COIN_GUESSER = 120;
+const COIN_PAINTER = 80;
 
 const container = ref<HTMLDivElement | null>(null);
 let game: Phaser.Game | null = null;
-let link: NetLink | null = null;
+/**
+ * 联机链路。**必须是响应式的**：`myRole` / `iPaint` 都按它算，
+ * 用普通变量会算一次缓存成 'none'（房主因此永远不开画笔、不进选词）。
+ */
+const link = shallowRef<NetLink | null>(null);
 
-const ROUND_SECONDS = 90;
+/** 一轮分两段：先作画（60s），再猜（60s）。双方都点「完成」就提前进入猜。 */
+const DRAW_SECONDS = 60;
+const GUESS_SECONDS = 60;
 
 const phase = ref('');          // 连接阶段的提示文案
 const roomCode = ref('');
@@ -41,19 +63,70 @@ const round = ref(0);
 const turn = ref<'host' | 'guest'>('host');
 const options = ref<string[]>([]);
 const secret = ref('');         // 本轮的词（双方客户端都知道，猜手界面只显示 ?）
-const stage = ref<'idle' | 'wait' | 'pick' | 'play' | 'done'>('idle');
+const stage = ref<'idle' | 'wait' | 'pick' | 'draw' | 'guess' | 'done'>('idle');
 const chat = ref<{ who: 'me' | 'peer' | 'sys'; text: string }[]>([]);
 const scores = ref({ host: 0, guest: 0 });
-const timeLeft = ref(ROUND_SECONDS);
+/** 作画 / 猜 两段的倒计时 */
+const drawLeft = ref(DRAW_SECONDS);
+const guessLeft = ref(GUESS_SECONDS);
+/** 「完成」按钮：双方都点了就提前进入猜阶段 */
+const readyMe = ref(false);
+const readyPeer = ref(false);
 const guessText = ref('');
 const pickOpen = computed(
   () => inRoom.value && iPaint.value && stage.value === 'pick' && options.value.length > 0,
 );
-const brush = ref(PAINT_COLORS[0]);
+const color = ref(PAINT_COLORS[0]);
+const brush = ref<BrushId>('marker');
+/** 粗细滑条的百分比（100 = 标准；橡皮同样是它） */
+const sizePct = ref<number>(SIZE_DEFAULT);
+const size = computed(() => sizePct.value / 100);
+/** 现在是橡皮（独立工具，不在笔列表里） */
+const erasing = computed(() => brush.value === 'eraser');
+/** 滑条左边那颗小圆点：视觉上直接表示当前粗细 */
+const dotSize = computed(() => `${Math.round(3 + (sizePct.value / SIZE_MAX) * 11)}px`);
+/** 手机竖屏：画板会被压得比较小，提示横屏 */
+const portrait = ref(false);
+const portraitMq =
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(orientation: portrait)')
+    : null;
+function syncPortrait(): void {
+  portrait.value = !!portraitMq?.matches && window.innerWidth < 820;
+}
+/** 本局双方赚到的金币（结束/猜中时提示用） */
+const earned = ref(0);
 let timer = 0;
 
+function pushBrush(): void {
+  scene()?.setBrush(brush.value, color.value, size.value);
+}
+
+function pickBrush(id: BrushId): void {
+  sfx.click();
+  brush.value = id;
+  pushBrush();
+}
+
+function toggleEraser(): void {
+  sfx.click();
+  brush.value = erasing.value ? 'marker' : 'eraser';
+  pushBrush();
+}
+
+function pickColor(c: number): void {
+  color.value = c;
+  if (erasing.value) brush.value = 'marker'; // 选色自然是回到画
+  pushBrush();
+}
+
+function onSize(e: Event): void {
+  sizePct.value = Number((e.target as HTMLInputElement).value);
+  pushBrush();
+}
+
 const myRole = computed<'host' | 'guest' | 'none'>(() =>
-  link ? link.role : lobby.role === 'guest' ? 'guest' : 'none',
+  link.value ? link.value.role : lobby.role === 'guest' ? 'guest' : 'none',
 );
 const iPaint = computed(() => inRoom.value && myRole.value !== 'none' && turn.value === myRole.value);
 const solo = computed(() => !inRoom.value);
@@ -68,6 +141,51 @@ const peerScore = computed(() =>
   myRole.value === 'guest' ? scores.value.host : scores.value.guest,
 );
 
+/** 顶部状态卡的两行文案：按阶段与角色分 */
+const headline = computed(() => {
+  switch (stage.value) {
+    case 'pick':
+      return '挑一个词来画';
+    case 'wait':
+      return '对手在挑词…';
+    case 'draw':
+      return iPaint.value ? `你来画：${secret.value}` : '对手作画中…';
+    case 'guess':
+      return iPaint.value ? `答案：${secret.value}` : '猜猜看！';
+    case 'done':
+      return `答案：${secret.value || wordShown.value}`;
+    default:
+      return '准备中…';
+  }
+});
+
+const subline = computed(() => {
+  switch (stage.value) {
+    case 'draw': {
+      const who = iPaint.value
+        ? readyMe.value
+          ? '已点完成，等对手'
+          : '画完点「完成」'
+        : readyPeer.value
+          ? '对手已画好，等你点完成'
+          : '画完也点一下「完成」';
+      return `✏️ 作画 ${Math.max(0, drawLeft.value)}s · ${who}`;
+    }
+    case 'guess':
+      return `🤔 猜 ${Math.max(0, guessLeft.value)}s · ${painterName.value}的这幅画`;
+    case 'done':
+      return `我 ${myScore.value} : ${peerScore.value} 对手`;
+    default:
+      return `${painterName.value}作画 · 稍等`;
+  }
+});
+
+/** 「完成」按钮上的字：画家是画完了，猜手是准备好了 */
+const readyLabel = computed(() => {
+  if (readyMe.value) return iPaint.value ? '已提交 ✓' : '已准备 ✓';
+  return iPaint.value ? '画好了 ✓' : '我准备好了 ✓';
+});
+
 function scene(): PaintScene | undefined {
   return game?.scene.getScene('PaintScene') as PaintScene | undefined;
 }
@@ -77,13 +195,25 @@ function boot(session: NetLink | null) {
   game?.destroy(true);
   const data: PaintSceneData = {
     session,
-    trailStyle: customize.cosmetic.trailStyle,
+    cosmetic: customize.cosmetic,
     editable: !session,
-    onChunk: (id, s, c, pts, done) => {
-      session?.send({ t: 'paintStroke', id, s, c, pts, ...(done ? { done: 1 as const } : {}) });
+    brush: brush.value,
+    color: color.value,
+    size: size.value,
+    onChunk: (id, b, s, c, w, pts, done) => {
+      session?.send({
+        t: 'paintStroke',
+        id,
+        b,
+        s,
+        c,
+        w,
+        pts,
+        ...(done ? { done: 1 as const } : {}),
+      });
     },
+    onErase: (ids) => session?.send({ t: 'paintErase', ids }),
     onUndo: () => session?.send({ t: 'paintUndo' }),
-    onClear: () => session?.send({ t: 'paintClear' }),
   };
   game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -115,10 +245,20 @@ function handle(m: Parameters<NonNullable<NetLink['onMessage']>>[0]): void {
       break;
     case 'paintPick':
       secret.value = m.word;
-      startPlay();
+      startDraw();
+      break;
+    case 'paintReady':
+      // 对面点了「完成」：两边都点了就提前开始猜
+      if (m.round === round.value) {
+        readyPeer.value = true;
+        if (readyMe.value) startGuess();
+      }
       break;
     case 'paintStroke':
-      scene()?.applyRemote(m.id, m.s, m.c, m.pts, m.done === 1);
+      scene()?.applyRemote(m.id, m.b, m.s, m.c, m.w, m.pts, m.done === 1);
+      break;
+    case 'paintErase':
+      scene()?.remoteErase(m.ids);
       break;
     case 'paintUndo':
       scene()?.remoteUndo();
@@ -130,16 +270,17 @@ function handle(m: Parameters<NonNullable<NetLink['onMessage']>>[0]): void {
       chat.value = [...chat.value.slice(-30), { who: 'peer', text: m.text }];
       break;
     case 'paintSolved':
-      // 对面的猜手猜中了：给对面记一分
-      if (m.round === round.value && stage.value === 'play') {
+      // 对面的猜手猜中了：给对面记一分，我这边是画家 → 拿画家的金币
+      if (m.round === round.value && stage.value === 'guess') {
         if (myRole.value === 'host') scores.value.guest += 1;
         else scores.value.host += 1;
+        reward(COIN_PAINTER, '我是画家');
         finish(true);
       }
       break;
     case 'paintNext':
       // 房主是发牌员：收到「下一题」就开新一轮
-      if (link?.role === 'host' && m.round === round.value) startRound(round.value + 1);
+      if (link.value?.role === 'host' && m.round === round.value) startRound(round.value + 1);
       break;
     default:
       break;
@@ -152,25 +293,53 @@ function startRound(n: number): void {
   turn.value = n % 2 === 1 ? 'host' : 'guest';
   options.value = pickWords(4);
   secret.value = '';
+  readyMe.value = false;
+  readyPeer.value = false;
   stage.value = myRole.value === turn.value ? 'pick' : 'wait';
   scene()?.setEditable(false);
   scene()?.remoteClear();
   chat.value = [...chat.value, { who: 'sys', text: `第 ${n} 轮 · ${painterName.value}来画` }];
-  link?.send({ t: 'paintRound', round: n, turn: turn.value, options: options.value });
+  link.value?.send({ t: 'paintRound', round: n, turn: turn.value, options: options.value });
 }
 
-/** 画家定了词（本地或对面发来）→ 双方开始计时 */
-function startPlay(): void {
-  stage.value = 'play';
-  timeLeft.value = ROUND_SECONDS;
+/** 画家定了词（本地或对面发来）→ 作画阶段开始（60 秒，双方都点「完成」可提前结束） */
+function startDraw(): void {
+  stage.value = 'draw';
+  readyMe.value = false;
+  readyPeer.value = false;
+  drawLeft.value = DRAW_SECONDS;
   scene()?.setEditable(iPaint.value);
+  chat.value = [
+    ...chat.value.slice(-30),
+    { who: 'sys', text: `✏️ 作画 ${DRAW_SECONDS} 秒 · 双方都点「完成」就直接开始猜` },
+  ];
   window.clearInterval(timer);
   timer = window.setInterval(() => {
-    timeLeft.value -= 1;
-    if (timeLeft.value <= 0) {
-      window.clearInterval(timer);
-      if (stage.value === 'play') finish(false);
-    }
+    drawLeft.value -= 1;
+    if (drawLeft.value <= 0) startGuess();
+  }, 1000);
+}
+
+/** 我点「完成」：两边都点了就提前进入猜阶段（超时也会自动进入） */
+function markReady(): void {
+  if (stage.value !== 'draw' || readyMe.value) return;
+  sfx.click();
+  readyMe.value = true;
+  link.value?.send({ t: 'paintReady', round: round.value });
+  if (readyPeer.value) startGuess();
+}
+
+/** 猜阶段开始：画板定住（作画时间已过），猜手打字，60 秒 */
+function startGuess(): void {
+  if (stage.value !== 'draw') return;
+  window.clearInterval(timer);
+  stage.value = 'guess';
+  scene()?.setEditable(false);
+  guessLeft.value = GUESS_SECONDS;
+  chat.value = [...chat.value.slice(-30), { who: 'sys', text: `🤔 开始猜！${GUESS_SECONDS} 秒` }];
+  timer = window.setInterval(() => {
+    guessLeft.value -= 1;
+    if (guessLeft.value <= 0) finish(false);
   }, 1000);
 }
 
@@ -178,22 +347,32 @@ function pickWord(w: string): void {
   if (stage.value !== 'pick' || !iPaint.value) return;
   sfx.click();
   secret.value = w;
-  link?.send({ t: 'paintPick', round: round.value, word: w });
-  startPlay();
+  link.value?.send({ t: 'paintPick', round: round.value, word: w });
+  startDraw();
 }
 
 function sendGuess(): void {
   const text = guessText.value.trim();
-  if (!text || stage.value !== 'play' || iPaint.value) return;
+  if (!text || stage.value !== 'guess' || iPaint.value) return;
   guessText.value = '';
   chat.value = [...chat.value.slice(-30), { who: 'me', text }];
-  link?.send({ t: 'paintGuess', round: round.value, text });
+  link.value?.send({ t: 'paintGuess', round: round.value, text });
   if (guessMatches(text, secret.value)) {
     if (myRole.value === 'host') scores.value.host += 1;
     else scores.value.guest += 1;
-    link?.send({ t: 'paintSolved', round: round.value });
+    link.value?.send({ t: 'paintSolved', round: round.value });
+    // 我是猜手 → 拿猜手的金币；对面画家在收到 paintSolved 时自己拿画家那份
+    reward(COIN_GUESSER, '猜中');
     finish(true);
   }
+}
+
+/** 联机对局的奖励入账（单机自由涂鸦不结算） */
+function reward(coin: number, why: string): void {
+  if (solo.value) return;
+  progress.gainCoins(coin);
+  earned.value += coin;
+  toastGood(`🎨 ${why} · 金币 +¥${coin}`);
 }
 
 /** 结束：solved=有人猜中（true）或时间到（false）；词都亮出来 */
@@ -213,18 +392,13 @@ function finish(solved: boolean): void {
 function nextRound(): void {
   sfx.click();
   options.value = [];
-  if (link?.role === 'host') startRound(round.value + 1);
-  else link?.send({ t: 'paintNext', round: round.value });
+  if (link.value?.role === 'host') startRound(round.value + 1);
+  else link.value?.send({ t: 'paintNext', round: round.value });
 }
 
 function undo() {
   scene()?.remoteUndo();
-  link?.send({ t: 'paintUndo' });
-}
-
-function clearBoard() {
-  scene()?.remoteClear();
-  link?.send({ t: 'paintClear' });
+  link.value?.send({ t: 'paintUndo' });
 }
 
 // ---- 建房 / 加入（照抄钓鱼/矿洞的一间房流程） --------------------------------
@@ -277,7 +451,7 @@ function join(code: string) {
 }
 
 function adopt(l: NetLink): void {
-  link = l;
+  link.value = l;
   l.onMessage = handle;
   inRoom.value = true;
   phase.value = '';
@@ -292,13 +466,18 @@ function back() {
 
 onMounted(() => {
   applyTheme(DEFAULT_THEME);
+  syncPortrait();
+  portraitMq?.addEventListener('change', syncPortrait);
+  window.addEventListener('resize', syncPortrait);
   boot(null);
 });
 
 onBeforeUnmount(() => {
+  portraitMq?.removeEventListener('change', syncPortrait);
+  window.removeEventListener('resize', syncPortrait);
   window.clearInterval(timer);
-  link?.destroy();
-  link = null;
+  link.value?.destroy();
+  link.value = null;
   game?.destroy(true);
   game = null;
 });
@@ -326,8 +505,9 @@ watch(
       @back="back"
     >
       <template #icons>
-        <span class="icon-btn ui-num paint-score" title="比分">
+        <span class="icon-btn ui-num paint-score" title="比分与本局金币">
           🎨 第 {{ round || 1 }} 轮 · 我 {{ myScore }} : {{ peerScore }} 对手
+          <template v-if="earned > 0"> · +¥{{ earned }}</template>
         </span>
       </template>
 
@@ -338,28 +518,62 @@ watch(
         <div class="paint-top">
           <template v-if="solo">
             <b>自由涂鸦</b>
-            <span class="muted">建房邀请好友就开你画我猜</span>
+            <span class="muted">
+              {{ portrait ? '📱 竖屏画板小，横过来画更舒服' : '建房邀请好友就开你画我猜' }}
+            </span>
           </template>
           <template v-else>
-            <b>{{ stage === 'done' ? '答案：' + wordShown : iPaint ? '你来画：' + wordShown : '猜猜看！' }}</b>
-            <span class="muted">{{ painterName }}在画 · {{ stage === 'play' ? timeLeft + 's' : '等待中' }}</span>
+            <b>{{ headline }}</b>
+            <span class="muted">{{ subline }}</span>
           </template>
         </div>
 
-        <!-- 画家工具条 -->
-        <div v-if="(iPaint && stage === 'play') || solo" class="paint-tools">
+        <!-- 画家工具条：画笔 + 粗细滑条 + 颜色 + 橡皮 / 撤销 -->
+        <div v-if="(iPaint && (stage === 'draw' || stage === 'guess')) || solo" class="paint-tools">
+          <button
+            v-for="b in PAINT_BRUSHES"
+            :key="b.id"
+            type="button"
+            class="paint-tools__brush"
+            :class="{ 'is-on': brush === b.id }"
+            :title="b.label"
+            @click="pickBrush(b.id)"
+          >
+            {{ b.icon }}
+          </button>
+
+          <!-- 粗细滑条：画笔与橡皮共用（橡皮擦到哪由光标圈显示） -->
+          <label class="paint-tools__size" :title="`粗细 ${sizePct}%`">
+            <span class="paint-tools__size-dot" :style="{ width: dotSize, height: dotSize }" />
+            <input
+              type="range"
+              :min="SIZE_MIN"
+              :max="SIZE_MAX"
+              :value="sizePct"
+              @input="onSize"
+            />
+          </label>
+
           <button
             v-for="c in PAINT_COLORS"
             :key="c"
             type="button"
             class="paint-tools__color"
-            :class="{ 'is-on': brush === c }"
+            :class="{ 'is-on': !erasing && color === c }"
             :style="{ background: '#' + c.toString(16).padStart(6, '0') }"
-            @click="brush !== c && (brush = c, scene()?.setBrush(c))"
+            @click="pickColor(c)"
           />
-          <span class="paint-tools__gap" />
+
+          <button
+            type="button"
+            class="paint-tools__brush paint-tools__eraser"
+            :class="{ 'is-on': erasing }"
+            title="橡皮擦（点一下切换）"
+            @click="toggleEraser"
+          >
+            🧽
+          </button>
           <Button size="sm" variant="quiet" @click="undo">撤销</Button>
-          <Button size="sm" variant="quiet" @click="clearBoard">清空</Button>
         </div>
 
         <!-- 猜手输入 + 聊天区 -->
@@ -369,7 +583,7 @@ watch(
               {{ c.who === 'sys' ? c.text : (c.who === 'me' ? '我：' : '对手：') + c.text }}
             </li>
           </ul>
-          <div v-if="!iPaint && stage === 'play'" class="paint-chat__row">
+          <div v-if="!iPaint && stage === 'guess'" class="paint-chat__row">
             <input
               v-model="guessText"
               class="paint-chat__input"
@@ -379,6 +593,21 @@ watch(
             />
             <Button size="sm" variant="primary" @click="sendGuess">猜</Button>
           </div>
+        </div>
+
+        <!-- 作画阶段的「完成」：双方都点就直接开始猜 -->
+        <div v-if="inRoom && stage === 'draw'" class="paint-ready">
+          <Button
+            size="lg"
+            :variant="readyMe ? 'quiet' : 'primary'"
+            :disabled="readyMe"
+            @click="markReady"
+          >
+            {{ readyLabel }}
+          </Button>
+          <span class="paint-ready__hint">
+            {{ readyPeer ? '对手已完成' : `${drawLeft}s 后自动进入猜` }}
+          </span>
         </div>
 
         <!-- 结束：下一题按钮 -->
@@ -463,17 +692,20 @@ watch(
   pointer-events: none;
 }
 
-/* 画家工具条：调色板 + 撤销/清空 */
+/* 画家工具条：六支笔 + 调色板 + 撤销/清空（窄屏自动换行） */
 .paint-tools {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: var(--s4);
+  bottom: max(var(--s3), env(safe-area-inset-bottom));
   z-index: 32;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s2);
-  padding: 8px 12px;
+  justify-content: center;
+  gap: 6px;
+  max-width: calc(100% - 2 * var(--s3));
+  padding: 7px 10px;
   border-radius: var(--r-pill);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
   background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -481,9 +713,30 @@ watch(
   -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
 }
 
+/* 画笔图标按钮（含橡皮） */
+.paint-tools__brush {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm, 8px);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.paint-tools__brush.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 .paint-tools__color {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 2px solid rgba(0, 0, 0, 0.25);
   cursor: pointer;
@@ -495,15 +748,42 @@ watch(
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
+/* 粗细滑条：左边一颗「当前粗细」小圆点 + 滑条本体 */
+.paint-tools__size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.paint-tools__size-dot {
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.paint-tools__size input[type='range'] {
+  width: 80px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 橡皮按钮：和画笔同一排，选中时高亮 */
+.paint-tools__eraser {
+  font-size: 15px;
+}
+
 .paint-tools__gap {
   width: 6px;
 }
 
-/* 聊天 / 作答区：左下角 */
+/* 聊天 / 作答区：左下角（让开底部的画笔工具条） */
 .paint-chat {
   position: absolute;
-  left: var(--s3);
-  bottom: var(--s4);
+  left: max(var(--s3), env(safe-area-inset-left));
+  bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 58px);
   z-index: 32;
   display: flex;
   flex-direction: column;
@@ -601,11 +881,28 @@ watch(
   color: var(--text);
 }
 
-/* 结束后的下一题按钮：画面正中下方 */
+/* 作画阶段的「完成」按钮 + 一行提示 */
+.paint-ready {
+  position: absolute;
+  right: max(var(--s3), env(safe-area-inset-right));
+  bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 58px);
+  z-index: 33;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.paint-ready__hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* 结束后的下一题按钮：画面正中下方（同样让开工具条） */
 .paint-next {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--s4) + 60px);
+  bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 66px);
   transform: translateX(-50%);
   z-index: 34;
 }
@@ -621,5 +918,100 @@ watch(
   margin: 0;
   text-align: center;
   font-size: 11px;
+}
+
+/* ---- 手机 / 窄屏 ---------------------------------------------------------- */
+@media (max-width: 640px) {
+  .paint-score {
+    font-size: 11px;
+  }
+
+  /* 状态卡：给右上角那排图标让开，自己也别铺太宽 */
+  .paint-top {
+    top: calc(var(--ui-top-h) + var(--s2));
+    max-width: min(70%, 260px);
+    padding: 6px 10px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  /* 六支笔 + 六色 + 两个按钮在手机上折成两行 */
+  .paint-tools {
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: var(--r-md);
+  }
+
+  .paint-tools__brush {
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+  }
+
+  .paint-tools__color {
+    width: 22px;
+    height: 22px;
+  }
+
+  .paint-tools__gap {
+    width: 2px;
+  }
+
+  .paint-tools__size {
+    gap: 4px;
+    padding: 0 2px;
+  }
+
+  .paint-tools__size input[type='range'] {
+    width: 64px;
+  }
+
+  /* 工具条在窄屏是两行（≈90px），聊天区与「下一题」都要抬到它上面 */
+  .paint-chat {
+    width: min(190px, 46vw);
+    bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 96px);
+  }
+
+  .paint-next {
+    bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 104px);
+  }
+
+  .paint-ready {
+    right: var(--s3);
+    bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 96px);
+  }
+
+  .paint-chat__list {
+    max-height: 84px;
+    font-size: 11px;
+  }
+
+  /* 建房面板：窄屏改成整宽的卡片，落在状态卡下面，别吊在右上角 */
+  .paint-lobby {
+    left: var(--s3);
+    right: var(--s3);
+    top: calc(var(--ui-top-h) + 64px);
+    width: auto;
+  }
+
+  .paint-phase {
+    max-width: 88%;
+    padding: 10px 16px;
+    font-size: 13px;
+    text-align: center;
+  }
+}
+
+/* 触屏：按钮给够手指点得中的尺寸 */
+@media (pointer: coarse) {
+  .paint-tools__brush {
+    width: 30px;
+    height: 30px;
+  }
+
+  .paint-tools__color {
+    width: 26px;
+    height: 26px;
+  }
 }
 </style>

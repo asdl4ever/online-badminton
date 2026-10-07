@@ -1,0 +1,40 @@
+import { SWINGS_1 } from './swings1.js';
+import { SWINGS_2 } from './swings2.js';
+import { SWINGS_3 } from './swings3.js';
+import { SWINGS_4 } from './swings4.js';
+import { SWINGS_5 } from './swings5.js';
+import { SWINGS_6 } from './swings6.js';
+import { SWINGS_7 } from './swings7.js';
+import { SWINGS_8 } from './swings8.js';
+import { SWINGS_9 } from './swings9.js';
+import { SWINGS_10 } from './swings10.js';
+import { SWINGS_11 } from './swings11.js';
+import { SWINGS_12 } from './swings12.js';
+import { SWINGS_13 } from './swings13.js';
+/**
+ * 主题挥拍拖尾的**逐款独立构图**总入口（分文件见 swings1~2.ts）。
+ * painter 拿到 rig.ts 传来的真实拍头轨迹工具包（ribbon / core / dot / wobble…），
+ * 每款用自己的层数 / 波形 / 粒子节奏构图；主色 c 由物品配色给出。
+ */
+const SWINGS = {
+    ...SWINGS_1,
+    ...SWINGS_2,
+    ...SWINGS_3,
+    ...SWINGS_4,
+    ...SWINGS_5,
+    ...SWINGS_6,
+    ...SWINGS_7,
+    ...SWINGS_8,
+    ...SWINGS_9,
+    ...SWINGS_10,
+    ...SWINGS_11,
+    ...SWINGS_12,
+    ...SWINGS_13,
+};
+export function drawSwingCustom(g, now, hot, style, kit, color) {
+    const art = SWINGS[style];
+    if (!art)
+        return false;
+    art.draw(g, now, hot, kit, color, art.a);
+    return true;
+}

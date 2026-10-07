@@ -2146,6 +2146,8 @@ export const useProgressStore = defineStore('progress', () => {
     points,
     claimed,
     coins,
+    /** 金币入账的唯一出口（含宠物加成），各玩法结算都走它 */
+    gainCoins,
     chestKeys,
     shards,
     grantKeys,

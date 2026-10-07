@@ -1,147 +1,54 @@
-import { TAU, type SwingArt } from './shared';
+import type { SwingArt } from './shared';
+import {
+  plates, shards, bolts, prismSplit, cometBand, cracks, puffs, drips, ripples, embers, hairLine,
+  webNet, sawTeeth, glowHalo, tipOf, impact,
+} from './vocab';
 
-/** 批十二挥拍拖尾（变形机甲 / 蛛网游侠 / 钢铁巨兽）——沿真实挥击轨迹构图 */
+/** 批十二挥拍拖尾（变形机甲 / 蛛网游侠 / 钢铁巨兽）*/
 
 export const SWINGS_13: Record<string, SwingArt> = {
-  tfSwing: { a: 0x5ac8ff, draw: (g, now, hot, kit, c, a) => {
-    // 变形重击：机械重刃轨迹 + 齿轮碎块崩飞 + 能量破片环 + 相位残影
-    const n = kit.n;
-    // 相位残影（轨迹整体错位两层）
-    kit.ribbon(11, 0x5ac8ff, 0.18, 3);
-    kit.ribbon(11, 0xff8a2a, 0.18, -3);
-    kit.ribbon(14, c, 0.4);
-    kit.core(7, 0.5);
-    for (let k = 0; k < 6; k++) { // 沿轨迹的机械刃节
-      const i = Math.floor(((k + 0.2) / 6) * (n - 1));
-      const p = kit.at(i);
-      const s = 4 + (k / 6) * 6;
-      g.save(); g.translateCanvas(p.x, p.y); g.rotateCanvas(k * 0.6 + now / 300);
-      g.fillStyle(0x2a3a4a, 0.85);
-      g.fillRect(-s, -s * 0.32, s * 2, s * 0.64);
-      g.fillStyle(a, 0.7);
-      g.fillRect(-s * 0.8, -s * 0.16, s * 1.6, s * 0.32);
-      g.restore();
-    }
-    const tip = kit.at(n - 1); // 收尾：撞击爆点
-    const burst = ((now / 110) % 1);
-    for (let k = 0; k < 3; k++) { // 破片环
-      const r = 6 + burst * (16 + k * 10);
-      g.lineStyle(2.4 - k * 0.5, k === 0 ? 0xffffff : a, Math.max(0, 0.75 - burst) * (1 - k * 0.2));
-      g.beginPath(); g.arc(tip.x, tip.y, r, 0, TAU); g.strokePath();
-    }
-    for (let k = 0; k < 7; k++) { // 崩飞的齿轮碎片
-      const ang = (k / 7) * TAU + now / 500;
-      const d = 12 + burst * 26;
-      g.save(); g.translateCanvas(tip.x + Math.cos(ang) * d, tip.y + Math.sin(ang) * d);
-      g.rotateCanvas(ang * 2 + now / 200);
-      g.fillStyle(hot > 0.5 ? 0xffd45c : 0x8a94a2, 0.9);
-      g.fillRect(-3, -2.4, 6, 4.8);
-      g.fillStyle(0x2a3a4a, 0.9);
-      g.fillRect(-1.2, -1.2, 2.4, 2.4);
-      g.restore();
-    }
+  // 变形重击：装甲板沿轨迹翻转 + 齿轮碎块崩飞 + 电弧 + 相位分光
+  tfSwing: { a: 0x5ac8ff, draw: (g, now, hot, k, _c, a) => {
+    glowHalo(g, k, a, 0.16);
+    prismSplit(g, k, 0.4, 3); // 相位分光（红蓝绿错位）
+    plates(g, k, now, 0x2a3a4a, 0.95, 7, 7.4); // 沿轨迹翻转的装甲板
+    plates(g, k, now, 0x32465c, 0.7, 5, 4.6);
+    shards(g, k, now, 0x8a94a2, 0.9, 7, 11, 1.6); // 齿轮/装甲碎块
+    bolts(g, k, now, a, 0xffffff, 0.8, 4);
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, 0xff8a2a, a);
   } },
 
-  spdSwing: { a: 0xff4a5a, draw: (g, now, hot, kit, c, _a) => {
-    // 蛛网猛击：拳风轨迹 + 命中网点（蛛网从冲击点炸开）+ 蛛感波纹 + 裂纹
-    const n = kit.n;
-    kit.ribbon(12, 0xd8e0e8, 0.35);
-    kit.ribbon(8, c, 0.45);
-    kit.core(5, 0.55);
-    const tip = kit.at(n - 1);
-    // 从冲击点炸开的蛛网（八向 + 三圈）
-    const burst = ((now / 130) % 1);
-    const rr = 10 + burst * 30;
-    g.lineStyle(1.4, 0xf0f4f8, Math.max(0, 0.8 - burst) * 0.9);
-    for (let k = 0; k < 8; k++) {
-      const ang = (k / 8) * TAU;
-      g.lineBetween(tip.x, tip.y, tip.x + Math.cos(ang) * rr, tip.y + Math.sin(ang) * rr);
+  // 蛛网猛击：拳风细线 + 冲击点张开的蛛网 + 蛛感波纹
+  spdSwing: { a: 0xff4a5a, draw: (g, now, hot, k, _c, a) => {
+    glowHalo(g, k, 0xff4a5a, 0.14);
+    hairLine(g, k, 0xf0f4f8, 0.8, 0.1); // 拳风细线
+    // 沿拳风拉出的蛛丝（会飘）
+    for (let i = 1; i < k.n - 1; i += 2) {
+      const p = k.pts[i];
+      const wob = Math.sin(now / 300 + i) * 4;
+      g.lineStyle(1, 0xffffff, k.pts[i].a * 0.5);
+      g.lineBetween(p.x, p.y, p.x + 9, p.y + wob);
     }
-    for (let k = 1; k <= 3; k++) {
-      g.lineStyle(1.2, 0xf0f4f8, Math.max(0, 0.7 - burst) * (1 - k * 0.2));
-      g.save(); g.translateCanvas(tip.x, tip.y); g.scaleCanvas(1, 0.75);
-      g.beginPath(); g.arc(0, 0, rr * (k / 3.2), 0, TAU); g.strokePath(); g.restore();
-    }
-    // 蛛感波纹（快速外扩两道）
-    for (let k = 0; k < 2; k++) {
-      const ph = ((now / 90 + k / 2) % 1);
-      g.lineStyle(2 - ph, 0x8ae0ff, Math.max(0, 0.6 - ph) * 0.9);
-      g.save(); g.translateCanvas(tip.x, tip.y); g.scaleCanvas(1, 0.6);
-      g.beginPath(); g.arc(0, 0, 8 + ph * 40, 0, TAU); g.strokePath(); g.restore();
-    }
-    // 沿拳风的白色丝线
-    for (let k = 0; k < 4; k++) {
-      const i = Math.floor(((k + 0.3) / 4) * (n - 1));
-      const p = kit.at(i);
-      g.lineStyle(1.2, 0xffffff, 0.5);
-      g.beginPath();
-      g.moveTo(p.x - 6, p.y - 4 + k * 2);
-      g.lineTo(p.x + 8, p.y + 2 + k * 2);
-      g.strokePath();
-    }
-    // 命中闪白
-    if (hot > 0.5) {
-      g.fillStyle(0xffffff, 0.5);
-      g.fillCircle(tip.x, tip.y, 6);
-    }
+    const t = tipOf(k);
+    webNet(g, t.x, t.y, now, 0xf0f4f8, 0.85, 20 + hot * 12, 8); // 冲击点张开的网
+    ripples(g, t.x, t.y, now, a, 0.5 + hot * 0.35, 3, 26 + hot * 12, 100); // 蛛感波纹
+    impact(g, t.x, t.y, now, hot, 0xffffff, a);
   } },
 
-  bstSwing: { a: 0xff6a2a, draw: (g, now, hot, kit, c, _a) => {
-    // 巨兽践踏：沉重的砸击轨迹 + 地面碎裂 + 冲击波 + 熔岩喷溅
-    const n = kit.n;
-    kit.ribbon(16, 0x4a4a52, 0.4);
-    kit.ribbon(10, c, 0.45);
-    kit.core(6, 0.55);
-    // 轨迹下缘的地面犁痕
-    g.lineStyle(2.4, 0x1a1a20, 0.7);
-    g.beginPath();
-    for (let i = 0; i < n; i++) {
-      const p = kit.at(i);
-      if (i === 0) g.moveTo(p.x, p.y + 10);
-      else g.lineTo(p.x, p.y + 10);
+  // 巨兽践踏：砸出地面放射裂缝 + 三重冲击波 + 熔铁滴落 + 黑烟
+  bstSwing: { a: 0xff6a2a, draw: (g, now, hot, k, _c, a) => {
+    glowHalo(g, k, 0x4a4a52, 0.14);
+    cometBand(g, k, 0x3a3a42, 0.9, 1.25); // 沉重的铁背
+    cometBand(g, k, a, 0.55, 0.5); // 熔炉亮面
+    sawTeeth(g, k, 0xd8d4c8, 0.9, 8, 2); // 钢牙
+    puffs(g, k, now, 0x2a2a30, 0.85, 9, 14); // 黑烟
+    for (let i = 2; i < k.n - 1; i += 3) { // 沿轨迹的碎裂地面
+      cracks(g, k.pts[i].x, k.pts[i].y + 10, now, 0x14141a, 0.6, 4, 13);
     }
-    g.strokePath();
-    const tip = kit.at(n - 1);
-    const burst = ((now / 120) % 1);
-    // 三重冲击波
-    for (let k = 0; k < 3; k++) {
-      const rr = 8 + burst * (20 + k * 14);
-      g.lineStyle(2.6 - k * 0.6, k === 0 ? 0xffffff : 0xff6a2a, Math.max(0, 0.7 - burst) * (1 - k * 0.22));
-      g.save(); g.translateCanvas(tip.x, tip.y); g.scaleCanvas(1, 0.5);
-      g.beginPath(); g.arc(0, 0, rr, 0, TAU); g.strokePath(); g.restore();
-    }
-    // 地面放射裂缝
-    g.lineStyle(2, 0x14141a, 0.85);
-    for (let k = 0; k < 7; k++) {
-      const ang = (k / 7) * TAU + 0.4;
-      const d = 14 + burst * 22;
-      g.beginPath();
-      g.moveTo(tip.x, tip.y + 4);
-      g.lineTo(tip.x + Math.cos(ang) * d * 0.6, tip.y + 4 + Math.sin(ang) * d * 0.3);
-      g.lineTo(tip.x + Math.cos(ang) * d, tip.y + 4 + Math.sin(ang) * d * 0.4);
-      g.strokePath();
-    }
-    // 熔岩喷溅（向上飞出的熔滴）
-    for (let k = 0; k < 8; k++) {
-      const ang = -Math.PI * 0.15 + k * 0.42;
-      const ph = ((now / 200 + k / 8) % 1);
-      const d = ph * 30;
-      g.fillStyle(k % 2 ? 0xffd45c : 0xff6a2a, (1 - ph) * 0.9);
-      g.fillCircle(tip.x + Math.cos(ang) * d, tip.y - Math.abs(Math.sin(ang)) * d * 1.2 + ph * 6, 2 * (1 - ph) + 0.6);
-    }
-    // 崩起的碎钢块
-    for (let k = 0; k < 5; k++) {
-      const ang = (k / 5) * TAU + now / 400;
-      const d = 10 + burst * 24;
-      g.save(); g.translateCanvas(tip.x + Math.cos(ang) * d, tip.y - 4 + Math.sin(ang) * d * 0.5);
-      g.rotateCanvas(ang * 3 + now / 250);
-      g.fillStyle(0x8a8a92, 0.9);
-      g.fillPoints([{ x: -4, y: -3 }, { x: 4, y: -4 }, { x: 3, y: 3 }, { x: -3, y: 2 }] as never, true);
-      g.restore();
-    }
-    if (hot > 0.5) {
-      g.fillStyle(0xffd45c, 0.5);
-      g.fillCircle(tip.x, tip.y, 8);
-    }
+    drips(g, k, now, a, 0xffd45c, 0.85, 4); // 滴落熔铁
+    embers(g, k, now, a, 0x4a3a2a, 0.8, 7);
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, 0xffd45c, 0x4a4a52);
   } },
 };

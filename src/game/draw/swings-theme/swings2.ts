@@ -1,247 +1,284 @@
 import type { SwingArt } from './shared';
+import {
+  bladeWedge, cometBand, coilBand, flameTongues, drips, embers, puffs, petals, plates,
+  shards, starRow, ripples, bolts, orbiters, ghostEcho, dashLine, hairLine, inkDots, feathers,
+  snowflakes, sparks, sawTeeth, bones, glowHalo, tipOf, impact,
+} from './vocab';
 
-/** 局部小工具：实心星 / 多边形 */
-function star(g: any, x: number, y: number, r: number, rot: number, color: number, al: number, pts = 5): void {
-  const vs = [];
-  for (let k = 0; k < pts * 2; k++) {
-    const ang = rot + (k / (pts * 2)) * Math.PI * 2;
-    const rr = k % 2 === 0 ? r : r * 0.42;
-    vs.push({ x: x + Math.cos(ang) * rr, y: y + Math.sin(ang) * rr });
-  }
-  g.fillStyle(color, al);
-  g.fillPoints(vs as never, true, true);
-}
-function poly(g: any, x: number, y: number, r: number, sides: number, rot: number, color: number, al: number): void {
-  const vs = [];
-  for (let k = 0; k < sides; k++) {
-    const ang = rot + (k / sides) * Math.PI * 2;
-    vs.push({ x: x + Math.cos(ang) * r, y: y + Math.sin(ang) * r });
-  }
-  g.fillStyle(color, al);
-  g.fillPoints(vs as never, true, true);
-}
+/** 第二批主题挥拍拖尾（20 款）——同样一款一套剪影，不再共用底光带 */
 
-/**
- * 第三、四批主题挥拍拖尾——按「斩」的名字逐款构图。
- */
 export const SWINGS_2: Record<string, SwingArt> = {
-  // 岩浆斩：暗壳熔岩刃 + 烧红的裂口
-  vulcSwing: { a: 0xffb347, draw: (g, _now, _hot, k, c, _a) => {
-    k.ribbon(3.4, 0x3a1a0a, 0.6);
-    k.ribbon(1.4, c, 1);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i);
-      g.fillStyle(0xff5a1a, 0.7);
-      g.fillCircle(p.x + Math.sin(i * 2.4) * 4, p.y, 1.4 + k.pts[i].w);
-    }
-    k.core(0.36, 1.15);
+  // 熔岩核心：烧红的岩刃，缝里透光，一路滴熔铁与火星
+  vulcSwing: { a: 0xff6a2a, draw: (g, now, hot, k, c, _a) => {
+    glowHalo(g, k, 0xff6a2a, 0.18);
+    bladeWedge(g, k, 0x3a2a22, 0x8a4a2a, 0.95); // 焦岩背
+    flameTongues(g, k, now, 0xff6a2a, 0xffe89a, 0.85, 7);
+    drips(g, k, now, 0xff8a2a, 0xffd45c, 0.9, 4);
+    embers(g, k, now, 0xffd45c, 0x4a3a2a, 0.9, 8);
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, 0xffd45c, 0xff6a2a);
+    void c;
   } },
-  // 海啸斩：卷起的浪头拍过刀锋
-  trenchSwing: { a: 0x5fd0c0, draw: (g, _now, _hot, k, c, _a) => {
-    k.ribbon(3.6, 0x1a2a4a, 0.5);
-    k.ribbon(2, c, 0.9);
-    for (let i = 2; i < k.n; i += 3) {
-      const p = k.at(i, -6);
-      g.fillStyle(0xffffff, 0.75);
-      g.fillCircle(p.x, p.y, 1.6 + k.pts[i].w);
-    }
-    k.core(0.34, 1.1);
+
+  // 深渊海沟：幽蓝水压刃，沿刃一串上浮气泡与冷光
+  trenchSwing: { a: 0x5ac8ff, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0x2a5a8a, 0.16);
+    cometBand(g, k, 0x123048, 0.85, 1.1); // 深水
+    cometBand(g, k, c, 0.55, 0.5);
+    bubbles(g, k, now, 0xbfe8ff, 0.85, 7); // 上浮气泡
+    inkDots(g, k, 0x0a1a2a, 0.5, 3);
+    const t = tipOf(k);
+    ripples(g, t.x, t.y, now, 0x5ac8ff, 0.5 + hot * 0.3, 2, 22, 120);
+    impact(g, t.x, t.y, now, hot, a, 0x123048);
   } },
-  // 居合斩：出鞘一瞬的白刃
-  dojoSwing: { a: 0xf0eee4, draw: (g, now, hot, k, c, _a) => {
-    k.ribbon(0.9, 0xffffff, 1);
-    k.ribbon(2.2, c, 0.25 + hot * 0.3);
-    k.core(0.5, 1.4);
-    const tip = k.at(k.n - 1);
-    star(g, tip.x, tip.y, 3.5 + hot * 4, now / 90, 0xffffff, 0.95, 4);
+
+  // 道场：极干净的一记剑风 + 一圈收势气环 + 竹叶
+  dojoSwing: { a: 0xe8f0f8, draw: (g, now, hot, k, _c, a) => {
+    glowHalo(g, k, 0xe8f0f8, 0.1);
+    hairLine(g, k, 0xffffff, 0.95, 0.13); // 剑风
+    edgeHairs2(g, k, a, 6);
+    petals(g, k, now, 0x8fd45a, 0.5, 4, 3.4); // 竹叶
+    const t = tipOf(k);
+    ripples(g, t.x, t.y, now, 0xffffff, 0.45 + hot * 0.35, 3, 24 + hot * 10, 100);
   } },
-  // 泼墨斩：甩出去的一串墨点
-  inkwSwing: { a: 0x2a2e36, draw: (g, now, _hot, k, _c, _a) => {
-    k.ribbon(3.6, 0x2a2e36, 0.8);
-    for (let i = 1; i < k.n; i += 2) {
-      const p = k.at(i, Math.sin(i * 2.6 + now / 300) * 8);
-      g.fillStyle(0x2a2e36, 0.55);
-      g.fillCircle(p.x, p.y, 1.2 + k.pts[i].w * 2.6);
-    }
-    k.core(0.32, 1.05);
+
+  // 水墨江南：一笔墨 + 随笔画落的桃瓣 + 水痕
+  inkwSwing: { a: 0xffb0d8, draw: (g, now, hot, k, _c, _a) => {
+    glowHalo(g, k, 0x9aa8b8, 0.08);
+    cometBand(g, k, 0x2a2e36, 0.85, 1.4);
+    inkDots(g, k, 0x2a2e36, 0.75, 2);
+    edgeHairs2(g, k, 0x8a8a92, 6);
+    petals(g, k, now, 0xffb0d8, 0.7, 6, 4);
+    drips(g, k, now, 0x6a7480, 0x9aa8b8, 0.4, 3); // 水痕
+    void hot;
   } },
-  // 花瓣斩：刀锋卷起一阵花瓣
-  fairySwing: { a: 0xffb7d5, draw: (g, now, _hot, k, c, a) => {
-    k.ribbon(2.2, c, 0.7);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i, Math.sin(now / 240 + i * 1.4) * 7);
-      poly(g, p.x, p.y, 2.2 + k.pts[i].w, 3, now / 220 + i, i % 2 ? a : 0xffffff, 0.8);
-    }
-    k.core(0.3, 1.05);
+
+  // 精灵花园：藤蔓缠出的刃 + 飞舞花瓣与萤光
+  fairySwing: { a: 0xa8ff7a, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xa8ff7a, 0.16);
+    coilBand(g, k, 0x4a8a3a, 0.8, 3, 2); // 藤蔓
+    petals(g, k, now, 0xffb0e8, 0.85, 7, 5);
+    orbiters(g, tipOf(k).x, tipOf(k).y, now, a, 0.9, 5, 20, 10, 600, 2); // 萤光
+    starRow(g, k, now, 0xffffff, c, 0.7, 5, 2.2);
+    void hot;
   } },
-  // 疾驰斩：风驰电掣的速度线
-  racerSwing: { a: 0xffd45c, draw: (g, _now, _hot, k, c, a) => {
-    k.ribbon(1.2, c, 0.9);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i);
-      const back = k.at(Math.max(0, i - 4));
-      g.lineStyle(1.8, a, 0.5);
-      g.lineBetween(p.x, p.y, back.x, back.y);
-      g.fillStyle(0xffffff, 0.8);
-      g.fillCircle(p.x, p.y, 1.2);
-    }
-    k.core(0.35, 1.2);
+
+  // 极速竞逐：拉长的速度残影 + 断续的加速脉冲 + 尾流
+  racerSwing: { a: 0x5ac8ff, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, c, 0.18);
+    ghostEcho(g, k, c, 0.55, 4, 12); // 速度残影
+    dashLine(g, k, now, 0xffffff, 0.55, 4, 0.12);
+    plates(g, k, now, 0x1a2a3a, 0.6, 4, 4.4);
+    sparks(g, k, now, a, 0.9, 9, 26);
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, a, c);
   } },
-  // 血宴斩：暗刃 + 滴落的血珠
-  vampSwing: { a: 0xc0203a, draw: (g, now, _hot, k, c, _a) => {
-    k.ribbon(3.2, 0x1a1420, 0.7);
-    k.ribbon(1.2, c, 1);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i);
-      const drip = ((now / 160 + i * 21) % 14);
-      g.fillStyle(c, 0.7 - drip / 22);
-      g.fillCircle(p.x, p.y + drip, 1.2 + k.pts[i].w);
-    }
-    k.core(0.32, 1.05);
+
+  // 吸血鬼：暗红刃 + 血雾 + 滴血 + 蝠翼残影
+  vampSwing: { a: 0xff3a4a, draw: (g, now, hot, k, c, _a) => {
+    glowHalo(g, k, 0x8a1a2a, 0.18);
+    bladeWedge(g, k, 0x2a0f18, 0x8a1a2a, 0.95); // 暗红刃
+    puffs(g, k, now, 0x6a1020, 0.7, 8, 13); // 血雾
+    drips(g, k, now, 0xd02030, 0xff8a9a, 0.9, 4); // 滴血
+    feathers(g, k, now, 0x3a0f1a, 0.8, 5, 12); // 蝠翼
+    embers(g, k, now, 0xff5a6a, 0x2a0f18, 0.7, 6);
+    void c; void hot;
   } },
-  // 落枫斩：红枫叶沿刃打旋
-  autumnSwing: { a: 0xd4622a, draw: (g, now, _hot, k, c, _a) => {
-    k.ribbon(2.4, c, 0.7);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i, Math.sin(now / 300 + i) * 7);
-      star(g, p.x, p.y, 2.6 + k.pts[i].w, now / 260 + i, i % 2 ? c : 0xffd45c, 0.85);
-    }
-    k.core(0.32, 1.1);
+
+  // 秋日枫林：一路翻飞的枫叶 + 暖色余辉 + 落叶成带
+  autumnSwing: { a: 0xff8a3c, draw: (g, now, hot, k, c, _a) => {
+    glowHalo(g, k, 0xffb060, 0.14);
+    cometBand(g, k, 0x8a4a1a, 0.5, 0.8);
+    petals(g, k, now, c, 0.9, 8, 5.4); // 枫叶
+    petals(g, k, now + 400, 0xffd45c, 0.7, 6, 4);
+    embers(g, k, now, 0xffd45c, 0x4a3a2a, 0.6, 6);
+    void hot;
   } },
-  // 竹裂斩：被一刀劈开的两半竹节
-  pandaSwing: { a: 0x8fbf5a, draw: (g, _now, _hot, k, c, _a) => {
-    k.ribbon(1.2, 0xffffff, 0.9);
-    for (let i = 1; i < k.n - 1; i += 3) {
-      const p = k.at(i);
-      const ang = Math.atan2(p.y - k.at(Math.max(0, i - 3)).y, p.x - k.at(Math.max(0, i - 3)).x);
-      for (const s of [-1, 1]) {
-        g.lineStyle(3, i % 2 ? c : 0x4a6a2a, 0.85);
-        g.lineBetween(p.x + Math.cos(ang + Math.PI / 2) * 3.5 * s, p.y + Math.sin(ang + Math.PI / 2) * 3.5 * s,
-          p.x + Math.cos(ang + Math.PI / 2 + 0.5 * s) * 9 * s, p.y + Math.sin(ang + Math.PI / 2 + 0.5 * s) * 9 * s);
-      }
-    }
-    k.core(0.34, 1.1);
+
+  // 竹林熊猫：竹节刃 + 竹叶 + 起落的尘
+  pandaSwing: { a: 0xd8f0b0, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0x8fd45a, 0.12);
+    bones(g, k, 0x6a9a3a, 0.95, 3.2); // 竹节
+    petals(g, k, now, 0xa8e86a, 0.85, 7, 5); // 竹叶
+    puffs(g, k, now, 0xd8e8d0, 0.4, 5, 10);
+    starRow(g, k, now, a, 0xffffff, 0.6, 4, 2);
+    void c; void hot; void a;
   } },
-  // 切牌斩：刀锋把扑克牌切成两半
-  jokerSwing: { a: 0xffd45c, draw: (g, now, _hot, k, c, a) => {
-    k.ribbon(1.4, 0xffffff, 0.8);
-    for (let i = 2; i < k.n; i += 3) {
-      const p = k.at(i);
-      poly(g, p.x - 3, p.y + 2, 3, 4, now / 250 + i, i % 2 ? a : 0xe8404a, 0.8);
-      poly(g, p.x + 3, p.y - 2, 3, 4, now / 250 + i + 1, i % 2 ? 0xffffff : c, 0.8);
-      g.lineStyle(1, 0x1a1a22, 0.5);
-      g.lineBetween(p.x - 5, p.y - 4, p.x + 5, p.y + 4);
+
+  // 纸牌王国：一张张翻过的牌 + 四色花色碎屑
+  jokerSwing: { a: 0xff5a6a, draw: (g, now, hot, k, c, _a) => {
+    glowHalo(g, k, 0xff5a6a, 0.14);
+    for (let i = 1; i < k.n - 1; i += 3) { // 翻过的牌
+      const p = k.pts[i];
+      const flip = Math.abs(Math.cos(now / 300 + i));
+      g.fillStyle(0xffffff, p.a * 0.9);
+      g.save();
+      g.translateCanvas(p.x, p.y);
+      g.scaleCanvas(0.4 + 0.6 * flip, 1);
+      g.fillRoundedRect(-5, -7, 10, 14, 2);
+      g.fillStyle(c, p.a * 0.9);
+      g.fillCircle(0, 0, 2.2);
+      g.restore();
     }
-    k.core(0.3, 1.05);
+    shards(g, k, now, 0xff5a6a, 0.7, 5, 9, 2);
+    void hot;
   } },
-  // 开山斩：一道金色裂隙劈开山岩
-  pagodSwing: { a: 0xffd45c, draw: (g, _now, _hot, k, _c, a) => {
-    k.ribbon(3, 0x6a5a4a, 0.5);
-    for (let i = 1; i < k.n; i += 2) {
-      const p0 = k.at(i), p1 = k.at(Math.min(k.n - 1, i + 1), Math.sin(i) * 3);
-      g.lineStyle(2, a, 0.9);
-      g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-    }
-    for (let i = 2; i < k.n; i += 3) {
-      const p = k.at(i, Math.sin(i * 2.4) * 8);
-      poly(g, p.x, p.y, 2.4, 3, i * 1.3, 0x6a5a4a, 0.7);
-    }
-    k.core(0.4, 1.2);
+
+  // 古都风华：绸带缠绕 + 一路上扬的牡丹花瓣 + 宫灯金芒
+  pagodSwing: { a: 0xffd45c, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xffb0c8, 0.14);
+    coilBand(g, k, c, 0.85, 3, 2.2); // 绸带
+    coilBand(g, k, 0x9fe8ff, 0.5, -3, 1.8);
+    petals(g, k, now, 0xffb0c8, 0.85, 7, 5); // 牡丹
+    sparks(g, k, now, a, 0.85, 7, 18);
+    void hot;
   } },
-  // 龙卷斩：绕刃疾转的气旋
-  stormSwing: { a: 0x9fd8ff, draw: (g, now, _hot, k, c, a) => {
-    k.ribbon(2, c, 0.6);
-    for (let i = 1; i < k.n; i += 2) {
-      const p = k.at(i);
-      const swirl = now / 120 + i * 1.4;
-      const r = 3 + (i % 3) * 3;
-      g.fillStyle(i % 2 ? a : 0xffffff, 0.6);
-      g.fillCircle(p.x + Math.cos(swirl) * r, p.y + Math.sin(swirl) * r * 0.6, 1.4);
-    }
-    k.core(0.36, 1.2);
+
+  // 风暴之眼：两股反向风旋 + 风眼中的电弧与雨丝
+  stormSwing: { a: 0x9fd8ff, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0x8ab0d8, 0.16);
+    coilBand(g, k, c, 0.8, 4, 2.6); // 正旋风
+    coilBand(g, k, 0xd0e8ff, 0.6, -4, 2.2); // 反旋风
+    bolts(g, k, now, a, 0xffffff, 0.8, 4);
+    puffs(g, k, now, 0xc0d4e8, 0.5, 8, 14); // 雨雾
+    windHairs(g, k, now);
+    void hot;
   } },
-  // 月华斩：银白月刃 + 月尘
-  lunarSwing: { a: 0xffe89a, draw: (g, _now, _hot, k, c, a) => {
-    k.ribbon(3, a, 0.55);
-    k.ribbon(1, 0xffffff, 1);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i, Math.sin(i * 2.2) * 6);
-      g.fillStyle(c, 0.6);
-      g.fillCircle(p.x, p.y, 1.2 + k.pts[i].w);
-    }
-    k.core(0.42, 1.3);
+
+  // 月宫玉兔：一轮弯月跟着走 + 桂花飘落 + 月华环
+  lunarSwing: { a: 0xffe89a, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xfff4d0, 0.18);
+    cometBand(g, k, 0xe8e0c0, 0.5, 0.7);
+    petals(g, k, now, a, 0.85, 6, 4); // 桂花
+    snowflakes(g, k, now, 0xffffff, 0.6, 4, 2.6);
+    const t = tipOf(k);
+    // 弯月
+    g.fillStyle(0xfff4d0, 0.95);
+    g.fillCircle(t.x, t.y, 8);
+    g.fillStyle(0x2a3a6a, 0);
+    g.fillCircle(t.x - 4, t.y - 2, 7);
+    ripples(g, t.x, t.y, now, 0xfff4d0, 0.4 + hot * 0.3, 2, 20, 120);
+    void c;
   } },
-  // 战斧斩：厚重的斧刃劈过
-  vikingSwing: { a: 0xc0c8d0, draw: (g, _now, _hot, k, c, _a) => {
-    k.ribbon(3.6, c, 0.6);
-    k.ribbon(1.4, 0xffffff, 0.9);
-    for (let i = 2; i < k.n; i += 3) {
-      const p = k.at(i);
-      const ang = Math.atan2(p.y - k.at(Math.max(0, i - 2)).y, p.x - k.at(Math.max(0, i - 2)).x);
-      poly(g, p.x + Math.cos(ang) * 5, p.y + Math.sin(ang) * 5, 3.6, 3, ang, 0x8a6a4a, 0.75);
-    }
-    k.core(0.38, 1.2);
+
+  // 维京战船：船首骨刃劈开浪 + 木屑与浪花
+  vikingSwing: { a: 0xd8c8a0, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0x8a9ab0, 0.14);
+    bones(g, k, 0x8a6238, 0.95, 3); // 船骨
+    sawTeeth(g, k, 0xd8c8a0, 0.8, 8, 2);
+    ripples(g, midX(k), midY(k) + 8, now, 0xbfe8ff, 0.5, 3, 26, 110); // 浪环
+    shards(g, k, now, 0x8a6238, 0.7, 5, 9, 1.6); // 木屑
+    impact(g, tipOf(k).x, tipOf(k).y, now, hot, a, 0x8a6238);
+    void c;
   } },
-  // 猛扑斩：三道野兽抓痕
-  safariSwing: { a: 0xffb03a, draw: (g, _now, _hot, k, c, _a) => {
-    k.ribbon(2.4, 0x8a6a4a, 0.4);
-    for (let i = 1; i < k.n; i += 2) {
-      const p0 = k.at(i), p1 = k.at(Math.min(k.n - 1, i + 1));
-      for (const s of [-1, 0, 1]) {
-        g.lineStyle(1.6, c, 0.85);
-        g.lineBetween(p0.x, p0.y + s * 5, p1.x + s * 3, p1.y + s * 7);
-      }
-    }
-    k.core(0.34, 1.1);
+
+  // 草原巡礼：兽牙刃 + 扬起的草屑与尘土 + 远去的蹄尘
+  safariSwing: { a: 0xffd45c, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xd8b878, 0.14);
+    cometBand(g, k, 0x8a6a3a, 0.6, 0.9);
+    sawTeeth(g, k, 0xf0e8d0, 0.9, 9, 1); // 兽牙
+    puffs(g, k, now, 0xd8c8a0, 0.7, 9, 14); // 尘
+    petals(g, k, now, 0xa8c86a, 0.6, 6, 4); // 草屑
+    impact(g, tipOf(k).x, tipOf(k).y, now, hot, a, 0x8a6a3a);
+    void c;
   } },
-  // 谢幕斩：帷幕扫过 + 追光
-  theatSwing: { a: 0xfff0c0, draw: (g, now, _hot, k, c, a) => {
-    k.ribbon(3.4, 0xc0203a, 0.45);
-    k.ribbon(1.6, c, 0.95);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i, Math.sin(i * 1.8) * 6);
-      star(g, p.x, p.y, 1.8 + k.pts[i].w, now / 240 + i, a, 0.85, 4);
-    }
-    k.core(0.4, 1.25);
+
+  // 戏剧后台：一道聚光扫过 + 飘散的纸屑与星星
+  theatSwing: { a: 0xffd45c, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xfff0b0, 0.18);
+    cometBand(g, k, 0xfff4d0, 0.6, 1.3); // 聚光
+    starRow(g, k, now, a, 0xffffff, 0.9, 6, 3);
+    shards(g, k, now, 0xffffff, 0.6, 5, 10, 2.2);
+    sparks(g, k, now, 0xfff0b0, 0.8, 6, 20);
+    void c; void hot;
   } },
-  // 极光斩：多层极光带随刃摆动
-  boreaSwing: { a: 0x7dffc4, draw: (_g, _now, _hot, k, c, _a) => {
-    k.ribbon(4.4, 0x9ad4ff, 0.4);
-    k.ribbon(2.6, c, 0.65);
-    k.ribbon(1, 0xffffff, 0.9);
-    k.core(0.36, 1.2);
+
+  // 极光夜境：分光的极光带 + 星尘 + 雪片
+  boreaSwing: { a: 0x9fffd0, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0x9fffd0, 0.2);
+    prismSplit2(g, k, now); // 极光分光
+    cometBand(g, k, 0xd0fff0, 0.5, 0.8);
+    snowflakes(g, k, now, 0xffffff, 0.7, 5, 3);
+    starRow(g, k, now, 0xffffff, c, 0.7, 5, 2.2);
+    ripples(g, tipOf(k).x, tipOf(k).y, now, a, 0.4 + hot * 0.3, 2, 24, 130);
   } },
-  // 荡桨斩：桨叶划过留下的水痕
-  venicSwing: { a: 0xffd8a0, draw: (g, now, _hot, k, c, _a) => {
-    k.ribbon(3, 0x5fe8d0, 0.45);
-    k.ribbon(1.4, c, 0.95);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i);
-      const ex = ((now / 240 + i * 19) % 10) / 10;
-      g.lineStyle(1.2, 0x5fe8d0, (1 - ex) * 0.6);
-      g.strokeCircle(p.x, p.y, 2 + ex * 6);
-    }
-    k.core(0.34, 1.1);
+
+  // 水城泛舟：船桨划出的水弧 + 水珠 + 涟漪
+  venicSwing: { a: 0x8ae8ff, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0x3a8a9a, 0.14);
+    coilBand(g, k, 0x1a6a8a, 0.7, 2, 2);
+    cometBand(g, k, c, 0.5, 0.6);
+    drips(g, k, now, 0x8ae8ff, 0xffffff, 0.8, 5);
+    ripples(g, midX(k), midY(k) + 6, now, 0xffffff, 0.45, 3, 24, 110);
+    petals(g, k, now, 0xffd0e0, 0.4, 4, 3.4);
+    void a; void hot;
   } },
-  // 神罚斩：神明降下的光柱刃
-  olympSwing: { a: 0xfff0b0, draw: (g, _now, _hot, k, _c, a) => {
-    k.ribbon(4, a, 0.5);
-    k.ribbon(1.4, 0xffffff, 1);
-    for (let i = 1; i < k.n; i += 2) {
-      const p = k.at(i);
-      g.lineStyle(1, a, 0.5);
-      g.lineBetween(p.x, p.y - 12, p.x, p.y + 12);
-    }
-    k.core(0.45, 1.35);
+
+  // 古希腊：宙斯雷霆刃 + 神庙石板碎片 + 圣火余烬
+  olympSwing: { a: 0xffe89a, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xffe89a, 0.2);
+    plates(g, k, now, 0xd8d4c0, 0.85, 6, 8); // 神庙石板
+    bolts(g, k, now, 0xffffff, c, 0.95, 5); // 雷
+    bolts(g, k, now, a, 0xffffff, 0.7, 3);
+    shards(g, k, now, 0xd8d4c0, 0.8, 6, 10, 1.6);
+    embers(g, k, now, 0xffd45c, 0x5a4a2a, 0.7, 6);
+    impact(g, tipOf(k).x, tipOf(k).y, now, hot, a, 0xd8d4c0);
   } },
-  // 旋舞斩：舞动的彩带绕刃飞旋
-  sambaSwing: { a: 0xff8ad4, draw: (g, now, _hot, k, c, a) => {
-    k.ribbon(2.4, c, 0.75);
-    k.ribbon(3.6, 0x4ac8ff, 0.35);
-    for (let i = 2; i < k.n; i += 2) {
-      const p = k.at(i, Math.sin(now / 200 + i * 1.6) * 8);
-      poly(g, p.x, p.y, 2 + k.pts[i].w, 4, now / 200 + i, [a, 0xffd45c, 0x8fd45a][i % 3], 0.8);
-    }
-    k.core(0.34, 1.15);
+
+  // 桑巴狂欢：一身羽饰扇过 + 彩屑与鼓点音符
+  sambaSwing: { a: 0xffd45c, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xff8ad4, 0.18);
+    feathers(g, k, now, c, 0.9, 9, 12); // 大片羽饰
+    feathers(g, k, now + 200, 0x4ac8ff, 0.7, 6, 9);
+    petals(g, k, now, 0xffb0e8, 0.8, 7, 4); // 彩屑
+    starRow(g, k, now, a, 0xffffff, 0.85, 5, 2.6);
+    impact(g, tipOf(k).x, tipOf(k).y, now, hot, a, c);
   } },
 };
+
+// ───────── 本文件的几处专用小画法 ─────────
+
+/** 道场：剑风两侧的极短芒线 */
+function edgeHairs2(g: import('phaser').GameObjects.Graphics, k: Parameters<typeof cometBand>[1], color: number, len: number): void {
+  for (let i = 1; i < k.n - 1; i += 2) {
+    const p = k.pts[i];
+    g.lineStyle(1, color, p.a * 0.55);
+    g.lineBetween(p.x, p.y - len * 0.5, p.x, p.y + len * 0.5);
+  }
+}
+/** 深渊：上浮气泡 */
+function bubbles(g: import('phaser').GameObjects.Graphics, k: Parameters<typeof cometBand>[1], now: number, color: number, a: number, n: number): void {
+  for (let j = 0; j < n; j++) {
+    const i = Math.round(((j + 0.4) / n) * (k.n - 1));
+    const p = k.pts[Math.max(0, Math.min(k.n - 1, i))];
+    const ph = (now / 900 + j / n) % 1;
+    const r = 1.6 + ph * 3;
+    g.fillStyle(color, (1 - ph) * a);
+    g.fillCircle(p.x + Math.sin(ph * 8 + j) * 5, p.y - ph * 10, r);
+    g.fillStyle(0xffffff, (1 - ph) * a * 0.5);
+    g.fillCircle(p.x + Math.sin(ph * 8 + j) * 5 - r * 0.3, p.y - ph * 10 - r * 0.3, r * 0.3);
+  }
+}
+/** 风暴：被风扯出的斜雨丝 */
+function windHairs(g: import('phaser').GameObjects.Graphics, k: Parameters<typeof cometBand>[1], now: number): void {
+  for (let i = 1; i < k.n - 1; i += 2) {
+    const p = k.pts[i];
+    const drift = Math.sin(now / 200 + i) * 3;
+    g.lineStyle(1, 0xd0e8ff, p.a * 0.5);
+    g.lineBetween(p.x, p.y, p.x - 8 + drift, p.y + 6);
+  }
+}
+/** 极光：三层错位且缓慢流动的彩带 */
+function prismSplit2(g: import('phaser').GameObjects.Graphics, k: Parameters<typeof cometBand>[1], now: number): void {
+  const cols = [0x5affb0, 0x5ad0ff, 0xc85aff];
+  cols.forEach((col, idx) => {
+    const off = (idx - 1) * 5;
+    for (let i = 1; i < k.n; i++) {
+      const wave = Math.sin(now / 400 + i * 0.5 + idx) * 3;
+      g.lineStyle(Math.max(1, k.pts[i].w * 0.3), col, k.pts[i].a * 0.6);
+      g.lineBetween(k.pts[i - 1].x + off, k.pts[i - 1].y + wave, k.pts[i].x + off, k.pts[i].y + wave);
+    }
+  });
+}
+const midX = (k: Parameters<typeof cometBand>[1]) => k.pts[Math.floor(k.n / 2)].x;
+const midY = (k: Parameters<typeof cometBand>[1]) => k.pts[Math.floor(k.n / 2)].y;

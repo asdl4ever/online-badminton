@@ -1,127 +1,57 @@
 import type { SwingArt } from './shared';
+import {
+  starRow, ripples, sparks, plates, puffs, embers, edgeHairs, orbiters, cometBand,
+  glowHalo, tipOf, impact,
+} from './vocab';
 
-/** 批九主题挥拍拖尾（童话王国 / 深夜食堂 / 猫咖物语）。kit 提供轨迹 pts/ribbon/core/at/dot。 */
+/** 批九挥拍拖尾（童话王国 / 深夜食堂 / 猫咖物语）*/
+
 export const SWINGS_10: Record<string, SwingArt> = {
-  taleSwing: { a: 0x9b5cff, draw: (g, now, hot, kit, c, a) => {
-    // 魔法冲击：魔杖挥出的魔法冲击——星辉刃 + 魔阵环 + 星星爆散 + 彩泡
-    kit.ribbon(10, c, 0.5 * hot);
-    kit.ribbon(5, 0xffffff, 0.75 * hot);
-    kit.ribbon(2.4, a, 0.85 * hot, -1.2);
-    // 魔阵环（球头处的旋转魔阵：双环 + 四角星）
-    const head = kit.at(kit.n - 1);
-    const rot = now / 250;
-    g.lineStyle(1.6, a, 0.8 * hot);
-    g.strokeCircle(head.x, head.y, 8);
-    g.lineStyle(1, c, 0.6 * hot);
-    g.strokeCircle(head.x, head.y, 12);
-    for (let k = 0; k < 4; k++) {
-      const ang = rot + (k / 4) * Math.PI * 2;
-      g.fillStyle(a, 0.9 * hot);
-      g.save();
-      g.translateCanvas(head.x + Math.cos(ang) * 12, head.y + Math.sin(ang) * 12);
-      g.rotateCanvas(ang);
-      g.fillPoints([
-        { x: 0, y: -3.4 }, { x: 2.4, y: 0 }, { x: 0, y: 3.4 }, { x: -2.4, y: 0 },
-      ] as never, true);
-      g.restore();
-    }
-    g.fillStyle(0xffffff, 0.9 * hot);
-    g.fillCircle(head.x, head.y, 2.4);
-    for (let k = 0; k < 5; k++) { // 星星爆散
-      const i = Math.floor(((k + 0.3) / 5) * (kit.n - 1));
-      const p = kit.at(i);
-      const ph = (now / 350 + k / 5) % 1;
-      g.save();
-      g.translateCanvas(p.x + Math.sin(ph * 4 + k) * 5, p.y - ph * 10);
-      g.rotateCanvas(ph * 5 + k);
-      g.fillStyle(k % 2 ? a : c, (0.8 * (1 - ph)) * hot);
-      g.fillPoints([
-        { x: 0, y: -3 }, { x: 2.4, y: 0 }, { x: 0, y: 3 }, { x: -2.4, y: 0 },
-      ] as never, true);
-      g.restore();
-    }
-    for (let k = 0; k < 3; k++) { // 彩泡（浮起的彩泡）
-      const ph = (now / 700 + k / 3) % 1;
-      g.lineStyle(1, 0xffffff, 0.5 * (1 - ph) * hot);
-      g.strokeCircle(head.x - 8 + k * 8, head.y + 6 - ph * 20, 2 + ph * 3);
-    }
+  // 魔法棒：一列转动的星 + 亮粉 + 收尾一朵小魔法环
+  taleSwing: { a: 0xffb0e8, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xffb0e8, 0.16);
+    starRow(g, k, now, 0xffe89a, 0xffffff, 0.95, 7, 3.4);
+    sparks(g, k, now, 0xffd0f0, 0.9, 9, 22); // 亮粉
+    orbiters(g, tipOf(k).x, tipOf(k).y, now, c, 0.9, 4, 12, 6, 420, 2);
+    const t = tipOf(k);
+    ripples(g, t.x, t.y, now, a, 0.5 + hot * 0.35, 3, 26 + hot * 12, 110);
   } },
-  dinSwing: { a: 0xff7a3a, draw: (g, now, hot, kit, c, a) => {
-    // 颠勺猛火：大勺扬起的猛火——火舌扫面 + 勺影 + 食材飞溅 + 灶火星
-    kit.ribbon(13, 0xd88a3a, 0.35 * hot);
-    kit.ribbon(8, c, 0.6 * hot);
-    kit.ribbon(3.4, 0xffe15c, 0.9 * hot);
-    // 勺影残像（轨迹上两个铁勺影）
-    for (let k = 1; k <= 2; k++) {
-      const p = kit.at(Math.max(0, kit.n - k * 6));
-      g.save();
-      g.translateCanvas(p.x, p.y);
-      g.rotateCanvas(k * 0.6 + Math.sin(now / 200) * 0.2);
-      g.fillStyle(0x39424e, (0.5 - k * 0.15) * hot);
-      g.fillEllipse(0, 0, 12, 8);
-      g.fillRect(-2, 4, 4, 10);
-      g.restore();
-    }
-    // 食材飞溅（青葱/辣椒丁在火里跳）
-    const cols = [0x7dffc4, 0xe8404a, 0xffd45c, 0xf0ead8];
-    for (let k = 0; k < 6; k++) {
-      const i = Math.floor(((k + 0.25) / 6) * (kit.n - 1));
-      const p = kit.at(i);
-      const ph = (now / 300 + k / 6) % 1;
-      g.fillStyle(cols[k % 4], (0.9 * (1 - ph)) * hot);
-      g.fillRect(p.x + Math.sin(k * 2.4) * 6 - 1.4, p.y - Math.sin(ph * Math.PI) * 12 - 1.4, 2.8, 2.8);
-    }
-    // 灶火星（球头喷出的火星）
-    for (let k = 0; k < 4; k++) {
-      const i = Math.floor(((k + 0.4) / 4) * (kit.n - 1));
-      const p = kit.at(i);
-      const ph = (now / 250 + k / 4) % 1;
-      const gl = 0.5 + 0.5 * Math.abs(Math.sin(now / 160 + k * 2));
-      g.fillStyle(k % 2 ? a : 0xffe15c, gl * (1 - ph) * hot);
-      g.fillCircle(p.x + Math.sin(ph * 5 + k) * 6, p.y - ph * 12, 1.5 * (1 - ph) + 0.5);
-    }
-    const head = kit.at(kit.n - 1);
-    g.fillStyle(0xffe15c, 0.9 * hot);
-    g.fillCircle(head.x, head.y, 2.6);
-    g.fillStyle(0xffffff, 0.7 * hot);
-    g.fillCircle(head.x, head.y, 1.2);
+
+  // 铁板铲：一路热气与油星 + 铲面反光 + 焦香余烬
+  dinSwing: { a: 0xffd45c, draw: (g, now, hot, k, _c, a) => {
+    glowHalo(g, k, 0xff8a3c, 0.14);
+    plates(g, k, now, 0x8a92a0, 0.9, 5, 8); // 铲面
+    puffs(g, k, now, 0xf0f0e8, 0.8, 10, 14); // 热气
+    sparks(g, k, now, 0xffc24a, 0.9, 8, 18); // 油星
+    embers(g, k, now, 0xff6a2a, 0x4a3a2a, 0.8, 6); // 焦香
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, a, 0x8a92a0);
   } },
-  catSwing: { a: 0xe8a050, draw: (g, now, hot, kit, c, a) => {
-    // 猫猫重击：巨猫爪拍击——软爪巨痕 + 肉球冲击 + 爪痕三线 + 惊飞毛絮
-    kit.ribbon(16, c, 0.45 * hot);
-    kit.ribbon(9, a, 0.6 * hot);
-    kit.ribbon(3.6, 0xffd8a8, 0.85 * hot);
-    // 软爪巨痕（球头处的圆爪痕 + 三趾）
-    const head = kit.at(kit.n - 1);
-    const squish = 1 + Math.sin(now / 200) * 0.1;
-    g.fillStyle(c, 0.7 * hot);
-    g.fillEllipse(head.x, head.y, 12 * squish, 8);
-    g.fillStyle(a, 0.9 * hot);
-    for (let k = 0; k < 3; k++) {
-      g.fillCircle(head.x - 3.4 + k * 3.4, head.y - 4.4, 1.8);
+
+  // 猫爪连击：粉肉球掌印 + 绒毛 + 追着跑的小毛球
+  catSwing: { a: 0xffb0c8, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xffb0c8, 0.14);
+    cometBand(g, k, c, 0.55, 0.7); // 软乎乎的掌风
+    // 沿轨迹的肉球掌印
+    for (let i = 1; i < k.n - 1; i += 3) {
+      const p = k.pts[i];
+      const al = k.pts[i].a * 0.85;
+      g.fillStyle(a, al);
+      g.fillCircle(p.x, p.y, 3.4 + k.pts[i].w * 0.16);
+      for (let s = 0; s < 4; s++) {
+        const ang = -1.9 + s * 0.5;
+        g.fillStyle(0xffffff, al * 0.8);
+        g.fillCircle(p.x + Math.cos(ang) * 5, p.y + Math.sin(ang) * 5, 1.4);
+      }
     }
-    g.fillStyle(0xffd8a8, 0.8 * hot);
-    g.fillEllipse(head.x, head.y, 6 * squish, 4);
-    // 肉球冲击波（外扩的软环）
-    const ph = (now / 500) % 1;
-    g.lineStyle(3 * (1 - ph) + 0.6, a, (0.6 * (1 - ph)) * hot);
-    g.strokeCircle(head.x, head.y, 8 + ph * 16);
-    // 爪痕三线（轨迹中段的抓痕线）
-    const mid = kit.at(Math.floor(kit.n / 2));
-    g.lineStyle(1.6, a, 0.7 * hot);
-    for (let k = -1; k <= 1; k++) {
-      g.lineBetween(mid.x - 5, mid.y + k * 4, mid.x + 5, mid.y + k * 4 + 2);
-    }
-    for (let k = 0; k < 6; k++) { // 惊飞毛絮
-      const i = Math.floor(((k + 0.25) / 6) * (kit.n - 1));
-      const p = kit.at(i);
-      const pk = (now / 380 + k / 6) % 1;
-      g.fillStyle(k % 2 ? 0xffb0c8 : 0xffd8a8, (0.8 * (1 - pk)) * hot);
-      g.fillCircle(p.x + Math.sin(k * 2.4) * 6 + pk * 4, p.y - pk * 11, 1.5 * (1 - pk) + 0.5);
-      g.fillStyle(0xffffff, 0.4 * (1 - pk) * hot);
-      g.fillCircle(p.x + Math.sin(k * 2.4) * 6 + pk * 4 - 0.6, p.y - pk * 11 - 0.6, 0.7);
-    }
-    g.fillStyle(0xffd8a8, 0.9 * hot);
-    g.fillCircle(head.x, head.y, 2);
+    edgeHairs(g, k, 0xfff0f4, 0.6, 5, 2); // 绒毛
+    orbiters(g, mid(k).x, mid(k).y, now, 0xfff0f4, 0.8, 3, 22, 10, 700, 2.4); // 追着跑的毛球
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, 0xffffff, a);
   } },
 };
+
+/** 轨迹中点（本款专用） */
+function mid(k: Parameters<typeof cometBand>[1]): { x: number; y: number; w: number; a: number } {
+  return k.pts[Math.floor(k.n / 2)];
+}

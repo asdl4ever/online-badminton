@@ -273,10 +273,9 @@ export function drawSwingTrail(
     return;
   }
 
-  // 全局底光：所有风格都先垫两层又宽又淡的光晕，挥拍轨迹在任何球场上都读得出来
-  ribbon(3.2, color, 0.14);
-  ribbon(2.0, color, 0.22);
-
+  // ⚠️ 这里**不再**给所有风格垫同一条宽底光带——那正是「70 款看起来都像换皮」的根源
+  // （大家共享同一个带状剪影，只剩颜色不同）。改成：自定义画法自己画主剪影 + 淡外光；
+  // 没命中自定义画法的基础款，才在这里兜底垫光，保证球场上读得出来。
   // 主题挥拍拖尾：逐款独立构图（draw/swings-theme/），复用同一条真实轨迹
   if (drawSwingCustom(g, now, hot, style, { pts, n, ribbon, core, at, dot, wobble }, color)) {
     if (FIVE_STAR_SWINGS.has(style)) starSwingExtras();
@@ -297,6 +296,10 @@ export function drawSwingTrail(
     g.fillStyle(0xffffff, Math.min(1, 0.4 + 0.5 * hot));
     g.fillCircle(h.x, h.y, 4 + 4 * hot);
   }
+
+  // 基础款（无自定义画法）的兜底底光：只在这里出现，主题款各自负责自己的光
+  ribbon(3.2, color, 0.14);
+  ribbon(2.0, color, 0.22);
 
   switch (style) {
     case 'slash': {

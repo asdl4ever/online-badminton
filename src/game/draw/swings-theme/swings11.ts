@@ -1,147 +1,48 @@
-import { TAU, type SwingArt } from './shared';
+import type { SwingArt } from './shared';
+import {
+  dashLine, plates, shards, bolts, puffs, embers, starRow, ripples, petals, notes, cracks,
+  glowHalo, tipOf, impact,
+} from './vocab';
 
-/** 批十主题挥拍拖尾（电竞赛场 / 末日废土 / 星光偶像）。kit 提供轨迹 pts/ribbon/core/at/dot。 */
+/** 批十挥拍拖尾（电竞赛场 / 末日废土 / 星光偶像）*/
+
 export const SWINGS_11: Record<string, SwingArt> = {
-  esportSwing: { a: 0x00e5ff, draw: (g, now, hot, kit, c, a) => {
-    // 终结一击：决胜局的终结技——超窄极速刃 + 双频残像 + K.O. 爆字闪 + 帧冻结线
-    kit.ribbon(7, c, 0.6 * hot);
-    kit.ribbon(3, 0xffffff, 0.9 * hot);
-    kit.ribbon(1.4, a, 0.9 * hot, -1.2);
-    // 双频残像（轨迹上的青/品红错位重影）
-    for (let k = 0; k < 2; k++) {
-      const off = k ? 3 : -3;
-      g.lineStyle(1.6, k ? a : c, 0.5 * hot);
-      g.beginPath();
-      for (let s = 0; s < kit.n; s += 2) {
-        const p = kit.at(s);
-        if (s === 0) g.moveTo(p.x + off, p.y);
-        else g.lineTo(p.x + off, p.y);
-      }
-      g.strokePath();
-    }
-    // K.O. 爆字闪（球头处周期闪出的爆裂星芒）
-    const head = kit.at(kit.n - 1);
-    const burst = (now / 650) % 1;
-    const bl = Math.abs(Math.sin(now / 140));
-    for (let k = 0; k < 6; k++) {
-      const ang = (k / 6) * TAU + now / 300;
-      const len = 6 + burst * 12;
-      g.lineStyle(2, k % 2 ? a : 0xffffff, (0.9 - burst * 0.6) * hot);
-      g.lineBetween(head.x + Math.cos(ang) * 4, head.y + Math.sin(ang) * 4, head.x + Math.cos(ang) * (4 + len), head.y + Math.sin(ang) * (4 + len));
-    }
-    g.fillStyle(0xffffff, bl * hot);
-    g.fillCircle(head.x, head.y, 3);
-    // 帧冻结线（轨迹上的竖直扫描细线）
-    for (let k = 0; k < 4; k++) {
-      const i = Math.floor(((k + 0.3) / 4) * (kit.n - 1));
-      const p = kit.at(i);
-      g.lineStyle(1, c, 0.4 * hot);
-      g.lineBetween(p.x, p.y - 8, p.x, p.y + 8);
-    }
+  // 终结一击：扫描脉冲 + 全息判定板 + 命中处 ARC 电弧与数据碎片
+  esportSwing: { a: 0xff2e88, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, c, 0.16);
+    dashLine(g, k, now, c, 1, 4, 0.22); // 扫描脉冲
+    plates(g, k, now, 0x11304a, 0.85, 6, 6); // 全息判定板（六边）
+    bolts(g, k, now, a, 0xffffff, 0.8, 4); // ARC 电弧
+    shards(g, k, now, 0x8ae0ff, 0.75, 5, 9, 2.2); // 数据碎片
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, a, c);
   } },
-  wasteSwing: { a: 0xff8a3c, draw: (g, now, hot, kit, c, a) => {
-    // 爆裂重锤：废土重锤的爆裂一击——重锤弧面 + 链锤残影 + 爆炸火球 + 碎铁飞溅
-    kit.ribbon(16, 0x6a5a3a, 0.4 * hot);
-    kit.ribbon(10, c, 0.6 * hot);
-    kit.ribbon(4, 0xffe15c, 0.9 * hot);
-    // 链锤残影（轨迹上三个渐隐铁球）
-    for (let k = 1; k <= 3; k++) {
-      const p = kit.at(Math.max(0, kit.n - k * 6));
-      g.fillStyle(0x39424e, (0.55 - k * 0.14) * hot);
-      g.fillCircle(p.x, p.y, 8 - k * 1.4);
-      g.fillStyle(0x8a94a2, (0.5 - k * 0.13) * hot);
-      g.fillCircle(p.x - 1.4, p.y - 1.4, 3.4 - k * 0.7);
-      // 链锤尖刺
-      for (let s = 0; s < 4; s++) {
-        const ang = (s / 4) * TAU + k;
-        g.fillStyle(0x8a94a2, (0.5 - k * 0.13) * hot);
-        g.fillTriangle(
-          p.x + Math.cos(ang) * (8 - k * 1.4), p.y + Math.sin(ang) * (8 - k * 1.4),
-          p.x + Math.cos(ang + 0.5) * (8 - k * 1.4), p.y + Math.sin(ang + 0.5) * (8 - k * 1.4),
-          p.x + Math.cos(ang + 0.25) * (12 - k * 1.6), p.y + Math.sin(ang + 0.25) * (12 - k * 1.6),
-        );
-      }
+
+  // 爆裂重锤：烟尘炸开 + 地面放射裂纹 + 崩起的钢渣与余烬
+  wasteSwing: { a: 0xff8a3c, draw: (g, now, hot, k, _c, a) => {
+    glowHalo(g, k, 0x8a7a5a, 0.14);
+    puffs(g, k, now, 0x4a4438, 0.9, 10, 15); // 黑烟
+    puffs(g, k, now, 0xd8c8b0, 0.5, 6, 12); // 扬尘
+    shards(g, k, now, 0x8a8a92, 0.85, 7, 10, 1.8); // 钢渣
+    embers(g, k, now, a, 0x4a3a2a, 0.9, 8);
+    // 轨迹下方炸裂的地面裂纹
+    for (let i = 2; i < k.n - 1; i += 4) {
+      const p = k.pts[i];
+      cracks(g, p.x, p.y + 8, now, 0x1a1a20, 0.5, 3, 10);
     }
-    // 爆炸火球（球头周期爆开的三层火球）
-    const head = kit.at(kit.n - 1);
-    const boom = (now / 700) % 1;
-    if (boom < 0.5) {
-      const bz = Math.sin(boom * Math.PI);
-      g.fillStyle(c, 0.5 * bz * hot);
-      g.fillCircle(head.x, head.y, 10 + bz * 10);
-      g.fillStyle(0xffe15c, 0.8 * bz * hot);
-      g.fillCircle(head.x, head.y, 6 + bz * 5);
-      g.fillStyle(0xffffff, 0.9 * bz * hot);
-      g.fillCircle(head.x, head.y, 2.6);
-    }
-    for (let k = 0; k < 6; k++) { // 碎铁飞溅
-      const i = Math.floor(((k + 0.2) / 6) * (kit.n - 1));
-      const p = kit.at(i);
-      const ph = (now / 320 + k / 6) % 1;
-      g.fillStyle(k % 2 ? 0x8a94a2 : a, (0.85 * (1 - ph)) * hot);
-      g.save();
-      g.translateCanvas(p.x + Math.sin(k * 2.4) * 6, p.y - ph * 12);
-      g.rotateCanvas(ph * 8 + k);
-      g.fillRect(-1.6, -1.2, 3.2, 2.4);
-      g.restore();
-    }
+    const t = tipOf(k);
+    impact(g, t.x, t.y, now, hot, a, 0x4a4438);
   } },
-  idolSwing: { a: 0xff5a8a, draw: (g, now, hot, kit, c, a) => {
-    // 谢幕爆点：演唱会谢幕的最后一击——星光辉刃 + 荧光海浪 + 抛洒星光 + 爆点闪光
-    kit.ribbon(12, c, 0.5 * hot);
-    kit.ribbon(7, 0xffd45c, 0.65 * hot);
-    kit.ribbon(3, 0xffffff, 0.9 * hot);
-    // 星光辉刃（球头处的五角星大爆星）
-    const head = kit.at(kit.n - 1);
-    const spin = now / 200;
-    g.fillStyle(a, 0.3 * hot);
-    g.fillCircle(head.x, head.y, 12);
-    g.fillStyle(c, 0.95 * hot);
-    g.save();
-    g.translateCanvas(head.x, head.y);
-    g.rotateCanvas(spin);
-    g.fillPoints((() => {
-      const vs = [];
-      for (let s = 0; s < 10; s++) {
-        const ang = (s / 10) * TAU - Math.PI / 2;
-        const rr = s % 2 ? 3.4 : 8.4;
-        vs.push({ x: Math.cos(ang) * rr, y: Math.sin(ang) * rr });
-      }
-      return vs;
-    })() as never, true);
-    g.restore();
-    g.fillStyle(0xffffff, 0.85 * hot);
-    g.fillCircle(head.x, head.y, 2.4);
-    // 荧光海浪（轨迹下方的应援浪两道）
-    for (let k = 0; k < 2; k++) {
-      g.lineStyle(2.4, k ? a : c, 0.5 * hot);
-      g.beginPath();
-      for (let s = 0; s < kit.n; s++) {
-        const p = kit.at(s);
-        const y = p.y + 8 + k * 4 + Math.sin(s * 0.7 + now / 220 + k) * 2.4;
-        if (s === 0) g.moveTo(p.x, y);
-        else g.lineTo(p.x, y);
-      }
-      g.strokePath();
-    }
-    // 抛洒星光
-    for (let k = 0; k < 6; k++) {
-      const i = Math.floor(((k + 0.25) / 6) * (kit.n - 1));
-      const p = kit.at(i);
-      const ph = (now / 420 + k / 6) % 1;
-      g.save();
-      g.translateCanvas(p.x + Math.sin(k * 2.4) * 7 + pk(ph, k), p.y - ph * 14);
-      g.rotateCanvas(ph * 6 + k);
-      g.fillStyle(k % 2 ? a : 0xffd45c, (0.85 * (1 - ph)) * hot);
-      g.fillPoints([
-        { x: 0, y: -2.4 }, { x: 2.4, y: 0 }, { x: 0, y: 2.4 }, { x: -2.4, y: 0 },
-      ] as never, true);
-      g.restore();
-    }
-    function pk(ph: number, k: number): number { return Math.sin(ph * 4 + k) * 2; }
-    // 爆点闪光（球头白闪）
-    const flash = Math.abs(Math.sin(now / 150));
-    g.fillStyle(0xffffff, flash * 0.8 * hot);
-    g.fillCircle(head.x, head.y, 4);
+
+  // 谢幕爆点：星海爆闪 + 彩带花瓣 + 升起的音符与声波环
+  idolSwing: { a: 0xffd45c, draw: (g, now, hot, k, c, a) => {
+    glowHalo(g, k, 0xffb0e8, 0.18);
+    starRow(g, k, now, 0xffffff, c, 0.95, 7, 3);
+    petals(g, k, now, 0xffb0e8, 0.7, 7, 4.4); // 彩带
+    notes(g, k, now, 0xffffff, 0.8, 4); // 音符
+    const t = tipOf(k);
+    ripples(g, t.x, t.y, now, c, 0.55 + hot * 0.35, 3, 34 + hot * 14, 95);
+    ripples(g, t.x, t.y, now + 180, a, 0.35, 2, 40, 140);
+    impact(g, t.x, t.y, now, hot, 0xffffff, c);
   } },
 };
