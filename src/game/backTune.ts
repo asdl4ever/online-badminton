@@ -41,5 +41,4 @@ export function setBackTune(ref: string, tune: BackTune): void {
   }
 }
 
-/** 单件默认的水平偏移（肩锚向身后偏，避免被躯干挡住），逐件 ox 叠加在其上 */
-export const BACK_DEFAULT_OX = -14;
+/** 单件默认居中挂在肩锚（无内置偏移）；逐件 ox 可自定义左右位置 */

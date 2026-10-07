@@ -78,6 +78,7 @@ function boot(session: NetLink | null) {
   const data: PaintSceneData = {
     session,
     trailStyle: customize.cosmetic.trailStyle,
+    editable: !session,
     onChunk: (id, s, c, pts, done) => {
       session?.send({ t: 'paintStroke', id, s, c, pts, ...(done ? { done: 1 as const } : {}) });
     },
@@ -98,7 +99,6 @@ function boot(session: NetLink | null) {
     callbacks: { postBoot: (g) => g.scene.add('PaintScene', PaintScene, true, data) },
   });
   bindCanvasSize(game, container.value);
-  if (!session) scene()?.setEditable(true); // 单机自由涂鸦
 }
 
 // ---- 联机 ------------------------------------------------------------------
@@ -426,6 +426,13 @@ watch(
 .paint-canvas {
   position: absolute;
   inset: 0;
+}
+
+/* 关键：手机上手指拖动画笔时别让浏览器接管手势去滚页面（否则 pointercancel，画不了） */
+.paint-canvas :deep(canvas) {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .paint-score {

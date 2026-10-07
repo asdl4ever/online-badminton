@@ -21,6 +21,8 @@ import {
 } from '../game/items';
 import { CHEST_THEMES, themeOf } from '../game/chest';
 import { hasPetBonus, petBonusOf, petBonusShort, petBonusText } from '../game/pets';
+import { isSingleBack } from '../game/draw/wings';
+import { getBackTune, setBackTune } from '../game/backTune';
 import type {
   AuraId,
   BackId,
@@ -285,6 +287,33 @@ function cellKey(item: Item | null, idx: number): string {
   return item ? `${item.slot}:${item.ref}` : `empty:${idx}`;
 }
 
+/** 背挂逐件微调：正在演示或已装备的背部是「单件背挂物件」时，可调画层与水平位置 */
+const ver = ref(0); // 调参写 localStorage，用它触发界面刷新
+const tuneBackRef = computed(() => {
+  ver.value;
+  if (staged.value && staged.value.slot === 'back') return staged.value.ref;
+  const r = currentRef('back');
+  return r || 'none';
+});
+const tunable = computed(() => {
+  ver.value;
+  const r = tuneBackRef.value;
+  return r !== 'none' && isSingleBack(r);
+});
+const tune = computed(() => {
+  ver.value;
+  return getBackTune(tuneBackRef.value);
+});
+
+function retune(patch: { front?: boolean; ox?: number }): void {
+  const cur = getBackTune(tuneBackRef.value);
+  setBackTune(tuneBackRef.value, {
+    front: patch.front ?? cur.front,
+    ox: Math.max(-40, Math.min(40, patch.ox ?? cur.ox)),
+  });
+  ver.value++;
+}
+
 /** label of whatever is equipped in a slot (shown on the character side) */
 function equippedLabel(slot: ItemSlot): string {
   const ref = currentRef(slot);
@@ -303,6 +332,30 @@ function equippedLabel(slot: ItemSlot): string {
       <p v-if="staged" class="muted bp__stage-hint">
         🎬 左边演的就是它在球场上的样子（循环播放，换页签或点别的装扮就回静态）
       </p>
+      <div v-if="tunable" class="bp__tune">
+        <span class="bp__tune-label">背挂调整</span>
+        <button
+          class="bp__tune-btn"
+          :class="{ 'is-front': tune.front }"
+          type="button"
+          :title="tune.front ? '当前：画在身前（点击切回身后）' : '当前：画在身后（点击移到身前，不被身体挡住）'"
+          @click="retune({ front: !tune.front })"
+        >
+          {{ tune.front ? '身前' : '身后' }}
+        </button>
+        <button class="bp__tune-btn" type="button" title="向左移" @click="retune({ ox: tune.ox - 2 })">←</button>
+        <span class="bp__tune-ox num">{{ tune.ox > 0 ? `+${tune.ox}` : tune.ox }}</span>
+        <button class="bp__tune-btn" type="button" title="向右移" @click="retune({ ox: tune.ox + 2 })">→</button>
+        <button
+          v-if="tune.ox !== 0 || tune.front"
+          class="bp__tune-btn bp__tune-reset"
+          type="button"
+          title="恢复默认"
+          @click="retune({ front: false, ox: 0 })"
+        >
+          ↺
+        </button>
+      </div>
       <div class="bp__loadout">
         <div v-for="slot in SLOT_ORDER" :key="slot" class="bp__loadout-row">
           <span class="bp__loadout-slot">{{ SLOT_LABELS[slot] }}</span>
@@ -484,6 +537,50 @@ function equippedLabel(slot: ItemSlot): string {
   margin: var(--s2) 0 0;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.bp__tune {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--s2);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.bp__tune-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-right: 2px;
+}
+
+.bp__tune-btn {
+  height: 30px;
+  min-width: 30px;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.bp__tune-btn.is-front {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.bp__tune-reset {
+  color: var(--text-dim);
+}
+
+.bp__tune-ox {
+  min-width: 30px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .bp__loadout {

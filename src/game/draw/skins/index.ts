@@ -10,6 +10,9 @@ import { egSpirit, njaSpirit } from './batch6';
 import { cybSpirit, dgSpirit, chronoSpirit } from './batch7';
 import { dunSpirit, aztSpirit, angSpirit } from './batch8';
 import { taleSpirit, dinSpirit, catSpirit } from './batch9';
+import { esportSpirit, wasteSpirit, idolSpirit } from './batch10';
+import { slimeSpirit, nekSpirit, btlSpirit } from './batch11';
+import { tfSpirit, spdSpirit, bstSpirit } from './batch12';
 
 /**
  * 皮肤覆盖层总入口：按 ref 提供重绘后的 painter。
@@ -36,4 +39,9 @@ export const SKIN_OVERRIDES: Record<string, import('./shared').SkinPainter> = {
   dunSpirit, aztSpirit, angSpirit,
   // 童话王国 / 深夜食堂 / 猫咖物语（批九）
   taleSpirit, dinSpirit, catSpirit,
+  // 电竞赛场 / 末日废土 / 星光偶像（批十）
+  esportSpirit, wasteSpirit, idolSpirit,
+  slimeSpirit, nekSpirit, btlSpirit,
+  // 变形机甲 / 蛛网游侠 / 钢铁巨兽（批十二）
+  tfSpirit, spdSpirit, bstSpirit,
 };

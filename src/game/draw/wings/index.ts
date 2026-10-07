@@ -15,7 +15,10 @@ import { WINGS_13 } from './wings13';
 import { WINGS_14 } from './wings14';
 import { WINGS_15 } from './wings15';
 import { WINGS_16 } from './wings16';
-import { BACK_DEFAULT_OX, getBackTune } from '../../backTune';
+import { WINGS_17 } from './wings17';
+import { WINGS_18 } from './wings18'
+import { WINGS_19 } from './wings19';;
+import { getBackTune } from '../../backTune';
 
 /**
  * 主题翅膀的**独立剪影**总入口（分文件见 wings1~4.ts）。
@@ -41,6 +44,9 @@ const WINGS: Record<string, (typeof WINGS_1)[string]> = {
   ...WINGS_14,
   ...WINGS_15,
   ...WINGS_16,
+  ...WINGS_17,
+  ...WINGS_18,
+  ...WINGS_19,
 };
 
 export function hasCustomWings(id: string): boolean {
@@ -72,12 +78,12 @@ export function drawWingsCustom(
   const art = WINGS[id];
   if (!art) return false;
   // 不对称背挂物件：只画一次，不镜像、不随扇动旋转（动效自己画）。
-  // 逐件调参决定画层（身前/身后）与水平微调；默认向身后偏移避免被躯干挡住。
+  // 默认居中挂在肩锚；画层（身前/身后）与水平位置由逐件调参（bmt-back-tune）决定。
   if (art.single) {
     const tune = getBackTune(id);
     if ((tune.front ? 'front' : 'back') !== pass) return false;
     g.save();
-    g.translateCanvas(x + BACK_DEFAULT_OX + tune.ox, baseY);
+    g.translateCanvas(x + tune.ox, baseY);
     art.draw(g, now, flap, art.c, art.a);
     g.restore();
     return true;

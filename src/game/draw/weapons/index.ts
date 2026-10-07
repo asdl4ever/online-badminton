@@ -11,6 +11,10 @@ import { WEAPONS_9 } from './weapons9';
 import { WEAPONS_10 } from './weapons10';
 import { WEAPONS_11 } from './weapons11';
 import { WEAPONS_12 } from './weapons12';
+import { WEAPONS_13 } from './weapons13';
+import { WEAPONS_14 } from './weapons14'
+import { WEAPONS_15 } from './weapons15';
+
 
 /**
  * 主题球拍的**武器化**总入口（分文件分包见同目录 weapons1~4.ts）。
@@ -33,6 +37,9 @@ const WEAPONS: Record<string, (typeof WEAPONS_1)[string]> = {
   ...WEAPONS_10,
   ...WEAPONS_11,
   ...WEAPONS_12,
+  ...WEAPONS_13,
+  ...WEAPONS_14,
+  ...WEAPONS_15,
 };
 
 export function drawWeapon(

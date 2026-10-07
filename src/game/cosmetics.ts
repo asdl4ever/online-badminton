@@ -283,6 +283,42 @@ export type WingId =
   | 'catBackB'
   | 'catBackC'
   | 'catBackD'
+  | 'esportBackA'
+  | 'esportBackB'
+  | 'esportBackC'
+  | 'esportBackD'
+  | 'wasteBackA'
+  | 'wasteBackB'
+  | 'wasteBackC'
+  | 'wasteBackD'
+  | 'idolBackA'
+  | 'idolBackB'
+  | 'idolBackC'
+  | 'idolBackD'
+  | 'slimeBackA'
+  | 'slimeBackB'
+  | 'slimeBackC'
+  | 'slimeBackD'
+  | 'nekBackA'
+  | 'nekBackB'
+  | 'nekBackC'
+  | 'nekBackD'
+  | 'btlBackA'
+  | 'btlBackB'
+  | 'btlBackC'
+  | 'btlBackD'
+  | 'tfBackA'
+  | 'tfBackB'
+  | 'tfBackC'
+  | 'tfBackD'
+  | 'spdBackA'
+  | 'spdBackB'
+  | 'spdBackC'
+  | 'spdBackD'
+  | 'bstBackA'
+  | 'bstBackB'
+  | 'bstBackC'
+  | 'bstBackD'
   | 'shanWingFeather' | 'shanWingCloud';
 
 export type CapeId =
@@ -599,6 +635,24 @@ export type HatId =
   | 'dinHatB'
   | 'catHatA'
   | 'catHatB'
+  | 'esportHatA'
+  | 'esportHatB'
+  | 'wasteHatA'
+  | 'wasteHatB'
+  | 'idolHatA'
+  | 'idolHatB'
+  | 'slimeHatA'
+  | 'slimeHatB'
+  | 'nekHatA'
+  | 'nekHatB'
+  | 'btlHatA'
+  | 'btlHatB'
+  | 'tfHatA'
+  | 'tfHatB'
+  | 'spdHatA'
+  | 'spdHatB'
+  | 'bstHatA'
+  | 'bstHatB'
   | 'runHat';
 
 export type PetId =
@@ -694,6 +748,24 @@ export type TrailId =
   | 'dinTrailB'
   | 'catTrailA'
   | 'catTrailB'
+  | 'esportTrailA'
+  | 'esportTrailB'
+  | 'wasteTrailA'
+  | 'wasteTrailB'
+  | 'idolTrailA'
+  | 'idolTrailB'
+  | 'slimeTrailA'
+  | 'slimeTrailB'
+  | 'nekTrailA'
+  | 'nekTrailB'
+  | 'btlTrailA'
+  | 'btlTrailB'
+  | 'tfTrailA'
+  | 'tfTrailB'
+  | 'spdTrailA'
+  | 'spdTrailB'
+  | 'bstTrailA'
+  | 'bstTrailB'
   | 'runTrail';
 
 /**
@@ -756,6 +828,15 @@ export type SwingTrailId =
   | 'taleSwing'
   | 'dinSwing'
   | 'catSwing'
+  | 'esportSwing'
+  | 'wasteSwing'
+  | 'idolSwing'
+  | 'slimeSwing'
+  | 'nekSwing'
+  | 'btlSwing'
+  | 'tfSwing'
+  | 'spdSwing'
+  | 'bstSwing'
   | 'runSwing';
 
 /**
@@ -833,6 +914,15 @@ export type MountId =
   | 'taleMount'
   | 'dinMount'
   | 'catMount'
+  | 'esportMount'
+  | 'wasteMount'
+  | 'idolMount'
+  | 'slimeMount'
+  | 'nekMount'
+  | 'btlMount'
+  | 'tfMount'
+  | 'spdMount'
+  | 'bstMount'
   | 'shanMountKun';
 
 /** 地环：显示在角色脚下的装饰环（积分荣誉奖励） */
@@ -886,6 +976,15 @@ export type RingId =
   | 'taleRing'
   | 'dinRing'
   | 'catRing'
+  | 'esportRing'
+  | 'wasteRing'
+  | 'idolRing'
+  | 'slimeRing'
+  | 'nekRing'
+  | 'btlRing'
+  | 'tfRing'
+  | 'spdRing'
+  | 'bstRing'
   | 'runRing';
 
 export type AuraId =
@@ -1051,6 +1150,24 @@ export type AuraId =
   | 'dinAuraB'
   | 'catAuraA'
   | 'catAuraB'
+  | 'esportAuraA'
+  | 'esportAuraB'
+  | 'wasteAuraA'
+  | 'wasteAuraB'
+  | 'idolAuraA'
+  | 'idolAuraB'
+  | 'slimeAuraA'
+  | 'slimeAuraB'
+  | 'nekAuraA'
+  | 'nekAuraB'
+  | 'btlAuraA'
+  | 'btlAuraB'
+  | 'tfAuraA'
+  | 'tfAuraB'
+  | 'spdAuraA'
+  | 'spdAuraB'
+  | 'bstAuraA'
+  | 'bstAuraB'
   | 'runAura';
 
 export type RacketSkinId =
@@ -1182,6 +1299,24 @@ export type RacketSkinId =
   | 'dinRacketB'
   | 'catRacketA'
   | 'catRacketB'
+  | 'esportRacketA'
+  | 'esportRacketB'
+  | 'wasteRacketA'
+  | 'wasteRacketB'
+  | 'idolRacketA'
+  | 'idolRacketB'
+  | 'slimeRacketA'
+  | 'slimeRacketB'
+  | 'nekRacketA'
+  | 'nekRacketB'
+  | 'btlRacketA'
+  | 'btlRacketB'
+  | 'tfRacketA'
+  | 'tfRacketB'
+  | 'spdRacketA'
+  | 'spdRacketB'
+  | 'bstRacketA'
+  | 'bstRacketB'
   | 'shanRacketA' | 'shanRacketB';
 
 /**
@@ -1258,6 +1393,15 @@ export type CharacterSkin =
   | 'taleSpirit'
   | 'dinSpirit'
   | 'catSpirit'
+  | 'esportSpirit'
+  | 'wasteSpirit'
+  | 'idolSpirit'
+  | 'slimeSpirit'
+  | 'nekSpirit'
+  | 'btlSpirit'
+  | 'tfSpirit'
+  | 'spdSpirit'
+  | 'bstSpirit'
   | 'hunDun' | 'jiuweiHu' | 'baShe' | 'guDiao' | 'yuYu';
 const SKIN_IDS: CharacterSkin[] = [
   'none',
@@ -1317,6 +1461,15 @@ const SKIN_IDS: CharacterSkin[] = [
   'taleSpirit',
   'dinSpirit',
   'catSpirit',
+  'esportSpirit',
+  'wasteSpirit',
+  'idolSpirit',
+  'slimeSpirit',
+  'nekSpirit',
+  'btlSpirit',
+  'tfSpirit',
+  'spdSpirit',
+  'bstSpirit',
 ];
 
 export interface Cosmetic {
@@ -1464,6 +1617,42 @@ const WING_IDS: WingId[] = [
   'catBackB',
   'catBackC',
   'catBackD',
+  'esportBackA',
+  'esportBackB',
+  'esportBackC',
+  'esportBackD',
+  'wasteBackA',
+  'wasteBackB',
+  'wasteBackC',
+  'wasteBackD',
+  'idolBackA',
+  'idolBackB',
+  'idolBackC',
+  'idolBackD',
+  'slimeBackA',
+  'slimeBackB',
+  'slimeBackC',
+  'slimeBackD',
+  'nekBackA',
+  'nekBackB',
+  'nekBackC',
+  'nekBackD',
+  'btlBackA',
+  'btlBackB',
+  'btlBackC',
+  'btlBackD',
+  'tfBackA',
+  'tfBackB',
+  'tfBackC',
+  'tfBackD',
+  'spdBackA',
+  'spdBackB',
+  'spdBackC',
+  'spdBackD',
+  'bstBackA',
+  'bstBackB',
+  'bstBackC',
+  'bstBackD',
 ];
 const CAPE_IDS: CapeId[] = [
   'none', 'hero', 'shadowCape', 'storm', 'emberCape', 'frostCape', 'leafCape', 'royal', 'void', 'dragonCape', 'angelCape', 'phoenixCape',
@@ -1616,6 +1805,24 @@ const HAT_IDS: HatId[] = [
   'dinHatB',
   'catHatA',
   'catHatB',
+  'esportHatA',
+  'esportHatB',
+  'wasteHatA',
+  'wasteHatB',
+  'idolHatA',
+  'idolHatB',
+  'slimeHatA',
+  'slimeHatB',
+  'nekHatA',
+  'nekHatB',
+  'btlHatA',
+  'btlHatB',
+  'tfHatA',
+  'tfHatB',
+  'spdHatA',
+  'spdHatB',
+  'bstHatA',
+  'bstHatB',
 ];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
@@ -1702,6 +1909,24 @@ const TRAIL_IDS: TrailId[] = [
   'dinTrailB',
   'catTrailA',
   'catTrailB',
+  'esportTrailA',
+  'esportTrailB',
+  'wasteTrailA',
+  'wasteTrailB',
+  'idolTrailA',
+  'idolTrailB',
+  'slimeTrailA',
+  'slimeTrailB',
+  'nekTrailA',
+  'nekTrailB',
+  'btlTrailA',
+  'btlTrailB',
+  'tfTrailA',
+  'tfTrailB',
+  'spdTrailA',
+  'spdTrailB',
+  'bstTrailA',
+  'bstTrailB',
 ];
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
@@ -1746,6 +1971,15 @@ const SWING_TRAIL_IDS: SwingTrailId[] = [
   'taleSwing',
   'dinSwing',
   'catSwing',
+  'esportSwing',
+  'wasteSwing',
+  'idolSwing',
+  'slimeSwing',
+  'nekSwing',
+  'btlSwing',
+  'tfSwing',
+  'spdSwing',
+  'bstSwing',
 ];
 const MOUNT_IDS: MountId[] = [
   'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
@@ -1791,6 +2025,15 @@ const MOUNT_IDS: MountId[] = [
   'taleMount',
   'dinMount',
   'catMount',
+  'esportMount',
+  'wasteMount',
+  'idolMount',
+  'slimeMount',
+  'nekMount',
+  'btlMount',
+  'tfMount',
+  'spdMount',
+  'bstMount',
 ];
 const RING_IDS: RingId[] = [
   'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
@@ -1834,6 +2077,15 @@ const RING_IDS: RingId[] = [
   'taleRing',
   'dinRing',
   'catRing',
+  'esportRing',
+  'wasteRing',
+  'idolRing',
+  'slimeRing',
+  'nekRing',
+  'btlRing',
+  'tfRing',
+  'spdRing',
+  'bstRing',
 ];
 
 /** 地环配色（跟着组别走） */
@@ -1895,6 +2147,15 @@ export const RING_COLORS: Record<RingId, number> = {
   taleRing: 0xff9adf,
   dinRing: 0xf0ead8,
   catRing: 0xffb0c8,
+  esportRing: 0x00e5ff,
+  wasteRing: 0x8a7a5a,
+  idolRing: 0x7ac8ff,
+  slimeRing: 0x7de87d,
+  nekRing: 0xb08aff,
+  btlRing: 0xc8a832,
+  tfRing: 0x5ac8ff,
+  spdRing: 0xff4a5a,
+  bstRing: 0xff6a2a,
 };
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
@@ -1971,6 +2232,24 @@ const AURA_IDS: AuraId[] = [
   'dinAuraB',
   'catAuraA',
   'catAuraB',
+  'esportAuraA',
+  'esportAuraB',
+  'wasteAuraA',
+  'wasteAuraB',
+  'idolAuraA',
+  'idolAuraB',
+  'slimeAuraA',
+  'slimeAuraB',
+  'nekAuraA',
+  'nekAuraB',
+  'btlAuraA',
+  'btlAuraB',
+  'tfAuraA',
+  'tfAuraB',
+  'spdAuraA',
+  'spdAuraB',
+  'bstAuraA',
+  'bstAuraB',
 ];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
@@ -2044,6 +2323,24 @@ const RACKET_SKIN_IDS: RacketSkinId[] = [
   'dinRacketB',
   'catRacketA',
   'catRacketB',
+  'esportRacketA',
+  'esportRacketB',
+  'wasteRacketA',
+  'wasteRacketB',
+  'idolRacketA',
+  'idolRacketB',
+  'slimeRacketA',
+  'slimeRacketB',
+  'nekRacketA',
+  'nekRacketB',
+  'btlRacketA',
+  'btlRacketB',
+  'tfRacketA',
+  'tfRacketB',
+  'spdRacketA',
+  'spdRacketB',
+  'bstRacketA',
+  'bstRacketB',
 ];
 
 export const WING_COLORS: Record<WingId, number> = {
@@ -2237,6 +2534,42 @@ export const WING_COLORS: Record<WingId, number> = {
   catBackB: 0xd9b45c,
   catBackC: 0xc08a3a,
   catBackD: 0xf0d8b8,
+  esportBackA: 0x00e5ff,
+  esportBackB: 0xffd45c,
+  esportBackC: 0x8a94a2,
+  esportBackD: 0xff2e88,
+  wasteBackA: 0x8a6a3a,
+  wasteBackB: 0x6a6a5a,
+  wasteBackC: 0xffd45c,
+  wasteBackD: 0x8a94a2,
+  idolBackA: 0xff9adf,
+  idolBackB: 0xfff6d8,
+  idolBackC: 0xffd45c,
+  idolBackD: 0xff5a8a,
+  slimeBackA: 0x9aff7a,
+  slimeBackB: 0xd0ff9a,
+  slimeBackC: 0x5ac8ff,
+  slimeBackD: 0xffd45c,
+  nekBackA: 0xb08aff,
+  nekBackB: 0xff8ad4,
+  nekBackC: 0xffd45c,
+  nekBackD: 0x8a9aff,
+  btlBackA: 0xd9a83c,
+  btlBackB: 0xc8a832,
+  btlBackC: 0x7dff5a,
+  btlBackD: 0x8a6a2a,
+  tfBackA: 0xff8a2a,
+  tfBackB: 0x8a94a2,
+  tfBackC: 0x5ac8ff,
+  tfBackD: 0xd0e8ff,
+  spdBackA: 0xd8e0e8,
+  spdBackB: 0xff4a5a,
+  spdBackC: 0x2a4a8a,
+  spdBackD: 0x8ae0ff,
+  bstBackA: 0xff6a2a,
+  bstBackB: 0x8a94a2,
+  bstBackC: 0x5a6a3a,
+  bstBackD: 0xffd45c,
 };
 
 /** which silhouette a wing draws with; lets styles look genuinely different */
@@ -2493,6 +2826,42 @@ export const WING_SHAPE: Record<
   catBackB: { kind: 'sail', feathers: 3, len: 52, spread: 0.8, w: 14 },
   catBackC: { kind: 'mech', feathers: 3, len: 52, spread: 0.7, w: 18 },
   catBackD: { kind: 'membrane', feathers: 3, len: 48, spread: 0.7, w: 18 },
+  esportBackA: { kind: 'mech', feathers: 3, len: 50, spread: 0.7, w: 16 },
+  esportBackB: { kind: 'mech', feathers: 3, len: 54, spread: 0.7, w: 14 },
+  esportBackC: { kind: 'sail', feathers: 3, len: 60, spread: 0.8, w: 14 },
+  esportBackD: { kind: 'mech', feathers: 3, len: 52, spread: 0.7, w: 18 },
+  wasteBackA: { kind: 'mech', feathers: 3, len: 48, spread: 0.7, w: 16 },
+  wasteBackB: { kind: 'mech', feathers: 3, len: 54, spread: 0.7, w: 18 },
+  wasteBackC: { kind: 'mech', feathers: 3, len: 44, spread: 0.7, w: 12 },
+  wasteBackD: { kind: 'blade', feathers: 3, len: 56, spread: 0.7, w: 12 },
+  idolBackA: { kind: 'circuit', feathers: 3, len: 54, spread: 1, w: 14 },
+  idolBackB: { kind: 'membrane', feathers: 3, len: 56, spread: 0.7, w: 20 },
+  idolBackC: { kind: 'mech', feathers: 3, len: 46, spread: 0.7, w: 14 },
+  idolBackD: { kind: 'sail', feathers: 3, len: 62, spread: 0.8, w: 18 },
+  slimeBackA: { kind: 'ribbon', feathers: 3, len: 60, spread: 0.7, w: 12 },
+  slimeBackB: { kind: 'mech', feathers: 3, len: 50, spread: 0.7, w: 16 },
+  slimeBackC: { kind: 'feather', feathers: 3, len: 54, spread: 0.8, w: 12 },
+  slimeBackD: { kind: 'blade', feathers: 3, len: 52, spread: 0.6, w: 10 },
+  nekBackA: { kind: 'ribbon', feathers: 3, len: 58, spread: 0.7, w: 12 },
+  nekBackB: { kind: 'membrane', feathers: 3, len: 56, spread: 0.7, w: 14 },
+  nekBackC: { kind: 'feather', feathers: 3, len: 60, spread: 0.8, w: 12 },
+  nekBackD: { kind: 'blade', feathers: 3, len: 62, spread: 0.6, w: 12 },
+  btlBackA: { kind: 'mech', feathers: 3, len: 50, spread: 0.7, w: 16 },
+  btlBackB: { kind: 'mech', feathers: 3, len: 54, spread: 0.7, w: 16 },
+  btlBackC: { kind: 'sail', feathers: 3, len: 62, spread: 0.8, w: 14 },
+  btlBackD: { kind: 'blade', feathers: 3, len: 48, spread: 0.6, w: 12 },
+  tfBackA: { kind: 'mech', feathers: 3, len: 46, spread: 0.7, w: 14 },
+  tfBackB: { kind: 'mech', feathers: 3, len: 50, spread: 0.7, w: 18 },
+  tfBackC: { kind: 'blade', feathers: 3, len: 54, spread: 0.7, w: 14 },
+  tfBackD: { kind: 'sail', feathers: 3, len: 58, spread: 0.7, w: 18 },
+  spdBackA: { kind: 'ribbon', feathers: 3, len: 46, spread: 0.7, w: 14 },
+  spdBackB: { kind: 'membrane', feathers: 3, len: 50, spread: 0.7, w: 18 },
+  spdBackC: { kind: 'mech', feathers: 3, len: 54, spread: 0.7, w: 14 },
+  spdBackD: { kind: 'blade', feathers: 3, len: 58, spread: 0.7, w: 18 },
+  bstBackA: { kind: 'mech', feathers: 3, len: 46, spread: 0.7, w: 14 },
+  bstBackB: { kind: 'blade', feathers: 3, len: 50, spread: 0.7, w: 18 },
+  bstBackC: { kind: 'mech', feathers: 3, len: 54, spread: 0.7, w: 14 },
+  bstBackD: { kind: 'sail', feathers: 3, len: 58, spread: 0.7, w: 18 },
 };
 
 export type CapeKind =
@@ -3151,6 +3520,24 @@ export const HAT_COLORS: Record<HatId, number> = {
   dinHatB: 0xd9453a,
   catHatA: 0x2a2a30,
   catHatB: 0x2a2a30,
+  esportHatA: 0x00e5ff,
+  esportHatB: 0xff2e88,
+  wasteHatA: 0x6a7a4a,
+  wasteHatB: 0x8a6a3a,
+  idolHatA: 0xff9adf,
+  idolHatB: 0xffd45c,
+  slimeHatA: 0x7de87d,
+  slimeHatB: 0xd0ff9a,
+  nekHatA: 0xb08aff,
+  nekHatB: 0xffd45c,
+  btlHatA: 0x7dff5a,
+  btlHatB: 0xc8a832,
+  tfHatA: 0x5ac8ff,
+  tfHatB: 0xff2e88,
+  spdHatA: 0xff4a5a,
+  spdHatB: 0x8ae0ff,
+  bstHatA: 0x8a94a2,
+  bstHatB: 0xff6a2a,
 };
 
 export const HAT_KIND: Record<HatId, HatKind> = {
@@ -3364,6 +3751,24 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   dinHatB: 'band',
   catHatA: 'band',
   catHatB: 'crown',
+  esportHatA: 'band',
+  esportHatB: 'helm',
+  wasteHatA: 'band',
+  wasteHatB: 'helm',
+  idolHatA: 'band',
+  idolHatB: 'crown',
+  slimeHatA: 'band',
+  slimeHatB: 'crown',
+  nekHatA: 'band',
+  nekHatB: 'crown',
+  btlHatA: 'band',
+  btlHatB: 'helm',
+  tfHatA: 'helm',
+  tfHatB: 'helm',
+  spdHatA: 'band',
+  spdHatB: 'helm',
+  bstHatA: 'helm',
+  bstHatB: 'helm',
 };
 
 /**
@@ -3497,6 +3902,14 @@ export const SKIN_HEAD_H: Partial<Record<CharacterSkin, number>> = {
   venicSpirit: 100,
   zhuLong: 112,
   xiangLiu: 114,
+  // 非人形三侠（软泥矮胖、妖猫四足、甲虫带壳）
+  slimeSpirit: 72,
+  nekSpirit: 86,
+  btlSpirit: 90,
+  // 批十二：变形机甲 / 蛛网游侠 / 钢铁巨兽
+  tfSpirit: 104,
+  spdSpirit: 96,
+  bstSpirit: 100,
 };
 
 /** 这只角色的头顶高度（表里没有就按默认小人算） */
@@ -3638,6 +4051,24 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   dinTrailB: 0xff9a3c,
   catTrailA: 0xffb0c8,
   catTrailB: 0xffb070,
+  esportTrailA: 0x00e5ff,
+  esportTrailB: 0xff2e88,
+  wasteTrailA: 0x8a7a5a,
+  wasteTrailB: 0x4a4438,
+  idolTrailA: 0x7ac8ff,
+  idolTrailB: 0xff9adf,
+  slimeTrailA: 0x9aff7a,
+  slimeTrailB: 0xd0ff9a,
+  nekTrailA: 0xb08aff,
+  nekTrailB: 0xffd45c,
+  btlTrailA: 0x7dff5a,
+  btlTrailB: 0xc8a832,
+  tfTrailA: 0xff8a2a,
+  tfTrailB: 0x5ac8ff,
+  spdTrailA: 0xd8e0e8,
+  spdTrailB: 0xff4a5a,
+  bstTrailA: 0x4a4a52,
+  bstTrailB: 0xff6a2a,
 };
 
 /** 挥拍拖尾各风格的主色 */
@@ -3704,6 +4135,15 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   taleSwing: 0x9b5cff,
   dinSwing: 0xff7a3a,
   catSwing: 0xe8a050,
+  esportSwing: 0xff2e88,
+  wasteSwing: 0xff8a3c,
+  idolSwing: 0xff5a8a,
+  slimeSwing: 0x7de87d,
+  nekSwing: 0xb08aff,
+  btlSwing: 0xc8a832,
+  tfSwing: 0xff2e88,
+  spdSwing: 0xff4a5a,
+  bstSwing: 0xff6a2a,
 };
 
 /** 坐骑各款的主色 */
@@ -3786,6 +4226,15 @@ export const MOUNT_COLORS: Record<MountId, number> = {
   taleMount: 0xffffff,
   dinMount: 0x39424e,
   catMount: 0xe8a050,
+  esportMount: 0x00e5ff,
+  wasteMount: 0x8a6a3a,
+  idolMount: 0xff9adf,
+  slimeMount: 0x9aff7a,
+  nekMount: 0xb08aff,
+  btlMount: 0xc8a832,
+  tfMount: 0x8a94a2,
+  spdMount: 0xff4a5a,
+  bstMount: 0x5a6a3a,
 };
 
 export const AURA_COLORS: Record<AuraId, number> = {
@@ -3969,6 +4418,24 @@ export const AURA_COLORS: Record<AuraId, number> = {
   dinAuraB: 0xffd45c,
   catAuraA: 0xffb070,
   catAuraB: 0xffd8a8,
+  esportAuraA: 0x00e5ff,
+  esportAuraB: 0xff2e88,
+  wasteAuraA: 0x8a7a5a,
+  wasteAuraB: 0xff8a3c,
+  idolAuraA: 0xff9adf,
+  idolAuraB: 0x7ac8ff,
+  slimeAuraA: 0x9aff7a,
+  slimeAuraB: 0xd0ff9a,
+  nekAuraA: 0xb08aff,
+  nekAuraB: 0xffd45c,
+  btlAuraA: 0x7dff5a,
+  btlAuraB: 0xc8a832,
+  tfAuraA: 0x5ac8ff,
+  tfAuraB: 0xff8a2a,
+  spdAuraA: 0x8ae0ff,
+  spdAuraB: 0xff4a5a,
+  bstAuraA: 0xff6a2a,
+  bstAuraB: 0xffd45c,
 };
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
@@ -4119,6 +4586,24 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   dinRacketB: 0x39424e,
   catRacketA: 0xffb0c8,
   catRacketB: 0xe8a050,
+  esportRacketA: 0x00e5ff,
+  esportRacketB: 0xff2e88,
+  wasteRacketA: 0x8a6a3a,
+  wasteRacketB: 0x8a94a2,
+  idolRacketA: 0xff9adf,
+  idolRacketB: 0xff5a8a,
+  slimeRacketA: 0x9aff7a,
+  slimeRacketB: 0xd0ff9a,
+  nekRacketA: 0xb08aff,
+  nekRacketB: 0xffd45c,
+  btlRacketA: 0xc8a832,
+  btlRacketB: 0x7dff5a,
+  tfRacketA: 0x8a94a2,
+  tfRacketB: 0xff8a2a,
+  spdRacketA: 0xd8e0e8,
+  spdRacketB: 0xff4a5a,
+  bstRacketA: 0x8a94a2,
+  bstRacketB: 0xff6a2a,
 };
 
 export const EMOJI_PRESETS = [
