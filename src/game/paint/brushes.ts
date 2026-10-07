@@ -222,14 +222,27 @@ function rnd(seed: number): number {
 }
 
 /**
- * 画板用的「挥拍拖尾」：沿笔迹铺一条**平滑光带**（尾细头粗、尾淡头亮）+ 笔尖一个亮核。
+ * 画板用的「挥拍拖尾」——**贴着笔画的一圈光晕**（垫在笔迹下面）。
  *
- * 对局里的击球拖尾是**逐点盖章**（每个采样点画一个圆），在球场上看不出来，
- * 但拿来当笔迹就是一串圆圈——所以画板不用它：
- * 整条轨迹画法的主题拖尾（`drawTrailCustom`）本来就是沿路径成形的，直接沿用；
- * 老款逐点画法换成这里的光带，既保留拖尾的观感，笔迹又是干净的一笔。
+ * 为什么不画细飘带：对局的击球拖尾是逐点盖章，拿来当笔迹就是一串圆圈；而「细的
+ * 半透明飘带」在密集涂鸦里几十条叠起来会糊成一张**线框网**（用户实测的 bug）。
+ * 光晕跟着笔画本体走、宽度只比它大一圈，所以无论怎么乱画都只是「笔画边缘发光」，
+ * 不会画出多余的线；笔尖那一个亮核单独画（整笔就这一个圆点）。
  */
-export function drawPaintTrail(
+export function drawPaintGlow(
+  g: Phaser.GameObjects.Graphics,
+  pts: readonly TrailPoint[],
+  color: number,
+  /** 笔画本体宽度（光晕比它宽一圈） */
+  bodyW: number,
+  weight: number,
+): void {
+  if (pts.length < 2 || weight <= 0 || bodyW <= 0) return;
+  varBand(g, pts, () => bodyW * 1.7 + 4, color, 0.16 * weight);
+}
+
+/** 笔尖亮核（画的时候跟着手走的光点） */
+export function drawPaintTip(
   g: Phaser.GameObjects.Graphics,
   pts: readonly TrailPoint[],
   color: number,
@@ -238,16 +251,6 @@ export function drawPaintTrail(
 ): void {
   const n = pts.length;
   if (n < 2 || weight <= 0) return;
-  // 外光带：由细到粗的一整条（单次填充，不是逐段画线）
-  varBand(g, pts, (i) => 2 + (i / (n - 1)) * 7 * weight, color, 0.16 * weight);
-  // 内白芯：只铺靠笔尖那一段，细一点、亮一点
-  const from = Math.floor(n * 0.35);
-  if (n - from >= 2) {
-    const tail = pts.slice(from);
-    const m = tail.length;
-    varBand(g, tail, (i) => 0.8 + (i / (m - 1)) * 1.8, 0xffffff, 0.3 * weight);
-  }
-  // 笔尖亮核：整笔只有这一处是圆的（画的时候就是跟着手走的光点）
   const head = pts[n - 1];
   const pulse = 0.85 + 0.15 * Math.sin(now / 220);
   g.fillStyle(color, 0.22 * weight);
@@ -256,4 +259,20 @@ export function drawPaintTrail(
   g.fillCircle(head.x, head.y, 4.2);
   g.fillStyle(0xffffff, 0.7 * weight);
   g.fillCircle(head.x, head.y, 1.9);
+}
+
+/** 笔画的**本体宽度**（光晕按它算；喷雾没有实体带 → 0） */
+export function bodyWidth(brush: BrushId, size: number): number {
+  switch (brush) {
+    case 'marker':
+      return Math.max(2, 10 * size);
+    case 'pencil':
+      return Math.max(1.2, 2.6 * size);
+    case 'highlighter':
+      return Math.max(3, 16 * size);
+    case 'brush':
+      return Math.max(4, 17 * size);
+    default:
+      return 0;
+  }
 }

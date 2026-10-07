@@ -5,9 +5,11 @@ import { createPlayerRig, type PlayerRig } from '../draw/rig';
 import type { TrailPoint } from '../draw/trails';
 import { drawTrailCustom } from '../draw/trails-theme';
 import {
+  bodyWidth,
   brushById,
   drawBrushBody,
-  drawPaintTrail,
+  drawPaintGlow,
+  drawPaintTip,
   eraserRadius,
   SIZE_DEFAULT,
   type BrushId,
@@ -527,12 +529,16 @@ export class PaintScene extends Phaser.Scene {
    * 沿整条轨迹成形的，直接沿用；老款（经典 / 火焰 / 彩虹…）走平滑光带。
    */
   private paintStroke(g: Phaser.GameObjects.Graphics, st: Stroke, now: number): void {
-    drawBrushBody(g, st.brush, st.color, st.pts, now, st.size);
     const def = brushById(st.brush);
+    const bodyW = bodyWidth(st.brush, st.size);
+    // ① 光晕垫在最下面（贴着笔画本体，不画细飘带 → 密集涂鸦也不会糊成线框）
+    if (def.trail > 0 && bodyW > 0) drawPaintGlow(g, st.pts, st.color, bodyW, def.trail);
+    // ② 实体笔迹
+    drawBrushBody(g, st.brush, st.color, st.pts, now, st.size);
     if (def.trail <= 0) return;
+    // ③ 主题拖尾（整条轨迹画法）盖在上面；命中就不再加笔尖亮核
     if (drawTrailCustom(g, now, st.style, st.pts, def.trail)) return;
-    // 老款拖尾：光带用笔画自己的颜色（同色晕开），不引入突兀的异色光晕
-    drawPaintTrail(g, st.pts, st.color, def.trail, now);
+    drawPaintTip(g, st.pts, st.color, def.trail, now);
   }
 
   /** 画板旁的画家角色：拿着拍一直在「画」（挥拍拖尾在场边闪） */
