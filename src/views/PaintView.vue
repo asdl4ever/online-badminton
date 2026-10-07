@@ -52,9 +52,8 @@ let game: Phaser.Game | null = null;
  */
 const link = shallowRef<NetLink | null>(null);
 
-/** 一轮分两段：先作画（60s），再猜（60s）。双方都点「完成」就提前进入猜。 */
-const DRAW_SECONDS = 60;
-const GUESS_SECONDS = 60;
+/** 一轮 60 秒：画家边画、猜手边猜（同一段时间） */
+const ROUND_SECONDS = 60;
 
 const phase = ref('');          // 连接阶段的提示文案
 const roomCode = ref('');
@@ -63,15 +62,11 @@ const round = ref(0);
 const turn = ref<'host' | 'guest'>('host');
 const options = ref<string[]>([]);
 const secret = ref('');         // 本轮的词（双方客户端都知道，猜手界面只显示 ?）
-const stage = ref<'idle' | 'wait' | 'pick' | 'draw' | 'guess' | 'done'>('idle');
+const stage = ref<'idle' | 'wait' | 'pick' | 'play' | 'done'>('idle');
 const chat = ref<{ who: 'me' | 'peer' | 'sys'; text: string }[]>([]);
 const scores = ref({ host: 0, guest: 0 });
-/** 作画 / 猜 两段的倒计时 */
-const drawLeft = ref(DRAW_SECONDS);
-const guessLeft = ref(GUESS_SECONDS);
-/** 「完成」按钮：双方都点了就提前进入猜阶段 */
-const readyMe = ref(false);
-const readyPeer = ref(false);
+/** 本轮剩余秒数 */
+const timeLeft = ref(ROUND_SECONDS);
 const guessText = ref('');
 const pickOpen = computed(
   () => inRoom.value && iPaint.value && stage.value === 'pick' && options.value.length > 0,
@@ -148,10 +143,8 @@ const headline = computed(() => {
       return '挑一个词来画';
     case 'wait':
       return '对手在挑词…';
-    case 'draw':
-      return iPaint.value ? `你来画：${secret.value}` : '对手作画中…';
-    case 'guess':
-      return iPaint.value ? `答案：${secret.value}` : '猜猜看！';
+    case 'play':
+      return iPaint.value ? `你来画：${secret.value}` : '猜猜看！';
     case 'done':
       return `答案：${secret.value || wordShown.value}`;
     default:
@@ -161,29 +154,15 @@ const headline = computed(() => {
 
 const subline = computed(() => {
   switch (stage.value) {
-    case 'draw': {
-      const who = iPaint.value
-        ? readyMe.value
-          ? '已点完成，等对手'
-          : '画完点「完成」'
-        : readyPeer.value
-          ? '对手已画好，等你点完成'
-          : '画完也点一下「完成」';
-      return `✏️ 作画 ${Math.max(0, drawLeft.value)}s · ${who}`;
-    }
-    case 'guess':
-      return `🤔 猜 ${Math.max(0, guessLeft.value)}s · ${painterName.value}的这幅画`;
+    case 'play':
+      return iPaint.value
+        ? `⏱ ${Math.max(0, timeLeft.value)}s · 边画边让他猜`
+        : `⏱ ${Math.max(0, timeLeft.value)}s · 打字猜，猜中 +¥${COIN_GUESSER}`;
     case 'done':
       return `我 ${myScore.value} : ${peerScore.value} 对手`;
     default:
       return `${painterName.value}作画 · 稍等`;
   }
-});
-
-/** 「完成」按钮上的字：画家是画完了，猜手是准备好了 */
-const readyLabel = computed(() => {
-  if (readyMe.value) return iPaint.value ? '已提交 ✓' : '已准备 ✓';
-  return iPaint.value ? '画好了 ✓' : '我准备好了 ✓';
 });
 
 function scene(): PaintScene | undefined {
@@ -212,7 +191,22 @@ function boot(session: NetLink | null) {
         ...(done ? { done: 1 as const } : {}),
       });
     },
-    onErase: (ids) => session?.send({ t: 'paintErase', ids }),
+    // 橡皮：先告诉对面擦掉了哪些笔画，再把擦剩的段作为新笔画发过去
+    onErase: (ids, parts) => {
+      session?.send({ t: 'paintErase', ids });
+      for (const p of parts) {
+        session?.send({
+          t: 'paintStroke',
+          id: p.id,
+          b: p.b,
+          s: p.s,
+          c: p.c,
+          w: p.w,
+          pts: p.pts,
+          done: 1,
+        });
+      }
+    },
     onUndo: () => session?.send({ t: 'paintUndo' }),
   };
   game = new Phaser.Game({
@@ -242,17 +236,12 @@ function handle(m: Parameters<NonNullable<NetLink['onMessage']>>[0]): void {
       secret.value = '';
       stage.value = myRole.value === m.turn ? 'pick' : 'wait';
       scene()?.setEditable(false);
+      // 新一轮：先把上一轮的画清掉（不然画布上还留着上一个人画的东西）
+      scene()?.remoteClear();
       break;
     case 'paintPick':
       secret.value = m.word;
-      startDraw();
-      break;
-    case 'paintReady':
-      // 对面点了「完成」：两边都点了就提前开始猜
-      if (m.round === round.value) {
-        readyPeer.value = true;
-        if (readyMe.value) startGuess();
-      }
+      startPlay();
       break;
     case 'paintStroke':
       scene()?.applyRemote(m.id, m.b, m.s, m.c, m.w, m.pts, m.done === 1);
@@ -271,7 +260,7 @@ function handle(m: Parameters<NonNullable<NetLink['onMessage']>>[0]): void {
       break;
     case 'paintSolved':
       // 对面的猜手猜中了：给对面记一分，我这边是画家 → 拿画家的金币
-      if (m.round === round.value && stage.value === 'guess') {
+      if (m.round === round.value && stage.value === 'play') {
         if (myRole.value === 'host') scores.value.guest += 1;
         else scores.value.host += 1;
         reward(COIN_PAINTER, '我是画家');
@@ -293,53 +282,28 @@ function startRound(n: number): void {
   turn.value = n % 2 === 1 ? 'host' : 'guest';
   options.value = pickWords(4);
   secret.value = '';
-  readyMe.value = false;
-  readyPeer.value = false;
   stage.value = myRole.value === turn.value ? 'pick' : 'wait';
   scene()?.setEditable(false);
+  // 新一轮清空上一轮的画（本地先清，再通知对面一起清）
   scene()?.remoteClear();
+  link.value?.send({ t: 'paintClear' });
   chat.value = [...chat.value, { who: 'sys', text: `第 ${n} 轮 · ${painterName.value}来画` }];
   link.value?.send({ t: 'paintRound', round: n, turn: turn.value, options: options.value });
 }
 
-/** 画家定了词（本地或对面发来）→ 作画阶段开始（60 秒，双方都点「完成」可提前结束） */
-function startDraw(): void {
-  stage.value = 'draw';
-  readyMe.value = false;
-  readyPeer.value = false;
-  drawLeft.value = DRAW_SECONDS;
+/** 画家定了词 → 本轮开始：60 秒内边画边猜（同一段时间，双方都可能动） */
+function startPlay(): void {
+  stage.value = 'play';
+  timeLeft.value = ROUND_SECONDS;
   scene()?.setEditable(iPaint.value);
   chat.value = [
     ...chat.value.slice(-30),
-    { who: 'sys', text: `✏️ 作画 ${DRAW_SECONDS} 秒 · 双方都点「完成」就直接开始猜` },
+    { who: 'sys', text: `⏱ ${ROUND_SECONDS} 秒 · 边画边猜，猜中 +¥${COIN_GUESSER}` },
   ];
   window.clearInterval(timer);
   timer = window.setInterval(() => {
-    drawLeft.value -= 1;
-    if (drawLeft.value <= 0) startGuess();
-  }, 1000);
-}
-
-/** 我点「完成」：两边都点了就提前进入猜阶段（超时也会自动进入） */
-function markReady(): void {
-  if (stage.value !== 'draw' || readyMe.value) return;
-  sfx.click();
-  readyMe.value = true;
-  link.value?.send({ t: 'paintReady', round: round.value });
-  if (readyPeer.value) startGuess();
-}
-
-/** 猜阶段开始：画板定住（作画时间已过），猜手打字，60 秒 */
-function startGuess(): void {
-  if (stage.value !== 'draw') return;
-  window.clearInterval(timer);
-  stage.value = 'guess';
-  scene()?.setEditable(false);
-  guessLeft.value = GUESS_SECONDS;
-  chat.value = [...chat.value.slice(-30), { who: 'sys', text: `🤔 开始猜！${GUESS_SECONDS} 秒` }];
-  timer = window.setInterval(() => {
-    guessLeft.value -= 1;
-    if (guessLeft.value <= 0) finish(false);
+    timeLeft.value -= 1;
+    if (timeLeft.value <= 0) finish(false);
   }, 1000);
 }
 
@@ -348,12 +312,13 @@ function pickWord(w: string): void {
   sfx.click();
   secret.value = w;
   link.value?.send({ t: 'paintPick', round: round.value, word: w });
-  startDraw();
+  startPlay();
 }
 
 function sendGuess(): void {
   const text = guessText.value.trim();
-  if (!text || stage.value !== 'guess' || iPaint.value) return;
+  // 边画边猜：只要本轮在跑就能猜（画家自己在画，不猜）
+  if (!text || stage.value !== 'play' || iPaint.value) return;
   guessText.value = '';
   chat.value = [...chat.value.slice(-30), { who: 'me', text }];
   link.value?.send({ t: 'paintGuess', round: round.value, text });
@@ -375,7 +340,7 @@ function reward(coin: number, why: string): void {
   toastGood(`🎨 ${why} · 金币 +¥${coin}`);
 }
 
-/** 结束：solved=有人猜中（true）或时间到（false）；词都亮出来 */
+/** 结束：solved=有人猜中（true）或 60 秒到（false）；词都亮出来 */
 function finish(solved: boolean): void {
   stage.value = 'done';
   window.clearInterval(timer);
@@ -528,52 +493,57 @@ watch(
           </template>
         </div>
 
-        <!-- 画家工具条：画笔 + 粗细滑条 + 颜色 + 橡皮 / 撤销 -->
-        <div v-if="(iPaint && (stage === 'draw' || stage === 'guess')) || solo" class="paint-tools">
-          <button
-            v-for="b in PAINT_BRUSHES"
-            :key="b.id"
-            type="button"
-            class="paint-tools__brush"
-            :class="{ 'is-on': brush === b.id }"
-            :title="b.label"
-            @click="pickBrush(b.id)"
-          >
-            {{ b.icon }}
-          </button>
+        <!-- 画家工具条：第一行 = 画笔 + 橡皮，第二行 = 粗细滑条 + 颜色 + 撤销
+             （分两行是为了手机上每一件都够得到，不会被挤出屏幕） -->
+        <div v-if="(iPaint && stage === 'play') || solo" class="paint-tools">
+          <div class="paint-tools__group">
+            <button
+              v-for="b in PAINT_BRUSHES"
+              :key="b.id"
+              type="button"
+              class="paint-tools__brush"
+              :class="{ 'is-on': brush === b.id }"
+              :title="b.label"
+              @click="pickBrush(b.id)"
+            >
+              {{ b.icon }}
+            </button>
+            <button
+              type="button"
+              class="paint-tools__brush paint-tools__eraser"
+              :class="{ 'is-on': erasing }"
+              title="橡皮擦（点一下切换）"
+              @click="toggleEraser"
+            >
+              🧽
+            </button>
+          </div>
 
-          <!-- 粗细滑条：画笔与橡皮共用（橡皮擦到哪由光标圈显示） -->
-          <label class="paint-tools__size" :title="`粗细 ${sizePct}%`">
-            <span class="paint-tools__size-dot" :style="{ width: dotSize, height: dotSize }" />
-            <input
-              type="range"
-              :min="SIZE_MIN"
-              :max="SIZE_MAX"
-              :value="sizePct"
-              @input="onSize"
+          <div class="paint-tools__group">
+            <!-- 粗细滑条：画笔与橡皮共用（橡皮擦到哪由光标圈显示） -->
+            <label class="paint-tools__size" :title="`粗细 ${sizePct}%`">
+              <span class="paint-tools__size-dot" :style="{ width: dotSize, height: dotSize }" />
+              <input
+                type="range"
+                :min="SIZE_MIN"
+                :max="SIZE_MAX"
+                :value="sizePct"
+                @input="onSize"
+              />
+            </label>
+
+            <button
+              v-for="c in PAINT_COLORS"
+              :key="c"
+              type="button"
+              class="paint-tools__color"
+              :class="{ 'is-on': !erasing && color === c }"
+              :style="{ background: '#' + c.toString(16).padStart(6, '0') }"
+              @click="pickColor(c)"
             />
-          </label>
 
-          <button
-            v-for="c in PAINT_COLORS"
-            :key="c"
-            type="button"
-            class="paint-tools__color"
-            :class="{ 'is-on': !erasing && color === c }"
-            :style="{ background: '#' + c.toString(16).padStart(6, '0') }"
-            @click="pickColor(c)"
-          />
-
-          <button
-            type="button"
-            class="paint-tools__brush paint-tools__eraser"
-            :class="{ 'is-on': erasing }"
-            title="橡皮擦（点一下切换）"
-            @click="toggleEraser"
-          >
-            🧽
-          </button>
-          <Button size="sm" variant="quiet" @click="undo">撤销</Button>
+            <Button size="sm" variant="quiet" @click="undo">撤销</Button>
+          </div>
         </div>
 
         <!-- 猜手输入 + 聊天区 -->
@@ -583,7 +553,7 @@ watch(
               {{ c.who === 'sys' ? c.text : (c.who === 'me' ? '我：' : '对手：') + c.text }}
             </li>
           </ul>
-          <div v-if="!iPaint && stage === 'guess'" class="paint-chat__row">
+          <div v-if="!iPaint && stage === 'play'" class="paint-chat__row">
             <input
               v-model="guessText"
               class="paint-chat__input"
@@ -593,21 +563,6 @@ watch(
             />
             <Button size="sm" variant="primary" @click="sendGuess">猜</Button>
           </div>
-        </div>
-
-        <!-- 作画阶段的「完成」：双方都点就直接开始猜 -->
-        <div v-if="inRoom && stage === 'draw'" class="paint-ready">
-          <Button
-            size="lg"
-            :variant="readyMe ? 'quiet' : 'primary'"
-            :disabled="readyMe"
-            @click="markReady"
-          >
-            {{ readyLabel }}
-          </Button>
-          <span class="paint-ready__hint">
-            {{ readyPeer ? '对手已完成' : `${drawLeft}s 后自动进入猜` }}
-          </span>
         </div>
 
         <!-- 结束：下一题按钮 -->
@@ -692,7 +647,7 @@ watch(
   pointer-events: none;
 }
 
-/* 画家工具条：六支笔 + 调色板 + 撤销/清空（窄屏自动换行） */
+/* 画家工具条：两组（笔+橡皮 / 滑条+颜色+撤销），窄屏自动折成两行 */
 .paint-tools {
   position: absolute;
   left: 50%;
@@ -711,6 +666,13 @@ watch(
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
   -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+}
+
+/* 工具条里的一组控件（一行） */
+.paint-tools__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* 画笔图标按钮（含橡皮） */
@@ -881,23 +843,6 @@ watch(
   color: var(--text);
 }
 
-/* 作画阶段的「完成」按钮 + 一行提示 */
-.paint-ready {
-  position: absolute;
-  right: max(var(--s3), env(safe-area-inset-right));
-  bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 58px);
-  z-index: 33;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.paint-ready__hint {
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
 /* 结束后的下一题按钮：画面正中下方（同样让开工具条） */
 .paint-next {
   position: absolute;
@@ -976,9 +921,15 @@ watch(
     bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 104px);
   }
 
-  .paint-ready {
-    right: var(--s3);
-    bottom: calc(max(var(--s3), env(safe-area-inset-bottom)) + 96px);
+  /* 手机上关掉实时毛玻璃：叠在 WebGL 画布上的 backdrop-filter 每帧都要重算，
+     是「手机特别卡」的主要来源之一——换成普通半透明底，观感几乎一样。 */
+  .paint-top,
+  .paint-tools,
+  .paint-chat__list,
+  .paint-lobby {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
   }
 
   .paint-chat__list {

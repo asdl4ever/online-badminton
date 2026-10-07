@@ -83,12 +83,86 @@ export function drawBrushBody(
 }
 
 /**
- * 等宽实心带：沿轨迹两侧按法线偏移出一个**整条多边形**一次填满，
- * 再接首尾圆头。
+ * 变宽容带：沿轨迹两侧按法线偏移出**一个多边形**一次填满（宽度逐点给），再接首尾圆头。
  *
  * 逐段 `lineBetween` 拼出来的粗线在每个采样点都会留下接缝（画出来是一串圆弧/珠链），
- * 所以这里改成单次填充——半透明笔也不会因为叠画而深一块浅一块。
+ * 而且每段都是一条独立绘制指令——几十笔之后手机上就拖不动了。单次填充既没有接缝，
+ * 又只是一次填充调用（顶点数远小于逐段）。
  */
+function varBand(
+  g: Phaser.GameObjects.Graphics,
+  pts: readonly TrailPoint[],
+  wAt: (i: number) => number,
+  color: number,
+  alpha: number,
+): void {
+  const n = pts.length;
+  if (n < 2) return;
+
+  // 每个采样点的法线（用前后两点求切向）
+  const nxs = new Array<number>(n);
+  const nys = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)];
+    const b = pts[Math.min(n - 1, i + 1)];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    nxs[i] = -dy / len;
+    nys[i] = dx / len;
+  }
+
+  /**
+   * 该不该在这里**把笔画切成两段**（只有这两种情况多边形才会自交、糊成一大块）：
+   * - 回勾 / 掉头（转角 > ~110°）：左右岸会交叉；
+   * - 宽笔在小半径上打圈（点的间距远小于笔宽，且本身在转弯）。
+   * 普通笔画（哪怕笔很粗、点很密）都不切，否则会画成一串珠子。
+   */
+  const split = new Array<boolean>(n).fill(false);
+  for (let i = 1; i < n - 1; i++) {
+    const p0 = pts[i - 1];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const d1x = p1.x - p0.x;
+    const d1y = p1.y - p0.y;
+    const d2x = p2.x - p1.x;
+    const d2y = p2.y - p1.y;
+    const l1 = Math.hypot(d1x, d1y) || 1;
+    const l2 = Math.hypot(d2x, d2y) || 1;
+    const cos = (d1x * d2x + d1y * d2y) / (l1 * l2);
+    split[i] = cos < -0.3 || (cos < 0.5 && Math.min(l1, l2) < wAt(i) * 0.4);
+  }
+
+  const fillRun = (a: number, b: number): void => {
+    if (b <= a) return;
+    const left: TrailPoint[] = [];
+    const right: TrailPoint[] = [];
+    for (let i = a; i <= b; i++) {
+      const h = wAt(i) / 2;
+      left.push({ x: pts[i].x + nxs[i] * h, y: pts[i].y + nys[i] * h });
+      right.push({ x: pts[i].x - nxs[i] * h, y: pts[i].y - nys[i] * h });
+    }
+    g.fillStyle(color, alpha);
+    // 一段一个封闭多边形：左岸去 + 右岸回（Phaser 的 fillPoints 要 as never）
+    g.fillPoints([...left, ...right.reverse()] as never, true);
+    // 两端的圆头（断点处相当于圆角接头，不会有尖角）
+    g.fillCircle(pts[a].x, pts[a].y, Math.max(0.8, wAt(a) / 2));
+    g.fillCircle(pts[b].x, pts[b].y, Math.max(0.8, wAt(b) / 2));
+  };
+
+  let start = 0;
+  for (let i = 1; i < n; i++) {
+    if (!split[i] && i !== n - 1) continue;
+    fillRun(start, i);
+    if (split[i]) {
+      g.fillStyle(color, alpha);
+      g.fillCircle(pts[i].x, pts[i].y, Math.max(0.8, wAt(i) / 2));
+    }
+    start = i;
+  }
+}
+
+/** 等宽带（band 的常见情形） */
 function band(
   g: Phaser.GameObjects.Graphics,
   pts: readonly TrailPoint[],
@@ -96,31 +170,10 @@ function band(
   color: number,
   alpha: number,
 ): void {
-  const n = pts.length;
-  const half = w / 2;
-  const left: { x: number; y: number }[] = [];
-  const right: { x: number; y: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    const p = pts[i];
-    const a = pts[Math.max(0, i - 1)];
-    const b = pts[Math.min(n - 1, i + 1)];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len = Math.hypot(dx, dy) || 1;
-    const nx = -dy / len;
-    const ny = dx / len;
-    left.push({ x: p.x + nx * half, y: p.y + ny * half });
-    right.push({ x: p.x - nx * half, y: p.y - ny * half });
-  }
-  g.fillStyle(color, alpha);
-  // 一个封闭多边形：左岸去 + 右岸回（Phaser 的 fillPoints 要 as never）
-  g.fillPoints([...left, ...right.reverse()] as never, true);
-  // 首尾圆头（各处只叠一次，不会形成串珠）
-  g.fillCircle(pts[0].x, pts[0].y, half);
-  g.fillCircle(pts[n - 1].x, pts[n - 1].y, half);
+  varBand(g, pts, () => w, color, alpha);
 }
 
-/** 毛笔：按采样点间距（≈落笔速度）变粗细——画得快就细，顿住就粗 */
+/** 毛笔：按采样点间距（≈落笔速度）变粗细——画得快就细，顿住就粗（单次填充） */
 function taper(
   g: Phaser.GameObjects.Graphics,
   pts: readonly TrailPoint[],
@@ -128,16 +181,14 @@ function taper(
   size: number,
 ): void {
   const max = Math.max(4, 17 * size);
-  for (let i = 1; i < pts.length; i++) {
-    const p0 = pts[i - 1];
+  const min = Math.max(1.6, 3.4 * size);
+  const wAt = (i: number): number => {
+    const p0 = pts[Math.max(0, i - 1)];
     const p1 = pts[i];
     const d = Math.hypot(p1.x - p0.x, p1.y - p0.y);
-    const w = Math.max(Math.max(1.6, 3.4 * size), Math.min(max, (17 - d * 1.15) * size));
-    g.lineStyle(w, color, 0.95);
-    g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-    g.fillStyle(color, 0.95);
-    g.fillCircle(p1.x, p1.y, w / 2);
-  }
+    return Math.max(min, Math.min(max, (17 - d * 1.15) * size));
+  };
+  varBand(g, pts, wAt, color, 0.95);
 }
 
 /** 喷雾：沿轨迹撒点（用坐标做伪随机，重画时不会闪）；大小 = 喷幅与雾点大小 */
@@ -149,7 +200,8 @@ function spray(
   size: number,
 ): void {
   const spread = 3 + 15 * size;
-  const count = Math.round(7 * Math.min(2, Math.max(0.6, size)));
+  // 雾点别太密：手机上每笔几百个圆点是实打实的开销
+  const count = Math.round(4 * Math.min(1.8, Math.max(0.6, size)));
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
     for (let k = 0; k < count; k++) {
@@ -186,18 +238,14 @@ export function drawPaintTrail(
 ): void {
   const n = pts.length;
   if (n < 2 || weight <= 0) return;
-  // 外光带
-  for (let i = 1; i < n; i++) {
-    const f = i / (n - 1);
-    g.lineStyle(2 + f * 7 * weight, color, (0.09 + f * 0.3) * weight);
-    g.lineBetween(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
-  }
-  // 内白芯（靠笔尖那一段才亮）
-  for (let i = 1; i < n; i++) {
-    const f = i / (n - 1);
-    if (f < 0.35) continue;
-    g.lineStyle(0.8 + f * 1.6, 0xffffff, (f - 0.35) * 0.55 * weight);
-    g.lineBetween(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+  // 外光带：由细到粗的一整条（单次填充，不是逐段画线）
+  varBand(g, pts, (i) => 2 + (i / (n - 1)) * 7 * weight, color, 0.16 * weight);
+  // 内白芯：只铺靠笔尖那一段，细一点、亮一点
+  const from = Math.floor(n * 0.35);
+  if (n - from >= 2) {
+    const tail = pts.slice(from);
+    const m = tail.length;
+    varBand(g, tail, (i) => 0.8 + (i / (m - 1)) * 1.8, 0xffffff, 0.3 * weight);
   }
   // 笔尖亮核：整笔只有这一处是圆的（画的时候就是跟着手走的光点）
   const head = pts[n - 1];

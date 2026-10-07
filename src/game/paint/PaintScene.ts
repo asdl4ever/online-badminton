@@ -42,8 +42,14 @@ export interface PaintSceneData {
     pts: number[],
     done: boolean,
   ) => void;
-  /** 本地擦掉了几笔 → 页面转发 */
-  onErase: (ids: string[]) => void;
+  /**
+   * 本地擦掉了笔迹 → 页面转发。
+   * `ids` 是被擦掉的原笔画，`parts` 是擦剩的段（作为新笔画发出去）。
+   */
+  onErase: (
+    ids: string[],
+    parts: { id: string; b: string; s: string; c: number; w: number; pts: number[] }[],
+  ) => void;
   /** 本地撤销了一笔 → 页面转发 */
   onUndo: () => void;
 }
@@ -57,6 +63,11 @@ interface Stroke {
   size: number;
   pts: TrailPoint[];
   done: boolean;
+  /**
+   * 收笔时算好的包围盒：橡皮命中判定先拿它剔除（不做这个的话，
+   * 每拖一下都要遍历所有笔画的全部采样点，笔数一多就明显掉帧）。
+   */
+  box?: { x0: number; y0: number; x1: number; y1: number };
 }
 
 /**
@@ -66,14 +77,17 @@ interface Stroke {
  *   画家的拖尾风格直接长在笔迹上；笔型（马克笔 / 铅笔 / 荧光 / 喷雾 / 毛笔）
  *   只决定实体笔迹（见 `brushes.ts`）。
  * - 画板旁边站着**画家的角色**（复用 `createPlayerRig`，带装备与挥拍拖尾动画）。
- * - 渲染分两层 Graphics：`doneG` 收笔笔画（脏了才整体重画）、`liveG` 正在画的
- *   （每帧重画，拖尾有动画）。（Phaser 4 的 RenderTexture.draw 烘焙 Graphics
- *   会静默不出图，所以不用 RT。）
+ * - 收笔的笔画**烘焙成一张离屏贴图**（`rt`）：静态画面只花一个四边形的代价，
+ *   而不是每帧重画几千条绘制指令——这是「离屏静态底片」的用法，帧率提升最大；
+ * - `liveG` 只画**正在画的那一两笔**（拖尾有动画，必须每帧重画）。
+ * ⚠️ Phaser 4 的 `RenderTexture.draw()` 只是把命令入队，**必须再调
+ *   `rt.texture.render()`** 才会真正刷进贴图（不调就“静默不出图”）。
  */
 export class PaintScene extends Phaser.Scene {
   private data_: PaintSceneData | null = null;
   private bg!: Phaser.GameObjects.Graphics;
-  private doneG!: Phaser.GameObjects.Graphics;
+  /** 收笔笔画的离屏底片（静态，平时一帧只画它一次） */
+  private rt!: Phaser.GameObjects.RenderTexture;
   private liveG!: Phaser.GameObjects.Graphics;
   private charBox!: Phaser.GameObjects.Container;
   private charG!: Phaser.GameObjects.Graphics;
@@ -83,8 +97,12 @@ export class PaintScene extends Phaser.Scene {
 
   private strokes: Stroke[] = [];
   private liveIds = new Set<string>();
-  /** doneG 需要整体重画 */
-  private dirty = true;
+  /** 底片需要整体重建（撤销 / 橡皮 / 清空 / 尺寸变化才用） */
+  private rebuild = true;
+  /** 刚收笔、还等着烘进底片的笔画（只画这一笔，不用重建整张底片） */
+  private queue: Stroke[] = [];
+  /** 角色动画降帧计数（手机上每帧重画整只角色太贵） */
+  private frame = 0;
 
   /** 我装备的拖尾风格（'none' 已回退成 classic） */
   private myStyle: TrailId = 'classic';
@@ -98,7 +116,9 @@ export class PaintScene extends Phaser.Scene {
   private lastPt: TrailPoint | null = null;
   private seq = 0;
   private flushTimer = 0;
+  /** 橡皮攒批：待广播的「被擦掉的笔画」与「擦剩的新段」 */
   private wiped: string[] = [];
+  private wipedNew: Stroke[] = [];
 
   /** 画板在画布里的偏移 / 缩放（layout() 里算） */
   private offX = 0;
@@ -116,7 +136,8 @@ export class PaintScene extends Phaser.Scene {
     this.strokes = [];
     this.liveIds = new Set();
     this.current = null;
-    this.dirty = true;
+    this.rebuild = true;
+    this.queue = [];
     // 'none' 在 drawShuttleTrail 里会被直接跳过 → 笔迹消失，回退成经典彗尾
     this.myStyle = data.cosmetic.trailStyle === 'none' ? 'classic' : data.cosmetic.trailStyle;
     this.editable = data.editable;
@@ -133,7 +154,7 @@ export class PaintScene extends Phaser.Scene {
     this.bg.lineStyle(3, 0x8a8068, 0.6);
     this.bg.strokeRect(1.5, 1.5, BOARD_W - 3, BOARD_H - 3);
 
-    this.doneG = this.add.graphics();
+    this.rt = this.add.renderTexture(0, 0, BOARD_W, BOARD_H).setOrigin(0, 0);
     this.liveG = this.add.graphics();
     this.eraser = this.add.graphics();
 
@@ -185,7 +206,7 @@ export class PaintScene extends Phaser.Scene {
     this.offX = Math.round((cam.width - bw) / 2);
     this.offY = Math.round(topBar + (availH - bh) / 2);
 
-    for (const o of [this.bg, this.doneG, this.liveG]) {
+    for (const o of [this.bg, this.rt, this.liveG]) {
       o.setScale(s);
       o.setPosition(this.offX, this.offY);
     }
@@ -195,7 +216,7 @@ export class PaintScene extends Phaser.Scene {
     const cx = this.sideChar ? this.offX + bw + 36 : this.offX + bw - Math.round(40 * k);
     const cy = this.offY + bh - 4;
     this.charBox.setPosition(cx, cy).setScale(k);
-    this.dirty = true;
+    this.rebuild = true;
   }
 
   /** 页面控制：轮到我画才放开画笔 */
@@ -247,20 +268,23 @@ export class PaintScene extends Phaser.Scene {
     const set = new Set(ids);
     this.strokes = this.strokes.filter((s) => !set.has(s.id));
     for (const id of set) this.liveIds.delete(id);
-    this.dirty = true;
+    this.rebuild = true;
   }
 
   remoteUndo(): void {
     const last = this.strokes.pop();
     if (last) this.liveIds.delete(last.id);
-    this.dirty = true;
+    this.rebuild = true;
   }
 
   remoteClear(): void {
     this.strokes = [];
     this.liveIds = new Set();
+    this.queue = [];
+    this.wiped = [];
+    this.wipedNew = [];
     this.current = null;
-    this.dirty = true;
+    this.rebuild = true;
   }
 
   // ---- 本地输入 ----------------------------------------------------------
@@ -309,25 +333,82 @@ export class PaintScene extends Phaser.Scene {
     this.endStroke(false);
   }
 
-  /** 橡皮：把「擦到的整笔」删掉（撤销式），攒起来一起广播 */
+  /**
+   * 橡皮：**只擦掉范围内的那一段笔迹**（不是整笔删除）。
+   *
+   * 做法是把被擦到的笔画按「连续没被擦到的点」切成几段，原笔画删掉、剩下的段
+   * 作为新笔画留着；擦掉的部分连同新段一起广播给对方，两边结果一致。
+   */
   private eraseAt(pt: TrailPoint): void {
-    const killed: string[] = [];
     const r = eraserRadius(this.size);
-    this.strokes = this.strokes.filter((st) => {
-      if (st.id === this.current?.id) return true;
-      const hit = st.pts.some((q) => Math.abs(q.x - pt.x) < r && Math.abs(q.y - pt.y) < r);
-      if (hit) killed.push(st.id);
-      return !hit;
-    });
-    for (const id of killed) this.liveIds.delete(id);
-    if (!killed.length) return;
-    this.dirty = true;
-    this.wiped.push(...killed);
+    const inside = (q: TrailPoint): boolean =>
+      Math.abs(q.x - pt.x) < r && Math.abs(q.y - pt.y) < r;
+
+    const removed: string[] = [];
+    const added: Stroke[] = [];
+    const kept: Stroke[] = [];
+    for (const st of this.strokes) {
+      // 先拿包围盒剔除：绝大多数笔画跟橡皮圈根本不重叠，直接跳过逐点判定
+      const box = st.box;
+      const near =
+        !box ||
+        (pt.x + r >= box.x0 && pt.x - r <= box.x1 && pt.y + r >= box.y0 && pt.y - r <= box.y1);
+      if (st.id === this.current?.id || !near || !st.pts.some(inside)) {
+        kept.push(st);
+        continue;
+      }
+      removed.push(st.id);
+      // 把没被擦到的点按连续段切出来，每段作为一笔留下
+      let run: TrailPoint[] = [];
+      const flush = (): void => {
+        if (run.length >= 2) {
+          this.seq += 1;
+          added.push({
+            id: `k${Date.now().toString(36)}${this.seq}`,
+            brush: st.brush,
+            style: st.style,
+            color: st.color,
+            size: st.size,
+            pts: run,
+            done: true,
+            box: boundsOf(run),
+          });
+        }
+        run = [];
+      };
+      for (const q of st.pts) {
+        if (inside(q)) flush();
+        else run.push(q);
+      }
+      flush();
+    }
+    if (!removed.length) return;
+    this.strokes = [...kept, ...added];
+    for (const id of removed) this.liveIds.delete(id);
+    this.rebuild = true;
+
+    // 攒一小会儿再广播（橡皮拖动时别一个点一个包）
+    this.wiped.push(...removed);
+    this.wipedNew.push(...added);
     window.clearTimeout(this.wipeTimer);
     this.wipeTimer = window.setTimeout(() => {
       const ids = this.wiped;
+      const news = this.wipedNew;
       this.wiped = [];
-      if (ids.length) this.data_?.onErase(ids);
+      this.wipedNew = [];
+      if (ids.length) {
+        this.data_?.onErase(
+          ids,
+          news.map((st) => ({
+            id: st.id,
+            b: st.brush,
+            s: st.style,
+            c: st.color,
+            w: st.size,
+            pts: flatten(st.pts),
+          })),
+        );
+      }
     }, 80);
   }
 
@@ -385,22 +466,28 @@ export class PaintScene extends Phaser.Scene {
     };
   }
 
-  /** 收笔：转为「已收笔」，doneG 标脏（下一帧整体重画一次） */
+  /** 收笔：抽稀采样点 + 算包围盒 → 排队烘进底片（只画这一笔，不用重建整张） */
   private finish(st: Stroke): void {
     st.done = true;
+    st.pts = simplify(st.pts, FINISH_MIN_GAP);
+    st.box = boundsOf(st.pts);
     this.liveIds.delete(st.id);
-    this.dirty = true;
+    this.queue.push(st);
   }
 
   update(): void {
     const now = this.time.now;
-    // 收笔层：只在脏了的时候整体重画（平时不动，几乎零开销）
-    if (this.dirty) {
-      this.dirty = false;
-      this.doneG.clear();
-      for (const st of this.strokes) {
-        if (st.done) this.paintStroke(this.doneG, st, now);
-      }
+    // 底片层：撤销 / 橡皮 / 清空 / 尺寸变化才整体重建；平时只把新收的笔画烘进去。
+    // 烘完就是一张贴图，之后每帧只贴一次——静态笔迹的帧成本直接归零。
+    if (this.rebuild) {
+      this.rebuild = false;
+      this.queue = [];
+      const all = this.strokes.filter((st) => st.done);
+      this.bake(all, true);
+    } else if (this.queue.length) {
+      const add = this.queue;
+      this.queue = [];
+      this.bake(add, false);
     }
     // 正在画的层：绘制中每帧重画（拖尾有动画感）
     this.liveG.clear();
@@ -408,8 +495,29 @@ export class PaintScene extends Phaser.Scene {
       const st = this.strokes.find((x) => x.id === id);
       if (st && !st.done) this.paintStroke(this.liveG, st, now);
     }
-    this.drawCharacter(now);
+    // 角色动画降到 ~20fps：整只角色（身体 + 装备 + 宠物）每帧重画太贵
+    this.frame = (this.frame + 1) % 3;
+    if (this.frame === 0) this.drawCharacter(now);
     this.drawEraserCursor();
+  }
+
+  /**
+   * 把若干「已收笔」的笔画烘进离屏底片。
+   *
+   * `clearFirst` = 重建整张底片（撤销 / 橡皮 / 清空后）。一次烘多笔时共用一个
+   * scratch Graphics（`draw()` 入队的是对象引用，渲染时必须保持原样），最后一次
+   * `texture.render()` 刷进贴图。
+   */
+  private bake(list: readonly Stroke[], clearFirst: boolean): void {
+    const scratch = this.make.graphics({ x: 0, y: 0 }, false);
+    const now = this.time.now;
+    for (const st of list) this.paintStroke(scratch, st, now);
+    if (clearFirst) this.rt.clear();
+    if (list.length) this.rt.draw(scratch);
+    // ⚠️ 必须显式 render：draw() 只是把命令入队，不 render 就不出图
+    //（Phaser 4 运行时是 DynamicTexture；官方类型没把 render() 暴露出来，这里转一下）
+    (this.rt.texture as unknown as { render(): void }).render();
+    scratch.destroy();
   }
 
   /**
@@ -477,5 +585,38 @@ export class PaintScene extends Phaser.Scene {
 function flatten(pts: TrailPoint[]): number[] {
   const out: number[] = [];
   for (const p of pts) out.push(Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10);
+  return out;
+}
+
+/** 收笔时抽稀的间距（画板坐标）：5 在 900 宽的画板上肉眼看不出差别，顶点数砍一半以上 */
+const FINISH_MIN_GAP = 5;
+
+/** 一笔的包围盒（橡皮命中判定的粗筛） */
+function boundsOf(pts: readonly TrailPoint[]): { x0: number; y0: number; x1: number; y1: number } {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const p of pts) {
+    if (p.x < x0) x0 = p.x;
+    if (p.y < y0) y0 = p.y;
+    if (p.x > x1) x1 = p.x;
+    if (p.y > y1) y1 = p.y;
+  }
+  return { x0, y0, x1, y1 };
+}
+
+/**
+ * 采样点抽稀：丢掉离上一个保留点太近的点（首尾一定保留）。
+ * 联机两端用同一个规则，所以双方看到的笔迹一致。
+ */
+function simplify(pts: TrailPoint[], min: number): TrailPoint[] {
+  if (pts.length < 4) return pts;
+  const out: TrailPoint[] = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const last = out[out.length - 1];
+    if (Math.abs(pts[i].x - last.x) + Math.abs(pts[i].y - last.y) >= min) out.push(pts[i]);
+  }
+  out.push(pts[pts.length - 1]);
   return out;
 }
