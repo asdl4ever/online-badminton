@@ -66,6 +66,14 @@ interface Stroke {
   pts: TrailPoint[];
   done: boolean;
   /**
+   * 这一笔是**对面**发来的（不是我在本地画的）。
+   *
+   * 关键：实时同步的节流器只发「本地正在画的笔画」。远端笔画如果也参与回发，
+   * 两端就会互相回显——同一笔的点会被反复追加（220 点能涨到 4800 点），
+   * 几何乱掉之后画面上就是各种自交的多边形。
+   */
+  remote?: boolean;
+  /**
    * 收笔时算好的包围盒：橡皮命中判定先拿它剔除（不做这个的话，
    * 每拖一下都要遍历所有笔画的全部采样点，笔数一多就明显掉帧）。
    */
@@ -254,13 +262,18 @@ export class PaintScene extends Phaser.Scene {
         size: size || 1,
         pts: [],
         done: false,
+        remote: true,
       };
       this.strokes.push(st);
       this.liveIds.add(id);
     }
+    // 已经收笔的笔画不再接受增量（迟到的分片直接丢掉，免得点列被追加坏）
+    if (st.done) return;
     st.style = style;
     st.color = color;
     st.size = size || 1;
+    // 收笔那一包是**完整点列**：直接替换（分片累积 + 抽稀的差异在这里被抹平）
+    if (done) st.pts = [];
     for (let i = 0; i < pts.length; i += 2) st.pts.push({ x: pts[i], y: pts[i + 1] });
     if (done) this.finish(st);
   }
@@ -433,11 +446,16 @@ export class PaintScene extends Phaser.Scene {
   private flush(force: boolean, only?: Stroke): void {
     const d = this.data_;
     if (!d) return;
-    const targets = only ? [only] : this.strokes.filter((s) => !s.done && this.liveIds.has(s.id));
+    // 只发**本地**正在画的笔画：远端笔画回发会造成两端互相回显（点列暴涨、几何乱掉）
+    const targets = only
+      ? [only]
+      : this.strokes.filter((s) => !s.done && !s.remote && this.liveIds.has(s.id));
     for (const st of targets) {
       const sent = (st as Stroke & { sent?: number }).sent ?? 0;
       if (st.done || force) {
-        const pts = flatten(st.pts.slice(sent));
+        // 收笔这一包发**完整点列**（收笔时点被抽稀过，按下标切片会漏点 → 两端差一两个点）；
+        // 接收端收到 done 就整条替换，保证两边像素级一致。
+        const pts = flatten(st.pts);
         if (pts.length) d.onChunk(st.id, st.brush, st.style, st.color, st.size, pts, true);
         (st as Stroke & { sent?: number }).sent = st.pts.length;
       } else if (st.pts.length - sent >= 2) {
