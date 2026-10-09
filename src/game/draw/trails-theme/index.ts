@@ -12,11 +12,20 @@ import { TRAILS_10 } from './trails10';
 import { TRAILS_11 } from './trails11';
 import { TRAILS_12 } from './trails12'
 import { TRAILS_13 } from './trails13';
+import { TRAILS_14 } from './trails14';
+import { TRAILS_15 } from './trails15';
+import { TRAILS_16 } from './trails16';
+import { TRAILS_17 } from './trails17';
+import { TRAILS_18 } from './trails18';
+import { TRAILS_19 } from './trails19';
+import { TRAILS_20 } from './trails20';
+import { TRAILS_21 } from './trails21';
+import { TRAILS_22 } from './trails22';
 
 /**
- * 主题击球拖尾的**整条轨迹**画法总入口（分文件见 trails1~2.ts）。
- * 拖尾不再「每个点盖一个印章」：沿完整采样点画一个连贯的形状
- * （光晕带 / 主形 / 飞散粒子 / 头部亮核），每款独立组合。
+ * 涓婚鍑荤悆鎷栧熬鐨?*鏁存潯杞ㄨ抗**鐢绘硶鎬诲叆鍙ｏ紙鍒嗘枃浠惰 trails1~2.ts锛夈€?
+ * 鎷栧熬涓嶅啀銆屾瘡涓偣鐩栦竴涓嵃绔犮€嶏細娌垮畬鏁撮噰鏍风偣鐢讳竴涓繛璐殑褰㈢姸
+ * 锛堝厜鏅曞甫 / 涓诲舰 / 椋炴暎绮掑瓙 / 澶撮儴浜牳锛夛紝姣忔鐙珛缁勫悎銆?
  */
 type Pt = { x: number; y: number };
 type Ctx = { g: Phaser.GameObjects.Graphics; pts: readonly Pt[]; fade: number; now: number };
@@ -35,6 +44,15 @@ const TRAILS: Record<string, (typeof TRAILS_1)[string]> = {
   ...TRAILS_11,
   ...TRAILS_12,
   ...TRAILS_13,
+  ...TRAILS_14,
+  ...TRAILS_15,
+  ...TRAILS_16,
+  ...TRAILS_17,
+  ...TRAILS_18,
+  ...TRAILS_19,
+  ...TRAILS_20,
+  ...TRAILS_21,
+  ...TRAILS_22,
 };
 
 export function hasCustomTrail(id: string): boolean {

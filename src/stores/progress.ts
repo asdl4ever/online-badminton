@@ -21,6 +21,11 @@ import {
   FARM_MAX_LEVEL,
   FARM_UPGRADE_COST,
   GACHA_POOL,
+  JUNK_CHANCE,
+  JUNK_COTTON_MIN,
+  JUNK_COTTON_RANGE,
+  JUNK_ORE_MIN,
+  JUNK_ORE_RANGE,
   SHARD_BAG_MIN,
   SHARD_BAG_RANGE,
   coinPriceOf,
@@ -40,7 +45,7 @@ import {
   type Item,
   type ItemSlot,
 } from '../game/items';
-import { pickChestPool, type ChestSlot } from '../game/chest';
+import { chestPoolFor, type ChestSlot } from '../game/chest';
 import type { PetBonus } from '../game/pets';
 import {
   BOAT_COST,
@@ -174,7 +179,9 @@ function todayKey(): string {
  */
 export type PullResult =
   | { kind: 'item'; item: Item; duplicate: boolean; refund: number }
-  | { kind: 'bag'; bag: 'coins' | 'shards'; amount: number };
+  | { kind: 'bag'; bag: 'coins' | 'shards'; amount: number }
+  /** 杂物档：没抽到装扮，改给少量采集材料（棉花 / 矿石） */
+  | { kind: 'junk'; material: 'cotton' | 'ore'; amount: number };
 
 /**
  * 📰 **新闻周刊**的一条消息：世界自己发生的事（老将退役 / 新秀入行…）。
@@ -2011,7 +2018,7 @@ export const useProgressStore = defineStore('progress', () => {
 
   /**
    * 从**给定池子**里按星级权重抽一件（同星级内等概率）；挂了 `pullWeight` 的按绝对权重。
-   * 池子由 `game/chest.ts` 的 `pickChestPool()` 摇类别给出（`rollOne` 里），
+   * 池子由 `game/chest.ts` 的 `chestPoolFor(slot)` 给出（= 选中宝箱墙上那些件），
    * 或者由调用方直接传（`pull(banner)` 那种显式指定池子的老用法仍然有效）。
    */
   function rollFrom(banner: Item[] = GACHA_POOL): Item {
@@ -2048,7 +2055,9 @@ export const useProgressStore = defineStore('progress', () => {
    * 重新变成一件值得高兴的事。
    */
   function rollOne(slot?: ChestSlot): PullResult {
-    if (Math.random() < BAG_CHANCE) {
+    const r = Math.random();
+    // ⓪ 袋子档（`BAG_CHANCE`）：不给装扮，改给一小袋金币 / 🧩 碎片
+    if (r < BAG_CHANCE) {
       if (Math.random() < BAG_COIN_SHARE) {
         const amount = COIN_BAG_MIN + Math.floor(Math.random() * COIN_BAG_RANGE);
         // 宠物加成算进「这一袋到手多少」：界面显示的数字就是真拿到的
@@ -2058,11 +2067,21 @@ export const useProgressStore = defineStore('progress', () => {
       shards.value += amount;
       return { kind: 'bag', bag: 'shards', amount };
     }
+    // ① 杂物档（`JUNK_CHANCE`）：也不给装扮，改给少量采集材料（棉花 / 矿石）
+    if (r < BAG_CHANCE + JUNK_CHANCE) {
+      if (Math.random() < 0.5) {
+        const amount = JUNK_COTTON_MIN + Math.floor(Math.random() * JUNK_COTTON_RANGE);
+        addCotton(amount);
+        return { kind: 'junk', material: 'cotton', amount };
+      }
+      const amount = JUNK_ORE_MIN + Math.floor(Math.random() * JUNK_ORE_RANGE);
+      addOre(amount);
+      return { kind: 'junk', material: 'ore', amount };
+    }
 
-    // 先**摇类别**：普通宝箱概率最高、选中的主题宝箱次高、高级宝箱最低
-    // （`game/chest.ts` 的 CHEST_ODDS）。`slot` 就是玩家在「奖池切换」里选的那个池，
-    // 不传就用当期主题。
-    const item = rollFrom(pickChestPool(Date.now(), slot));
+    // ② 装扮（`1 − BAG_CHANCE − JUNK_CHANCE`）：**选中的宝箱只出它自己的内容**
+    // （`slot` 是玩家在「奖池切换」里选的那个池，不传用当期主题；`game/chest.ts` 的 `chestPoolFor`）。
+    const item = rollFrom(chestPoolFor(slot));
 
     let duplicate = false;
     let refund = 0;
@@ -2083,6 +2102,7 @@ export const useProgressStore = defineStore('progress', () => {
    * 不传就用当期主题。
    */
   function pull(slot?: ChestSlot): PullResult | null {
+    if (slot && !slot.active) return null; // 未返场 / 下架的池子只能看，不能抽
     if (chestKeys.value < CHEST_KEYS) return null;
     chestKeys.value -= CHEST_KEYS;
     return rollOne(slot);
@@ -2129,6 +2149,7 @@ export const useProgressStore = defineStore('progress', () => {
    * `slot` 同 `pull`：玩家选中的奖池，不传就是当期主题。
    */
   function pullTen(useTicket = false, slot?: ChestSlot): PullResult[] | null {
+    if (slot && !slot.active) return null; // 未返场 / 下架的池子只能看，不能抽
     if (useTicket) {
       if (tenTickets.value <= 0) return null;
       tenTickets.value -= 1;

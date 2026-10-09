@@ -61,13 +61,15 @@ import {
 /** a cape streaming down the player's back; shape depends on the kind */
 export function drawCape(
   g: Phaser.GameObjects.Graphics, now: number, x: number, topY: number, id: CapeId,
-  move = 0, facing: 1 | -1 = 1,
+  move = 0, facing: 1 | -1 = 1, pass: 'back' | 'front' = 'back',
 ): void {
+  // 主题披风 / 背挂物件：每件独立剪影（见 draw/capes/），命中就不再走通用 kind
+  if (drawCapeCustom(g, now, id, x, topY + 30, move, facing, pass)) return;
+  // 通用披风只在身后层画
+  if (pass !== 'back') return;
   const shape = CAPE_SHAPE[id];
   const color = CAPE_COLORS[id];
   if (!shape || shape.len === 0) return;
-  // 主题披风：每款一件独立剪影（见 draw/capes/），命中就不再走通用 kind
-  if (drawCapeCustom(g, now, id, x, topY + 30, move, facing)) return;
   const sway = Math.sin(now / 420) * 6 + Math.sin(now / 95) * move * 6;
   const baseY = topY + 30;
   const w = shape.w * 1.28;
@@ -4873,6 +4875,455 @@ export function drawPet(
       g.fillEllipse(px, py - 4, 5, 3);
       break;
     }
+    case 'raven': {
+      // 渡鸦伙伴：墨黑渡鸦，扇翅掉黑羽、红眼
+      const flap = Math.sin(now / 150);
+      g.fillStyle(0x000000, 0.08);
+      g.fillEllipse(px, py + 10, 16, 4);
+      g.fillStyle(color, 0.95);
+      g.fillTriangle(px - dir * 6, py, px - dir * 14, py - 2 + flap * 2, px - dir * 12, py + 4);
+      g.fillEllipse(px - dir * 2, py - 3 - flap * 2, 14, 5 + Math.abs(flap) * 5);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 16, 12);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 7, py - 5, 5.4);
+      g.fillStyle(0xff3a3a, 1); g.fillCircle(px + dir * 8.4, py - 6, 1.4);
+      g.fillStyle(0xffb020, 1); g.fillTriangle(px + dir * 11, py - 6, px + dir * 17, py - 5, px + dir * 11, py - 3);
+      g.fillStyle(color, 1); g.fillTriangle(px - dir * 2, py - 10, px + dir * 2, py - 14, px + dir * 5, py - 9);
+      break;
+    }
+    case 'huma': {
+      // 胡玛神鸟：金色瑞鸟，三根长尾羽错相摆、金羽光屑
+      const flap = Math.sin(now / 170);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 16, 4);
+      for (let k = 0; k < 3; k++) { const sw = Math.sin(now / 380 + k * 1.6) * 2; g.fillStyle(k === 1 ? 0xfff0d0 : color, 0.95); g.fillPoints([{ x: px - dir * 6, y: py }, { x: px - dir * (16 + k * 4) + sw, y: py + 8 + k * 4 }, { x: px - dir * 14 + sw, y: py + 3 }] as never, true); }
+      g.fillStyle(color, 0.85); g.fillEllipse(px - dir * 2, py - 3 - flap * 2, 13, 5 + Math.abs(flap) * 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 15, 12);
+      g.fillStyle(0xfff0d0, 0.5); g.fillEllipse(px + dir * 2, py + 3, 8, 5);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 7, py - 5, 5);
+      g.fillStyle(0xff5a2a, 1); g.fillTriangle(px + dir * 11, py - 6, px + dir * 16, py - 4, px + dir * 11, py - 3);
+      g.fillStyle(0x1a1a1e, 1); g.fillCircle(px + dir * 8.4, py - 6, 1.4);
+      g.fillStyle(0xffd45c, 0.9); g.fillTriangle(px - dir * 1, py - 9, px + dir * 2, py - 16 + Math.sin(now / 300) * 1.5, px + dir * 5, py - 9);
+      for (let k = 0; k < 3; k++) { const ph = ((now / 900 + k / 3) % 1); g.fillStyle(0xffd45c, (1 - ph) * 0.7); g.fillCircle(px + Math.sin(k * 2) * 8, py + 6 + ph * 10, 1.2); }
+      break;
+    }
+    case 'puma': {
+      // 美洲狮崽：金毛幼崽，甩尾、眨眼
+      const tw = Math.sin(now / 380) * 3;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 16, 4);
+      g.lineStyle(3, color, 0.95); g.beginPath(); g.moveTo(px - dir * 8, py + 4); g.lineTo(px - dir * 14, py + 2 + tw); g.strokePath();
+      g.fillStyle(color, 1); g.fillCircle(px - 6, py - 8, 3); g.fillCircle(px + 6, py - 8, 3);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 3, 20, 13);
+      g.fillStyle(0xffe0b0, 0.5); g.fillEllipse(px, py + 6, 10, 6);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 4, py - 4, 8);
+      const blink = Math.abs(Math.sin(now / 900)) > 0.08 ? 1 : 0.2;
+      g.fillStyle(0x1a1a1e, 1); g.fillEllipse(px + dir * 6, py - 5, 1.8, 2.6 * blink); g.fillEllipse(px + dir * 1, py - 5, 1.8, 2.6 * blink);
+      g.fillStyle(0xffb0b8, 0.9); g.fillTriangle(px + dir * 8, py - 2, px + dir * 11, py - 2, px + dir * 9.5, py - 0.4);
+      break;
+    }
+    case 'sharkpup': {
+      // 幼鲨：背鳍高耸，摆尾破水带白沫、拖气泡
+      const wob = Math.sin(now / 260) * 3;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 16, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 22, 10);
+      g.fillStyle(0xdff6ff, 0.7); g.fillEllipse(px, py + 4, 16, 4);
+      g.fillStyle(color, 1); g.fillTriangle(px - 2, py - 4, px + 4, py - 16, px + 8, py - 4); // 背鳍
+      g.fillStyle(color, 1); g.fillTriangle(px - dir * 10, py, px - dir * 16, py - 7 + wob, px - dir * 18, py + 6 + wob); // 尾
+      g.fillStyle(color, 1); g.fillTriangle(px + dir * 6, py + 2, px + dir * 14, py + 6, px + dir * 4, py + 6); // 胸鳍
+      g.fillStyle(0x1a1a1e, 1); g.fillCircle(px + dir * 8, py - 2, 1.4);
+      for (let k = 0; k < 2; k++) { const ph = ((now / 700 + k / 2) % 1); g.fillStyle(0xffffff, 0.6 * (1 - ph)); g.fillCircle(px + dir * (10 + ph * 8), py - 8 - ph * 6, 1.4); }
+      break;
+    }
+    case 'kooka': {
+      // 笑翠鸟：蓝棕大鸟，大喙、尾羽上翘、偶尔张嘴发声波
+      const flap = Math.sin(now / 160);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 16, 4);
+      g.fillStyle(0x8a6a4a, 0.95); g.fillTriangle(px - dir * 8, py + 2, px - dir * 12, py - 10 + Math.sin(now / 300) * 2, px - dir * 14, py + 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 2, 17, 13);
+      g.fillStyle(0x8a6a4a, 0.9); g.fillEllipse(px, py - 3 - flap * 2, 15, 5 + Math.abs(flap) * 4);
+      g.fillStyle(0xffffff, 0.6); g.fillEllipse(px + dir * 3, py + 4, 8, 5);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 6, py - 6, 6);
+      g.fillStyle(0xfff0d0, 0.9); g.fillEllipse(px + dir * 3, py - 8, 6, 4);
+      g.fillStyle(0x1a1a1e, 1); g.fillCircle(px + dir * 8, py - 7, 1.5);
+      const beak = 0.5 + 0.5 * Math.sin(now / 200);
+      g.fillStyle(0x2a2a2a, 1); g.fillPoints([{ x: px + dir * 10, y: py - 8 }, { x: px + dir * (16 + beak * 2), y: py - 5 }, { x: px + dir * 10, y: py - 3 }] as never, true);
+      if (beak > 0.8) { g.lineStyle(1.2, 0x8fd8ff, 0.6); g.beginPath(); g.arc(px + dir * 14, py - 5, 4 + beak * 4, -0.8, 0.8); g.strokePath(); }
+      break;
+    }
+    case 'nanodrone': {
+      // 纳米无人机：悬浮机身 + 镜头扫描 + 四周粒子重组
+      const float = Math.sin(now / 380) * 2;
+      const py2 = py + float;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      g.fillStyle(color, 0.5); g.fillEllipse(px, py2, 18, 10);
+      g.fillStyle(color, 1); g.fillRoundedRect(px - 8, py2 - 5, 16, 10, 3);
+      g.fillStyle(0xffffff, 0.5); g.fillRect(px - 8, py2 - 5, 16, 3);
+      const sc = Math.sin(now / 500) * 5;
+      g.fillStyle(0x39ffd0, 0.85); g.fillRect(px + sc - 2, py2 - 1, 4, 2);
+      g.lineStyle(1.4, 0xffffff, 0.4 + 0.4 * Math.sin(now / 200)); g.strokeCircle(px, py2, 11);
+      for (let k = 0; k < 4; k++) { const ang = now / 600 + k * 1.57; g.fillStyle(k % 2 ? color : 0xffffff, 0.7); g.fillRect(px + Math.cos(ang) * 12 - 1.4, py2 + Math.sin(ang) * 8 - 1.4, 2.8, 2.8); }
+      break;
+    }
+    case 'datasprite': {
+      // 数据精灵：方块身体循环增减 + 飘数据点 + 扫描眼
+      const n7 = 3 + Math.round(1 + Math.sin(now / 500));
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      g.fillStyle(color, 0.9);
+      for (let k = 0; k < n7; k++) g.fillRect(px - 8 + k * 5, py - 4, 4, 4);
+      g.fillStyle(color, 1); g.fillRoundedRect(px - 9, py + 1, 18, 7, 2);
+      g.fillStyle(0xffffff, 0.4); g.fillRect(px - 9, py + 1, 18, 2);
+      g.fillStyle(0x1a1a1e, 1); g.fillRect(px - 6, py - 10, 12, 6);
+      const on = Math.sin(now / 300) > 0 ? 1 : 0.4;
+      g.fillStyle(0xffffff, on); g.fillRect(px - 4, py - 8, 3, 2); g.fillRect(px + 1, py - 8, 3, 2);
+      for (let k = 0; k < 4; k++) { const ph = ((now / 900 + k / 4) % 1); g.fillStyle(k % 2 ? color : 0x7fb8ff, (1 - ph) * 0.8); g.fillRect(px + Math.sin(k * 2) * 9, py - 6 - ph * 14, 2, 2); }
+      break;
+    }
+    case 'warpbot': {
+      // 跃迁小机：悬浮导航小机，投射旋转星图、尾部拖星轨
+      const float = Math.sin(now / 360) * 2;
+      const py2 = py + float;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      g.fillStyle(0x1a2450, 1); g.fillRoundedRect(px - 8, py2 - 6, 16, 12, 4);
+      g.fillStyle(color, 1); g.fillRoundedRect(px - 6, py2 - 4, 12, 8, 3);
+      g.fillStyle(color, 0.4); g.fillCircle(px, py2, 14);
+      for (let k = 0; k < 5; k++) { const ang = now / 400 + (k / 5) * Math.PI * 2; g.fillStyle(0xffffff, 0.6); g.fillCircle(px + Math.cos(ang) * 14, py2 + Math.sin(ang) * 14 * 0.5, 1.4); }
+      g.fillStyle(0x9fd8ff, 0.9); g.fillCircle(px + dir * 2, py2 - 2, 2.4);
+      for (let k = 0; k < 3; k++) { const ph = ((now / 700 + k / 3) % 1); g.fillStyle(0xa98cff, (1 - ph) * 0.8); g.fillRect(px - dir * (8 + ph * 14), py2 + 2, 8, 2); }
+      break;
+    }
+    case 'marsbot': {
+      // 漫游小机：六足爬行 + 扫描光 + 天线转
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      for (let k = 0; k < 3; k++) { const lx = px - 6 + k * 6; const st = Math.sin(now / 300 + k * 2) * 2; g.lineStyle(2, 0x8a4a2a, 0.95); g.lineBetween(lx, py + 5, lx - 3 + st, py + 12); g.lineBetween(lx, py + 5, lx + 3 - st, py + 12); }
+      g.fillStyle(color, 1); g.fillRoundedRect(px - 9, py - 6, 18, 12, 3);
+      g.fillStyle(0x8a2e1a, 1); g.fillRect(px - 9, py - 2, 18, 3);
+      g.fillStyle(0xd8e0e8, 0.9); g.fillRect(px - 2, py - 12, 4, 6);
+      const spin = now / 300; g.save(); g.translateCanvas(px, py - 13); g.rotateCanvas(spin); g.fillStyle(0xffe0b0, 0.9); g.fillRect(-4, -1, 8, 2); g.restore();
+      const sc = Math.sin(now / 500) * 6;
+      g.fillStyle(0xff7a4a, 0.8); g.fillRect(px + sc - 2, py - 4, 4, 2);
+      break;
+    }
+    case 'forerdrone': {
+      // 遗迹浮游机：眼型机身，虹膜旋转、符文点绕转
+      const float = Math.sin(now / 400) * 2;
+      const py2 = py + float;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      g.fillStyle(0x2c3a4a, 1); g.fillEllipse(px, py2, 22, 15);
+      g.fillStyle(color, 1); g.fillEllipse(px, py2, 18, 12);
+      g.fillStyle(0x0e1620, 1); g.fillCircle(px, py2, 6);
+      const ir = now / 700; g.fillStyle(0xa8e0ff, 0.95); g.fillCircle(px + Math.cos(ir) * 2, py2 + Math.sin(ir) * 2, 3.4);
+      g.fillStyle(0x0e1620, 1); g.fillCircle(px + Math.cos(ir) * 2, py2 + Math.sin(ir) * 2, 1.4);
+      g.fillStyle(0xffffff, 0.8); g.fillCircle(px + Math.cos(ir) * 2 - 0.8, py2 + Math.sin(ir) * 2 - 0.8, 0.8);
+      for (let k = 0; k < 6; k++) { const ang = -now / 900 + (k / 6) * Math.PI * 2; g.fillStyle(k % 2 ? color : 0x5ad8ff, 0.8); g.fillRect(px + Math.cos(ang) * 15 - 1.6, py2 + Math.sin(ang) * 10 - 1.6, 3.2, 3.2); }
+      break;
+    }
+    case 'glacseal': {
+      // 幼海豹：圆滚灰白，胡须、拍鳍、在水里浮
+      const float = Math.sin(now / 400) * 2;
+      const py2 = py + float;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      const fl = Math.sin(now / 200) * 2;
+      g.fillStyle(color, 1); g.fillEllipse(px - dir * 6, py2 + 5, 12, 8);
+      g.fillStyle(color, 1); g.fillEllipse(px, py2, 18, 16);
+      g.fillStyle(0xffffff, 0.5); g.fillEllipse(px, py2 + 4, 12, 9);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 5, py2 - 6, 9);
+      g.fillStyle(0x1a1a1e, 1); g.fillCircle(px + dir * 5, py2 - 7, 2.2); g.fillCircle(px + dir * 9, py2 - 7, 2.2);
+      g.fillStyle(0xffffff, 0.9); g.fillCircle(px + dir * 5.6, py2 - 7.6, 0.8); g.fillCircle(px + dir * 9.6, py2 - 7.6, 0.8);
+      g.lineStyle(0.9, 0xffffff, 0.8); for (let k = -1; k <= 1; k++) { g.lineBetween(px + dir * 10, py2 - 5, px + dir * 16, py2 - 6 + k * 2); }
+      g.fillTriangle(px + dir * 6, py2 + 5, px + dir * 18, py2 + 6 + fl, px + dir * 4, py2 + 9);
+      break;
+    }
+    case 'lurefish': {
+      // 灯笼鱼宝宝：小鮟鱇，头顶小灯、大嘴
+      const float = Math.sin(now / 380) * 2;
+      const py2 = py + float;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      g.fillStyle(0x0e2830, 1); g.fillEllipse(px, py2, 19, 15);
+      g.fillStyle(color, 1); g.fillEllipse(px, py2 - 1, 16, 12);
+      const open = 0.5 + 0.5 * Math.sin(now / 400);
+      g.fillStyle(0x061418, 1); g.fillEllipse(px + dir * 4, py2 + 1, 12, 4 + open * 5);
+      g.fillStyle(0xe8f4f8, 0.95); for (let k = 0; k < 4; k++) g.fillTriangle(px - 1 + k * 3 * dir, py2 - 1, px + 1 + k * 3 * dir, py2 - 1, px + k * 3 * dir, py2 + 4);
+      g.fillStyle(0x1a1a1e, 1); g.fillCircle(px + dir * 3, py2 - 6, 2);
+      g.lineStyle(2, 0x0e2830, 1); g.beginPath(); g.moveTo(px - dir * 2, py2 - 8); g.lineTo(px + dir * 4, py2 - 18); g.strokePath();
+      const gl = 0.5 + 0.5 * Math.sin(now / 250);
+      g.fillStyle(0x39ffd0, 0.4 * gl); g.fillCircle(px + dir * 4, py2 - 19, 7);
+      g.fillStyle(0x39ffd0, gl); g.fillCircle(px + dir * 4, py2 - 19, 2.8);
+      break;
+    }
+    case 'walrpup': {
+      // 海象宝宝：灰棕圆滚，小獠牙、胡须
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 3, 20, 14);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 4, py - 5, 9);
+      g.fillStyle(0x6a5442, 0.5); g.fillEllipse(px + dir * 6, py + 1, 8, 5);
+      g.fillStyle(0xe8f0f4, 1); g.fillPoints([{ x: px + dir * 5, y: py + 3 }, { x: px + dir * 7, y: py + 3 }, { x: px + dir * 9, y: py + 12 }] as never, true); g.fillPoints([{ x: px + dir * 2, y: py + 3 }, { x: px + dir * 4, y: py + 3 }, { x: px + dir * 6, y: py + 11 }] as never, true);
+      g.fillStyle(0x1a1a1e, 1); g.fillCircle(px + dir * 5, py - 6, 1.8);
+      g.lineStyle(0.9, 0xffffff, 0.8); for (let k = -1; k <= 1; k++) { g.lineBetween(px + dir * 7, py - 3, px + dir * 12, py - 4 + k * 2); }
+      for (let k = 0; k < 4; k++) { g.fillStyle(0x5a4436, 0.5); g.fillEllipse(px - 6 + k * 4, py + 2 + (k % 2) * 5, 3, 2.4); }
+      break;
+    }
+    case 'dimeye': {
+      // 维度之眼：悬浮的几何之眼，虹膜旋转、符文环绕
+      const float = Math.sin(now / 420) * 2;
+      const py2 = py + float;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      g.fillStyle(0xb08aff, 0.3); g.fillCircle(px, py2, 16);
+      g.fillStyle(0x05040f, 1); g.fillEllipse(px, py2, 22, 14);
+      const ir = now / 700;
+      g.fillStyle(0xfff0a0, 0.95); g.fillCircle(px + Math.cos(ir) * 2, py2 + Math.sin(ir) * 2, 5);
+      g.fillStyle(0x05040f, 1); g.fillCircle(px + Math.cos(ir) * 2, py2 + Math.sin(ir) * 2, 2);
+      g.fillStyle(0xffffff, 0.8); g.fillCircle(px + Math.cos(ir) * 2 - 0.8, py2 + Math.sin(ir) * 2 - 0.8, 1);
+      for (let k = 0; k < 6; k++) { const ang = -now / 900 + (k / 6) * Math.PI * 2; g.fillStyle(k % 2 ? color : 0x7dffd0, 0.85); g.fillRect(px + Math.cos(ang) * 17 - 1.6, py2 + Math.sin(ang) * 11 - 1.6, 3.2, 3.2); }
+      break;
+    }
+    case 'hadalfry': {
+      // 幼鮟鱇：深色小鮟鱇，满身幽光点、头顶小灯
+      const float = Math.sin(now / 400) * 2;
+      const py2 = py + float;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 15, 4);
+      g.fillStyle(0x061618, 1); g.fillEllipse(px, py2, 20, 16);
+      g.fillStyle(color, 1); g.fillEllipse(px, py2 - 1, 17, 13);
+      for (let k = 0; k < 5; k++) { const on = 0.4 + 0.6 * Math.abs(Math.sin(now / 350 + k)); g.fillStyle(0x39ffd0, 0.7 * on); g.fillCircle(px - 6 + (k * 5 % 12), py2 - 3 + (k % 2) * 6, 1.4); }
+      const open = 0.5 + 0.5 * Math.sin(now / 380);
+      g.fillStyle(0x02080a, 1); g.fillEllipse(px + dir * 4, py2 + 2, 13, 4 + open * 5);
+      g.fillStyle(0xe8f4f8, 0.95); for (let k = 0; k < 5; k++) g.fillTriangle(px - 2 + k * 3 * dir, py2 - 1, px + 0 + k * 3 * dir, py2 - 1, px - 1 + k * 3 * dir, py2 + 4);
+      g.fillStyle(0x1a1a1e, 1); g.fillCircle(px + dir * 3, py2 - 7, 1.8);
+      g.lineStyle(2, 0x061618, 1); g.beginPath(); g.moveTo(px - dir * 1, py2 - 9); g.lineTo(px + dir * 5, py2 - 20); g.strokePath();
+      const gl = 0.5 + 0.5 * Math.sin(now / 240);
+      g.fillStyle(0x39ffd0, 0.4 * gl); g.fillCircle(px + dir * 5, py2 - 21, 7);
+      g.fillStyle(0x39ffd0, gl); g.fillCircle(px + dir * 5, py2 - 21, 2.8);
+      break;
+    }
+    case 'cretHatch': {
+      // 破壳幼龙：绿幼龙顶着蛋壳，甩尾
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 20, 4);
+      const bob = Math.sin(now / 220) * 2;
+      g.fillStyle(color, 1); g.fillEllipse(px, py + bob, 16, 14);
+      g.fillStyle(color, 1); g.fillEllipse(px + dir * 8, py - 3 + bob, 10, 9);
+      g.fillStyle(0x2a4a1a, 1); g.fillTriangle(px - dir * 6, py - 6, px - dir * 14, py - 12, px - dir * 8, py - 2);
+      g.fillStyle(0xe8e0d0, 1); g.fillPoints([{ x: px - dir * 4, y: py - 8 + bob }, { x: px + dir * 6, y: py - 10 + bob }, { x: px + dir * 3, y: py - 16 + bob }] as never, true);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 11, py - 5 + bob, 1.6);
+      const tw = Math.sin(now / 200) * 4; g.fillStyle(color, 1); g.fillTriangle(px - dir * 8, py + 4, px - dir * 18, py + 2 + tw, px - dir * 18, py + 10 + tw);
+      break;
+    }
+    case 'swampTurtle': {
+      // 沼泽龟：背覆水草，缩头
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 20, 4);
+      const hide = Math.max(0, Math.sin(now / 900)) * 3;
+      g.fillStyle(0x1f4a2a, 1); g.fillEllipse(px, py + 2, 20, 13);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 17, 11);
+      for (let k = 0; k < 4; k++) { g.fillStyle(0x4a2a14, 1); g.fillCircle(px - 6 + k * 4, py, 1.2); }
+      g.fillStyle(0x3a7a4a, 1); for (let k = 0; k < 3; k++) { g.fillEllipse(px - 4 + k * 4, py - 5, 4, 3); }
+      g.fillStyle(0xa8c890, 1); g.fillEllipse(px + dir * (11 - hide), py + 2, 7, 6);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * (12 - hide), py + 1, 1.2);
+      break;
+    }
+    case 'iceageCalf': {
+      // 小猛犸：绒毛 + 甩鼻
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 22, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 18, 15);
+      for (let k = 0; k < 6; k++) { g.fillStyle(0x8a6a4a, 0.8); g.fillPoints([{ x: px - 8 + k * 3, y: py - 6 }, { x: px - 6 + k * 3, y: py - 6 }, { x: px - 7 + k * 3, y: py + 6 }] as never, true); }
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 8, py - 4, 8);
+      const tx = px + dir * 13; g.lineStyle(3, color, 1); g.beginPath(); g.moveTo(tx, py); g.lineTo(tx + dir * 3, py + 6 + Math.sin(now / 300) * 3); g.strokePath();
+      g.fillStyle(0xf0e8d0, 1); g.fillPoints([{ x: px + dir * 10, y: py - 2 }, { x: px + dir * 16, y: py + 3 }, { x: px + dir * 14, y: py - 5 }] as never, true);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 10, py - 7, 1.4);
+      break;
+    }
+    case 'yorThunderbird': {
+      // 雷鸟：扇翅 + 羽端电光
+      const flap = Math.sin(now / 150);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py - 2 - flap * 2, 14, 12);
+      g.fillStyle(0xffe08a, 1); g.fillPoints([{ x: px, y: py - 4 }, { x: px - 14, y: py - 10 - flap * 5 }, { x: px - 4, y: py + 1 }] as never, true); g.fillPoints([{ x: px, y: py - 4 }, { x: px + 14, y: py - 10 - flap * 5 }, { x: px + 4, y: py + 1 }] as never, true);
+      g.fillStyle(color, 1); g.fillEllipse(px + dir * 7, py - 6, 9, 8);
+      g.fillStyle(0xffd45c, 1); g.fillTriangle(px + dir * 11, py - 7, px + dir * 16, py - 6, px + dir * 11, py - 4);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 8, py - 8, 1.4);
+      const on = 0.4 + 0.5 * Math.abs(Math.sin(now / 100)); g.fillStyle(0xffe08a, on); g.fillCircle(px - 12, py - 10 - flap * 5, 1.4); g.fillCircle(px + 12, py - 10 - flap * 5, 1.4);
+      break;
+    }
+    case 'kalOwl': {
+      // 林鸮：转头
+      const turn = Math.sin(now / 700) * 0.4;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 15, 16);
+      g.fillStyle(0xd8b088, 1); g.fillEllipse(px, py - 2, 11, 12);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px - 3 + turn * 3, py - 4, 3); g.fillCircle(px + 3 + turn * 3, py - 4, 3);
+      g.fillStyle(0xffd45c, 1); g.fillCircle(px - 3 + turn * 3, py - 4, 1.4); g.fillCircle(px + 3 + turn * 3, py - 4, 1.4);
+      g.fillStyle(0x8a6a3a, 1); g.fillTriangle(px + turn * 3, py - 1, px - 1 + turn * 3, py + 3, px + 1 + turn * 3, py + 3);
+      break;
+    }
+    case 'banMonkey': {
+      // 小猴子：挠头
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      const scr = Math.sin(now / 400);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 2, 14, 13);
+      g.fillStyle(0xd8b48a, 1); g.fillEllipse(px, py + 3, 9, 9);
+      g.fillStyle(color, 1); g.fillCircle(px, py - 6, 9);
+      g.fillStyle(0xd8b48a, 1); g.fillEllipse(px, py - 4, 12, 9);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px - 4, py - 6, 1.6); g.fillCircle(px + 4, py - 6, 1.6);
+      g.fillStyle(0x2a1a10, 1); g.fillEllipse(px, py - 1, 5, 2.4);
+      g.lineStyle(2, color, 1); g.lineBetween(px - 7, py, px - 11, py + 4 + scr * 3);
+      break;
+    }
+    case 'banParrot': {
+      // 小鹦鹉：扇翅
+      const flap = Math.sin(now / 130);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 12, 15);
+      g.fillStyle(0xd84a3a, 1); g.fillPoints([{ x: px, y: py - 2 }, { x: px - 12, y: py - 8 - flap * 4 }, { x: px - 3, y: py + 2 }] as never, true); g.fillPoints([{ x: px, y: py - 2 }, { x: px + 12, y: py - 8 - flap * 4 }, { x: px + 3, y: py + 2 }] as never, true);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 6, py - 6, 7);
+      g.fillStyle(0xffd45c, 1); g.fillTriangle(px + dir * 10, py - 8, px + dir * 16, py - 6, px + dir * 10, py - 4);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 7, py - 8, 1.4);
+      break;
+    }
+    case 'memeNyan': {
+      // 像素猫：彩虹拖尾
+      const cols = [0xff5ec8, 0xff9a3c, 0xffe040, 0x7dff9a, 0x39ffd0];
+      for (let k = 0; k < 5; k++) { g.fillStyle(cols[k], 0.6); g.fillRect(px - dir * (14 + k * 5), py + (k - 2) * 3 - 2, 4, 4); }
+      g.fillStyle(0xd8d8e0, 1); g.fillRect(px - 7, py - 6, 14, 11);
+      g.fillStyle(color, 1); g.fillRect(px + dir * 5, py - 5, 6, 9);
+      g.fillStyle(0x1a1208, 1); g.fillRect(px - 4, py - 4, 2, 3); g.fillRect(px + 2, py - 4, 2, 3);
+      break;
+    }
+    case 'memeDogePet': {
+      // 柴犬幼崽：摇尾
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      const wag = Math.sin(now / 120) * 5;
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 1, 16, 12);
+      g.fillStyle(0xe8dcc0, 1); g.fillEllipse(px + dir * 5, py - 1, 10, 9);
+      g.fillStyle(color, 1); g.fillTriangle(px + dir * 2, py - 8, px + dir * 1, py - 13, px + dir * 6, py - 10); g.fillTriangle(px + dir * 8, py - 8, px + dir * 9, py - 13, px + dir * 11, py - 8);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 4, py - 3, 1.4); g.fillCircle(px + dir * 8, py - 3, 1.4);
+      g.fillStyle(color, 1); g.fillTriangle(px - dir * 8, py - 2, px - dir * 13, py - 8 + wag, px - dir * 7, py + 2);
+      break;
+    }
+    case 'officeLuckyCat': {
+      // 招财猫：摆手
+      const wave = Math.sin(now / 150);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      g.fillStyle(0xd8d8e0, 1); g.fillEllipse(px, py + 2, 15, 14);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 3, 10, 9);
+      g.fillStyle(0xd8d8e0, 1); g.fillCircle(px, py - 6, 9);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px - 3, py - 6, 1.6); g.fillCircle(px + 3, py - 6, 1.6); g.fillEllipse(px, py - 2, 6, 2);
+      g.lineStyle(3, 0xd8d8e0, 1); g.lineBetween(px + dir * 7, py - 1, px + dir * (11 + wave * 2), py - 9 + wave * 3);
+      g.fillStyle(0xffd45c, 1); g.fillCircle(px + dir * (11 + wave * 2), py - 10 + wave * 3, 3);
+      break;
+    }
+    case 'gnomeHedgehog': {
+      // 小刺猬：背扎苹果
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 2, 18, 13);
+      for (let k = 0; k < 8; k++) { const ang = Math.PI + (k / 7) * Math.PI; g.fillStyle(0x4a3a2a, 1); g.fillTriangle(px + Math.cos(ang) * 8, py + 2 + Math.sin(ang) * 6, px + Math.cos(ang) * 8 + 1.5, py + 2 + Math.sin(ang) * 6, px + Math.cos(ang) * 13, py + 2 + Math.sin(ang) * 9); }
+      g.fillStyle(0xd8c0a0, 1); g.fillEllipse(px + dir * 7, py + 3, 8, 8); g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 9, py + 2, 1.4); g.fillCircle(px + dir * 11, py + 5, 1.2);
+      const apple = Math.sin(now / 300) * 1.5; g.fillStyle(0xd84a3a, 1); g.fillCircle(px - 2, py - 6 + apple, 4); g.fillStyle(0x3a6a2a, 1); g.fillRect(px - 2, py - 11 + apple, 1.4, 3);
+      break;
+    }
+    case 'trashRaccoon': {
+      // 垃圾浣熊：翻找
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      const dig = Math.sin(now / 250) * 2;
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 1, 16, 13);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 6, py - 5, 8);
+      g.fillStyle(0x2a2a2a, 1); g.fillRect(px + dir * 2, py - 7, 9, 4);
+      g.fillStyle(0xe8e8e8, 1); g.fillEllipse(px + dir * 8, py - 3, 5, 4);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 6, py - 6, 1.6); g.fillCircle(px + dir * 9, py - 6, 1.6); g.fillCircle(px + dir * 9, py - 3, 1.4);
+      g.lineStyle(2, 0x2a2a2a, 1); g.lineBetween(px - 8, py, px - 12, py + 4 + dig);
+      break;
+    }
+    case 'trashRat': {
+      // 垃圾老鼠：窜跑
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 2, 15, 10);
+      g.fillStyle(color, 1); g.fillEllipse(px + dir * 7, py, 8, 7);
+      g.fillStyle(0xd8a0a0, 1); g.fillCircle(px + dir * 9, py + 1, 2.4); g.fillCircle(px + dir * 11, py - 3, 3);
+      g.fillStyle(0xff8a8a, 1); g.fillCircle(px + dir * 10, py - 3, 1.2);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 8, py - 1, 1.2);
+      g.lineStyle(1.6, 0xd8a0a0, 1); g.beginPath(); g.moveTo(px - 7, py + 3); g.lineTo(px - 16, py + 1 + Math.sin(now / 120) * 4); g.strokePath();
+      break;
+    }
+    case 'dreamSheep': {
+      // 小绵羊：蹦跳 + 眨眼
+      const hop = Math.abs(Math.sin(now / 300)) * 4;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      const py2 = py - hop;
+      for (let k = 0; k < 6; k++) { const ang = (k / 6) * Math.PI * 2; g.fillStyle(0xf0f0e8, 1); g.fillCircle(px + Math.cos(ang) * 7, py2 + Math.sin(ang) * 6, 5); }
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 6, py2 - 3, 7);
+      const blink = Math.sin(now / 1300) > 0.9 ? 0.2 : 1; g.fillStyle(0x3a3a3a, 1); g.fillEllipse(px + dir * 8, py2 - 3, 2, 2 * blink);
+      g.fillStyle(0xffd8e8, 1); g.fillCircle(px + dir * 9, py2 - 1, 1.6);
+      break;
+    }
+    case 'dreamMoth': {
+      // 梦蝶：扇翅 + 鳞粉
+      const flap = Math.sin(now / 130);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 14, 4);
+      for (const s of [-1, 1]) { g.fillStyle(color, 0.9); g.fillEllipse(px + s * 8, py - 4, 12, 8 + Math.abs(flap) * 5); g.fillStyle(0xd8d0ff, 0.6); g.fillCircle(px + s * 8, py - 4, 3); }
+      g.fillStyle(0x4a3a6a, 1); g.fillEllipse(px, py - 2, 4, 12);
+      g.fillStyle(0x4a3a6a, 1); g.fillCircle(px + dir * 2, py - 9, 3);
+      for (let k = 0; k < 3; k++) { const ph = ((now / 900 + k / 3) % 1); g.fillStyle(0xffffff, (1 - ph) * 0.7); g.fillCircle(px + Math.sin(k * 2) * 6, py - 6 + ph * 12, 1.4); }
+      break;
+    }
+    case 'microVirus': {
+      // 小病毒：飘游 + 刺颤
+      const fl = Math.sin(now / 400) * 3;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      for (let k = 0; k < 8; k++) { const ang = (k / 8) * Math.PI * 2; const tr = 9 + Math.sin(now / 250 + k) * 1.5; g.fillStyle(color, 0.9); g.fillCircle(px + Math.cos(ang) * tr, py + Math.sin(ang) * tr + fl * 0.3, 2); }
+      g.fillStyle(color, 1); g.fillCircle(px, py + fl * 0.5, 8);
+      g.fillStyle(0x39ffd0, 0.8); g.fillCircle(px - 2, py - 2 + fl * 0.5, 3);
+      break;
+    }
+    case 'alchSlime': {
+      // 药水史莱姆：弹跳 + 气泡
+      const sq = 1 - 0.15 * Math.abs(Math.sin(now / 300));
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      g.fillStyle(color, 0.85); g.fillEllipse(px, py + 4, 14, 18 * sq);
+      g.fillStyle(0xd0ffb0, 0.6); g.fillEllipse(px - 2, py + 2, 8, 10 * sq);
+      g.fillStyle(0x7dff6a, 0.9); g.fillCircle(px + 3, py + 6, 2); g.fillCircle(px - 3, py + 8, 1.4);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px - 2 * dir, py, 1.4); g.fillCircle(px + 3 * dir, py, 1.4);
+      break;
+    }
+    case 'yarnKitten': {
+      // 毛线小猫咪：摇尾 + 扑线球
+      const wag = Math.sin(now / 150) * 5;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 18, 4);
+      g.fillStyle(color, 1); g.fillCircle(px, py + 2, 10);
+      g.lineStyle(1.2, 0xffd8e8, 0.8); for (let k = 0; k < 3; k++) { const ang = (k / 3) * Math.PI * 2; g.lineBetween(px + Math.cos(ang) * 9, py + 2 + Math.sin(ang) * 9, px + Math.cos(ang + 2) * 9, py + 2 + Math.sin(ang + 2) * 9); }
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 6, py - 6, 7);
+      g.fillStyle(color, 1); g.fillTriangle(px + dir * 2, py - 12, px + dir * 1, py - 17, px + dir * 5, py - 13); g.fillTriangle(px + dir * 8, py - 12, px + dir * 10, py - 17, px + dir * 11, py - 12);
+      g.fillStyle(0x2a1a24, 1); g.fillEllipse(px + dir * 5, py - 6, 1.4, 2); g.fillEllipse(px + dir * 9, py - 6, 1.4, 2);
+      g.lineStyle(2, color, 1); g.beginPath(); g.moveTo(px - 8, py + 2); g.lineTo(px - 14, py - 4 + wag); g.strokePath();
+      g.fillStyle(0xffb7d5, 1); g.fillCircle(px - 15 * dir, py + 8, 4);
+      break;
+    }
+    case 'yarnMouse': {
+      // 毛线鼠：窜跑 + 尾线甩
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 3, 14, 9);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 8, py + 1, 6);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 3, py - 5, 4); g.fillCircle(px + dir * 9, py - 5, 4);
+      g.fillStyle(0xffd8e8, 1); g.fillCircle(px + dir * 11, py + 2, 2.4);
+      g.fillStyle(0x2a1a24, 1); g.fillCircle(px + dir * 9, py, 1.2);
+      g.lineStyle(1.4, color, 1); g.beginPath(); g.moveTo(px - 7, py + 4); g.lineTo(px - 15, py + 2 + Math.sin(now / 120) * 4); g.strokePath();
+      break;
+    }
+    case 'paintBird': {
+      // 画中鸟：扇翅 + 掉色点
+      const flap = Math.sin(now / 120);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py - 2, 12, 14);
+      g.fillStyle(0xffd45c, 1); g.fillPoints([{ x: px, y: py - 4 }, { x: px - 12, y: py - 10 - flap * 4 }, { x: px - 3, y: py }] as never, true); g.fillPoints([{ x: px, y: py - 4 }, { x: px + 12, y: py - 10 - flap * 4 }, { x: px + 3, y: py }] as never, true);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 6, py - 8, 6);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 7, py - 9, 1.2); g.fillStyle(0xff4a4a, 1); g.fillTriangle(px + dir * 10, py - 9, px + dir * 14, py - 8, px + dir * 10, py - 7);
+      for (let k = 0; k < 2; k++) { const ph = ((now / 900 + k / 2) % 1); g.fillStyle(0x5ac8ff, (1 - ph) * 0.8); g.fillCircle(px + dir * 8, py + ph * 14, 1.6); }
+      break;
+    }
+    case 'paintBlob': {
+      // 颜料团：蠕动 + 滴色
+      const wob = Math.sin(now / 300) * 2;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 11, 16, 4);
+      g.fillStyle(color, 1); g.beginPath();
+      for (let k = 0; k <= 10; k++) { const ang = (k / 10) * Math.PI * 2; const rr = 9 + Math.sin(ang * 3 + now / 300) * 2; g.fillEllipse(px + Math.cos(ang) * rr, py + 2 + Math.sin(ang) * rr * 0.8, 5, 5); }
+      g.fillStyle(0xffd45c, 0.8); g.fillCircle(px - 3, py, 3); g.fillStyle(0xff8ad4, 0.8); g.fillCircle(px + 4, py + 4, 2.4);
+      for (let k = 0; k < 2; k++) { const ph = ((now / 800 + k / 2) % 1); g.fillStyle(0x5ac8ff, (1 - ph) * 0.9); g.fillEllipse(px - 4 + k * 8, py + 8 + ph * 8, 2, 3); }
+      void wob;
+      break;
+    }
   }
 
   // hatched quality shows on the field: more stars, more sparkle
@@ -6207,7 +6658,7 @@ export function drawBack(
   pass: 'back' | 'front' = 'back',
 ): void {
   if (isWingFamily(id)) drawWings(g, now, x, topY, id, pass);
-  else if (pass === 'back') drawCape(g, now, x, topY, id as CapeId, move, facing);
+  else drawCape(g, now, x, topY, id as CapeId, move, facing, pass);
 }
 
 /** wings; the silhouette is chosen by the wing's kind, not just its colour */
@@ -9125,6 +9576,10 @@ export function drawCharacter(
     });
   }
 
+  // 坐骑（身后遍）：主体画在角色身体**之前**——角色压上去，坐骑不再糊在脸上，
+  // 读作「站在 / 骑在上面」。近侧覆盖层由下面的「身前遍」补（见 MOUNT_RIG.split）。
+  if (cos.mount !== 'none') drawMount(g, now, cos.mount, pose, 'back');
+
   // 皮肤覆盖层（draw/skins/）：命中完全走新画法，未命中走下面的 else-if 链 / THEME_SKIN_ART
   const skinOverride = SKIN_OVERRIDES[cos.characterSkin];
   if (skinOverride) {
@@ -9210,9 +9665,9 @@ export function drawCharacter(
   // 叠在本体之上、坐骑与帽子之下——各款配色与运动都不同，件件有自己的「出场感」。
   if (cos.characterSkin !== 'none') drawSkinFlair(g, now, pose, cos.characterSkin);
 
-  // 坐骑：画在身体**之上**（坐上 / 钻进坐骑里时，坐骑会压住腿脚才对），
-  // 跟着角色跑跳，纯装饰——只有帽子与宠物（overG，depth 4）还在它上面。
-  if (cos.mount !== 'none') drawMount(g, now, cos.mount, pose);
+  // 坐骑（身前遍）：只画近侧覆盖层（`MountArt.front`）——盖住小腿，读作「腿跨在两侧 / 伸进舱里」。
+  // 角色本体、各级装扮与球拍的位置完全不动，所以手/拍、判定、地环、影子都不受影响。
+  if (cos.mount !== 'none') drawMount(g, now, cos.mount, pose, 'front');
 
   // 整头替换的头饰（飞碟头盔 / 各种面具）：头盔自己就是头，emoji 脸不画
   const headOff = replacesHead(cos.hat) ? FULL_HEAD_DY : 0;

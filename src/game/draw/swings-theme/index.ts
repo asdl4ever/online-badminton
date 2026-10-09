@@ -12,12 +12,21 @@ import { SWINGS_10 } from './swings10';
 import { SWINGS_11 } from './swings11';
 import { SWINGS_12 } from './swings12'
 import { SWINGS_13 } from './swings13';
+import { SWINGS_14 } from './swings14';
+import { SWINGS_15 } from './swings15';
+import { SWINGS_16 } from './swings16';
+import { SWINGS_17 } from './swings17';
+import { SWINGS_18 } from './swings18';
+import { SWINGS_19 } from './swings19';
+import { SWINGS_20 } from './swings20';
+import { SWINGS_21 } from './swings21';
+import { SWINGS_22 } from './swings22';
 import type { SwingKit } from './shared';
 
 /**
- * 主题挥拍拖尾的**逐款独立构图**总入口（分文件见 swings1~2.ts）。
- * painter 拿到 rig.ts 传来的真实拍头轨迹工具包（ribbon / core / dot / wobble…），
- * 每款用自己的层数 / 波形 / 粒子节奏构图；主色 c 由物品配色给出。
+ * 涓婚鎸ユ媿鎷栧熬鐨?*閫愭鐙珛鏋勫浘**鎬诲叆鍙ｏ紙鍒嗘枃浠惰 swings1~2.ts锛夈€?
+ * painter 鎷垮埌 rig.ts 浼犳潵鐨勭湡瀹炴媿澶磋建杩瑰伐鍏峰寘锛坮ibbon / core / dot / wobble鈥︼級锛?
+ * 姣忔鐢ㄨ嚜宸辩殑灞傛暟 / 娉㈠舰 / 绮掑瓙鑺傚鏋勫浘锛涗富鑹?c 鐢辩墿鍝侀厤鑹茬粰鍑恒€?
  */
 const SWINGS: Record<string, (typeof SWINGS_1)[string]> = {
   ...SWINGS_1,
@@ -33,6 +42,15 @@ const SWINGS: Record<string, (typeof SWINGS_1)[string]> = {
   ...SWINGS_11,
   ...SWINGS_12,
   ...SWINGS_13,
+  ...SWINGS_14,
+  ...SWINGS_15,
+  ...SWINGS_16,
+  ...SWINGS_17,
+  ...SWINGS_18,
+  ...SWINGS_19,
+  ...SWINGS_20,
+  ...SWINGS_21,
+  ...SWINGS_22,
 };
 
 export function drawSwingCustom(

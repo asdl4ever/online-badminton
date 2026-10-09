@@ -14,6 +14,12 @@ export interface MountArt {
   c?: number;
   a: number;
   draw: (g: G, now: number, x: number, y: number, f: 1 | -1, c: number, a: number, pose: CharacterPose) => void;
+  /**
+   * **近侧覆盖层**（可选）：坐骑里「该压在角色身上/身前」的那一部分——独木舟近侧船帮、
+   * 兽形的前腿与胸口、研钵前缘……只在「身前遍」画。配合主 `draw`（画在身后）构成
+   * 「角色骑在坐骑里」的前后遮挡，角色本体与球拍位置完全不动。见 `MOUNT_RIG.split`。
+   */
+  front?: (g: G, now: number, x: number, y: number, f: 1 | -1, c: number, a: number, pose: CharacterPose) => void;
 }
 
 /** 兽类四条腿（多款坐骑共用） */

@@ -10,6 +10,12 @@ import { pow } from './pow';
 import { gzfire } from './gzfire';
 import { meteorBurst } from './alienburst';
 import { shardpop, drastar } from './crystal';
+import { vdaOm, takKaguraBell, celtRuneBurst, mesoGlyphBurst, cthMadness } from './myth';
+import { slavCurseBurst, persHolyFire, incaSolarBurst, polyTikiBurst, auzRainbowBurst } from './folk';
+import { nanoBurst, dataCrash, warpBurst, marsDustBurst, forerBurst } from './scifi';
+import { glacDeepRoar, fridLureBurst, walrSmash, dimFold, hadalVoid } from './sea';
+import { cretImpact, swampGasBurst, iceageBurst, yorThunderBurst, kalSongBurst, banSplat, meme404Burst, officeSnooze, gnomePollen, trashGarbage } from './gen9';
+import { dreamBurst, microSplit, alchExplosion, yarnTangle, paintSplashBurst } from './gen10';
 import { PLUS_PAINTERS, PLUS_SPAN } from './plus';
 import { paintDefault } from './basic';
 import type { EffectPainter, HitFlash } from './types';
@@ -118,6 +124,47 @@ export const EFFECT_SPAN: Record<HitStyle, number> = {
   meteorBurst: 0.56,
   shardpop: 0.5,
   drastar: 0.56,
+  // 批十六 神话主题专属命中特效
+  vdaOm: 0.62,
+  takKaguraBell: 0.58,
+  celtRuneBurst: 0.56,
+  mesoGlyphBurst: 0.54,
+  cthMadness: 0.62,
+  // 第六批 民俗神话主题专属命中特效
+  slavCurseBurst: 0.6,
+  persHolyFire: 0.56,
+  incaSolarBurst: 0.56,
+  polyTikiBurst: 0.58,
+  auzRainbowBurst: 0.62,
+  // 第七批 宇宙科幻主题专属命中特效
+  nanoBurst: 0.58,
+  dataCrash: 0.56,
+  warpBurst: 0.6,
+  marsDustBurst: 0.58,
+  forerBurst: 0.6,
+  // 第八批 海洋怪兽主题专属命中特效
+  glacDeepRoar: 0.6,
+  fridLureBurst: 0.56,
+  walrSmash: 0.54,
+  dimFold: 0.58,
+  hadalVoid: 0.62,
+  // 第九批 恐龙 / 史前 / 神话 / 恶搞 主题专属命中特效
+  cretImpact: 0.6,
+  swampGasBurst: 0.58,
+  iceageBurst: 0.54,
+  yorThunderBurst: 0.56,
+  kalSongBurst: 0.6,
+  banSplat: 0.56,
+  meme404Burst: 0.62,
+  officeSnooze: 0.58,
+  gnomePollen: 0.56,
+  trashGarbage: 0.58,
+  // 第十批 梦境 / 微观 / 炼金 / 毛线 / 画中世界 专属命中特效
+  dreamBurst: 0.6,
+  microSplit: 0.54,
+  alchExplosion: 0.58,
+  yarnTangle: 0.56,
+  paintSplashBurst: 0.58,
 };
 
 /** every style that has a bespoke painter; the rest use `paintDefault` */
@@ -182,6 +229,41 @@ export const EFFECT_PAINTERS: Partial<Record<HitStyle, EffectPainter>> = {
   meteorBurst,
   shardpop,
   drastar,
+  vdaOm,
+  takKaguraBell,
+  celtRuneBurst,
+  mesoGlyphBurst,
+  cthMadness,
+  slavCurseBurst,
+  persHolyFire,
+  incaSolarBurst,
+  polyTikiBurst,
+  auzRainbowBurst,
+  nanoBurst,
+  dataCrash,
+  warpBurst,
+  marsDustBurst,
+  forerBurst,
+  glacDeepRoar,
+  fridLureBurst,
+  walrSmash,
+  dimFold,
+  hadalVoid,
+  cretImpact,
+  swampGasBurst,
+  iceageBurst,
+  yorThunderBurst,
+  kalSongBurst,
+  banSplat,
+  meme404Burst,
+  officeSnooze,
+  gnomePollen,
+  trashGarbage,
+  dreamBurst,
+  microSplit,
+  alchExplosion,
+  yarnTangle,
+  paintSplashBurst,
   prism,
   prismfan,
   pyramid,
@@ -403,6 +485,9 @@ for (const id of [
   'blizzard', 'volcano', 'tsunami', 'aurora', 'starlight', 'rainbow', 'laser', 'plasma',
   'mushroom', 'pixelate', 'glitch', 'binary', 'ringdance', 'butterfly', 'thorncrown', 'tide',
   'prismfan', 'pow', 'shardpop', 'drastar', 'meteorBurst',
+  'slavCurseBurst', 'persHolyFire', 'incaSolarBurst', 'polyTikiBurst', 'auzRainbowBurst',
+  'nanoBurst', 'dataCrash', 'warpBurst', 'marsDustBurst', 'forerBurst',
+  'glacDeepRoar', 'fridLureBurst', 'walrSmash', 'dimFold', 'hadalVoid',
 ] as HitStyle[]) {
   FOUR_STAR_GLOW[id] = flourishGlint;
 }

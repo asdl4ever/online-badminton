@@ -14,15 +14,24 @@ import { WEAPONS_12 } from './weapons12';
 import { WEAPONS_13 } from './weapons13';
 import { WEAPONS_14 } from './weapons14'
 import { WEAPONS_15 } from './weapons15';
+import { WEAPONS_16 } from './weapons16';
+import { WEAPONS_17 } from './weapons17';
+import { WEAPONS_18 } from './weapons18';
+import { WEAPONS_19 } from './weapons19';
+import { WEAPONS_20 } from './weapons20';
+import { WEAPONS_21 } from './weapons21';
+import { WEAPONS_22 } from './weapons22';
+import { WEAPONS_23 } from './weapons23';
+import { WEAPONS_24 } from './weapons24';
 
 
 /**
- * 主题球拍的**武器化**总入口（分文件分包见同目录 weapons1~4.ts）。
+ * 涓婚鐞冩媿鐨?*姝﹀櫒鍖?*鎬诲叆鍙ｏ紙鍒嗘枃浠跺垎鍖呰鍚岀洰褰?weapons1~4.ts锛夈€?
  *
- * 局部空间与 `drawRacketHead` 完全一致：握柄画在 x ∈ [-12, -2]（手在那里），
- * 武器的「打击部 / 甜区」围绕 (9, 0)，前后总跨度 ≈ 42，与常规拍框同量级。
- * 命中表就画武器并返回 true；没命中的皮肤返回 false，调用方退回拍框画法。
- * 只影响画面，判定（拍长与甜区）由 `constants.ts` 决定，不随皮肤变。
+ * 灞€閮ㄧ┖闂翠笌 `drawRacketHead` 瀹屽叏涓€鑷达細鎻℃焺鐢诲湪 x 鈭?[-12, -2]锛堟墜鍦ㄩ偅閲岋級锛?
+ * 姝﹀櫒鐨勩€屾墦鍑婚儴 / 鐢滃尯銆嶅洿缁?(9, 0)锛屽墠鍚庢€昏法搴?鈮?42锛屼笌甯歌鎷嶆鍚岄噺绾с€?
+ * 鍛戒腑琛ㄥ氨鐢绘鍣ㄥ苟杩斿洖 true锛涙病鍛戒腑鐨勭毊鑲よ繑鍥?false锛岃皟鐢ㄦ柟閫€鍥炴媿妗嗙敾娉曘€?
+ * 鍙奖鍝嶇敾闈紝鍒ゅ畾锛堟媿闀夸笌鐢滃尯锛夌敱 `constants.ts` 鍐冲畾锛屼笉闅忕毊鑲ゅ彉銆?
  */
 const WEAPONS: Record<string, (typeof WEAPONS_1)[string]> = {
   ...WEAPONS_1,
@@ -40,6 +49,15 @@ const WEAPONS: Record<string, (typeof WEAPONS_1)[string]> = {
   ...WEAPONS_13,
   ...WEAPONS_14,
   ...WEAPONS_15,
+  ...WEAPONS_16,
+  ...WEAPONS_17,
+  ...WEAPONS_18,
+  ...WEAPONS_19,
+  ...WEAPONS_20,
+  ...WEAPONS_21,
+  ...WEAPONS_22,
+  ...WEAPONS_23,
+  ...WEAPONS_24,
 };
 
 export function drawWeapon(
@@ -49,7 +67,7 @@ export function drawWeapon(
 ): boolean {
   const art = WEAPONS[skin];
   if (!art) return false;
-  // 4★/5★ 武器多一层背光，让武器在球场上读得出来
+  // 4鈽?5鈽?姝﹀櫒澶氫竴灞傝儗鍏夛紝璁╂鍣ㄥ湪鐞冨満涓婅寰楀嚭鏉?
   if (art.c) {
     const glowSkin = WEAPONS_4[skin] ? 0.16 : 0.12;
     g.lineStyle(11, art.c, glowSkin);

@@ -16,7 +16,6 @@ import { DEFAULT_COSMETIC } from '../game/cosmetics';
 import {
   activeChestSlots,
   allChestSlots,
-  CHEST_ODDS,
   chestPeriod,
   nextChestTheme,
   type ChestSlot,
@@ -24,6 +23,7 @@ import {
 } from '../game/chest';
 import {
   CHEST_KEYS,
+  MATERIALS,
   RARITY_META,
   SLOT_COSMETIC_KEY,
   SLOT_LABELS,
@@ -64,8 +64,10 @@ const allSlots = computed(() => allChestSlots(tick.value));
 /** 选中的池子记在本机（跨期 / 下架之后自动落回当期） */
 const pickedKey = useLocalStorage('bmt-chest-pool', '');
 const slot = computed<ChestSlot>(
-  () => slots.value.find((s) => s.key === pickedKey.value) ?? slots.value[0],
+  () => allSlots.value.find((s) => s.key === pickedKey.value) ?? slots.value[0],
 );
+/** 选中的池子现在能不能抽：未返场 / 已下架的只能看内容、不能抽 */
+const drawable = computed(() => slot.value.active);
 const theme = computed(() => slot.value.theme);
 /** 墙上这些件 = 抽「主题」那一档时用的池子 */
 const banner = computed(() => slot.value.items);
@@ -89,7 +91,7 @@ const tabSlots = computed(() => {
 });
 
 function pick(s: ChestSlot): void {
-  if (!s.active) return;
+  // 未返场的池子也能选中——只是选中后只能**查看**内容（抽取按钮会置灰）
   sfx.click();
   pickedKey.value = s.key;
   pickerOpen.value = false;
@@ -116,7 +118,13 @@ function fmtLeft(endsAt: number): string {
 
 /** 池子信息那一行的后缀说明 */
 const leftLabel = computed(() =>
-  slot.value.kind === 'const' ? '常驻奖池 · 不会下架' : slot.value.kind === 'current' ? '后换期' : '后下架',
+  !slot.value.active
+    ? '未返场 · 仅查看'
+    : slot.value.kind === 'const'
+      ? '常驻奖池 · 不会下架'
+      : slot.value.kind === 'current'
+        ? '后换期'
+        : '后下架',
 );
 
 /** 点一件物品：弹试穿预览（穿在身上什么样） */
@@ -189,9 +197,9 @@ const mode = ref<'single' | 'ten'>('single');
 const result = ref<PullResult | null>(null);
 const results = ref<PullResult[]>([]);
 
-const canSingle = computed(() => progress.chestKeys >= CHEST_KEYS && phase.value !== 'opening');
-const canTen = computed(() => progress.chestKeys >= TEN_KEYS && phase.value !== 'opening');
-const canFreeTen = computed(() => progress.tenTickets > 0 && phase.value !== 'opening');
+const canSingle = computed(() => drawable.value && progress.chestKeys >= CHEST_KEYS && phase.value !== 'opening');
+const canTen = computed(() => drawable.value && progress.chestKeys >= TEN_KEYS && phase.value !== 'opening');
+const canFreeTen = computed(() => drawable.value && progress.tenTickets > 0 && phase.value !== 'opening');
 
 /** 展示用的小卡：装扮与「袋子档」统一成同一种结构，模板就不用手写两遍 */
 type Tile = {
@@ -223,6 +231,20 @@ function toTile(r: PullResult, i: number): Tile {
       tag: isCoin ? '金币袋' : '星尘碎片',
       title: `${isCoin ? '🪙' : '🧩'} +${r.amount}`,
       sub: isCoin ? '没开到装扮，金币也是钱' : '没开到装扮，碎片能换装扮',
+      stars: 0,
+      note: '',
+    };
+  }
+  if (r.kind === 'junk') {
+    const mat = MATERIALS[r.material];
+    return {
+      key: `junk-${i}`,
+      color: '#8b97a8',
+      item: null,
+      emoji: mat.emoji,
+      tag: '杂物',
+      title: `${mat.emoji} +${r.amount}`,
+      sub: `没开到装扮，${mat.name}也能拉去农场主换钱`,
       stars: 0,
       note: '',
     };
@@ -283,11 +305,15 @@ function dismiss(): void {
 }
 
 function openSingle(): void {
+  if (!drawable.value) {
+    toastWarn('这个奖池还没返场 / 已下架，只能查看内容，不能抽取');
+    return;
+  }
   if (!canSingle.value) {
     toastWarn(`宝箱钥匙不够，还差 ${CHEST_KEYS - progress.chestKeys} 把（成就 / 里程碑 / 段位 / 每日任务 / 哥斯拉都给钥匙）`);
     return;
   }
-  // 传选中的池子：由 `progress` 摇类别（普通 50% / 选中主题 35% / 高级 15%）
+  // 传选中的池子：**只出这个池子墙上的内容**
   const r = progress.pull(slot.value);
   if (!r) return;
   mode.value = 'single';
@@ -297,6 +323,10 @@ function openSingle(): void {
 }
 
 function openTen(useTicket: boolean): void {
+  if (!drawable.value) {
+    toastWarn('这个奖池还没返场 / 已下架，只能查看内容，不能抽取');
+    return;
+  }
   if (!useTicket && !canTen.value) {
     toastWarn(`宝箱钥匙不够，十连要 ${TEN_KEYS} 把（现在 ${progress.chestKeys} 把）`);
     return;
@@ -337,9 +367,9 @@ const owned = (id: string): boolean => progress.owned.includes(id);
           <span class="muted num">{{ banner.length }} 件</span>
         </div>
         <p class="muted cp__odds">
-          开箱先摇类别：普通宝箱 <b>{{ Math.round(CHEST_ODDS.normal * 100) }}%</b> ·
-          选中主题 <b>{{ Math.round(CHEST_ODDS.theme * 100) }}%</b> ·
-          高级宝箱 <b>{{ Math.round(CHEST_ODDS.premium * 100) }}%</b>（这面墙就是"主题"那一档）。
+          选中的宝箱<b>只出它自己墙上的内容</b>；星级概率逐级减半
+          （约 1★ 52% · 2★ 26% · 3★ 13% · 4★ 6% · 5★ 3%）。
+          <b>抽到装扮约 65%</b>；另有 <b>20% 袋子档</b>（金币 / 🧩 碎片）+ <b>15% 杂物档</b>（棉花 / 矿石）。
         </p>
 
         <div class="cp__groups">
@@ -402,10 +432,10 @@ const owned = (id: string): boolean => progress.owned.includes(id);
           <div class="cp__name">{{ theme.name }}</div>
           <div class="muted cp__tagline">{{ theme.tagline }}</div>
           <div class="cp__timer">
-            <span class="num cp__timer-num">{{ fmtLeft(slot.endsAt) }}</span>
+            <span class="num cp__timer-num">{{ drawable ? fmtLeft(slot.endsAt) : '未返场' }}</span>
             <span class="muted cp__timer-label">
               {{ leftLabel }}
-              <template v-if="slot.kind === 'current'">
+              <template v-if="drawable && slot.kind === 'current'">
                 · 下一期 {{ nextTheme.emoji }} {{ nextTheme.name }}
               </template>
             </span>
@@ -414,7 +444,9 @@ const owned = (id: string): boolean => progress.owned.includes(id);
 
         <button class="cp__pool-btn" type="button" @click="sfx.click(); pickerOpen = true">
           🎁 奖池切换
-          <span class="muted cp__pool-btn-sub">当前：{{ theme.emoji }} {{ theme.name }}</span>
+          <span class="muted cp__pool-btn-sub">
+            当前：{{ theme.emoji }} {{ theme.name }}<template v-if="!drawable">（仅查看）</template>
+          </span>
         </button>
 
         <div class="cp__actions">
@@ -431,6 +463,7 @@ const owned = (id: string): boolean => progress.owned.includes(id);
           >
             免费十连（新手礼）×{{ progress.tenTickets }}
           </Button>
+          <p v-if="!drawable" class="muted cp__lock">这个奖池还没返场 / 已下架，只能查看内容。</p>
         </div>
       </section>
 
@@ -470,11 +503,10 @@ const owned = (id: string): boolean => progress.owned.includes(id);
     </div>
 
     <p class="muted cp__note">
-      同一时刻有好几个池子：<b>当期主题</b>每小时轮换 · <b>限时返场</b>（每 6 小时换一批，2~24 小时后下架）· <b>常驻经典大池</b>（普通 / 高级宝箱）。
-      点上面的「奖池切换」选一个池子，抽奖时"主题"那一档就用它（<b>但开箱仍然先摇类别</b>：普通 50% / 选中主题 35% / 高级 15%）。
-      开箱只花<b>宝箱钥匙</b>（成就 / 发球机里程碑 / 段位 / 每日钓鱼任务 / 晋级赛名次 / 小黄龙转盘 / 哥斯拉），
-      约 <b>1/5 的抽是「袋子档」</b>（给金币或 🧩 碎片），重复返还金币，<b>没有保底</b>。
-      星尘碎片兑换已挪到<b>商城的「皮肤 → 碎片兑换」</b>。
+      「奖池切换」里<b>每个主题都能点开查看内容</b>；其中 <b>当期主题</b>（每小时轮换）· <b>限时返场</b>（每 6 小时换一批，2~24 小时后下架）· <b>常驻经典大池</b>（普通 / 高级宝箱）随时可抽，未返场的只<b>查看</b>、不能抽。
+      <b>选中的宝箱只出它自己墙上的内容</b>（不再先摇类别）；星级概率逐级减半；
+      <b>约 65% 抽到装扮</b>，其余是 <b>20% 袋子档</b>（金币 / 🧩 碎片）+ <b>15% 杂物档</b>（棉花 / 矿石，拉去农场主换钱）；重复返还金币，<b>没有保底</b>。
+      开箱只花<b>宝箱钥匙</b>；星尘碎片兑换在<b>商城的「皮肤 → 碎片兑换」</b>。
     </p>
 
     <!-- 点物品：试穿预览（穿在自己身上什么样） -->
@@ -542,7 +574,6 @@ const owned = (id: string): boolean => progress.owned.includes(id);
             class="pk__pool"
             :class="{ 'is-on': s.key === slot.key, 'is-off': !s.active }"
             type="button"
-            :disabled="!s.active"
             :style="{
               '--pc-base': s.theme.palette.base,
               '--pc-lid': s.theme.palette.lid,
@@ -560,7 +591,7 @@ const owned = (id: string): boolean => progress.owned.includes(id);
               <span v-if="s.key === slot.key" class="pk__art-on">✓ 正在开</span>
             </span>
             <span class="pk__foot">
-              <span class="muted pk__left">{{ s.active ? fmtLeft(s.endsAt) : '未返场' }}</span>
+              <span class="muted pk__left">{{ s.active ? fmtLeft(s.endsAt) : '未返场 · 仅查看' }}</span>
               <span class="num pk__prog">
                 {{ poolProgress(s).owned }}/{{ poolProgress(s).total }}
               </span>

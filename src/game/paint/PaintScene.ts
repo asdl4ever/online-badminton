@@ -129,6 +129,8 @@ export class PaintScene extends Phaser.Scene {
   /** 橡皮攒批：待广播的「被擦掉的笔画」与「擦剩的新段」 */
   private wiped: string[] = [];
   private wipedNew: Stroke[] = [];
+  /** 正在画的笔：每个 id 已经烘进底片的点数（实时层只画剩下的尾巴） */
+  private liveBaked = new Map<string, number>();
 
   /** 画板在画布里的偏移 / 缩放（layout() 里算） */
   private offX = 0;
@@ -502,23 +504,70 @@ export class PaintScene extends Phaser.Scene {
     if (this.rebuild) {
       this.rebuild = false;
       this.queue = [];
+      this.liveBaked.clear();
       const all = this.strokes.filter((st) => st.done);
       this.bake(all, true);
+      // 重建会把正在画的笔从底片里抹掉 → 整条补烘一次，实时层只留尾巴
+      for (const id of this.liveIds) {
+        const st = this.strokes.find((x) => x.id === id);
+        if (st && !st.done) {
+          this.bakeRange(st, 0, st.pts.length);
+          this.liveBaked.set(id, st.pts.length);
+        }
+      }
     } else if (this.queue.length) {
       const add = this.queue;
       this.queue = [];
       this.bake(add, false);
     }
-    // 正在画的层：绘制中每帧重画（拖尾有动画感）
+
+    // 正在画的笔：**增量烘进底片**（每长出 8 个点烘一次），实时层每帧只重画
+    // 笔尖那一小段尾巴。逐段描边命令多，整条每帧重画在手机上会掉帧（实测 45ms/帧），
+    // 这样画多长都只有尾巴那点开销。
+    for (const id of this.liveIds) {
+      const st = this.strokes.find((x) => x.id === id);
+      if (!st || st.done) continue;
+      const baked = this.liveBaked.get(id) ?? 0;
+      if (st.pts.length - baked >= LIVE_BAKE_STEP) {
+        this.bakeRange(st, Math.max(0, baked - 1), st.pts.length);
+        this.liveBaked.set(id, st.pts.length);
+      }
+    }
     this.liveG.clear();
     for (const id of this.liveIds) {
       const st = this.strokes.find((x) => x.id === id);
-      if (st && !st.done) this.paintStroke(this.liveG, st, now);
+      if (!st || st.done) continue;
+      const from = Math.max(0, st.pts.length - LIVE_TAIL);
+      this.paintStrokeRange(this.liveG, st, from, st.pts.length, now, true);
     }
     // 角色动画降到 ~20fps：整只角色（身体 + 装备 + 宠物）每帧重画太贵
     this.frame = (this.frame + 1) % 3;
     if (this.frame === 0) this.drawCharacter(now);
     this.drawEraserCursor();
+  }
+
+  /** 把一笔的 [from, to) 段烘进底片（增量追加用） */
+  private bakeRange(st: Stroke, from: number, to: number): void {
+    if (to - from < 2) return;
+    const scratch = this.make.graphics({ x: 0, y: 0 }, false);
+    this.paintStrokeRange(scratch, st, from, to, this.time.now, false);
+    this.rt.draw(scratch);
+    (this.rt.texture as unknown as { render(): void }).render();
+    scratch.destroy();
+  }
+
+  /** 画一笔的 [from, to) 段（切成子点列后走同一套绘制） */
+  private paintStrokeRange(
+    g: Phaser.GameObjects.Graphics,
+    st: Stroke,
+    from: number,
+    to: number,
+    now: number,
+    withTip: boolean,
+  ): void {
+    const pts = st.pts.slice(Math.max(0, from), to);
+    if (pts.length < 2) return;
+    this.paintStroke(g, { ...st, pts }, now, withTip);
   }
 
   /**
@@ -531,7 +580,12 @@ export class PaintScene extends Phaser.Scene {
   private bake(list: readonly Stroke[], clearFirst: boolean): void {
     const scratch = this.make.graphics({ x: 0, y: 0 }, false);
     const now = this.time.now;
-    for (const st of list) this.paintStroke(scratch, st, now);
+    for (const st of list) {
+      // 边画边增量烘过的部分不重复画（从上次烘到的点往前 1 个点接上）
+      const from = clearFirst ? 0 : Math.max(0, (this.liveBaked.get(st.id) ?? 0) - 1);
+      this.paintStrokeRange(scratch, st, from, st.pts.length, now, false);
+      this.liveBaked.delete(st.id);
+    }
     if (clearFirst) this.rt.clear();
     if (list.length) this.rt.draw(scratch);
     // ⚠️ 必须显式 render：draw() 只是把命令入队，不 render 就不出图
@@ -546,7 +600,13 @@ export class PaintScene extends Phaser.Scene {
    * 拖尾**不用对局的逐点盖章画法**（那会把笔迹变成一串圆圈）：主题拖尾本来就是
    * 沿整条轨迹成形的，直接沿用；老款（经典 / 火焰 / 彩虹…）走平滑光带。
    */
-  private paintStroke(g: Phaser.GameObjects.Graphics, st: Stroke, now: number): void {
+  private paintStroke(
+    g: Phaser.GameObjects.Graphics,
+    st: Stroke,
+    now: number,
+    /** 只有「正在画」的笔尖才画那颗亮核；已烘进底片的笔画不留圆点 */
+    withTip = false,
+  ): void {
     const def = brushById(st.brush);
     const bodyW = bodyWidth(st.brush, st.size);
     // ① 光晕垫在最下面（贴着笔画本体，不画细飘带 → 密集涂鸦也不会糊成线框）
@@ -556,7 +616,7 @@ export class PaintScene extends Phaser.Scene {
     if (def.trail <= 0) return;
     // ③ 主题拖尾（整条轨迹画法）盖在上面；命中就不再加笔尖亮核
     if (drawTrailCustom(g, now, st.style, st.pts, def.trail)) return;
-    drawPaintTip(g, st.pts, st.color, def.trail, now);
+    if (withTip) drawPaintTip(g, st.pts, st.color, def.trail, now);
   }
 
   /** 画板旁的画家角色：拿着拍一直在「画」（挥拍拖尾在场边闪） */
@@ -614,6 +674,11 @@ function flatten(pts: TrailPoint[]): number[] {
 
 /** 收笔时抽稀的间距（画板坐标）：5 在 900 宽的画板上肉眼看不出差别，顶点数砍一半以上 */
 const FINISH_MIN_GAP = 5;
+
+/** 正在画的笔：每长出这么多点就往底片里烘一次 */
+const LIVE_BAKE_STEP = 8;
+/** 实时层每帧只重画笔尖这一小段（点） */
+const LIVE_TAIL = 6;
 
 /** 一笔的包围盒（橡皮命中判定的粗筛） */
 function boundsOf(pts: readonly TrailPoint[]): { x0: number; y0: number; x1: number; y1: number } {

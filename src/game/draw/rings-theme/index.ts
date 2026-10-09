@@ -12,12 +12,21 @@ import { RINGS_10 } from './rings10';
 import { RINGS_11 } from './rings11';
 import { RINGS_12 } from './rings12'
 import { RINGS_13 } from './rings13';
+import { RINGS_14 } from './rings14';
+import { RINGS_15 } from './rings15';
+import { RINGS_16 } from './rings16';
+import { RINGS_17 } from './rings17';
+import { RINGS_18 } from './rings18';
+import { RINGS_19 } from './rings19';
+import { RINGS_20 } from './rings20';
+import { RINGS_21 } from './rings21';
+import { RINGS_22 } from './rings22';
 
 
 /**
- * 主题地环的**逐款独立画**总入口（分文件见 rings1~2.ts）。
- * 每个地环按名字独立构图——商队脚印 / 法阵符文 / 菌圈蘑菇 / 岩浆裂缝……
- * 命中即整环交给 painter 画，不再走 themeart 的通用模板。
+ * 涓婚鍦扮幆鐨?*閫愭鐙珛鐢?*鎬诲叆鍙ｏ紙鍒嗘枃浠惰 rings1~2.ts锛夈€?
+ * 姣忎釜鍦扮幆鎸夊悕瀛楃嫭绔嬫瀯鍥锯€斺€斿晢闃熻剼鍗?/ 娉曢樀绗︽枃 / 鑿屽湀铇戣弴 / 宀╂祮瑁傜紳鈥︹€?
+ * 鍛戒腑鍗虫暣鐜氦缁?painter 鐢伙紝涓嶅啀璧?themeart 鐨勯€氱敤妯℃澘銆?
  */
 const RINGS: Record<string, (typeof RINGS_1)[string]> = {
   ...RINGS_1,
@@ -33,6 +42,15 @@ const RINGS: Record<string, (typeof RINGS_1)[string]> = {
   ...RINGS_11,
   ...RINGS_12,
   ...RINGS_13,
+  ...RINGS_14,
+  ...RINGS_15,
+  ...RINGS_16,
+  ...RINGS_17,
+  ...RINGS_18,
+  ...RINGS_19,
+  ...RINGS_20,
+  ...RINGS_21,
+  ...RINGS_22,
 };
 
 export function hasCustomRing(id: string): boolean {

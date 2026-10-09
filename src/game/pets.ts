@@ -43,6 +43,45 @@ export const PET_BONUS: Record<PetId, PetBonus> = {
   dragon: { coin: 4, xp: 4 }, // 幼龙：全能
   // --- 小黄龙联名（转盘限定）---
   nailong: { coin: 5, xp: 5 }, // 小黄龙宝宝：联名最强，两项都顶格
+  // --- 第六批主题宝箱专属宠物 ---
+  slavRaven: { coin: 5, xp: 1 }, // 渡鸦：报丧也报财，偏金币
+  persHuma: { coin: 2, xp: 5 }, // 胡玛神鸟：祥瑞，偏经验
+  incaPuma: { coin: 4, xp: 3 }, // 美洲狮崽：猎手，均衡
+  polySharkPup: { coin: 3, xp: 4 }, // 幼鲨：咬球快，偏经验
+  auzKooka: { coin: 4, xp: 2 }, // 笑翠鸟：叼东西，偏金币
+  // --- 第七批 宇宙科幻主题宝箱专属宠物 ---
+  nanoDrone: { coin: 2, xp: 5 }, // 纳米无人机：扫数据，偏经验
+  dataSprite: { coin: 4, xp: 4 }, // 数据精灵：算账又快又准，均衡
+  warpBot: { coin: 3, xp: 5 }, // 跃迁小机：抄近道，偏经验
+  marsBot: { coin: 5, xp: 2 }, // 漫游小机：挖矿高手，偏金币
+  forerDrone: { coin: 4, xp: 3 }, // 遗迹浮游机：捡宝贝，均衡
+  // --- 第八批 海洋怪兽主题宝箱专属宠物 ---
+  glacSeal: { coin: 3, xp: 4 }, // 幼海豹：卖萌换打赏，偏经验
+  fridLurefish: { coin: 4, xp: 4 }, // 灯笼鱼宝宝：自带灯，均衡
+  walrPup: { coin: 5, xp: 2 }, // 海象宝宝：囤货，偏金币
+  dimEye: { coin: 4, xp: 3 }, // 维度之眼：看得远，均衡
+  hadalFry: { coin: 3, xp: 5 }, // 幼鮟鱇：越深越强，偏经验
+  cretHatch: { coin: 3, xp: 1 },
+  swampTurtle: { coin: 3, xp: 1 },
+  iceageCalf: { coin: 3, xp: 1 },
+  yorThunderbird: { coin: 3, xp: 1 },
+  kalOwl: { coin: 3, xp: 1 },
+  banMonkey: { coin: 3, xp: 1 },
+  banParrot: { coin: 3, xp: 1 },
+  memeNyan: { coin: 3, xp: 1 },
+  memeDogePet: { coin: 3, xp: 1 },
+  officeLuckyCat: { coin: 3, xp: 1 },
+  gnomeHedgehog: { coin: 3, xp: 1 },
+  trashRaccoon: { coin: 3, xp: 1 },
+  trashRat: { coin: 3, xp: 1 },
+  dreamSheep: { coin: 3, xp: 1 },
+  dreamMoth: { coin: 3, xp: 1 },
+  microVirus: { coin: 3, xp: 1 },
+  alchSlime: { coin: 3, xp: 1 },
+  yarnKitten: { coin: 3, xp: 1 },
+  yarnMouse: { coin: 3, xp: 1 },
+  paintBird: { coin: 3, xp: 1 },
+  paintBlob: { coin: 3, xp: 1 },
 };
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;

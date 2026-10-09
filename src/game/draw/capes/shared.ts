@@ -33,4 +33,11 @@ export interface CapeArt {
   c: number;
   a: number;
   draw: (g: G, now: number, sway: number, c: number, a: number) => void;
+  /**
+   * **背挂物件**（不是披风的一件东西：背包 / 招牌 / 盾牌 / 气球 / 药箱…）：
+   * 为 true 时入口**不做**垂坠的放大+后仰旋转，改为只画一次、横向按 `getBackTune`
+   * 的 `ox` 偏移、按 `front` 决定身前/身后层——和翅膀包的 `single` 完全同一套。
+   * 这样「任何背在身上的东西」都能当背部装饰，披风包与翅膀包对称。
+   */
+  single?: boolean;
 }

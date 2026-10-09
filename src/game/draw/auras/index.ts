@@ -15,14 +15,23 @@ import { AURAS_13 } from './auras13';
 import { AURAS_14 } from './auras14';
 import { AURAS_15 } from './auras15';
 import { AURAS_16 } from './auras16'
-import { AURAS_17 } from './auras17';;
+import { AURAS_17 } from './auras17';
+import { AURAS_18 } from './auras18';
+import { AURAS_19 } from './auras19';
+import { AURAS_20 } from './auras20';
+import { AURAS_21 } from './auras21';
+import { AURAS_22 } from './auras22';
+import { AURAS_23 } from './auras23';
+import { AURAS_24 } from './auras24';
+import { AURAS_25 } from './auras25';
+import { AURAS_26 } from './auras26';
 
 /**
- * 主题光环的**背景特效化**总入口（分文件见 auras1~4.ts）。
+ * 涓婚鍏夌幆鐨?*鑳屾櫙鐗规晥鍖?*鎬诲叆鍙ｏ紙鍒嗘枃浠惰 auras1~4.ts锛夈€?
  *
- * 光环不再是「环」：每款是一幅画在角色**身后的背景特效**——光柱 / 魔阵 / 帷幕 /
- * 落日 / 极光 / 银河…以 (0, 0) = 角色躯干为中心、纵跨约 ±150。
- * `drawCharacter` 本来就在画身体之前调 `drawAura`，所以这里天然在身后。
+ * 鍏夌幆涓嶅啀鏄€岀幆銆嶏細姣忔鏄竴骞呯敾鍦ㄨ鑹?*韬悗鐨勮儗鏅壒鏁?*鈥斺€斿厜鏌?/ 榄旈樀 / 甯峰箷 /
+ * 钀芥棩 / 鏋佸厜 / 閾舵渤鈥︿互 (0, 0) = 瑙掕壊韬共涓轰腑蹇冦€佺旱璺ㄧ害 卤150銆?
+ * `drawCharacter` 鏈潵灏卞湪鐢昏韩浣撲箣鍓嶈皟 `drawAura`锛屾墍浠ヨ繖閲屽ぉ鐒跺湪韬悗銆?
  */
 const AURAS: Record<string, (typeof AURAS_1)[string]> = {
   ...AURAS_1,
@@ -42,13 +51,22 @@ const AURAS: Record<string, (typeof AURAS_1)[string]> = {
   ...AURAS_15,
   ...AURAS_16,
   ...AURAS_17,
+  ...AURAS_18,
+  ...AURAS_19,
+  ...AURAS_20,
+  ...AURAS_21,
+  ...AURAS_22,
+  ...AURAS_23,
+  ...AURAS_24,
+  ...AURAS_25,
+  ...AURAS_26,
 };
 
 export function hasCustomAura(id: string): boolean {
   return !!AURAS[id];
 }
 
-/** 画一件主题光环背景特效；(x, cy) = 角色躯干中心，color = 物品主色 */
+/** 鐢讳竴浠朵富棰樺厜鐜儗鏅壒鏁堬紱(x, cy) = 瑙掕壊韬共涓績锛宑olor = 鐗╁搧涓昏壊 */
 export function drawAuraCustom(
   g: Phaser.GameObjects.Graphics,
   now: number,

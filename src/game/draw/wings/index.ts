@@ -17,8 +17,18 @@ import { WINGS_15 } from './wings15';
 import { WINGS_16 } from './wings16';
 import { WINGS_17 } from './wings17';
 import { WINGS_18 } from './wings18'
-import { WINGS_19 } from './wings19';;
+import { WINGS_19 } from './wings19';
+import { WINGS_20 } from './wings20';
+import { WINGS_21 } from './wings21';
+import { WINGS_22 } from './wings22';
+import { WINGS_23 } from './wings23';
+import { WINGS_24 } from './wings24';
+import { WINGS_25 } from './wings25';
+import { WINGS_26 } from './wings26';
+import { WINGS_27 } from './wings27';
+import { WINGS_28 } from './wings28';
 import { getBackTune } from '../../backTune';
+import { isSingleCape } from '../capes';
 
 /**
  * 主题翅膀的**独立剪影**总入口（分文件见 wings1~4.ts）。
@@ -47,15 +57,24 @@ const WINGS: Record<string, (typeof WINGS_1)[string]> = {
   ...WINGS_17,
   ...WINGS_18,
   ...WINGS_19,
+  ...WINGS_20,
+  ...WINGS_21,
+  ...WINGS_22,
+  ...WINGS_23,
+  ...WINGS_24,
+  ...WINGS_25,
+  ...WINGS_26,
+  ...WINGS_27,
+  ...WINGS_28,
 };
 
 export function hasCustomWings(id: string): boolean {
   return !!WINGS[id];
 }
 
-/** 这件背部装饰是不是「单件背挂物件」（非成对翅膀）——给调参 UI 判断用 */
+/** 这件背部装饰是不是「背挂物件」（翅膀包或披风包里的 `single`）——给调参 UI 判断用 */
 export function isSingleBack(id: string): boolean {
-  return !!WINGS[id]?.single;
+  return !!WINGS[id]?.single || isSingleCape(id);
 }
 
 /**

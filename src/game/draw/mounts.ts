@@ -10,26 +10,76 @@ import { drawMountCustom } from './mounts-theme';
  * 它不参与任何物理（不改移动速度、不改判定半径），所以联机时两边各画各的就行，
  * 轨迹不会因为这个分叉。所有坐骑都以 `pose.feetY` 为基准往上/往下画一点点。
  */
+export type MountPass = 'back' | 'front' | 'all';
+
+/**
+ * 坐骑的**叠放策略**——决定它画在角色身体之前还是之后、是否分两遍画：
+ * - `behind`（默认）：整件画在**身体之前**（角色压上去）→ 坐骑不再糊在脸上，读作「站在/骑在上面」；
+ * - `front`：低矮贴地载具（滑板 / 悬浮板 / 云 / 毯…），维持画在身体之后（压在脚下）；
+ * - `split`：**分两遍**——主体画在身后、近侧覆盖层（`MountArt.front`）画在身前，构成
+ *   「角色骑在坐骑里」的前后遮挡（独木舟近侧船帮、兽形前腿…）。角色本体与球拍位置完全不动。
+ */
+type MountLayer = 'behind' | 'front' | 'split';
+interface MountRig { layer: MountLayer; lift?: number }
+/** 默认：画在身后 + 整体下压，让坐骑的「承托面」落到脚底（角色才像站在/骑在上面） */
+const MOUNT_RIG_DEFAULT: MountRig = { layer: 'behind', lift: 16 };
+const MOUNT_RIG: Partial<Record<MountId, MountRig>> = {
+  // 低矮贴地载具：角色站在上面，画在身体之后（脚下压着它）
+  board: { layer: 'front' }, bubble: { layer: 'front' }, cloud: { layer: 'front' }, carpet: { layer: 'front' },
+  star: { layer: 'front' }, rocket: { layer: 'front' }, scooter: { layer: 'front' }, log: { layer: 'front' },
+  box: { layer: 'front' }, spring: { layer: 'front' }, cart: { layer: 'front' }, broom: { layer: 'front' },
+  bike: { layer: 'front' }, hover: { layer: 'front' }, nailongRoll: { layer: 'front' }, ufo: { layer: 'front' },
+  sword: { layer: 'front' }, firewheel: { layer: 'front' }, kite: { layer: 'front' }, crescent: { layer: 'front' },
+  laserbike: { layer: 'front' }, gearbike: { layer: 'front' }, persCarpet: { layer: 'front' },
+  // 第七批宇宙科幻坐骑（悬浮载具，画在身体之后、角色站在上面）
+  nanoSwarmBoard: { layer: 'front' }, dataHoverPod: { layer: 'front' }, warpSled: { layer: 'front' },
+  marsRover: { layer: 'front' }, forerDisc: { layer: 'front' },
+  // 第八批海洋怪兽：破冰船 / 维度裂隙 = 载具（身前）；鲸 / 海象 / 鮟鱇 = 兽形（默认身后）
+  fridIceBoat: { layer: 'front' }, dimRift: { layer: 'front' },
+  // 分两遍：主体在身后、近侧压在身上（第六批新坐骑）
+  slavMortar: { layer: 'split' }, incaAlpaca: { layer: 'split' },
+  polyCanoe: { layer: 'split' }, auzKangaroo: { layer: 'split' },
+  // 第九批：恐龙 / 史前 / 神话 / 恶搞坐骑（角色骑在其上，分两遍绘制）
+  cretTrike: { layer: 'split' }, swampDeino: { layer: 'split' }, swampSerpent: { layer: 'split' },
+  iceageMammoth: { layer: 'split' }, yorPanther: { layer: 'split' }, kalBear: { layer: 'split' },
+  banBoat: { layer: 'split' }, banCart: { layer: 'split' }, memeDoge: { layer: 'split' },
+  memeRocket: { layer: 'split' }, officeChair: { layer: 'split' }, gnomeSnail: { layer: 'split' },
+  trashCart: { layer: 'split' }, trashTruck: { layer: 'split' },
+  // 第十批：梦境 / 微观 / 炼金 / 毛线 / 画中世界坐骑
+  dreamCloud: { layer: 'split' }, dreamBed: { layer: 'split' },
+  microCilia: { layer: 'split' }, microCell: { layer: 'split' },
+  alchCrucible: { layer: 'split' }, yarnCat: { layer: 'split' },
+  yarnHorse: { layer: 'split' }, paintHorse: { layer: 'split' },
+};
+
 export function drawMount(
   g: Phaser.GameObjects.Graphics,
   now: number,
   id: MountId,
   pose: CharacterPose,
+  pass: MountPass = 'all',
 ): void {
   if (id === 'none') return;
-  const x = pose.x;
-  const y = pose.feetY;
-  const f = pose.facing;
+  const rig = MOUNT_RIG[id] ?? MOUNT_RIG_DEFAULT;
+  // 按叠放层裁剪这一遍该不该下笔
+  if (pass === 'back' && rig.layer === 'front') return;
+  if (pass === 'front' && rig.layer === 'behind') return;
+  const part: 'main' | 'overlay' = rig.layer === 'split' ? (pass === 'front' ? 'overlay' : 'main') : 'main';
+  // 需要的话把坐骑整体下移，让它的顶面正好落在脚底
+  const p: CharacterPose = rig.lift ? { ...pose, feetY: pose.feetY + rig.lift } : pose;
+  const x = p.x;
+  const y = p.feetY;
+  const f = p.facing;
   const color = MOUNT_COLORS[id];
   /** 悬浮类坐骑的上下浮动 */
   const bob = Math.sin(now / 420) * 3;
 
   // 主题坐骑：逐款独立画（draw/mounts-theme/），命中就不再走 6-family 模板
-  if (drawMountCustom(g, now, id, pose)) return;
+  if (drawMountCustom(g, now, id, p, part)) return;
   // 兜底：还没迁完的主题坐骑走 themeart 的通用画法（beast / glider / wheeled…）
   if (THEME_MOUNTS[id]) {
-    drawThemeMount(g, now, id, pose);
-    drawMountFlair(g, now, id, pose);
+    drawThemeMount(g, now, id, p);
+    drawMountFlair(g, now, id, p);
     return;
   }
 
@@ -1236,7 +1286,7 @@ export function drawMount(
       break;
     }
   }
-  drawMountFlair(g, now, id, pose);
+  drawMountFlair(g, now, id, p);
 }
 
 /**
