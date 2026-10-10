@@ -133,7 +133,18 @@ export type HitStyle =
   | 'microSplit'
   | 'alchExplosion'
   | 'yarnTangle'
-  | 'paintSplashBurst';
+  | 'paintSplashBurst'
+  // 第二十批 SCP / 巨兽 专属命中特效
+  | 'scpBreach'
+  | 'keterBloom'
+  | 'shyScream'
+  | 'rakePounce'
+  | 'wendiHowl'
+  | 'mothmOmen'
+  | 'gbeastQuake'
+  | 'crawDevour'
+  | 'mutoBlast'
+  | 'beheImpact';
 
 export type WingId =
   | 'none'
@@ -425,7 +436,48 @@ export type WingId =
   | 'paintPalette'
   | 'paintMasterpiece'
   | 'paintTubePack'
-  | 'paintRoller';
+  | 'paintRoller'
+  // 第二十批背部背挂物件
+  | 'scpCage'
+  | 'scpBioTank'
+  | 'scpCamera'
+  | 'scpStrongbox'
+  | 'keterSpine'
+  | 'keterTent'
+  | 'keterHeart'
+  | 'keterRibcage'
+  | 'shyCage'
+  | 'shyPalePack'
+  | 'shyChain'
+  | 'shyTag'
+  | 'rakeSpine'
+  | 'rakeFence'
+  | 'rakePelt'
+  | 'rakeLair'
+  | 'wendiAntlerPack'
+  | 'wendiFur'
+  | 'wendiTotem'
+  | 'wendiCage'
+  | 'mothmWings'
+  | 'mothmCocoon'
+  | 'mothmLamp'
+  | 'mothmChrysalis'
+  | 'gbeastBone'
+  | 'gbeastCrate'
+  | 'gbeastDrum'
+  | 'gbeastTotem'
+  | 'crawSpine'
+  | 'crawTail'
+  | 'crawEgg'
+  | 'crawRib'
+  | 'mutoWing'
+  | 'mutoEgg'
+  | 'mutoReactor'
+  | 'mutoClaw'
+  | 'beheSpike'
+  | 'beheArmor'
+  | 'beheMountain'
+  | 'beheCage';
 
 export type CapeId =
   | 'none'
@@ -835,7 +887,28 @@ export type HatId =
   | 'paintBeret'
   | 'paintFrameHat'
   | 'paintPaletteCrown'
-  | 'paintBrushHat';
+  | 'paintBrushHat'
+  // 第二十批头饰
+  | 'scpGasMask'
+  | 'scpHazmat'
+  | 'keterEye'
+  | 'keterMaw'
+  | 'shyPale'
+  | 'shyMuzzle'
+  | 'rakeSkull'
+  | 'rakeClaw'
+  | 'wendiAntler'
+  | 'wendiSkullHead'
+  | 'mothmAntenna'
+  | 'mothmEye'
+  | 'gbeastSkull'
+  | 'gbeastTusk'
+  | 'crawSkull'
+  | 'crawJaw'
+  | 'mutoShell'
+  | 'mutoAntenna'
+  | 'beheHorn'
+  | 'beheSkull';
 
 export type PetId =
   | 'none'
@@ -877,7 +950,18 @@ export type PetId =
   | 'yarnKitten'
   | 'yarnMouse'
   | 'paintBird'
-  | 'paintBlob';
+  | 'paintBlob'
+  // 第二十批宠物
+  | 'scpRoach'
+  | 'keterLarva'
+  | 'shyPup'
+  | 'rakeCrawler'
+  | 'wendiCalf'
+  | 'mothmMoth'
+  | 'gbeastCub'
+  | 'crawHatch'
+  | 'mutoGrub'
+  | 'beheCalf';
 
 export type TrailId =
   | 'none'
@@ -1036,7 +1120,28 @@ export type TrailId =
   | 'yarnGoldTrail'
   | 'paintStroke'
   | 'paintDripTrail'
-  | 'paintGoldTrail';
+  | 'paintGoldTrail'
+  // 第二十批击球拖尾
+  | 'scpStaticTrail'
+  | 'scpBioTrail'
+  | 'keterBloodTrail'
+  | 'keterGrowthTrail'
+  | 'shyFearTrail'
+  | 'shyPaleTrail'
+  | 'rakeScratchTrail'
+  | 'rakeShadowTrail'
+  | 'wendiFrostTrail'
+  | 'wendiBloodTrail'
+  | 'mothmScaleTrail'
+  | 'mothmDustTrail'
+  | 'gbeastDustTrail'
+  | 'gbeastLavaTrail'
+  | 'crawSlimeTrail'
+  | 'crawBoneTrail'
+  | 'mutoToxicTrail'
+  | 'mutoRadTrail'
+  | 'beheDustTrail'
+  | 'beheMagmaTrail';
 
 /**
  * 挥拍拖尾：球拍挥动时那条弧线的风格。和「击球拖尾」（球飞行的拖尾）是
@@ -1136,7 +1241,18 @@ export type SwingTrailId =
   | 'microDivision'
   | 'alchTransmute'
   | 'yarnUnravelSwing'
-  | 'paintSplash';
+  | 'paintSplash'
+  // 第二十批挥拍拖尾
+  | 'scpContainSwing'
+  | 'keterDevour'
+  | 'shyLunge'
+  | 'rakeRend'
+  | 'wendiGore'
+  | 'mothmDive'
+  | 'gbeastSmash'
+  | 'crawBite'
+  | 'mutoSting'
+  | 'behemothCharge';
 
 /**
  * 坐骑：纯装饰，画在角色脚下、跟着他一起跑和跳。
@@ -1258,7 +1374,18 @@ export type MountId =
   | 'alchCrucible'
   | 'yarnCat'
   | 'yarnHorse'
-  | 'paintHorse';
+  | 'paintHorse'
+  // 第二十批坐骑
+  | 'scpPod'
+  | 'keterMass'
+  | 'shyStride'
+  | 'rakeCrawl'
+  | 'wendiElk'
+  | 'mothmWing'
+  | 'gbeastBack'
+  | 'crawRide'
+  | 'mutoDriller'
+  | 'beheRhino';
 
 /** 地环：显示在角色脚下的装饰环（积分荣誉奖励） */
 export type RingId =
@@ -1349,7 +1476,18 @@ export type RingId =
   | 'microDishRing'
   | 'alchCircle'
   | 'yarnThreadRing'
-  | 'paintSplatterRing';
+  | 'paintSplatterRing'
+  // 第二十批地环
+  | 'scpHazardRing'
+  | 'keterFleshRing'
+  | 'shyTearRing'
+  | 'rakeClawRing'
+  | 'wendiSnowRing'
+  | 'mothmDustRing'
+  | 'gbeastQuakeRing'
+  | 'crawTrackRing'
+  | 'mutoCrackRing'
+  | 'beheFootRing';
 
 export type AuraId =
   | 'none'
@@ -1595,7 +1733,28 @@ export type AuraId =
   | 'paintSwirls'
   | 'paintDrips'
   | 'paintFrames'
-  | 'paintGallery';
+  | 'paintGallery'
+  // 第二十批背景
+  | 'scpAlarm'
+  | 'scpContainField'
+  | 'keterPulse'
+  | 'keterFeast'
+  | 'shyRage'
+  | 'shyCalm'
+  | 'rakeNight'
+  | 'rakeEye'
+  | 'wendiBlizzard'
+  | 'wendiHunger'
+  | 'mothmSwarm'
+  | 'mothmPortent'
+  | 'gbeastRage'
+  | 'gbeastStorm'
+  | 'crawToxic'
+  | 'crawRumble'
+  | 'mutoFallout'
+  | 'mutoGlow'
+  | 'beheDust'
+  | 'beheMagma';
 
 export type RacketSkinId =
   | 'default'
@@ -1809,7 +1968,28 @@ export type RacketSkinId =
   | 'paintBrushRacket'
   | 'paintCanvas'
   | 'paintPaletteRacket'
-  | 'paintTubeRacket';
+  | 'paintTubeRacket'
+  // 第二十批球拍皮肤
+  | 'scpTaser'
+  | 'scpClipboard'
+  | 'keterClaw'
+  | 'keterRibs'
+  | 'shyArm'
+  | 'shyTooth'
+  | 'rakeBone'
+  | 'rakeFang'
+  | 'wendiBoneAxe'
+  | 'wendiClaw'
+  | 'mothmClaw'
+  | 'mothmEyeRacket'
+  | 'gbeastFur'
+  | 'gbeastBoneClub'
+  | 'crawFang'
+  | 'crawClaw'
+  | 'mutoClawRacket'
+  | 'mutoSpike'
+  | 'beheHornRacket'
+  | 'beheHide';
 
 /**
  * 角色形象：默认小人 / 哥斯拉 / U熊（大肚皮）/ 老皮（两个钢铁屁股，球弹上去会被弹开），
@@ -1924,7 +2104,18 @@ export type CharacterSkin =
   | 'microAmeba'
   | 'alchMaster'
   | 'yarnGolem'
-  | 'paintMuse';
+  | 'paintMuse'
+  // 第二十批形象
+  | 'scpStatue'
+  | 'keterFlesh'
+  | 'shyGiant'
+  | 'rakeThing'
+  | 'wendiStag'
+  | 'mothmSeer'
+  | 'gbeastPrime'
+  | 'crawCrawler'
+  | 'mutoQueen'
+  | 'beheTitan';
 const SKIN_IDS: CharacterSkin[] = [
   'none',
   'godzilla',
@@ -2006,7 +2197,17 @@ const SKIN_IDS: CharacterSkin[] = [
   'glacLeviathan', 'fridAngler', 'walrKing', 'dimDevourer', 'hadalLurefish',
 
   'cretTyrant', 'swampCroc', 'iceageSaber', 'yorShango', 'kalVain', 'banKing', 'memeFrog', 'officeSlacker', 'gnomeElder', 'trashKing',
-  'dreamTapir', 'microAmeba', 'alchMaster', 'yarnGolem', 'paintMuse',];
+  'dreamTapir', 'microAmeba', 'alchMaster', 'yarnGolem',   'scpStatue',
+  'keterFlesh',
+  'shyGiant',
+  'rakeThing',
+  'wendiStag',
+  'mothmSeer',
+  'gbeastPrime',
+  'crawCrawler',
+  'mutoQueen',
+  'beheTitan',
+'paintMuse',];
 
 export interface Cosmetic {
   /** whole-body character form (the streak-100 Godzilla, else 'none') */
@@ -2053,7 +2254,17 @@ const HIT_STYLE_IDS: HitStyle[] = [
   ...PLUS_EFFECT_IDS,
 
   'cretImpact', 'swampGasBurst', 'iceageBurst', 'yorThunderBurst', 'kalSongBurst', 'banSplat', 'meme404Burst', 'officeSnooze', 'gnomePollen', 'trashGarbage',
-  'dreamBurst', 'microSplit', 'alchExplosion', 'yarnTangle', 'paintSplashBurst',];
+  'dreamBurst', 'microSplit', 'alchExplosion', 'yarnTangle',   'scpBreach',
+  'keterBloom',
+  'shyScream',
+  'rakePounce',
+  'wendiHowl',
+  'mothmOmen',
+  'gbeastQuake',
+  'crawDevour',
+  'mutoBlast',
+  'beheImpact',
+'paintSplashBurst',];
 const WING_IDS: WingId[] = [
   'none', 'light', 'frost', 'flame', 'thunder', 'shine', 'butterfly', 'dragon', 'angel', 'demon', 'mech', 'neon', 'star', 'crystal',
   'phoenix', 'fairy', 'cyber', 'leaf', 'shadow', 'rainbow', 'galaxy', 'bone', 'paper', 'blade', 'tide', 'ember',
@@ -2204,7 +2415,47 @@ const WING_IDS: WingId[] = [
   'glacHarpoon', 'glacAnchor', 'fridAbyssLure', 'fridNet', 'walrTuskPack', 'walrHarpoon', 'dimGate', 'dimShard', 'hadalJaw', 'hadalFinPack',
 
   'cretAmber', 'cretPtero', 'cretEggs', 'cretSpineRack', 'cretFossilPack', 'swampVine', 'swampGas', 'swampTotem', 'swampReed', 'swampCage', 'swampMudPack', 'iceageFire', 'iceagePelt', 'iceageTotem', 'yorAxe', 'yorDrum', 'kalKantele', 'kalSampo', 'kalBoat', 'banBunch', 'banJuice', 'banBigPeel', 'banBarrel', 'banHammock', 'banCrate', 'memeChat', 'memeLike', 'memeRam', 'memeServer', 'memeHdd', 'memeRouter', 'officePaper', 'officeKeyboard', 'officeLamp', 'gnomeSeed', 'gnomeTrowel', 'gnomeWatering', 'trashBin', 'trashTire', 'trashPC',
-  'dreamPillowPack', 'dreamLadder', 'dreamLantern', 'dreamAlarmClock', 'dreamBalloonPack', 'dreamDoorway', 'microDnaPack', 'microMitochondria', 'microProtein', 'microFlagellum', 'microRibosome', 'alchPhilosopher', 'alchFlask', 'yarnBallPack', 'yarnNeedles', 'yarnSweaterRoll', 'yarnButtonChest', 'yarnSpoolCrate', 'yarnKnitBanner', 'paintEasel', 'paintPalette', 'paintMasterpiece', 'paintTubePack', 'paintRoller',];
+  'dreamPillowPack', 'dreamLadder', 'dreamLantern', 'dreamAlarmClock', 'dreamBalloonPack', 'dreamDoorway', 'microDnaPack', 'microMitochondria', 'microProtein', 'microFlagellum', 'microRibosome', 'alchPhilosopher', 'alchFlask', 'yarnBallPack', 'yarnNeedles', 'yarnSweaterRoll', 'yarnButtonChest', 'yarnSpoolCrate', 'yarnKnitBanner', 'paintEasel', 'paintPalette', 'paintMasterpiece', 'paintTubePack',   'scpCage',
+  'scpBioTank',
+  'scpCamera',
+  'scpStrongbox',
+  'keterSpine',
+  'keterTent',
+  'keterHeart',
+  'keterRibcage',
+  'shyCage',
+  'shyPalePack',
+  'shyChain',
+  'shyTag',
+  'rakeSpine',
+  'rakeFence',
+  'rakePelt',
+  'rakeLair',
+  'wendiAntlerPack',
+  'wendiFur',
+  'wendiTotem',
+  'wendiCage',
+  'mothmWings',
+  'mothmCocoon',
+  'mothmLamp',
+  'mothmChrysalis',
+  'gbeastBone',
+  'gbeastCrate',
+  'gbeastDrum',
+  'gbeastTotem',
+  'crawSpine',
+  'crawTail',
+  'crawEgg',
+  'crawRib',
+  'mutoWing',
+  'mutoEgg',
+  'mutoReactor',
+  'mutoClaw',
+  'beheSpike',
+  'beheArmor',
+  'beheMountain',
+  'beheCage',
+'paintRoller',];
 const CAPE_IDS: CapeId[] = [
   'none', 'hero', 'shadowCape', 'storm', 'emberCape', 'frostCape', 'leafCape', 'royal', 'void', 'dragonCape', 'angelCape', 'phoenixCape',
   'knight', 'mage', 'ninja', 'winter', 'autumn', 'ocean', 'starCape', 'voidCape', 'goldRoyal', 'dragonfire',
@@ -2389,7 +2640,27 @@ const HAT_IDS: HatId[] = [
   'glacIceCrown', 'glacBarnacle', 'fridLure', 'fridHood', 'walrTuskCrown', 'walrMusselCap', 'dimEyeCrown', 'dimSpike', 'hadalLure', 'hadalFin',
 
   'cretSkullCrown', 'cretRaptorCrest', 'swampCrocHat', 'swampBoneHorn', 'swampMushHat', 'iceageMammothHelm', 'iceageAntler', 'iceageFurHood', 'yorCrown', 'yorBead', 'kalStar', 'kalBirch', 'banPeel', 'banMonkeyHood', 'banTopHat', 'memePixelCrown', 'memeMask', 'memeAntenna', 'memeHeadset', 'officeBox', 'gnomeHat', 'gnomeMush', 'trashCanCrown', 'trashNet', 'trashLidHat',
-  'dreamNightcap', 'dreamSheepHood', 'dreamStairCrown', 'microVirusCrown', 'microGoggles', 'microSpikeHelm', 'microDish', 'alchGoggles', 'alchHood', 'yarnBeanie', 'yarnButtonBand', 'yarnBobbleHat', 'paintBeret', 'paintFrameHat', 'paintPaletteCrown', 'paintBrushHat',];
+  'dreamNightcap', 'dreamSheepHood', 'dreamStairCrown', 'microVirusCrown', 'microGoggles', 'microSpikeHelm', 'microDish', 'alchGoggles', 'alchHood', 'yarnBeanie', 'yarnButtonBand', 'yarnBobbleHat', 'paintBeret', 'paintFrameHat', 'paintPaletteCrown',   'scpGasMask',
+  'scpHazmat',
+  'keterEye',
+  'keterMaw',
+  'shyPale',
+  'shyMuzzle',
+  'rakeSkull',
+  'rakeClaw',
+  'wendiAntler',
+  'wendiSkullHead',
+  'mothmAntenna',
+  'mothmEye',
+  'gbeastSkull',
+  'gbeastTusk',
+  'crawSkull',
+  'crawJaw',
+  'mutoShell',
+  'mutoAntenna',
+  'beheHorn',
+  'beheSkull',
+'paintBrushHat',];
 const PET_IDS: PetId[] = [
   'none', 'orb', 'bird', 'cat', 'dragon', 'fairy', 'skull', 'fox', 'robot', 'star', 'flame', 'ghost',
   'nailong',
@@ -2398,7 +2669,17 @@ const PET_IDS: PetId[] = [
   'glacSeal', 'fridLurefish', 'walrPup', 'dimEye', 'hadalFry',
 
   'cretHatch', 'swampTurtle', 'iceageCalf', 'yorThunderbird', 'kalOwl', 'banMonkey', 'banParrot', 'memeNyan', 'memeDogePet', 'officeLuckyCat', 'gnomeHedgehog', 'trashRaccoon', 'trashRat',
-  'dreamSheep', 'dreamMoth', 'microVirus', 'alchSlime', 'yarnKitten', 'yarnMouse', 'paintBird', 'paintBlob',];
+  'dreamSheep', 'dreamMoth', 'microVirus', 'alchSlime', 'yarnKitten', 'yarnMouse', 'paintBird',   'scpRoach',
+  'keterLarva',
+  'shyPup',
+  'rakeCrawler',
+  'wendiCalf',
+  'mothmMoth',
+  'gbeastCub',
+  'crawHatch',
+  'mutoGrub',
+  'beheCalf',
+'paintBlob',];
 
 /**
  * 🐾 宠物怎么跟着你（背包里选）：
@@ -2507,7 +2788,27 @@ const TRAIL_IDS: TrailId[] = [
   'glacFrostTrail', 'glacBubbleTrail', 'fridPlanktonTrail', 'fridLureTrail', 'walrSnowTrail', 'walrSprayTrail', 'dimRiftTrail', 'dimFractureTrail', 'hadalInkTrail', 'hadalGlowTrail',
 
   'cretAsh', 'cretAmberTrail', 'cretClawTrail', 'swampSludge', 'swampMosquito', 'swampAlgae', 'swampBubble', 'iceageShard', 'iceageFrostDust', 'yorBolt', 'yorClay', 'kalSong', 'kalPine', 'banPeelTrail', 'banSmoothie', 'banJuiceTrail', 'memeRainbow', 'memeChatTrail', 'memeGlitchTrail', 'memeCookieTrail', 'officeCoffeeTrail', 'officePaperTrail', 'gnomePetalTrail', 'gnomeDew', 'trashFoam', 'trashFlyTrail', 'trashOil', 'trashSludge',
-  'dreamBubbleTrail', 'dreamSandTrail', 'dreamStarTrail', 'dreamFeatherTrail', 'microCiliaTrail', 'microIodineTrail', 'alchGoldTrail', 'alchSmokeTrail', 'yarnThreadTrail', 'yarnLintTrail', 'yarnGoldTrail', 'paintStroke', 'paintDripTrail', 'paintGoldTrail',];
+  'dreamBubbleTrail', 'dreamSandTrail', 'dreamStarTrail', 'dreamFeatherTrail', 'microCiliaTrail', 'microIodineTrail', 'alchGoldTrail', 'alchSmokeTrail', 'yarnThreadTrail', 'yarnLintTrail', 'yarnGoldTrail', 'paintStroke', 'paintDripTrail',   'scpStaticTrail',
+  'scpBioTrail',
+  'keterBloodTrail',
+  'keterGrowthTrail',
+  'shyFearTrail',
+  'shyPaleTrail',
+  'rakeScratchTrail',
+  'rakeShadowTrail',
+  'wendiFrostTrail',
+  'wendiBloodTrail',
+  'mothmScaleTrail',
+  'mothmDustTrail',
+  'gbeastDustTrail',
+  'gbeastLavaTrail',
+  'crawSlimeTrail',
+  'crawBoneTrail',
+  'mutoToxicTrail',
+  'mutoRadTrail',
+  'beheDustTrail',
+  'beheMagmaTrail',
+'paintGoldTrail',];
 const SWING_TRAIL_IDS: SwingTrailId[] = [
   'none', 'slash', 'shock', 'cyclone', 'afterimage', 'bolt', 'blaze',
   'frostbite', 'orbit', 'wave', 'thorn', 'prism', 'voidcut',
@@ -2569,7 +2870,17 @@ const SWING_TRAIL_IDS: SwingTrailId[] = [
   'glacTideSwing', 'fridAnglerChomp', 'walrTuskSmash', 'dimCollapse', 'hadalChomp',
 
   'cretBite', 'swampRoll', 'iceageGlacier', 'yorAxeSwing', 'kalSongSwing', 'banSlip', 'meme404', 'officeOvertime', 'gnomeVine', 'trashCrusher',
-  'dreamSpiralSwing', 'microDivision', 'alchTransmute', 'yarnUnravelSwing', 'paintSplash',];
+  'dreamSpiralSwing', 'microDivision', 'alchTransmute', 'yarnUnravelSwing',   'scpContainSwing',
+  'keterDevour',
+  'shyLunge',
+  'rakeRend',
+  'wendiGore',
+  'mothmDive',
+  'gbeastSmash',
+  'crawBite',
+  'mutoSting',
+  'behemothCharge',
+'paintSplash',];
 const MOUNT_IDS: MountId[] = [
   'none', 'board', 'bubble', 'cloud', 'sword', 'horse', 'carpet',
   'star', 'dragon', 'rocket', 'throne',
@@ -2632,7 +2943,17 @@ const MOUNT_IDS: MountId[] = [
   'glacWhale', 'fridIceBoat', 'walrWalrus', 'dimRift', 'hadalAngler',
 
   'cretTrike', 'swampDeino', 'swampSerpent', 'iceageMammoth', 'yorPanther', 'kalBear', 'banBoat', 'banCart', 'memeDoge', 'memeRocket', 'officeChair', 'gnomeSnail', 'trashCart', 'trashTruck',
-  'dreamCloud', 'dreamBed', 'microCilia', 'microCell', 'alchCrucible', 'yarnCat', 'yarnHorse', 'paintHorse',];
+  'dreamCloud', 'dreamBed', 'microCilia', 'microCell', 'alchCrucible', 'yarnCat', 'yarnHorse',   'scpPod',
+  'keterMass',
+  'shyStride',
+  'rakeCrawl',
+  'wendiElk',
+  'mothmWing',
+  'gbeastBack',
+  'crawRide',
+  'mutoDriller',
+  'beheRhino',
+'paintHorse',];
 const RING_IDS: RingId[] = [
   'none', 'sprout', 'bamboo', 'dawn', 'gale', 'rock', 'blaze', 'sky', 'legend',
   'courtline',
@@ -2693,7 +3014,17 @@ const RING_IDS: RingId[] = [
   'glacIceRing', 'fridGlowRing', 'walrShellRing', 'dimSigilRing', 'hadalTeethRing',
 
   'cretClaw', 'swampMud', 'iceageCrack', 'yorThunder', 'kalMoss', 'banRing', 'memeLoading', 'officeSplat', 'gnomeFairy', 'trashPuddle',
-  'dreamRing', 'microDishRing', 'alchCircle', 'yarnThreadRing', 'paintSplatterRing',];
+  'dreamRing', 'microDishRing', 'alchCircle', 'yarnThreadRing',   'scpHazardRing',
+  'keterFleshRing',
+  'shyTearRing',
+  'rakeClawRing',
+  'wendiSnowRing',
+  'mothmDustRing',
+  'gbeastQuakeRing',
+  'crawTrackRing',
+  'mutoCrackRing',
+  'beheFootRing',
+'paintSplatterRing',];
 
 /** 地环配色（跟着组别走） */
 export const RING_COLORS: Record<RingId, number> = {
@@ -2779,7 +3110,9 @@ export const RING_COLORS: Record<RingId, number> = {
   glacIceRing: 0x5fd8ff, fridGlowRing: 0x7dffd0, walrShellRing: 0xd8e8f0, dimSigilRing: 0xb08aff, hadalTeethRing: 0x39ffd0,
 
   cretClaw: 0xe8d07a,  swampMud: 0x7dff9a,  iceageCrack: 0x5a8ab0,  yorThunder: 0xc0461a,  kalMoss: 0x9fe8d0,  banRing: 0xfff080,  memeLoading: 0x7dff9a,  officeSplat: 0x9fd8ff,  gnomeFairy: 0x436b3a,  trashPuddle: 0x8fd4a0,
-  dreamRing: 0xc9b8ff,  microDishRing: 0x2a7a8a,  alchCircle: 0x7dff6a,  yarnThreadRing: 0xa86a8a,  paintSplatterRing: 0xffd45c,};
+  dreamRing: 0xc9b8ff,  microDishRing: 0x2a7a8a,  alchCircle: 0x7dff6a,  yarnThreadRing: 0xa86a8a,  paintSplatterRing: 0xffd45c,
+  scpHazardRing: 0xffd45c, keterFleshRing: 0xa03030, shyTearRing: 0x8ab0c8, rakeClawRing: 0x8a8070, wendiSnowRing: 0xd8e8f0,
+  mothmDustRing: 0xb89870, gbeastQuakeRing: 0xffb347, crawTrackRing: 0xe8d0a0, mutoCrackRing: 0x7dff5a, beheFootRing: 0x8a6a4a,};
 const AURA_IDS: AuraId[] = [
   'none', 'emerald', 'rose', 'violet', 'king', 'frost', 'gold', 'toxic', 'crimson', 'rainbow',
   'flame', 'electric', 'snow', 'bubble', 'orbit', 'gear', 'holy', 'venom', 'sakura', 'void', 'pixel', 'storm',
@@ -2882,7 +3215,27 @@ const AURA_IDS: AuraId[] = [
   'glacAurora', 'glacFloe', 'fridDarkSea', 'fridPlankton', 'walrIcePack', 'walrBlizzard', 'dimRiftAura', 'dimCosmos', 'hadalVent', 'hadalGlow',
 
   'cretMeteor', 'cretFern', 'swampMiasma', 'swampFireflies', 'swampDragonfly', 'swampPuddle', 'iceageBlizzard', 'iceageAurora', 'yorStorm', 'yorFire', 'kalSea', 'kalStarDome', 'banRain', 'banBubbles', 'banSun', 'banConfetti', 'memeDanmaku', 'memePixelStorm', 'memeStars', 'memeGlitch', 'officeSticky', 'officeSleep', 'gnomeFireflies', 'trashFlies', 'trashPaper', 'trashStink', 'trashSmoke',
-  'dreamBubbles', 'dreamStarscape', 'dreamClouds', 'dreamSpiral', 'microPetri', 'microSwarm', 'microNucleus', 'alchSigil', 'alchVapor', 'yarnThreads', 'yarnLint', 'yarnSparkle', 'yarnUnravel', 'paintSwirls', 'paintDrips', 'paintFrames', 'paintGallery',];
+  'dreamBubbles', 'dreamStarscape', 'dreamClouds', 'dreamSpiral', 'microPetri', 'microSwarm', 'microNucleus', 'alchSigil', 'alchVapor', 'yarnThreads', 'yarnLint', 'yarnSparkle', 'yarnUnravel', 'paintSwirls', 'paintDrips', 'paintFrames',   'scpAlarm',
+  'scpContainField',
+  'keterPulse',
+  'keterFeast',
+  'shyRage',
+  'shyCalm',
+  'rakeNight',
+  'rakeEye',
+  'wendiBlizzard',
+  'wendiHunger',
+  'mothmSwarm',
+  'mothmPortent',
+  'gbeastRage',
+  'gbeastStorm',
+  'crawToxic',
+  'crawRumble',
+  'mutoFallout',
+  'mutoGlow',
+  'beheDust',
+  'beheMagma',
+'paintGallery',];
 const RACKET_SKIN_IDS: RacketSkinId[] = [
   'default', 'ice', 'gold', 'flame', 'thunder', 'void', 'rainbow', 'neon',
   'circuit', 'spike', 'holy', 'shadow', 'crystal', 'glitch', 'bamboo', 'carbon',
@@ -2982,7 +3335,27 @@ const RACKET_SKIN_IDS: RacketSkinId[] = [
   'glacHarpoonRacket', 'glacLeviathanRacket', 'fridBarbRacket', 'fridGlowRacket', 'walrTuskRacket', 'walrHarpoonRacket', 'dimBladeRacket', 'dimRiftRacket', 'hadalJawRacket', 'hadalAbyssRacket',
 
   'cretBone', 'cretJaw', 'swampSpear', 'swampLily', 'swampFang', 'swampBamboo', 'iceageTusk', 'iceageFrozenBone', 'yorAxeRacket', 'yorDrumRacket', 'kalHarp', 'kalSampoRacket', 'kalBirchRacket', 'banRacket', 'banLeaf', 'banPeelRacket', 'banSpoon', 'memePixelBlade', 'memeEnter', 'memeCursor', 'memeUsb', 'officeKeyboardRacket', 'officeMug', 'gnomeTrowelRacket', 'gnomeSunflower', 'trashPlunger', 'trashCan', 'trashBottle', 'trashCrowbar',
-  'dreamPillow', 'dreamSpiralRacket', 'dreamSheepRacket', 'dreamBubbleRacket', 'microDnaRacket', 'microCellRacket', 'microSpikeRacket', 'alchStir', 'alchFlaskRacket', 'yarnNeedleRacket', 'yarnCrochet', 'yarnBallRacket', 'yarnSweaterRacket', 'paintBrushRacket', 'paintCanvas', 'paintPaletteRacket', 'paintTubeRacket',];
+  'dreamPillow', 'dreamSpiralRacket', 'dreamSheepRacket', 'dreamBubbleRacket', 'microDnaRacket', 'microCellRacket', 'microSpikeRacket', 'alchStir', 'alchFlaskRacket', 'yarnNeedleRacket', 'yarnCrochet', 'yarnBallRacket', 'yarnSweaterRacket', 'paintBrushRacket', 'paintCanvas', 'paintPaletteRacket',   'scpTaser',
+  'scpClipboard',
+  'keterClaw',
+  'keterRibs',
+  'shyArm',
+  'shyTooth',
+  'rakeBone',
+  'rakeFang',
+  'wendiBoneAxe',
+  'wendiClaw',
+  'mothmClaw',
+  'mothmEyeRacket',
+  'gbeastFur',
+  'gbeastBoneClub',
+  'crawFang',
+  'crawClaw',
+  'mutoClawRacket',
+  'mutoSpike',
+  'beheHornRacket',
+  'beheHide',
+'paintTubeRacket',];
 
 export const WING_COLORS: Record<WingId, number> = {
   none: 0x000000,
@@ -3244,7 +3617,47 @@ export const WING_COLORS: Record<WingId, number> = {
   hadalJaw: 0x2a4a52, hadalFinPack: 0x3a6a6a,
 
   cretAmber: 0x6a8a3a,  cretPtero: 0x9fe86a,  cretEggs: 0x6a8a3a,  cretSpineRack: 0x6a8a3a,  cretFossilPack: 0x9fe86a,  swampVine: 0x2a5a3a,  swampGas: 0x3a7a4a,  swampTotem: 0x3a7a4a,  swampReed: 0x2a5a3a,  swampCage: 0x3a7a4a,  swampMudPack: 0x7dff9a,  iceageFire: 0x8fd8ff,  iceagePelt: 0x8fd8ff,  iceageTotem: 0x8fd8ff,  yorAxe: 0xc0461a,  yorDrum: 0xffb03a,  kalKantele: 0x9fe8d0,  kalSampo: 0xd8e8f0,  kalBoat: 0x3a5a6a,  banBunch: 0xf0d020,  banJuice: 0xf0d020,  banBigPeel: 0xfff080,  banBarrel: 0xf0d020,  banHammock: 0xfff080,  banCrate: 0x8a8a1a,  memeChat: 0x39ffd0,  memeLike: 0x7dff9a,  memeRam: 0x39ffd0,  memeServer: 0xff5ec8,  memeHdd: 0x7dff9a,  memeRouter: 0x7dff9a,  officePaper: 0x9fd8ff,  officeKeyboard: 0x9fd8ff,  officeLamp: 0x9fd8ff,  gnomeSeed: 0xa8ff7a,  gnomeTrowel: 0x436b3a,  gnomeWatering: 0x436b3a,  trashBin: 0x8fd4a0,  trashTire: 0x8fd4a0,  trashPC: 0x8fd4a0,
-  dreamPillowPack: 0x5a4ab0,  dreamLadder: 0x5a4ab0,  dreamLantern: 0xc9b8ff,  dreamAlarmClock: 0xc9b8ff,  dreamBalloonPack: 0xc9b8ff,  dreamDoorway: 0x5a4ab0,  microDnaPack: 0x2a7a8a,  microMitochondria: 0x2a7a8a,  microProtein: 0x39ffd0,  microFlagellum: 0x2a7a8a,  microRibosome: 0x39ffd0,  alchPhilosopher: 0x7dff6a,  alchFlask: 0xffd45c,  yarnBallPack: 0xffd8e8,  yarnNeedles: 0xffd8e8,  yarnSweaterRoll: 0xa86a8a,  yarnButtonChest: 0xffb7d5,  yarnSpoolCrate: 0xffd8e8,  yarnKnitBanner: 0xffb7d5,  paintEasel: 0xffd45c,  paintPalette: 0xffd45c,  paintMasterpiece: 0x5a3f6a,  paintTubePack: 0xff8ad4,  paintRoller: 0xffd45c,};
+  dreamPillowPack: 0x5a4ab0,  dreamLadder: 0x5a4ab0,  dreamLantern: 0xc9b8ff,  dreamAlarmClock: 0xc9b8ff,  dreamBalloonPack: 0xc9b8ff,  dreamDoorway: 0x5a4ab0,  microDnaPack: 0x2a7a8a,  microMitochondria: 0x2a7a8a,  microProtein: 0x39ffd0,  microFlagellum: 0x2a7a8a,  microRibosome: 0x39ffd0,  alchPhilosopher: 0x7dff6a,  alchFlask: 0xffd45c,  yarnBallPack: 0xffd8e8,  yarnNeedles: 0xffd8e8,  yarnSweaterRoll: 0xa86a8a,  yarnButtonChest: 0xffb7d5,  yarnSpoolCrate: 0xffd8e8,  yarnKnitBanner: 0xffb7d5,  paintEasel: 0xffd45c,  paintPalette: 0xffd45c,  paintMasterpiece: 0x5a3f6a,  paintTubePack: 0xff8ad4,    scpCage: 0x8a9a8a,
+  scpBioTank: 0x6ac0a0,
+  scpCamera: 0x8a8a92,
+  scpStrongbox: 0x4a6a4a,
+  keterSpine: 0xe0d8c8,
+  keterTent: 0xa03030,
+  keterHeart: 0xb02030,
+  keterRibcage: 0xe0d8c8,
+  shyCage: 0x8a8a92,
+  shyPalePack: 0xe8e8e0,
+  shyChain: 0x8a8a92,
+  shyTag: 0xd8d0a0,
+  rakeSpine: 0xe0d8c8,
+  rakeFence: 0x8a8070,
+  rakePelt: 0x8a6a52,
+  rakeLair: 0x3a3428,
+  wendiAntlerPack: 0x9a8060,
+  wendiFur: 0x7a5a3a,
+  wendiTotem: 0x8a6a3a,
+  wendiCage: 0x9a8060,
+  mothmWings: 0x8a7050,
+  mothmCocoon: 0xd8d0c0,
+  mothmLamp: 0xffd45c,
+  mothmChrysalis: 0xb8c0a0,
+  gbeastBone: 0xe0d8c8,
+  gbeastCrate: 0x8a5a3a,
+  gbeastDrum: 0xa03020,
+  gbeastTotem: 0x8a5a3a,
+  crawSpine: 0xe8d0a0,
+  crawTail: 0xc8a86a,
+  crawEgg: 0xe0d8c0,
+  crawRib: 0xe0d8c8,
+  mutoWing: 0x5a6a3a,
+  mutoEgg: 0x9fe86a,
+  mutoReactor: 0x5a6a3a,
+  mutoClaw: 0x7a8a4a,
+  beheSpike: 0x8a6a4a,
+  beheArmor: 0x5a4030,
+  beheMountain: 0x6a5a4a,
+  beheCage: 0x5a4030,
+  paintRoller: 0xffd45c,};
 
 /** which silhouette a wing draws with; lets styles look genuinely different */
 export type WingKind =
@@ -3606,7 +4019,47 @@ export const WING_SHAPE: Record<
   hadalFinPack: { kind: 'fin', feathers: 2, len: 50, spread: 0.5, w: 14 },
 
   cretAmber: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  cretPtero: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  cretEggs: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  cretSpineRack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  cretFossilPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  swampVine: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  swampGas: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  swampTotem: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  swampReed: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  swampCage: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  swampMudPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  iceageFire: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  iceagePelt: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  iceageTotem: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yorAxe: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yorDrum: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  kalKantele: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  kalSampo: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  kalBoat: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  banBunch: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  banJuice: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  banBigPeel: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  banBarrel: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  banHammock: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  banCrate: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  memeChat: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  memeLike: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  memeRam: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  memeServer: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  memeHdd: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  memeRouter: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  officePaper: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  officeKeyboard: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  officeLamp: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  gnomeSeed: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  gnomeTrowel: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  gnomeWatering: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  trashBin: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  trashTire: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  trashPC: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
-  dreamPillowPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamLadder: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamLantern: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamAlarmClock: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamBalloonPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamDoorway: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microDnaPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microMitochondria: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microProtein: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microFlagellum: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microRibosome: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  alchPhilosopher: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  alchFlask: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnBallPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnNeedles: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnSweaterRoll: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnButtonChest: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnSpoolCrate: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnKnitBanner: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintEasel: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintPalette: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintMasterpiece: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintTubePack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintRoller: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },};
+  dreamPillowPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamLadder: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamLantern: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamAlarmClock: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamBalloonPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  dreamDoorway: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microDnaPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microMitochondria: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microProtein: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microFlagellum: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  microRibosome: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  alchPhilosopher: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  alchFlask: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnBallPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnNeedles: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnSweaterRoll: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnButtonChest: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnSpoolCrate: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  yarnKnitBanner: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintEasel: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintPalette: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintMasterpiece: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },  paintTubePack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },    scpCage: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  scpBioTank: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  scpCamera: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  scpStrongbox: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  keterSpine: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  keterTent: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  keterHeart: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  keterRibcage: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  shyCage: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  shyPalePack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  shyChain: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  shyTag: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  rakeSpine: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  rakeFence: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  rakePelt: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  rakeLair: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  wendiAntlerPack: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  wendiFur: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  wendiTotem: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  wendiCage: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mothmWings: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mothmCocoon: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mothmLamp: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mothmChrysalis: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  gbeastBone: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  gbeastCrate: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  gbeastDrum: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  gbeastTotem: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  crawSpine: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  crawTail: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  crawEgg: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  crawRib: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mutoWing: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mutoEgg: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mutoReactor: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  mutoClaw: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  beheSpike: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  beheArmor: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  beheMountain: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  beheCage: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },
+  paintRoller: { kind: 'sail', feathers: 1, len: 50, spread: 0.5, w: 16 },};
 
 export type CapeKind =
   | 'cloth' | 'flame' | 'feather' | 'tatter' | 'royal' | 'split' | 'scales' | 'streak' | 'towel'
@@ -4392,7 +4845,27 @@ export const HAT_COLORS: Record<HatId, number> = {
   hadalLure: 0x39ffd0, hadalFin: 0x3a6a6a,
 
   cretSkullCrown: 0xe8d07a,  cretRaptorCrest: 0xe8d07a,  swampCrocHat: 0x3a7a4a,  swampBoneHorn: 0x7dff9a,  swampMushHat: 0x7dff9a,  iceageMammothHelm: 0x8fd8ff,  iceageAntler: 0xe0f2ff,  iceageFurHood: 0x5a8ab0,  yorCrown: 0xffb03a,  yorBead: 0xffe08a,  kalStar: 0xd8e8f0,  kalBirch: 0xd8e8f0,  banPeel: 0xf0d020,  banMonkeyHood: 0xf0d020,  banTopHat: 0xfff080,  memePixelCrown: 0x39ffd0,  memeMask: 0x39ffd0,  memeAntenna: 0x7dff9a,  memeHeadset: 0x39ffd0,  officeBox: 0xffd45c,  gnomeHat: 0xffd0e2,  gnomeMush: 0xffd0e2,  trashCanCrown: 0x8fd4a0,  trashNet: 0x5a4a30,  trashLidHat: 0x5a4a30,
-  dreamNightcap: 0x5a4ab0,  dreamSheepHood: 0xc9b8ff,  dreamStairCrown: 0x5a4ab0,  microVirusCrown: 0x2a7a8a,  microGoggles: 0x5fe8d0,  microSpikeHelm: 0x5fe8d0,  microDish: 0x39ffd0,  alchGoggles: 0x3a6a2a,  alchHood: 0x3a6a2a,  yarnBeanie: 0xa86a8a,  yarnButtonBand: 0xffd8e8,  yarnBobbleHat: 0xffb7d5,  paintBeret: 0xff8ad4,  paintFrameHat: 0x5a3f6a,  paintPaletteCrown: 0xffd45c,  paintBrushHat: 0x5a3f6a,};
+  dreamNightcap: 0x5a4ab0,  dreamSheepHood: 0xc9b8ff,  dreamStairCrown: 0x5a4ab0,  microVirusCrown: 0x2a7a8a,  microGoggles: 0x5fe8d0,  microSpikeHelm: 0x5fe8d0,  microDish: 0x39ffd0,  alchGoggles: 0x3a6a2a,  alchHood: 0x3a6a2a,  yarnBeanie: 0xa86a8a,  yarnButtonBand: 0xffd8e8,  yarnBobbleHat: 0xffb7d5,  paintBeret: 0xff8ad4,  paintFrameHat: 0x5a3f6a,  paintPaletteCrown: 0xffd45c,    scpGasMask: 0x8a9a8a,
+  scpHazmat: 0xd8c040,
+  keterEye: 0xa03030,
+  keterMaw: 0x8a2020,
+  shyPale: 0xe8e8e0,
+  shyMuzzle: 0x8a8a92,
+  rakeSkull: 0xe0d8c8,
+  rakeClaw: 0x8a8070,
+  wendiAntler: 0x9a8060,
+  wendiSkullHead: 0xe0d8c8,
+  mothmAntenna: 0x8a7050,
+  mothmEye: 0xff3a3a,
+  gbeastSkull: 0xe0d8c8,
+  gbeastTusk: 0xe8e0d0,
+  crawSkull: 0xe8d0a0,
+  crawJaw: 0xc8a86a,
+  mutoShell: 0x5a6a3a,
+  mutoAntenna: 0x7dff5a,
+  beheHorn: 0xd8c8a8,
+  beheSkull: 0x8a6a4a,
+  paintBrushHat: 0x5a3f6a,};
 
 export const HAT_KIND: Record<HatId, HatKind> = {
   none: 'cap',
@@ -4656,7 +5129,27 @@ export const HAT_KIND: Record<HatId, HatKind> = {
   hadalLure: 'horn', hadalFin: 'band',
 
   cretSkullCrown: 'helm',  cretRaptorCrest: 'crown',  swampCrocHat: 'band',  swampBoneHorn: 'band',  swampMushHat: 'band',  iceageMammothHelm: 'helm',  iceageAntler: 'band',  iceageFurHood: 'band',  yorCrown: 'crown',  yorBead: 'crown',  kalStar: 'crown',  kalBirch: 'band',  banPeel: 'crown',  banMonkeyHood: 'band',  banTopHat: 'band',  memePixelCrown: 'crown',  memeMask: 'band',  memeAntenna: 'band',  memeHeadset: 'band',  officeBox: 'band',  gnomeHat: 'band',  gnomeMush: 'band',  trashCanCrown: 'crown',  trashNet: 'band',  trashLidHat: 'band',
-  dreamNightcap: 'band',  dreamSheepHood: 'band',  dreamStairCrown: 'crown',  microVirusCrown: 'crown',  microGoggles: 'band',  microSpikeHelm: 'helm',  microDish: 'band',  alchGoggles: 'band',  alchHood: 'band',  yarnBeanie: 'band',  yarnButtonBand: 'band',  yarnBobbleHat: 'band',  paintBeret: 'band',  paintFrameHat: 'band',  paintPaletteCrown: 'crown',  paintBrushHat: 'band',};
+  dreamNightcap: 'band',  dreamSheepHood: 'band',  dreamStairCrown: 'crown',  microVirusCrown: 'crown',  microGoggles: 'band',  microSpikeHelm: 'helm',  microDish: 'band',  alchGoggles: 'band',  alchHood: 'band',  yarnBeanie: 'band',  yarnButtonBand: 'band',  yarnBobbleHat: 'band',  paintBeret: 'band',  paintFrameHat: 'band',  paintPaletteCrown: 'crown',    scpGasMask: 'themed',
+  scpHazmat: 'themed',
+  keterEye: 'themed',
+  keterMaw: 'themed',
+  shyPale: 'themed',
+  shyMuzzle: 'themed',
+  rakeSkull: 'themed',
+  rakeClaw: 'themed',
+  wendiAntler: 'themed',
+  wendiSkullHead: 'themed',
+  mothmAntenna: 'themed',
+  mothmEye: 'themed',
+  gbeastSkull: 'themed',
+  gbeastTusk: 'themed',
+  crawSkull: 'themed',
+  crawJaw: 'themed',
+  mutoShell: 'themed',
+  mutoAntenna: 'themed',
+  beheHorn: 'themed',
+  beheSkull: 'themed',
+  paintBrushHat: 'band',};
 
 /**
  * 「整颗头换掉」的头饰：戴上之后**不画 emoji 脸**，头盔 / 面具 / 头套本身就是那颗头。
@@ -4837,7 +5330,17 @@ export const SKIN_HEAD_H: Partial<Record<CharacterSkin, number>> = {
   hadalLurefish: 118,
 
   cretTyrant: 116,  swampCroc: 116,  iceageSaber: 116,  yorShango: 116,  kalVain: 116,  banKing: 116,  memeFrog: 116,  officeSlacker: 116,  gnomeElder: 116,  trashKing: 116,
-  dreamTapir: 116,  microAmeba: 116,  alchMaster: 116,  yarnGolem: 116,  paintMuse: 116,};
+  dreamTapir: 116,  microAmeba: 116,  alchMaster: 116,  yarnGolem: 116,    scpStatue: 116,
+  keterFlesh: 116,
+  shyGiant: 118,
+  rakeThing: 112,
+  wendiStag: 116,
+  mothmSeer: 116,
+  gbeastPrime: 120,
+  crawCrawler: 100,
+  mutoQueen: 116,
+  beheTitan: 120,
+  paintMuse: 116,};
 
 /** 这只角色的头顶高度（表里没有就按默认小人算） */
 export function skinHeadH(skin: CharacterSkin): number {
@@ -4870,7 +5373,18 @@ export type PetKind =
   | 'yarnKitten'
   | 'yarnMouse'
   | 'paintBird'
-  | 'paintBlob';
+  | 'paintBlob'
+  // 第二十批宠物 kind
+  | 'b22Roach'
+  | 'b22Larva'
+  | 'b22Ape'
+  | 'b22Rake'
+  | 'b22Calf'
+  | 'b22Moth'
+  | 'b22Cub'
+  | 'b22Hatch'
+  | 'b22Grub'
+  | 'b22Behe';
 
 export const PET_COLORS: Record<PetId, number> = {
   none: 0x000000,
@@ -4891,7 +5405,17 @@ export const PET_COLORS: Record<PetId, number> = {
   glacSeal: 0xbfe0e8, fridLurefish: 0x39ffd0, walrPup: 0x8a705a, dimEye: 0xb08aff, hadalFry: 0x2a6a6a,
 
   cretHatch: 0xe8d07a,  swampTurtle: 0x7dff9a,  iceageCalf: 0x5a8ab0,  yorThunderbird: 0xc0461a,  kalOwl: 0x9fe8d0,  banMonkey: 0xf0d020,  banParrot: 0x8a8a1a,  memeNyan: 0xff5ec8,  memeDogePet: 0x39ffd0,  officeLuckyCat: 0xffd45c,  gnomeHedgehog: 0x436b3a,  trashRaccoon: 0x8fd4a0,  trashRat: 0x5a4a30,
-  dreamSheep: 0x5a4ab0,  dreamMoth: 0x9f8aff,  microVirus: 0x5fe8d0,  alchSlime: 0xffd45c,  yarnKitten: 0xffb7d5,  yarnMouse: 0xa86a8a,  paintBird: 0xffd45c,  paintBlob: 0x5a3f6a,};
+  dreamSheep: 0x5a4ab0,  dreamMoth: 0x9f8aff,  microVirus: 0x5fe8d0,  alchSlime: 0xffd45c,  yarnKitten: 0xffb7d5,  yarnMouse: 0xa86a8a,  paintBird: 0xffd45c,    scpRoach: 0x6a5a30,
+  keterLarva: 0xc06050,
+  shyPup: 0xe8e8e0,
+  rakeCrawler: 0x8a8070,
+  wendiCalf: 0xd8e8f0,
+  mothmMoth: 0xb89870,
+  gbeastCub: 0x6a4a34,
+  crawHatch: 0xc8a86a,
+  mutoGrub: 0x9fe86a,
+  beheCalf: 0x6a5040,
+  paintBlob: 0x5a3f6a,};
 
 export const PET_KIND: Record<PetId, PetKind> = {
   none: 'orb',
@@ -4912,7 +5436,17 @@ export const PET_KIND: Record<PetId, PetKind> = {
   glacSeal: 'glacseal', fridLurefish: 'lurefish', walrPup: 'walrpup', dimEye: 'dimeye', hadalFry: 'hadalfry',
 
   cretHatch: 'cretHatch',  swampTurtle: 'swampTurtle',  iceageCalf: 'iceageCalf',  yorThunderbird: 'yorThunderbird',  kalOwl: 'kalOwl',  banMonkey: 'banMonkey',  banParrot: 'banParrot',  memeNyan: 'memeNyan',  memeDogePet: 'memeDogePet',  officeLuckyCat: 'officeLuckyCat',  gnomeHedgehog: 'gnomeHedgehog',  trashRaccoon: 'trashRaccoon',  trashRat: 'trashRat',
-  dreamSheep: 'dreamSheep',  dreamMoth: 'dreamMoth',  microVirus: 'microVirus',  alchSlime: 'alchSlime',  yarnKitten: 'yarnKitten',  yarnMouse: 'yarnMouse',  paintBird: 'paintBird',  paintBlob: 'paintBlob',};
+  dreamSheep: 'dreamSheep',  dreamMoth: 'dreamMoth',  microVirus: 'microVirus',  alchSlime: 'alchSlime',  yarnKitten: 'yarnKitten',  yarnMouse: 'yarnMouse',  paintBird: 'paintBird',    scpRoach: 'b22Roach',
+  keterLarva: 'b22Larva',
+  shyPup: 'b22Ape',
+  rakeCrawler: 'b22Rake',
+  wendiCalf: 'b22Calf',
+  mothmMoth: 'b22Moth',
+  gbeastCub: 'b22Cub',
+  crawHatch: 'b22Hatch',
+  mutoGrub: 'b22Grub',
+  beheCalf: 'b22Behe',
+  paintBlob: 'paintBlob',};
 
 export const TRAIL_COLORS: Record<TrailId, number> = {
   none: 0x000000,
@@ -5062,7 +5596,27 @@ export const TRAIL_COLORS: Record<TrailId, number> = {
   hadalInkTrail: 0x1a3a3a, hadalGlowTrail: 0x39ffd0,
 
   cretAsh: 0x6a8a3a,  cretAmberTrail: 0xe8d07a,  cretClawTrail: 0xe8d07a,  swampSludge: 0x2a5a3a,  swampMosquito: 0x7dff9a,  swampAlgae: 0x2a5a3a,  swampBubble: 0x2a5a3a,  iceageShard: 0xe0f2ff,  iceageFrostDust: 0x5a8ab0,  yorBolt: 0xc0461a,  yorClay: 0xffb03a,  kalSong: 0xd8e8f0,  kalPine: 0x3a5a6a,  banPeelTrail: 0x8a8a1a,  banSmoothie: 0xfff080,  banJuiceTrail: 0xfff080,  memeRainbow: 0x39ffd0,  memeChatTrail: 0xff5ec8,  memeGlitchTrail: 0x39ffd0,  memeCookieTrail: 0x7dff9a,  officeCoffeeTrail: 0x54546a,  officePaperTrail: 0x9fd8ff,  gnomePetalTrail: 0xffd0e2,  gnomeDew: 0xffd0e2,  trashFoam: 0x7a8a7a,  trashFlyTrail: 0x5a4a30,  trashOil: 0x5a4a30,  trashSludge: 0x8fd4a0,
-  dreamBubbleTrail: 0x5a4ab0,  dreamSandTrail: 0x5a4ab0,  dreamStarTrail: 0x5a4ab0,  dreamFeatherTrail: 0x5a4ab0,  microCiliaTrail: 0x5fe8d0,  microIodineTrail: 0x2a7a8a,  alchGoldTrail: 0x7dff6a,  alchSmokeTrail: 0x7dff6a,  yarnThreadTrail: 0xffd8e8,  yarnLintTrail: 0xffb7d5,  yarnGoldTrail: 0xa86a8a,  paintStroke: 0xff8ad4,  paintDripTrail: 0xff8ad4,  paintGoldTrail: 0x5a3f6a,};
+  dreamBubbleTrail: 0x5a4ab0,  dreamSandTrail: 0x5a4ab0,  dreamStarTrail: 0x5a4ab0,  dreamFeatherTrail: 0x5a4ab0,  microCiliaTrail: 0x5fe8d0,  microIodineTrail: 0x2a7a8a,  alchGoldTrail: 0x7dff6a,  alchSmokeTrail: 0x7dff6a,  yarnThreadTrail: 0xffd8e8,  yarnLintTrail: 0xffb7d5,  yarnGoldTrail: 0xa86a8a,  paintStroke: 0xff8ad4,  paintDripTrail: 0xff8ad4,    scpStaticTrail: 0x8a9a8a,
+  scpBioTrail: 0x6ac0a0,
+  keterBloodTrail: 0xa03030,
+  keterGrowthTrail: 0xc06050,
+  shyFearTrail: 0xe8e8e0,
+  shyPaleTrail: 0xd8d8d0,
+  rakeScratchTrail: 0x8a8070,
+  rakeShadowTrail: 0x2a2a30,
+  wendiFrostTrail: 0xd8e8f0,
+  wendiBloodTrail: 0xa03a3a,
+  mothmScaleTrail: 0xb89870,
+  mothmDustTrail: 0x8a7050,
+  gbeastDustTrail: 0x8a5a3a,
+  gbeastLavaTrail: 0xff6a2a,
+  crawSlimeTrail: 0x6a8a4a,
+  crawBoneTrail: 0xe8d0a0,
+  mutoToxicTrail: 0x7dff5a,
+  mutoRadTrail: 0x9fe86a,
+  beheDustTrail: 0x8a6a4a,
+  beheMagmaTrail: 0xff7a3a,
+  paintGoldTrail: 0x5a3f6a,};
 
 /** 挥拍拖尾各风格的主色 */
 export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
@@ -5152,7 +5706,17 @@ export const SWING_TRAIL_COLORS: Record<SwingTrailId, number> = {
   glacTideSwing: 0x5fd8ff, fridAnglerChomp: 0x39ffd0, walrTuskSmash: 0xe8f4ff, dimCollapse: 0xb08aff, hadalChomp: 0x39ffd0,
 
   cretBite: 0xe8d07a,  swampRoll: 0x7dff9a,  iceageGlacier: 0x5a8ab0,  yorAxeSwing: 0xc0461a,  kalSongSwing: 0x9fe8d0,  banSlip: 0xf0d020,  meme404: 0x7dff9a,  officeOvertime: 0x9fd8ff,  gnomeVine: 0x436b3a,  trashCrusher: 0x5a4a30,
-  dreamSpiralSwing: 0xc9b8ff,  microDivision: 0x2a7a8a,  alchTransmute: 0xffd45c,  yarnUnravelSwing: 0xffb7d5,  paintSplash: 0x5a3f6a,};
+  dreamSpiralSwing: 0xc9b8ff,  microDivision: 0x2a7a8a,  alchTransmute: 0xffd45c,  yarnUnravelSwing: 0xffb7d5,    scpContainSwing: 0x8a9a8a,
+  keterDevour: 0xa03030,
+  shyLunge: 0xe8e8e0,
+  rakeRend: 0x8a8070,
+  wendiGore: 0xd8e8f0,
+  mothmDive: 0xb89870,
+  gbeastSmash: 0xffb347,
+  crawBite: 0xe8d0a0,
+  mutoSting: 0x7dff5a,
+  behemothCharge: 0xffb347,
+  paintSplash: 0x5a3f6a,};
 
 /** 坐骑各款的主色 */
 export const MOUNT_COLORS: Record<MountId, number> = {
@@ -5258,7 +5822,17 @@ export const MOUNT_COLORS: Record<MountId, number> = {
   glacWhale: 0x5fd8ff, fridIceBoat: 0x3a5a6a, walrWalrus: 0x8a705a, dimRift: 0xb08aff, hadalAngler: 0x2a6a6a,
 
   cretTrike: 0x6a8a3a,  swampDeino: 0x2a5a3a,  swampSerpent: 0x2a5a3a,  iceageMammoth: 0x5a8ab0,  yorPanther: 0xffe08a,  kalBear: 0x3a5a6a,  banBoat: 0xf0d020,  banCart: 0xfff080,  memeDoge: 0x7dff9a,  memeRocket: 0xff5ec8,  officeChair: 0xffd45c,  gnomeSnail: 0xffd0e2,  trashCart: 0x5a4a30,  trashTruck: 0x7a8a7a,
-  dreamCloud: 0xc9b8ff,  dreamBed: 0xc9b8ff,  microCilia: 0x39ffd0,  microCell: 0x5fe8d0,  alchCrucible: 0x7dff6a,  yarnCat: 0xffd8e8,  yarnHorse: 0xffb7d5,  paintHorse: 0xff8ad4,};
+  dreamCloud: 0xc9b8ff,  dreamBed: 0xc9b8ff,  microCilia: 0x39ffd0,  microCell: 0x5fe8d0,  alchCrucible: 0x7dff6a,  yarnCat: 0xffd8e8,  yarnHorse: 0xffb7d5,    scpPod: 0x8a9a8a,
+  keterMass: 0xa03030,
+  shyStride: 0xe8e8e0,
+  rakeCrawl: 0x8a8070,
+  wendiElk: 0xd8e8f0,
+  mothmWing: 0xb89870,
+  gbeastBack: 0x8a5a3a,
+  crawRide: 0xc8a86a,
+  mutoDriller: 0x5a6a3a,
+  beheRhino: 0x6a5040,
+  paintHorse: 0xff8ad4,};
 
 export const AURA_COLORS: Record<AuraId, number> = {
   none: 0x000000,
@@ -5491,7 +6065,27 @@ export const AURA_COLORS: Record<AuraId, number> = {
   hadalVent: 0x2a6a5a, hadalGlow: 0x39ffd0,
 
   cretMeteor: 0x6a8a3a,  cretFern: 0x9fe86a,  swampMiasma: 0x2a5a3a,  swampFireflies: 0x7dff9a,  swampDragonfly: 0x2a5a3a,  swampPuddle: 0x2a5a3a,  iceageBlizzard: 0xe0f2ff,  iceageAurora: 0x5a8ab0,  yorStorm: 0xffb03a,  yorFire: 0xffb03a,  kalSea: 0x3a5a6a,  kalStarDome: 0xd8e8f0,  banRain: 0xfff080,  banBubbles: 0xfff080,  banSun: 0xf0d020,  banConfetti: 0xfff080,  memeDanmaku: 0xff5ec8,  memePixelStorm: 0x39ffd0,  memeStars: 0xff5ec8,  memeGlitch: 0x39ffd0,  officeSticky: 0x9fd8ff,  officeSleep: 0xffd45c,  gnomeFireflies: 0x436b3a,  trashFlies: 0x8fd4a0,  trashPaper: 0x5a4a30,  trashStink: 0x7a8a7a,  trashSmoke: 0x8fd4a0,
-  dreamBubbles: 0x9f8aff,  dreamStarscape: 0x9f8aff,  dreamClouds: 0x5a4ab0,  dreamSpiral: 0x9f8aff,  microPetri: 0x5fe8d0,  microSwarm: 0x5fe8d0,  microNucleus: 0x2a7a8a,  alchSigil: 0x3a6a2a,  alchVapor: 0x7dff6a,  yarnThreads: 0xa86a8a,  yarnLint: 0xffb7d5,  yarnSparkle: 0xffb7d5,  yarnUnravel: 0xa86a8a,  paintSwirls: 0xff8ad4,  paintDrips: 0xffd45c,  paintFrames: 0xffd45c,  paintGallery: 0xff8ad4,};
+  dreamBubbles: 0x9f8aff,  dreamStarscape: 0x9f8aff,  dreamClouds: 0x5a4ab0,  dreamSpiral: 0x9f8aff,  microPetri: 0x5fe8d0,  microSwarm: 0x5fe8d0,  microNucleus: 0x2a7a8a,  alchSigil: 0x3a6a2a,  alchVapor: 0x7dff6a,  yarnThreads: 0xa86a8a,  yarnLint: 0xffb7d5,  yarnSparkle: 0xffb7d5,  yarnUnravel: 0xa86a8a,  paintSwirls: 0xff8ad4,  paintDrips: 0xffd45c,  paintFrames: 0xffd45c,    scpAlarm: 0xff3a3a,
+  scpContainField: 0x7dffd0,
+  keterPulse: 0xa03030,
+  keterFeast: 0xff5a5a,
+  shyRage: 0xff5a5a,
+  shyCalm: 0xd8e0e8,
+  rakeNight: 0x3a3a44,
+  rakeEye: 0xff3a3a,
+  wendiBlizzard: 0xd8e8f0,
+  wendiHunger: 0x9fd8c8,
+  mothmSwarm: 0xb89870,
+  mothmPortent: 0xff3a3a,
+  gbeastRage: 0xff6a2a,
+  gbeastStorm: 0xffb347,
+  crawToxic: 0x7dff9a,
+  crawRumble: 0xe8d0a0,
+  mutoFallout: 0x9fe86a,
+  mutoGlow: 0x7dff5a,
+  beheDust: 0x8a6a4a,
+  beheMagma: 0xff7a3a,
+  paintGallery: 0xff8ad4,};
 
 export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   default: 0x44586f,
@@ -5691,7 +6285,27 @@ export const RACKET_SKIN_COLORS: Record<RacketSkinId, number> = {
   hadalJawRacket: 0x2a6a6a, hadalAbyssRacket: 0x39ffd0,
 
   cretBone: 0xe8d07a,  cretJaw: 0x6a8a3a,  swampSpear: 0x2a5a3a,  swampLily: 0x3a7a4a,  swampFang: 0x3a7a4a,  swampBamboo: 0x7dff9a,  iceageTusk: 0x8fd8ff,  iceageFrozenBone: 0x5a8ab0,  yorAxeRacket: 0xffe08a,  yorDrumRacket: 0xc0461a,  kalHarp: 0xd8e8f0,  kalSampoRacket: 0x9fe8d0,  kalBirchRacket: 0xd8e8f0,  banRacket: 0x8a8a1a,  banLeaf: 0xfff080,  banPeelRacket: 0x8a8a1a,  banSpoon: 0xfff080,  memePixelBlade: 0x7dff9a,  memeEnter: 0xff5ec8,  memeCursor: 0x7dff9a,  memeUsb: 0xff5ec8,  officeKeyboardRacket: 0x9fd8ff,  officeMug: 0xffd45c,  gnomeTrowelRacket: 0x436b3a,  gnomeSunflower: 0xffd0e2,  trashPlunger: 0x8fd4a0,  trashCan: 0x5a4a30,  trashBottle: 0x8fd4a0,  trashCrowbar: 0x5a4a30,
-  dreamPillow: 0x9f8aff,  dreamSpiralRacket: 0x5a4ab0,  dreamSheepRacket: 0x5a4ab0,  dreamBubbleRacket: 0xc9b8ff,  microDnaRacket: 0x5fe8d0,  microCellRacket: 0x2a7a8a,  microSpikeRacket: 0x2a7a8a,  alchStir: 0x3a6a2a,  alchFlaskRacket: 0xffd45c,  yarnNeedleRacket: 0xffb7d5,  yarnCrochet: 0xa86a8a,  yarnBallRacket: 0xa86a8a,  yarnSweaterRacket: 0xffd8e8,  paintBrushRacket: 0x5a3f6a,  paintCanvas: 0x5a3f6a,  paintPaletteRacket: 0x5a3f6a,  paintTubeRacket: 0xff8ad4,};
+  dreamPillow: 0x9f8aff,  dreamSpiralRacket: 0x5a4ab0,  dreamSheepRacket: 0x5a4ab0,  dreamBubbleRacket: 0xc9b8ff,  microDnaRacket: 0x5fe8d0,  microCellRacket: 0x2a7a8a,  microSpikeRacket: 0x2a7a8a,  alchStir: 0x3a6a2a,  alchFlaskRacket: 0xffd45c,  yarnNeedleRacket: 0xffb7d5,  yarnCrochet: 0xa86a8a,  yarnBallRacket: 0xa86a8a,  yarnSweaterRacket: 0xffd8e8,  paintBrushRacket: 0x5a3f6a,  paintCanvas: 0x5a3f6a,  paintPaletteRacket: 0x5a3f6a,    scpTaser: 0x8a9a8a,
+  scpClipboard: 0xd8c090,
+  keterClaw: 0xe0d8c8,
+  keterRibs: 0xd8c8b0,
+  shyArm: 0xe8e8e0,
+  shyTooth: 0xf0ece0,
+  rakeBone: 0xe0d8c8,
+  rakeFang: 0xe8e0d0,
+  wendiBoneAxe: 0xd8e8f0,
+  wendiClaw: 0xcfe0ea,
+  mothmClaw: 0xb89870,
+  mothmEyeRacket: 0xff3a3a,
+  gbeastFur: 0x6a4a34,
+  gbeastBoneClub: 0xe0d8c8,
+  crawFang: 0xe8d0a0,
+  crawClaw: 0xc8a86a,
+  mutoClawRacket: 0x7a8a4a,
+  mutoSpike: 0x7dff5a,
+  beheHornRacket: 0xd8c8a8,
+  beheHide: 0x6a5040,
+  paintTubeRacket: 0xff8ad4,};
 
 export const EMOJI_PRESETS = [
   '🙂', '😎', '😈', '🥷', '🦸', '🐱', '🐶', '🦊', '🐼', '🐸', '🐵', '🐯', '🦁', '🐲', '🦈', '🐙', '👽', '🤖', '👻', '💀',

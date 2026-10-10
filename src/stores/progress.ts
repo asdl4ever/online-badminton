@@ -59,6 +59,27 @@ import {
 } from '../game/dive/fish';
 import { styleFromStats, tierFromStats } from '../game/ai';
 import {
+  BRANCH_COST,
+  MASTERY_BRANCH_LEVEL,
+  SKILL_BY_ID,
+  SKILL_SLOTS,
+  SKILLS,
+  activeSynergies,
+  masteryLevel,
+  skillBranches,
+  skillCost,
+  skillUnlock,
+  skillUnlockMap,
+  type SkillId,
+} from '../game/skills';
+import {
+  WEEKLY_STAGES,
+  currentWeek,
+  emptyWeekly,
+  weeklyStages,
+  type WeeklySave,
+} from '../game/weekly';
+import {
   applyAiResult,
   applyMatchResult,
   attrsFromStats,
@@ -68,6 +89,7 @@ import {
   generatePlayers,
   playerStats,
   rosterSlice,
+  statPower,
   syncDerived,
   type AiPlayer,
   type PlayerStats,
@@ -88,8 +110,10 @@ import {
 } from '../game/cosmetics';
 import {
   addTrainXp,
+  applyTrainMilestones,
   emptyLevels,
   emptyXp,
+  TRAIN_META,
   type TrainKey,
   type TrainLevels,
   type TrainXp,
@@ -173,12 +197,12 @@ function todayKey(): string {
 
 /**
  * 一次开箱的产物：
- * - `item`：抽到装扮（重复的话 `refund` 是返还的金币）；
+ * - `item`：抽到装扮（**重复的话折算成 🧩 星尘碎片**，`shards` 是这次折算的数额）；
  * - `bag`：**袋子档**（`BAG_CHANCE` 的概率）——没抽到装扮，给一小袋金币
  *   或 🧩 星尘碎片（碎片能在宝箱的兑换区换指定低星装扮）。
  */
 export type PullResult =
-  | { kind: 'item'; item: Item; duplicate: boolean; refund: number }
+  | { kind: 'item'; item: Item; duplicate: boolean; shards: number }
   | { kind: 'bag'; bag: 'coins' | 'shards'; amount: number }
   /** 杂物档：没抽到装扮，改给少量采集材料（棉花 / 矿石） */
   | { kind: 'junk'; material: 'cotton' | 'ore'; amount: number };
@@ -475,9 +499,10 @@ export const useProgressStore = defineStore('progress', () => {
   /**
    * 🪙 金币入账的**唯一出口**（`gainCoins`）：顺手把宠物加成算上。
    *
-   * ⚠️ **退款 / 重复折算**那几处（报名费退回、孵蛋重复、宝箱重复返还、限定重复折金币、
+   * ⚠️ **退款 / 重复折算**那几处（报名费退回、孵蛋重复、限定重复折金币、
    * 皮肤档拿齐后的折算）要走 `coins.value += ...` 或传 `bonus: false`——
    * 不然「抽到重复 → 返还 → 又被宠物加成」就成了刷金币的口子。
+   * （宝箱的重复装扮现在折算 🧩 碎片，不经过金币出口，同样不吃加成。）
    *
    * 返回这次**宠物额外加到的数额**（结算文案要写「🐾 +X」时用）。
    */
@@ -493,7 +518,7 @@ export const useProgressStore = defineStore('progress', () => {
    */
   const chestKeys = useLocalStorage('bmt-chest-keys', 0);
   /**
-   * 🧩 星尘碎片：开箱抽到「袋子档」时给的（见 `BAG_CHANCE`），
+   * 🧩 星尘碎片：开箱的「袋子档」（见 `BAG_CHANCE`）与**重复装扮的折算**都给，
    * 只能在宝箱的**兑换区**里花——换 3★ 及以下的指定装扮（含宝箱专属那批）。
    * 跟金币不通用：金币是赚钱区挣的，碎片必须开箱才有。
    */
@@ -750,9 +775,228 @@ export const useProgressStore = defineStore('progress', () => {
 
   /**
    * 写进对局的属性倍率。**由五维派生**——五维是唯一的加成来源，
-   * 玩家（锻炼等级 → 五维）和 AI（名录里的五维）走的是同一条换算。
+   * 玩家（锻炼等级 → 五维）和 AI（名录里的五维）走的是同一条换算；
+   * 再叠上锻炼 Lv5 / Lv8 的**功底**（永久成长的唯一出处，见 training.ts）。
    */
-  const attrs = computed(() => attrsFromStats(playerStats(points.value, trainLevels.value)));
+  const attrs = computed(() =>
+    applyTrainMilestones(
+      attrsFromStats(playerStats(points.value, trainLevels.value)),
+      trainLevels.value,
+    ),
+  );
+
+  /** 玩家五维综合分（报名界面用来和「这一档的对手强度」比大小） */
+  const myStatPower = computed(() => statPower(playerStats(points.value, trainLevels.value)));
+
+  /**
+   * 招式「**已达到解锁等级**」——注意这只表示「可以花秘籍解锁了」，不等于已拥有。
+   * 已经不再到级白送：解锁要花「招式秘籍」（见 `unlockSkill`）。
+   */
+  const skillLevelMet = computed(() => skillUnlockMap(trainLevels.value));
+
+  /** 已拥有的招式（花秘籍解锁、持久化） */
+  const unlockedSkills = useLocalStorage<SkillId[]>('bmt-skill-unlocked', []);
+  const ownedSkills = computed(() => new Set(unlockedSkills.value));
+
+  /** 🎟 招式秘籍：解锁招式的货币（来源：周赛首通 / 竞技夺冠 / 金币兑换） */
+  const scrolls = useLocalStorage<number>('bmt-skill-scrolls', 0);
+
+  /** 携带的招式（最多 `SKILL_SLOTS` 个；只保留已拥有的） */
+  const skillLoadout = useLocalStorage<SkillId[]>('bmt-skill-loadout', []);
+
+  /** 实际带进对局的招式：过滤未拥有 / 已下架的旧存档 id / 去重 / 截断；没设过就默认带前几个已拥有的 */
+  const equippedSkills = computed<SkillId[]>(() => {
+    const owned = ownedSkills.value;
+    const out: SkillId[] = [];
+    const seen = new Set<SkillId>();
+    for (const id of skillLoadout.value) {
+      if (!SKILL_BY_ID[id] || !owned.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+      if (out.length >= SKILL_SLOTS) break;
+    }
+    if (out.length === 0) {
+      for (const m of SKILLS) {
+        if (owned.has(m.id)) {
+          out.push(m.id);
+          if (out.length >= SKILL_SLOTS) break;
+        }
+      }
+    }
+    return out;
+  });
+
+  /** 设置携带列表（只接受现存的、已拥有的，去重、按槽位截断） */
+  function setSkillLoadout(list: SkillId[]): void {
+    const owned = ownedSkills.value;
+    const out: SkillId[] = [];
+    const seen = new Set<SkillId>();
+    for (const id of list) {
+      if (!SKILL_BY_ID[id] || !owned.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+      if (out.length >= SKILL_SLOTS) break;
+    }
+    skillLoadout.value = out;
+  }
+
+  /** 当前携带里已经凑齐的套装协同（UI 展示用；引擎侧见 GameScene.applySkills） */
+  const skillSynergies = computed(() => activeSynergies(equippedSkills.value));
+
+  /** 获得招式秘籍 */
+  function gainScrolls(n: number): void {
+    if (n > 0) scrolls.value += n;
+  }
+
+  /** 累计夺冠次数（解锁「竞技」类招式用） */
+  const arenaTitles = useLocalStorage<number>('bmt-arena-titles', 0);
+  /** 周赛历史最好成绩（本机榜 + 本周） */
+  const weeklyBestCleared = computed(() =>
+    Math.max(weeklyCleared.value, ...weeklySave.value.history.map((h) => h.cleared), 0),
+  );
+
+  /** 招式的解锁条件是否满足（不含秘籍花费） */
+  function skillAvailable(id: SkillId): { ok: boolean; need: string } {
+    const m = SKILL_BY_ID[id];
+    if (!m) return { ok: false, need: '' };
+    const u = skillUnlock(m);
+    switch (u.via) {
+      case 'train':
+        return { ok: skillLevelMet.value[id], need: `${TRAIN_META[u.key].label} ${u.level} 级` };
+      case 'scroll':
+        return { ok: true, need: '' };
+      case 'weekly':
+        return { ok: weeklyBestCleared.value >= u.cleared, need: `周赛清 ${u.cleared} 关` };
+      case 'arena':
+        return { ok: arenaTitles.value >= u.titles, need: `竞技夺冠 ${u.titles} 次` };
+      case 'rank':
+        return { ok: points.value >= u.points, need: `积分 ${u.points}` };
+    }
+  }
+
+  /**
+   * 解锁一个招式：**解锁条件满足 + 花秘籍**（train 的 3 级档免费当保底）。
+   * 100+ 技能时这条不变——新技能只是多一行数据 + 一条解锁条件/价格。
+   */
+  function unlockSkill(id: SkillId): { ok: boolean; message: string } {
+    const m = SKILL_BY_ID[id];
+    if (!m) return { ok: false, message: '没有这个招式' };
+    if (unlockedSkills.value.includes(id)) return { ok: false, message: '已经解锁了' };
+    const avail = skillAvailable(id);
+    if (!avail.ok) return { ok: false, message: `解锁条件未满足：${avail.need}` };
+    const cost = skillCost(m);
+    if (cost > 0 && scrolls.value < cost) {
+      return { ok: false, message: `秘籍不够，还差 ${cost - scrolls.value} 本` };
+    }
+    if (cost > 0) scrolls.value -= cost;
+    unlockedSkills.value = [...unlockedSkills.value, id];
+    return { ok: true, message: `解锁「${m.name}」！` };
+  }
+
+  /** 用金币兑秘籍（给金币一个真去处） */
+  function buyScroll(price = 300): { ok: boolean; message: string } {
+    if (coins.value < price) return { ok: false, message: `金币不够（还差 ${price - coins.value}）` };
+    coins.value -= price;
+    scrolls.value += 1;
+    return { ok: true, message: '兑换到 1 本招式秘籍' };
+  }
+
+  /* --- 📈 招式熟练度 + 分支强化 ------------------------------------------- */
+  /** 每个招式的累计熟练度点（用一次 +1） */
+  const skillMastery = useLocalStorage<Record<string, number>>('bmt-skill-mastery', {});
+  /** 每个招式选的分支（id → branchId，一次性） */
+  const skillBranch = useLocalStorage<Record<string, string>>('bmt-skill-branch', {});
+
+  /** 用一次招式 +1 熟练度（由 GameCanvas 从对局事件里记） */
+  function addSkillMastery(id: SkillId, n = 1): void {
+    if (n <= 0) return;
+    skillMastery.value = { ...skillMastery.value, [id]: (skillMastery.value[id] ?? 0) + n };
+  }
+
+  /** 选分支强化：熟练度到 `MASTERY_BRANCH_LEVEL` 级 + 花金币，**一次性** */
+  function chooseSkillBranch(id: SkillId, branchId: string): { ok: boolean; message: string } {
+    if (!unlockedSkills.value.includes(id)) return { ok: false, message: '还没解锁这个招式' };
+    const m = SKILL_BY_ID[id];
+    if (!m) return { ok: false, message: '没有这个招式' };
+    if (masteryLevel(skillMastery.value[id] ?? 0) < MASTERY_BRANCH_LEVEL) {
+      return { ok: false, message: `熟练度不够（需 ${MASTERY_BRANCH_LEVEL} 级）` };
+    }
+    const branch = skillBranches(m).find((b) => b.id === branchId);
+    if (!branch) return { ok: false, message: '没有这个分支' };
+    if (skillBranch.value[id]) return { ok: false, message: '这个招式已经选过分支了' };
+    const cost = branch.cost ?? BRANCH_COST;
+    if (coins.value < cost) return { ok: false, message: `金币不够（还差 ${cost - coins.value}）` };
+    coins.value -= cost;
+    skillBranch.value = { ...skillBranch.value, [id]: branchId };
+    return { ok: true, message: `「${m.name}」选了分支：${branch.name}` };
+  }
+
+  /**
+   * 各档赛事**对手的综合分预估**（报名界面用）：
+   * 低档（前 4 档）是现场生成的路人（base = 28 + idx×6，抖动均值 +5）；
+   * 高档从名人堂名录里按 `buildEntrants` 同一套「越高档抽越强的一批」取 15 人求均值。
+   * 与实战对手一致性：同一批人，只是这里不算每场身份的四维偏移。
+   */
+  const arenaTierPower = computed<Record<string, number>>(() => {
+    const out: Record<string, number> = {};
+    const want = 2 ** ARENA_ROUNDS.length - 1;
+    const roster = [...aiPlayers.value].sort((a, b) => b.rating - a.rating);
+    const span = Math.max(0, roster.length - want);
+    ARENA_TIERS.forEach((t, idx) => {
+      if (idx < ROOKIE_TIERS) {
+        out[t.tier] = 28 + idx * 6 + 5;
+        return;
+      }
+      if (!roster.length) {
+        out[t.tier] = 80;
+        return;
+      }
+      const start = Math.round((1 - idx / Math.max(1, ARENA_TIERS.length - 1)) * span);
+      const chosen = roster.length <= want ? roster : roster.slice(start, start + want);
+      const avg = chosen.reduce((s, p) => s + statPower(ensureStats(p)), 0) / Math.max(1, chosen.length);
+      out[t.tier] = Math.round(avg);
+    });
+    return out;
+  });
+
+  /* --- 🗓 本机周赛：每周 5 关 AI，首通给奖励，跨周自动重置 -------------------- */
+  const weeklySave = useLocalStorage<WeeklySave>('bmt-weekly', emptyWeekly());
+  /** 本周 5 关（按当前周号确定性生成） */
+  const weeklyStagesNow = computed(() => weeklyStages(currentWeek()));
+  const weeklyCleared = computed(() => weeklySave.value.cleared);
+
+  /** 跨周检查：换周就把上一周归档进「本机榜」并重置进度（进周赛页 / 结算前调） */
+  function syncWeekly(now: number = Date.now()): void {
+    const w = currentWeek(now);
+    if (weeklySave.value.week !== w) {
+      const prev = weeklySave.value;
+      const history = prev.week
+        ? [{ week: prev.week, cleared: prev.cleared, at: now }, ...prev.history].slice(0, 12)
+        : prev.history;
+      weeklySave.value = { week: w, cleared: 0, history };
+    }
+  }
+
+  /**
+   * 周赛结算：赢了且正好是「下一关」→ 首通 +1、发该关首通奖励；
+   * 重复打已通关的关不再发奖（防刷）。返回这次是否推进 / 到手奖励。
+   */
+  function reportWeeklyResult(
+    win: boolean,
+    stageIdx: number,
+  ): { advanced: boolean; coins: number; honor: number; scrolls: number } {
+    syncWeekly();
+    if (!win) return { advanced: false, coins: 0, honor: 0, scrolls: 0 };
+    const s = weeklySave.value;
+    if (stageIdx !== s.cleared) return { advanced: false, coins: 0, honor: 0, scrolls: 0 };
+    const stage = weeklyStagesNow.value[stageIdx];
+    if (!stage) return { advanced: false, coins: 0, honor: 0, scrolls: 0 };
+    weeklySave.value = { ...s, cleared: Math.min(WEEKLY_STAGES, s.cleared + 1) };
+    if (stage.coins) gainCoins(stage.coins);
+    if (stage.honor) honor.value += stage.honor;
+    if (stage.scrolls) gainScrolls(stage.scrolls);
+    return { advanced: true, coins: stage.coins, honor: stage.honor, scrolls: stage.scrolls };
+  }
 
   /* --- 🏟 操场跑量里程碑：累计跑量每满 1km 解锁一件专属装备 ------------------ */
   /**
@@ -1344,6 +1588,10 @@ export const useProgressStore = defineStore('progress', () => {
     const hon = honorForPlace(run.tier, place);
     gainCoins(gold);
     honor.value += hon;
+    if (place === 'champion') {
+      gainScrolls(2); // 夺冠给招式秘籍（一次性、有仪式感）
+      arenaTitles.value += 1; // 累计夺冠次数（解锁「竞技」类招式）
+    }
     const before = tierForPoints(points.value).id;
     points.value += gain;
     trackSeasonPeak();
@@ -2045,7 +2293,8 @@ export const useProgressStore = defineStore('progress', () => {
   }
 
   /**
-   * 一次抽取，不动钱包（钥匙由调用方扣）。重复物品折算金币返还。
+   * 一次抽取，不动钥匙（钥匙由调用方扣）。**重复物品折算成 🧩 星尘碎片**
+   * （数额 = 该稀有度的 `RARITY_META[rarity].dust`）。
    *
    * **没有保底**：概率就是概率（星级权重见 `STAR_WEIGHT`），抽不到就是抽不到——
    * 缺的「确定性」由碎片兑换补（开箱攒 🧩，攒够直接换指定的碎片专属装扮）。
@@ -2084,16 +2333,17 @@ export const useProgressStore = defineStore('progress', () => {
     const item = rollFrom(chestPoolFor(slot));
 
     let duplicate = false;
-    let refund = 0;
+    let gained = 0;
     if (owned.value.includes(item.id)) {
+      // 重复 → 折算 🧩 星尘碎片（数额按稀有度，和原来的金币折算同一档）
       duplicate = true;
-      refund = RARITY_META[item.rarity].dust;
-      coins.value += refund;
+      gained = RARITY_META[item.rarity].dust;
+      shards.value += gained;
     } else {
       owned.value = [...owned.value, item.id];
     }
 
-    return { kind: 'item', item, duplicate, refund };
+    return { kind: 'item', item, duplicate, shards: gained };
   }
 
   /**
@@ -2191,6 +2441,29 @@ export const useProgressStore = defineStore('progress', () => {
     train,
     gainMatchXp,
     attrs,
+    myStatPower,
+    skillLevelMet,
+    unlockedSkills,
+    scrolls,
+    gainScrolls,
+    buyScroll,
+    unlockSkill,
+    skillLoadout,
+    equippedSkills,
+    setSkillLoadout,
+    skillSynergies,
+    skillMastery,
+    skillBranch,
+    addSkillMastery,
+    chooseSkillBranch,
+    skillAvailable,
+    arenaTitles,
+    arenaTierPower,
+    weeklySave,
+    weeklyStagesNow,
+    weeklyCleared,
+    syncWeekly,
+    reportWeeklyResult,
     runMeters,
     runUnlockedCount,
     noteRun,

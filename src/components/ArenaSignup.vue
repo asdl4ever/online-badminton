@@ -109,6 +109,16 @@ function tierSummary(tier: string): string {
     : `下一场 ${fmtClock(nextStartIn(tier, now))} 后开赛`;
 }
 
+/** 这一档的对手强度 vs 玩家五维综合分：给出量级标签（报名界面用来预估强不强） */
+function powerLabel(tier: string): { text: string; tone: string } {
+  const d = progress.myStatPower - (progress.arenaTierPower[tier] ?? 0);
+  if (d >= 18) return { text: '碾压', tone: 'p-easy' };
+  if (d >= 6) return { text: '占优', tone: 'p-good' };
+  if (d >= -6) return { text: '势均', tone: 'p-even' };
+  if (d >= -18) return { text: '吃力', tone: 'p-hard' };
+  return { text: '悬殊', tone: 'p-brutal' };
+}
+
 /** 报名：只有该场赛事正处在报名窗口内才能报（窗口外只能预约或等下一场） */
 function signupEvent(tier: string, eventName: string): void {
   sfx.click();
@@ -213,6 +223,11 @@ function cancelBooking(tier: string): void {
           </div>
 
           <div class="cup-card__meta">
+            <div>
+              对手强度 <b class="num">≈{{ progress.arenaTierPower[c.tier] ?? 0 }}</b> · 你
+              <b class="num">{{ progress.myStatPower }}</b> ·
+              <span class="tone" :class="powerLabel(c.tier).tone">{{ powerLabel(c.tier).text }}</span>
+            </div>
             <div>门槛 <b class="num">{{ c.req }}</b> 分</div>
             <div>报名 <b class="num">🪙{{ c.fee }}</b></div>
             <div>冠军 <b class="num">🪙{{ goldForPlace(c, 'champion', 4) }}</b></div>
@@ -361,5 +376,25 @@ function cancelBooking(tier: string): void {
   font-size: 10px;
   color: var(--text);
   white-space: nowrap;
+}
+
+/* --- 对手强度量级标签 ---------------------------------------------------------- */
+.tone {
+  font-weight: 700;
+}
+.tone.p-easy {
+  color: #1f9d55;
+}
+.tone.p-good {
+  color: #3d8bfd;
+}
+.tone.p-even {
+  color: var(--text-dim);
+}
+.tone.p-hard {
+  color: #d9822b;
+}
+.tone.p-brutal {
+  color: #d64545;
 }
 </style>

@@ -40,7 +40,7 @@ import {
  *
  * ⚠️ **开箱仍然先摇类别**：普通宝箱 50% / **选中的主题池** 35% / 高级宝箱 15%，
  * 所以选了某个主题也不是"只出这一期"。袋子档（约 1/5 给金币或 🧩 碎片）、
- * 重复返还金币、没有保底——都照旧。碎片兑换已挪到商城的「皮肤 → 碎片兑换」。
+ * **重复装扮折算 🧩 碎片**、没有保底。碎片兑换已挪到商城的「皮肤 → 碎片兑换」。
  */
 const progress = useProgressStore();
 const customize = useCustomizeStore();
@@ -216,6 +216,8 @@ type Tile = {
   /** 0 = 袋子档，不画星星 */
   stars: number;
   note: string;
+  /** 重复装扮：图标上盖「重复」字样（已折算 🧩 碎片） */
+  dup: boolean;
 };
 
 const BAG_COLOR = { coins: '#e0a12c', shards: '#8f6ad8' };
@@ -233,6 +235,7 @@ function toTile(r: PullResult, i: number): Tile {
       sub: isCoin ? '没开到装扮，金币也是钱' : '没开到装扮，碎片能换装扮',
       stars: 0,
       note: '',
+      dup: false,
     };
   }
   if (r.kind === 'junk') {
@@ -247,6 +250,7 @@ function toTile(r: PullResult, i: number): Tile {
       sub: `没开到装扮，${mat.name}也能拉去农场主换钱`,
       stars: 0,
       note: '',
+      dup: false,
     };
   }
   return {
@@ -258,7 +262,8 @@ function toTile(r: PullResult, i: number): Tile {
     title: r.item.label,
     sub: SLOT_LABELS[r.item.slot],
     stars: r.item.stars,
-    note: r.duplicate ? `重复 · 返还 🪙${r.refund}` : '',
+    note: r.duplicate ? `重复 · 折算 🧩${r.shards}` : '',
+    dup: r.duplicate,
   };
 }
 
@@ -345,32 +350,13 @@ const owned = (id: string): boolean => progress.owned.includes(id);
 
 <template>
   <div class="cp" :style="themeVars">
-    <!-- 顶栏：钥匙 / 碎片 / 保底 -->
-    <div class="cp__top">
-      <div class="cp__wallet">
-        <span class="cp__w-ico">🔑</span>
-        <span class="num cp__w-num">{{ progress.chestKeys }}</span>
-        <span class="muted cp__w-label">宝箱钥匙</span>
-        <span class="muted cp__w-dot">·</span>
-        <span class="cp__w-ico">🧩</span>
-        <span class="num cp__w-num">{{ progress.shards }}</span>
-        <span class="muted cp__w-label">星尘碎片</span>
-      </div>
-      <span class="muted cp__pity">没有保底 · 抽不到的攒 🧩 碎片直接换</span>
-    </div>
-
     <div class="cp__main">
-      <!-- 左：奖池物品墙（按星级分组） -->
+      <!-- 左：奖池物品墙（按星级分组，自己滚动） -->
       <section class="cp__left">
         <div class="cp__wall-head">
           <b>{{ theme.emoji }} {{ theme.name }}</b>
           <span class="muted num">{{ banner.length }} 件</span>
         </div>
-        <p class="muted cp__odds">
-          选中的宝箱<b>只出它自己墙上的内容</b>；星级概率逐级减半
-          （约 1★ 52% · 2★ 26% · 3★ 13% · 4★ 6% · 5★ 3%）。
-          <b>抽到装扮约 65%</b>；另有 <b>20% 袋子档</b>（金币 / 🧩 碎片）+ <b>15% 杂物档</b>（棉花 / 矿石）。
-        </p>
 
         <div class="cp__groups">
           <div v-for="grp in wallGroups" :key="grp.stars" class="cp__group">
@@ -400,43 +386,68 @@ const owned = (id: string): boolean => progress.owned.includes(id);
             </div>
           </div>
         </div>
-
-        <p v-if="theme.id === 'shan'" class="muted cp__odds">
-          🐉 摇到"主题"档时：怪物皮肤任意一只 ≈3%、指定某一只 ≈0.3%。
-        </p>
       </section>
 
-      <!-- 右：大宝箱本体 + 切换奖池 + 两个按钮 -->
+      <!-- 右（贴右上角）：宝箱本体，抽奖按钮直接叠在箱子上 -->
       <section class="cp__right">
         <div class="cp__chest" :class="`is-${phase}`">
-          <div class="cp__glow" />
-          <span
-            v-for="(d, i) in theme.decor"
-            :key="i"
-            class="cp__decor"
-            :style="{ animationDelay: `${i * 0.6}s`, left: `${12 + i * 24}%` }"
-          >{{ d }}</span>
-          <div class="cp__box">
-            <div class="cp__lid">
-              <span class="cp__lock">{{ theme.emoji }}</span>
+          <!-- 箱子画面这一层：矮屏只缩它，抽奖按钮保持原尺寸（触控 ≥44px） -->
+          <div class="cp__art">
+            <div class="cp__glow" />
+            <span
+              v-for="(d, i) in theme.decor"
+              :key="i"
+              class="cp__decor"
+              :style="{ animationDelay: `${i * 0.6}s`, left: `${12 + i * 24}%` }"
+            >{{ d }}</span>
+            <div class="cp__box">
+              <div class="cp__lid">
+                <span class="cp__lock">{{ theme.emoji }}</span>
+              </div>
+              <div class="cp__body">
+                <div class="cp__band" />
+                <div class="cp__hole" />
+              </div>
+              <div class="cp__base" />
             </div>
-            <div class="cp__body">
-              <div class="cp__band" />
-              <div class="cp__hole" />
+          </div>
+
+          <!-- 🎯 抽奖按钮：压在宝箱图案上（单抽 / 十连抽；有新手礼券时多一颗免费十连） -->
+          <div class="cp__draw">
+            <button
+              v-if="progress.tenTickets > 0"
+              class="cp__draw-free"
+              type="button"
+              :disabled="!canFreeTen"
+              @click="openTen(true)"
+            >
+              🎫 免费十连 ×{{ progress.tenTickets }}
+            </button>
+            <div class="cp__draw-row">
+              <button class="cp__draw-btn" type="button" :disabled="!canSingle" @click="openSingle">
+                单抽
+                <b class="num">🔑{{ CHEST_KEYS }}</b>
+              </button>
+              <button
+                class="cp__draw-btn cp__draw-btn--ten"
+                type="button"
+                :disabled="!canTen"
+                @click="openTen(false)"
+              >
+                十连抽
+                <b class="num">🔑{{ TEN_KEYS }}</b>
+              </button>
             </div>
-            <div class="cp__base" />
           </div>
         </div>
 
         <div class="cp__meta">
-          <div class="cp__name">{{ theme.name }}</div>
-          <div class="muted cp__tagline">{{ theme.tagline }}</div>
           <div class="cp__timer">
             <span class="num cp__timer-num">{{ drawable ? fmtLeft(slot.endsAt) : '未返场' }}</span>
             <span class="muted cp__timer-label">
               {{ leftLabel }}
               <template v-if="drawable && slot.kind === 'current'">
-                · 下一期 {{ nextTheme.emoji }} {{ nextTheme.name }}
+                · 下一期 {{ nextTheme.emoji }}
               </template>
             </span>
           </div>
@@ -448,23 +459,6 @@ const owned = (id: string): boolean => progress.owned.includes(id);
             当前：{{ theme.emoji }} {{ theme.name }}<template v-if="!drawable">（仅查看）</template>
           </span>
         </button>
-
-        <div class="cp__actions">
-          <Button variant="primary" block :disabled="!canSingle" @click="openSingle">
-            单抽 · 🔑{{ CHEST_KEYS }}
-          </Button>
-          <Button block :disabled="!canTen" @click="openTen(false)">十连抽 · 🔑{{ TEN_KEYS }}</Button>
-          <Button
-            v-if="progress.tenTickets > 0"
-            variant="primary"
-            block
-            :disabled="!canFreeTen"
-            @click="openTen(true)"
-          >
-            免费十连（新手礼）×{{ progress.tenTickets }}
-          </Button>
-          <p v-if="!drawable" class="muted cp__lock">这个奖池还没返场 / 已下架，只能查看内容。</p>
-        </div>
       </section>
 
       <!-- 结果浮层：盖在左宝箱 + 右墙上 -->
@@ -475,8 +469,11 @@ const owned = (id: string): boolean => progress.owned.includes(id);
       >
         <div v-if="mode === 'single' && singleTile" class="cp__card" :style="{ '--rarity': singleTile.color }">
           <div class="cp__card-tag">{{ singleTile.tag }}</div>
-          <ItemIcon v-if="singleTile.item" class="cp__card-icon" :item="singleTile.item" />
-          <span v-else class="cp__card-bag">{{ singleTile.emoji }}</span>
+          <div class="cp__card-media">
+            <ItemIcon v-if="singleTile.item" class="cp__card-icon" :item="singleTile.item" />
+            <span v-else class="cp__card-bag">{{ singleTile.emoji }}</span>
+            <span v-if="singleTile.dup" class="cp__dup">重复</span>
+          </div>
           <div class="cp__card-label">{{ singleTile.title }}</div>
           <Stars v-if="singleTile.stars > 0" class="cp__card-stars" :value="singleTile.stars" :animate="true" />
           <div class="muted cp__card-sub">{{ singleTile.sub }}</div>
@@ -490,24 +487,20 @@ const owned = (id: string): boolean => progress.owned.includes(id);
             class="cp__cell"
             :style="{ '--rarity': t.color, animationDelay: `${i * 0.06}s` }"
           >
-            <ItemIcon v-if="t.item" class="cp__cell-icon" :item="t.item" />
-            <span v-else class="cp__cell-bag">{{ t.emoji }}</span>
+            <span class="cp__cell-media">
+              <ItemIcon v-if="t.item" class="cp__cell-icon" :item="t.item" />
+              <span v-else class="cp__cell-bag">{{ t.emoji }}</span>
+              <span v-if="t.dup" class="cp__dup cp__dup--sm">重复</span>
+            </span>
             <span class="cp__cell-label">{{ t.title }}</span>
             <Stars v-if="t.stars > 0" class="cp__cell-stars" :value="t.stars" />
-            <span class="cp__cell-slot">{{ t.sub }}</span>
+            <span class="cp__cell-slot">{{ t.dup ? t.note : t.sub }}</span>
           </div>
         </div>
 
         <span class="cp__result-hint">点任意处收起</span>
       </div>
     </div>
-
-    <p class="muted cp__note">
-      「奖池切换」里<b>每个主题都能点开查看内容</b>；其中 <b>当期主题</b>（每小时轮换）· <b>限时返场</b>（每 6 小时换一批，2~24 小时后下架）· <b>常驻经典大池</b>（普通 / 高级宝箱）随时可抽，未返场的只<b>查看</b>、不能抽。
-      <b>选中的宝箱只出它自己墙上的内容</b>（不再先摇类别）；星级概率逐级减半；
-      <b>约 65% 抽到装扮</b>，其余是 <b>20% 袋子档</b>（金币 / 🧩 碎片）+ <b>15% 杂物档</b>（棉花 / 矿石，拉去农场主换钱）；重复返还金币，<b>没有保底</b>。
-      开箱只花<b>宝箱钥匙</b>；星尘碎片兑换在<b>商城的「皮肤 → 碎片兑换」</b>。
-    </p>
 
     <!-- 点物品：试穿预览（穿在自己身上什么样） -->
     <AppModal v-model="previewOpen" title="👀 试穿效果" max-width="420px">
@@ -609,55 +602,23 @@ const owned = (id: string): boolean => progress.owned.includes(id);
 </template>
 
 <style scoped>
+/* 整块钉在可视高度里：页面不滚，只有左墙自己滚（手机上也不用拖页面） */
 .cp {
   display: flex;
   flex-direction: column;
-  gap: var(--s3);
+  gap: var(--s2);
+  height: 100%;
+  min-height: 0;
 }
 
-/* ---- 顶栏 ---------------------------------------------------------------- */
-.cp__top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s3);
-  flex-wrap: wrap;
-}
-
-.cp__wallet {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.cp__w-ico {
-  font-size: 18px;
-}
-
-.cp__w-num {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.cp__w-label,
-.cp__pity,
-.cp__w-dot {
-  font-size: 12px;
-}
-
-/* ---- 两列主体：左＝奖池物品墙（宽），右＝大宝箱 ---------------------------- */
+/* ---- 两列主体：左＝奖池物品墙（自己滚动），右＝大宝箱贴右上角 ------------ */
 .cp__main {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--s3);
-}
-
-@media (max-width: 720px) {
-  .cp__main {
-    grid-template-columns: 1fr;
-  }
+  flex: 1;
+  min-height: 0;
 }
 
 /* ---- 左：物品墙（按星级分组） ------------------------------------------- */
@@ -672,7 +633,7 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   box-shadow: var(--glass-shadow), var(--glass-hi);
   backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
   -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
-  max-height: 62vh;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -703,18 +664,19 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   font-size: 11px;
 }
 
-/* ---- 右：宝箱本体 -------------------------------------------------------- */
+/* ---- 右：宝箱本体（贴右上角：列内容从顶往下摆，不垂直居中） -------------- */
 .cp__right {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: var(--s3);
-  padding: var(--s4) var(--s3);
+  justify-content: flex-start;
+  align-self: start;
+  gap: var(--s2);
+  padding: var(--s3) var(--s3) var(--s4);
   border-radius: var(--r-lg);
   border: 1px solid var(--glass-border);
   background:
-    radial-gradient(circle at 50% 34%, color-mix(in srgb, var(--ct-glow) 34%, transparent), transparent 62%),
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--ct-glow) 34%, transparent), transparent 62%),
     color-mix(in srgb, var(--ct-base) 22%, var(--glass-bg));
   box-shadow: var(--glass-shadow), var(--glass-hi);
   backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
@@ -752,6 +714,12 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   position: relative;
   width: 190px;
   height: 170px;
+}
+
+/* 箱子画面层（发光 / 装饰 / 箱体都在里面） */
+.cp__art {
+  position: absolute;
+  inset: 0;
 }
 
 /* 箱底的光晕：开箱时炸一下 */
@@ -869,22 +837,76 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   opacity: 0.75;
 }
 
+/* ---- 抽奖按钮：直接压在宝箱图案上（单抽 / 十连抽；有券时上面多一颗免费十连） */
+.cp__draw {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: max-content;
+}
+
+.cp__draw-row {
+  display: flex;
+  gap: 6px;
+}
+
+.cp__draw-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 84px;
+  min-height: 46px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--ct-trim) 70%, var(--line));
+  background: color-mix(in srgb, var(--ct-base) 30%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 8px 16px -10px rgba(10, 20, 40, 0.7);
+}
+
+.cp__draw-btn--ten {
+  background: color-mix(in srgb, var(--ct-glow) 42%, var(--surface));
+  border-color: color-mix(in srgb, var(--ct-glow) 65%, var(--line));
+}
+
+.cp__draw-free {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ct-trim) 70%, var(--line));
+  background: color-mix(in srgb, var(--ct-glow) 26%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cp__draw-btn:disabled,
+.cp__draw-free:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .cp__meta {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   text-align: center;
-}
-
-.cp__name {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.cp__tagline {
-  font-size: 12px;
 }
 
 .cp__timer {
@@ -987,17 +1009,6 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   background: color-mix(in srgb, var(--r) 80%, #000);
 }
 
-/* ---- 右下：两个按钮 ------------------------------------------------------ */
-.cp__actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s2);
-}
-
-.cp__actions > :last-child:nth-child(3) {
-  grid-column: span 2;
-}
-
 /* ---- 结果浮层 ------------------------------------------------------------ */
 .cp__result {
   position: absolute;
@@ -1042,6 +1053,12 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   color: var(--rarity);
 }
 
+.cp__card-media {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
 .cp__card-icon {
   width: 76px;
   height: 76px;
@@ -1050,6 +1067,30 @@ const owned = (id: string): boolean => progress.owned.includes(id);
 .cp__card-bag {
   font-size: 54px;
   line-height: 1;
+}
+
+/* 「重复」章：盖在图标右上角（重复装扮已折算 🧩 碎片） */
+.cp__dup {
+  position: absolute;
+  right: -10px;
+  top: -6px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #fff;
+  background: color-mix(in srgb, #d05a4a 88%, #000);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cp__dup--sm {
+  right: -10px;
+  top: -7px;
+  font-size: 9px;
+  padding: 0 5px;
 }
 
 .cp__card-label {
@@ -1092,6 +1133,13 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   background: color-mix(in srgb, var(--rarity) 12%, var(--surface));
   box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--rarity) 70%, transparent);
   animation: cell-in 0.36s var(--ease-jelly) both;
+}
+
+.cp__cell-media {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
 }
 
 .cp__cell-icon {
@@ -1325,15 +1373,34 @@ const owned = (id: string): boolean => progress.owned.includes(id);
   line-height: 1.6;
 }
 
-/* ---- 底部说明 ------------------------------------------------------------ */
-.cp__note {
-  font-size: 12px;
-  margin: 0;
-}
+/* 矮屏（手机横屏 ~360px 高）：紧凑一档，整块力争一屏放下、不用拖页面 */
+@media (max-height: 430px) {
+  .cp__right {
+    padding: 8px 10px 10px;
+    gap: 5px;
+  }
 
-.cp__odds {
-  font-size: 12px;
-  margin: 0 0 var(--s2);
+  .cp__chest {
+    height: 150px;
+  }
+
+  .cp__art {
+    transform: scale(0.88);
+    transform-origin: top center;
+  }
+
+  .cp__timer {
+    padding: 3px 8px;
+  }
+
+  .cp__timer-num {
+    font-size: 14px;
+  }
+
+  .cp__pool-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
 }
 
 @keyframes chest-float {

@@ -656,6 +656,9 @@ onBeforeUnmount(() => {
           role="single"
           :option-id="optionId"
           :opponent="opponentConfig"
+          :skills="progress.equippedSkills"
+          :skill-branches="progress.skillBranch"
+          :skill-mastery="progress.skillMastery"
           :session="null"
           :cosmetic="customize.cosmetic"
           :attrs="progress.attrs"
@@ -724,6 +727,9 @@ onBeforeUnmount(() => {
                 role="single"
                 :session="null"
                 :opponent="hallPlaying === i ? opponentConfig : undefined"
+                :skills="progress.equippedSkills"
+          :skill-branches="progress.skillBranch"
+          :skill-mastery="progress.skillMastery"
                 :hall="true"
                 :paused="courtPaused(i)"
                 :option-id="hallMachine === i ? 'machineEasy' : undefined"
@@ -785,8 +791,13 @@ onBeforeUnmount(() => {
             v-if="showJoy && hallPlaying === null && hallMachine === null"
             @move="(x, y) => (joy = { x, y })"
           />
-          <!-- 上场打球 / 发球机对练：和正式对局同一对摇杆，而且**常显**（桌面 / 模拟器上也靠它走位） -->
-          <GameSticks v-if="hallPlaying !== null || hallMachine !== null" :always="true" />
+          <!-- 上场打球 / 发球机对练：和正式对局同一对摇杆，而且**常显**（桌面 / 模拟器上也靠它走位）；
+               技能按钮跟着携带列表走，不然球馆里打的这局没有招式可放 -->
+          <GameSticks
+            v-if="hallPlaying !== null || hallMachine !== null"
+            :always="true"
+            :skills="progress.equippedSkills"
+          />
 
           <!-- 上场那局：复用正式对局那排体力条（比分写在场地画面里） -->
           <div v-if="hallPlaying !== null" class="court-hud">

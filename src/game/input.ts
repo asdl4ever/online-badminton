@@ -33,3 +33,25 @@ export function readControls(c: ControlKeys): { left: boolean; right: boolean; j
     jump: down(c.jump),
   };
 }
+
+/**
+ * 🥋 **招式键**（单机 / PvE 专用）：1 蓄力重杀 · 2 鱼跃救球 · 3 交叉步突进。
+ * 联机不读这几个键（属性归一化，招式也只在单机生效）。
+ */
+export interface SkillKeys {
+  charge: Phaser.Input.Keyboard.Key[];
+  dive: Phaser.Input.Keyboard.Key[];
+  dash: Phaser.Input.Keyboard.Key[];
+}
+
+export function createSkillKeys(scene: Phaser.Scene): SkillKeys {
+  return {
+    charge: keysOf(scene, ['ONE', 'NUMPAD_ONE']),
+    dive: keysOf(scene, ['TWO', 'NUMPAD_TWO']),
+    dash: keysOf(scene, ['THREE', 'NUMPAD_THREE']),
+  };
+}
+
+export function readSkills(k: SkillKeys): { charge: boolean; dive: boolean; dash: boolean } {
+  return { charge: down(k.charge), dive: down(k.dive), dash: down(k.dash) };
+}

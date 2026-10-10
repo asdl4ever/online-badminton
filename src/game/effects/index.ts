@@ -16,6 +16,7 @@ import { nanoBurst, dataCrash, warpBurst, marsDustBurst, forerBurst } from './sc
 import { glacDeepRoar, fridLureBurst, walrSmash, dimFold, hadalVoid } from './sea';
 import { cretImpact, swampGasBurst, iceageBurst, yorThunderBurst, kalSongBurst, banSplat, meme404Burst, officeSnooze, gnomePollen, trashGarbage } from './gen9';
 import { dreamBurst, microSplit, alchExplosion, yarnTangle, paintSplashBurst } from './gen10';
+import { scpBreach, keterBloom, shyScream, rakePounce, wendiHowl, mothmOmen, gbeastQuake, crawDevour, mutoBlast, beheImpact } from './gen11';
 import { PLUS_PAINTERS, PLUS_SPAN } from './plus';
 import { paintDefault } from './basic';
 import type { EffectPainter, HitFlash } from './types';
@@ -164,6 +165,16 @@ export const EFFECT_SPAN: Record<HitStyle, number> = {
   microSplit: 0.54,
   alchExplosion: 0.58,
   yarnTangle: 0.56,
+  scpBreach: 0.58,
+  keterBloom: 0.58,
+  shyScream: 0.58,
+  rakePounce: 0.58,
+  wendiHowl: 0.58,
+  mothmOmen: 0.58,
+  gbeastQuake: 0.58,
+  crawDevour: 0.58,
+  mutoBlast: 0.58,
+  beheImpact: 0.58,
   paintSplashBurst: 0.58,
 };
 
@@ -263,6 +274,16 @@ export const EFFECT_PAINTERS: Partial<Record<HitStyle, EffectPainter>> = {
   microSplit,
   alchExplosion,
   yarnTangle,
+  scpBreach,
+  keterBloom,
+  shyScream,
+  rakePounce,
+  wendiHowl,
+  mothmOmen,
+  gbeastQuake,
+  crawDevour,
+  mutoBlast,
+  beheImpact,
   paintSplashBurst,
   prism,
   prismfan,

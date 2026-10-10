@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
 import { ZOOM_KEY, ZOOM_MAX, ZOOM_MIN, clampZoom } from '../game/zoom';
+import { isTouchDevice } from '../game/device';
 
 /**
  * **画面缩放（视距）**：一处定义、到处使用。
@@ -18,8 +19,34 @@ import { ZOOM_KEY, ZOOM_MAX, ZOOM_MIN, clampZoom } from '../game/zoom';
 // 上下限与 clamp 定义在 `game/zoom.ts`（Phaser 场景那边也用它，保持同一份）
 export { ZOOM_MIN, ZOOM_MAX, clampZoom };
 
-/** 全站共享的视距（1 = 原始大小） */
-export const zoom = useLocalStorage(ZOOM_KEY, 1);
+/**
+ * 触屏设备的默认视距：比桌面远一点——手机屏幕小，100% 时大世界挤得看不清地图。
+ * 这只是**初始值**，捏合随时可改；一次性的迁移（见 `initialZoom`）会把老存档里
+ * 还停在旧默认 1.0 的手机拉到新默认，用户自己捏过的值不动。
+ */
+const TOUCH_DEFAULT_ZOOM = 0.8;
+/** 一次性迁移标记（避免以后每次启动都改用户捏过的值） */
+const TOUCH_ZOOM_MIGRATED = 'bmt-world-zoom-touch-migrated';
+
+function initialZoom(): number {
+  if (!isTouchDevice()) return 1;
+  try {
+    if (!window.localStorage.getItem(TOUCH_ZOOM_MIGRATED)) {
+      const raw = window.localStorage.getItem(ZOOM_KEY);
+      // 只有「从没调过、还是旧默认 1.0」的存档才迁移；用户捏过的照旧
+      if (raw != null && Number(raw) === 1) {
+        window.localStorage.setItem(ZOOM_KEY, String(TOUCH_DEFAULT_ZOOM));
+      }
+      window.localStorage.setItem(TOUCH_ZOOM_MIGRATED, '1');
+    }
+  } catch {
+    /* private mode */
+  }
+  return TOUCH_DEFAULT_ZOOM;
+}
+
+/** 全站共享的视距（1 = 原始大小；手机默认 0.8，大世界少挤一点） */
+export const zoom = useLocalStorage(ZOOM_KEY, initialZoom());
 
 export function setZoom(v: number): void {
   zoom.value = clampZoom(v);

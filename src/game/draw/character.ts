@@ -5324,6 +5324,99 @@ export function drawPet(
       void wob;
       break;
     }
+    case 'b22Roach': {
+      const sc = Math.sin(now / 120) * 1.5;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 9, 14, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px + sc, py, 16, 9);
+      g.fillStyle(0x2a2010, 1); g.fillEllipse(px + sc + dir * 6, py - 1, 6, 6);
+      g.lineStyle(1.4, 0x3a2c14, 0.9); for (let k = 0; k < 3; k++) g.lineBetween(px + sc - 6 + k * 6, py + 4, px + sc - 8 + k * 6 + dir * 3, py + 9);
+      g.lineStyle(1.2, 0x2a2010, 0.9); g.lineBetween(px + sc + dir * 9, py - 3, px + sc + dir * 16, py - 8); g.lineBetween(px + sc + dir * 9, py - 1, px + sc + dir * 16, py - 2);
+      g.fillStyle(0xff5a3a, 1); g.fillCircle(px + sc + dir * 4, py - 2, 1.2);
+      break;
+    }
+    case 'b22Larva': {
+      const wob = Math.sin(now / 300);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 9, 16, 4);
+      for (let k = 0; k < 4; k++) { g.fillStyle(k % 2 ? color : 0xe0b0a0, 1); g.fillCircle(px - dir * (6 - k * 5) + wob * (k - 1.5), py + Math.sin(now / 300 + k) * 1.5, 6 - k * 0.4); }
+      g.fillStyle(0x1a1a1a, 1); g.fillCircle(px + dir * 8, py - 1, 1.2); g.fillCircle(px + dir * 4, py - 1, 1.2);
+      break;
+    }
+    case 'b22Ape': {
+      const sw = Math.sin(now / 300) * 2;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 16, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 1, 14, 13);
+      g.lineStyle(5, color, 1); g.lineBetween(px, py - 2, px + dir * 14, py - 6 + sw);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 2, py - 7, 6);
+      g.fillStyle(0x1a1a22, 1); g.fillCircle(px + dir * 5, py - 8, 1.2); g.fillCircle(px + dir * 1, py - 8, 1.2);
+      break;
+    }
+    case 'b22Rake': {
+      const step = Math.sin(now / 120) * 2;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 18, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 1, 18, 9);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 9, py - 2, 5.5);
+      g.lineStyle(1.6, 0x3a3a3a, 1); for (const lx of [-6, 2]) g.lineBetween(px + lx, py + 5, px + lx + step, py + 10);
+      g.lineStyle(2, color, 1); g.lineBetween(px - dir * 9, py, px - dir * 16, py - 6 + step);
+      g.fillStyle(0xff3a3a, 1); g.fillCircle(px + dir * 10, py - 3, 1.1);
+      break;
+    }
+    case 'b22Calf': {
+      const step = Math.sin(now / 200) * 2;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 18, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px, py, 14, 9);
+      for (const lx of [-5, 4]) { g.lineStyle(2, color, 1); g.lineBetween(px + lx, py + 4, px + lx + step, py + 10); }
+      g.fillStyle(color, 1); g.fillEllipse(px + dir * 9, py - 6, 6, 6);
+      g.lineStyle(2, color, 1); g.lineBetween(px + dir * 7, py - 10, px + dir * 4, py - 16); g.lineBetween(px + dir * 10, py - 10, px + dir * 13, py - 16);
+      g.fillStyle(0x1a1a1a, 1); g.fillCircle(px + dir * 11, py - 7, 1.1);
+      break;
+    }
+    case 'b22Moth': {
+      const flap = Math.sin(now / 90);
+      g.fillStyle(color, 0.9); g.fillPoints([{ x: px, y: py }, { x: px - 14, y: py - 8 - flap * 5 }, { x: px - 4, y: py + 4 }] as never, true); g.fillPoints([{ x: px, y: py }, { x: px + 14, y: py - 8 - flap * 5 }, { x: px + 4, y: py + 4 }] as never, true);
+      g.fillStyle(0x4a3a24, 1); g.fillEllipse(px, py, 5, 10);
+      g.fillStyle(0xffd45c, 1); g.fillCircle(px - 2, py - 3, 1.4); g.fillCircle(px + 2, py - 3, 1.4);
+      g.lineStyle(1, 0x4a3a24, 1); g.lineBetween(px, py - 8, px - 4, py - 13); g.lineBetween(px, py - 8, px + 4, py - 13);
+      break;
+    }
+    case 'b22Cub': {
+      const bb = Math.sin(now / 260) * 2;
+      g.fillStyle(0x000000, 0.09); g.fillEllipse(px, py + 11, 20, 5);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 2 + bb, 18, 15);
+      g.fillStyle(0x4a3222, 1); g.fillEllipse(px, py + 6 + bb, 12, 9);
+      g.lineStyle(5, color, 1); g.lineBetween(px - dir * 9, py + bb, px - dir * 15, py + 8 + bb);
+      g.fillStyle(color, 1); g.fillCircle(px + dir * 3, py - 8 + bb, 7);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 5, py - 9 + bb, 1.3); g.fillCircle(px + dir * 1, py - 9 + bb, 1.3);
+      break;
+    }
+    case 'b22Hatch': {
+      const step = Math.sin(now / 140) * 2;
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 10, 18, 4);
+      g.fillStyle(color, 1); g.fillEllipse(px - dir * 2, py, 16, 8);
+      g.fillStyle(color, 1); g.fillEllipse(px + dir * 9, py, 10, 6);
+      g.fillStyle(0xe8e0d0, 1); g.fillTriangle(px + dir * 12, py - 2, px + dir * 20, py, px + dir * 12, py + 2);
+      g.lineStyle(1.6, 0x5a4a2a, 1); for (const lx of [-6, 2]) g.lineBetween(px + lx, py + 5, px + lx + step, py + 10);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 7, py - 2, 1.1);
+      break;
+    }
+    case 'b22Grub': {
+      const wob = Math.sin(now / 280);
+      g.fillStyle(0x000000, 0.08); g.fillEllipse(px, py + 9, 16, 4);
+      for (let k = 0; k < 4; k++) { g.fillStyle(k % 2 ? 0x7a8a4a : color, 1); g.fillCircle(px - dir * (7 - k * 5) + wob * (k - 1.5), py + Math.sin(now / 280 + k) * 1.5, 6 - k * 0.3); }
+      g.fillStyle(0xff5a3a, 1); g.fillCircle(px + dir * 9 + wob, py - 2, 1.4);
+      g.fillStyle(0x3a4a1a, 1); g.fillCircle(px + dir * 10 + wob, py + 1, 1.1);
+      break;
+    }
+    case 'b22Behe': {
+      const step = Math.sin(now / 180) * 1.5;
+      g.fillStyle(0x000000, 0.09); g.fillEllipse(px, py + 11, 22, 5);
+      g.fillStyle(color, 1); g.fillEllipse(px, py + 1, 20, 12);
+      g.fillStyle(0x4a3524, 1); g.fillEllipse(px, py + 5, 14, 7);
+      for (const lx of [-7, 3]) { g.fillStyle(color, 1); g.fillRect(px + lx, py + 6, 4, 6 + step); }
+      g.fillStyle(color, 1); g.fillEllipse(px + dir * 12, py - 2, 9, 8);
+      g.fillStyle(0xe0d8c8, 1); g.fillTriangle(px + dir * 15, py - 3, px + dir * 19, py - 8, px + dir * 13, py - 2);
+      g.fillStyle(0x1a1208, 1); g.fillCircle(px + dir * 13, py - 4, 1.1);
+      break;
+    }
   }
 
   // hatched quality shows on the field: more stars, more sparkle

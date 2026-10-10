@@ -9,6 +9,7 @@ import { toastBad, toastGood } from '../composables/useToast';
 import { celebrate } from '../composables/celebrate';
 import { useJoystickPrefs } from '../composables/useJoystick';
 import { usePerfHudPref } from '../composables/usePerfHud';
+import { replayOnboarding } from '../composables/useOnboarding';
 import { sfx } from '../game/audio';
 import { RARITY_META, type Rarity } from '../game/items';
 import type { CharacterSkin } from '../game/cosmetics';
@@ -67,6 +68,13 @@ function wipeSave(): void {
 }
 
 const redeemedCount = computed(() => progress.redeemed.length);
+
+/** 重看新手引导：清掉看过标记，回大世界就会重新弹（世界页监听同一个单例） */
+function replay(): void {
+  replayOnboarding();
+  sfx.click();
+  toastGood('回大世界后会重新弹一遍新手引导');
+}
 
 function submit(): void {
   const res = progress.redeem(code.value);
@@ -197,6 +205,7 @@ function submit(): void {
         <li>角色形象在「背包 → 角色形象」里换，U熊的肚皮能把球弹回去。</li>
         <li>所有进度都存在本机浏览器里，换了设备不会同步。</li>
       </ul>
+      <Button size="sm" variant="quiet" @click="replay">重看新手引导</Button>
     </section>
 
     <section class="set__block set__danger">

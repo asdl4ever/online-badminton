@@ -7,6 +7,8 @@ import TrainXpHud from '../components/TrainXpHud.vue';
 import { useWalk } from '../composables/useWalk';
 import { isTouchDevice } from '../game/device';
 import { useJoystickPrefs } from '../composables/useJoystick';
+import { racketAim } from '../game/touch';
+import { RacketTracker } from '../game/racket';
 import { AVATAR_FEET_PAD, avatarBoxSize, paintAvatar } from '../game/draw/canvas2d';
 import {
   TRAIN_META,
@@ -27,7 +29,7 @@ import { useProgressStore } from '../stores/progress';
  *
  * 走到哑铃 / 沙袋 / 跑步机旁边按 E（手机点一下）就开始练，**一台器械只管一维**：
  * - 🏋️ 哑铃区：右摇杆上下往复，举一次给「进攻」经验；
- * - 🥊 沙袋：右摇杆推出去再收回来，挥一拳给「技术」经验；
+ * - 🥊 沙袋：右摇杆挥拍（**和比赛同一套手感**：方向控拍头、甩出速度算出拳），给「技术」经验；
  * - 🏃 跑步机：左摇杆推着跑，跑得越多给越多「体力」经验。
  * 没有节奏判定、没有 20 秒一组、也没有评级与每日额度——做一次记一次。
  * 角色头顶挂着正在练那一项的等级与进度条，屏幕底部是总览（`TrainXpHud`）。
@@ -79,6 +81,8 @@ const racketJoy = ref({ x: 0, y: 0 });
 const rawJoy = ref({ x: 0, y: 0 });
 let armed = true;
 let bagArmed = true;
+/** 沙袋挥拍取样器（比赛同款）：摇杆方向 → 拍头，速度 ≥ 阈值算一次挥拍 */
+const bagTracker = new RacketTracker();
 let liftLast = performance.now();
 /** 跑步机：累计里程（每跑够一段给一次经验） */
 let treadAccum = 0;
@@ -137,6 +141,8 @@ function paintMe(now: number): void {
   const c = meCanvas.value;
   if (!c) return;
   const rj = racketJoy.value;
+  // 打沙袋：摇杆方向经 `racketAim`（比赛同款 1.3 灵敏度）映射到拍头，即时跟手
+  const aim = racketAim(rj.x, rj.y);
   paintAvatar(c, customize.cosmetic, now, {
     scale: AVATAR_SCALE,
     facing,
@@ -144,7 +150,7 @@ function paintMe(now: number): void {
     noRacket: !bagging.value,
     dumbbell: lifting.value,
     racket: bagging.value
-      ? { rx: 14 + rj.x * 54, ry: -30 + rj.y * 40 }
+      ? { rx: 14 + aim.x * 54, ry: -30 + aim.y * 40 }
       : treading.value
         ? { rx: -6 + Math.sin(now / 90) * 10, ry: -52 - Math.sin(now / 180) * 14 }
         : { rx: -4, ry: -56 - lift.value * 52 },
@@ -164,11 +170,23 @@ function stepLift(now: number): void {
   }
 }
 
-/** 打沙袋：右摇杆推出去一次 = 一次有效挥拍（要先收回来才能再算） */
-function stepBag(): void {
-  const mag = Math.hypot(racketJoy.value.x, racketJoy.value.y);
-  if (mag <= 0.3) bagArmed = true;
-  else if (bagArmed && mag >= 0.8) {
+/**
+ * 打沙袋：**和比赛同一套挥拍**——摇杆方向 = 拍头方向，甩出来的拍头速度
+ * ≥ `BAG_SWING_MIN` 算一次挥拍（速度落回 `BAG_REARM` 以下才能再记一次）。
+ *
+ * 旧版是「推到底 ≥0.8 才算出拳」，和比赛的甩拍手势对不上；现在同样用
+ * `RacketTracker` 量速度（甩杆峰值 ~1000+，慢推 ~600，阈值取 700）。
+ */
+const BAG_SWING_MIN = 700;
+const BAG_REARM = 220;
+function stepBag(dt: number): void {
+  const rj = racketJoy.value;
+  const aim = racketAim(rj.x, rj.y);
+  const released = Math.hypot(rj.x, rj.y) < 0.02;
+  const st = bagTracker.update(aim.x * 120, aim.y * 120, 0, 0, dt, released);
+  const speed = Math.hypot(st.rvx, st.rvy);
+  if (speed <= BAG_REARM) bagArmed = true;
+  else if (bagArmed && speed >= BAG_SWING_MIN) {
     bagArmed = false;
     bagPunch.value += 1;
     sfx.hit('smash');
@@ -207,7 +225,7 @@ const walk = useWalk({
     // 刚点了器械：先走过去站好，站定之前不做动作
     stepToMachine(dt);
     if (!standTarget) {
-      if (bagging.value) stepBag();
+      if (bagging.value) stepBag(dt);
       else if (treading.value) stepTread(dt);
       else stepLift(now);
     }
@@ -258,6 +276,8 @@ function dismount(): void {
   joy.value = { ...rawJoy.value };
   lift.value = 0;
   treadAccum = 0;
+  bagTracker.reset();
+  bagArmed = true;
 }
 
 function toggleAction(id: string): void {
@@ -271,6 +291,7 @@ function toggleAction(id: string): void {
   mode.value = want;
   armed = true;
   bagArmed = true;
+  bagTracker.reset();
   lift.value = 0;
   treadAccum = 0;
   racketJoy.value = { x: 0, y: 0 };
@@ -329,7 +350,7 @@ const { always: joyAlways } = useJoystickPrefs();
 const showJoy = computed(() => touch || joyAlways.value);
 const prompt = computed(() => {
   if (lifting.value) return '右摇杆上下往复举重 —— 每举起一次都给「进攻」经验';
-  if (bagging.value) return '右摇杆推出去再收回来 —— 每挥一拳都给「技术」经验';
+  if (bagging.value) return '右摇杆挥拍（和比赛同一套手感）—— 甩一次给一笔「技术」经验';
   if (treading.value) return '左摇杆推着跑 —— 跑得越多，「体力」经验越多';
   return '';
 });
@@ -446,11 +467,12 @@ watch(nearId, (v) => {
 
           <div class="room__prompt" :class="{ 'is-on': !!prompt }">{{ prompt }}</div>
 
-          <!-- 左：走动（上器械后不动）；右：举重上下往复 / 打沙袋推出去 -->
+          <!-- 左：走动（上器械后不动）；右：举重上下往复 / 打沙袋挥拍（死区跟着比赛那颗） -->
           <Joystick v-if="showJoy" @move="onWalkMove" />
           <Joystick
             v-if="showJoy && (lifting || bagging)"
             side="right"
+            :dead-zone="0.15"
             @move="(x, y) => (racketJoy = { x, y })"
           />
 

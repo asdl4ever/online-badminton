@@ -23,6 +23,7 @@ import { HATS_21 } from './hats21';
 import { HATS_22 } from './hats22';
 import { HATS_23 } from './hats23';
 import { HATS_24 } from './hats24';
+import { HATS_25 } from './hats25';
 
 /**
  * 涓婚澶撮グ鐨?*閫愰《鐙珛鐢?*鎬诲叆鍙ｏ紙鍒嗘枃浠惰 hats1~4.ts锛夈€?
@@ -53,6 +54,7 @@ const HATS: Record<string, (typeof HATS_1)[string]> = {
   ...HATS_21,
   ...HATS_22,
   ...HATS_23,
+  ...HATS_25,
   ...HATS_24,
 };
 

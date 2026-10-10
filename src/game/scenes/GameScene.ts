@@ -33,6 +33,7 @@ import {
   type MatchRole,
   type PlayerInput,
   type PlayerState,
+  type ShotStyle,
   type World,
 } from '../types';
 import {
@@ -49,9 +50,11 @@ import {
 import { createMatchTally, type MatchTally, type MatchTallyTracker } from '../match-xp';
 import { AIController, NEUTRAL_STATS } from '../ai';
 import { attrsFromStats, type PlayerStats } from '../players';
-import { createControls, readControls, type ControlKeys } from '../input';
+import { createControls, createSkillKeys, readControls, readSkills, type ControlKeys, type SkillKeys } from '../input';
+import { SKILL_BY_ID, activeSynergies, branchAwakenOf, branchModOf, MOMENTUM_MAX, MOMENTUM_PER_HIT, MOMENTUM_PER_POINT, type SkillAttr, type SkillCond, type SkillId } from '../skills';
+import { STAMINA_MAX } from '../constants';
 import { RacketTracker, SwingPath } from '../racket';
-import { TouchControls, isTouchDevice } from '../touch';
+import { TouchControls, isTouchDevice, skillInput } from '../touch';
 import { SCENE_BG_PAD, fitFixedView, onSceneResize } from '../zoom';
 import { debugOverlayEnabled, joystickAlwaysOn } from '../device';
 import {
@@ -130,6 +133,12 @@ export interface MatchConfig {
   cosmetic?: Cosmetic;
   /** 本地玩家的属性倍率（速度 / 力量 / 容错 / 体力，会改物理） */
   attrs?: PlayerAttrs;
+  /** 已解锁的招式（**只单机 / PvE 生效**；联机归一化，既不启用也不上报） */
+  skills?: SkillId[];
+  /** 每个招式选的强化分支（id → branchId）；单机 / PvE 生效 */
+  skillBranches?: Partial<Record<SkillId, string>>;
+  /** 每个招式的熟练度点（用来判断「质变」是否觉醒）；单机 / PvE 生效 */
+  skillMastery?: Partial<Record<SkillId, number>>;
   /** the local player's display name */
   localName?: string;
   /** the local player's rank tier (visual only) */
@@ -202,6 +211,26 @@ export class GameScene extends Phaser.Scene {
   /** the option the world was built from, reused by a manual reset */
   private baseOptionId = DEFAULT_OPTION_ID;
   private controls!: ControlKeys;
+  /** 招式键（1 蓄力 / 2 鱼跃 / 3 突进）：只在单机 / PvE 读，联机不启用 */
+  private skillKeys!: SkillKeys;
+  /** 招式「生效至」「冷却至」时间戳（按招式 id 记） */
+  private skillUntil: Partial<Record<SkillId, number>> = {};
+  private skillCd: Partial<Record<SkillId, number>> = {};
+  /**
+   * 🥋 **AI 接管**：按下主动招式后，这段时间里**我方的移动 / 起跳 / 挥拍交给 AI**
+   * （复用对局 AI，`side = 我方`），自动跑到落点、起跳、挥拍把这一下打出来；
+   * 同时叠上该招式的属性加成。窗口结束或完成一次触球后交还操作。
+   */
+  private assistId: SkillId | null = null;
+  private assistUntil = 0;
+  private assistAi: AIController | null = null;
+  /** 🔥 气势（本局资源）：打中 +1、赢分 +3；高价值招式花费它 */
+  private momentum = 0;
+  private lastHitterSeen = -1;
+  private scoreSeen: [number, number] = [0, 0];
+  /** 🔁 连招：本招命中后给「下一板」的加成（吃命中，形成套路） */
+  private chainUntil = 0;
+  private chainUp: Partial<Record<SkillAttr, number>> | null = null;
   private ai!: AIController;
   /** 观战时左侧那位 AI（单机为 null） */
   private aiLeft: AIController | null = null;
@@ -237,6 +266,8 @@ export class GameScene extends Phaser.Scene {
   /** 属性点倍率：本地与联机对方（hello 收到），最终写进 world.attrs */
   private localAttrs: PlayerAttrs = { ...NEUTRAL_ATTRS };
   private remoteAttrs: PlayerAttrs = { ...NEUTRAL_ATTRS };
+  /** 在线对战是否归一化属性（房主/访客 = true）：胜负只吃操作，不吃锻炼等级 */
+  private normalizeOnlineAttrs = false;
   private currentTheme: ThemeId = DEFAULT_THEME;
   private bg!: Phaser.GameObjects.Graphics;
   /** 帽子/宠物层：在 emoji 头（depth 3）之上，与各场景统一 */
@@ -364,7 +395,14 @@ export class GameScene extends Phaser.Scene {
       : { ...DEFAULT_COSMETIC };
     this.remoteCosmetic =
       this.cfg.role === 'single' ? { ...AI_COSMETIC } : { ...DEFAULT_COSMETIC };
-    this.localAttrs = this.cfg.attrs ? sanitizeAttrs(this.cfg.attrs) : { ...NEUTRAL_ATTRS };
+    // 在线对战（房主 / 访客）**属性归一化**：两边都用中性属性，胜负只吃操作。
+    // 练出来的一维只在 PvE（晋级赛 / 发球机 / 大熊球馆人机）生效——见 attrs.ts。
+    this.normalizeOnlineAttrs = this.cfg.role === 'host' || this.cfg.role === 'guest';
+    this.localAttrs = this.normalizeOnlineAttrs
+      ? { ...NEUTRAL_ATTRS }
+      : this.cfg.attrs
+        ? sanitizeAttrs(this.cfg.attrs)
+        : { ...NEUTRAL_ATTRS };
     this.remoteAttrs = { ...NEUTRAL_ATTRS };
     this.localName = this.cfg.localName?.trim() || '你';
     this.remoteName = this.cfg.role === 'single' ? '电脑' : '对手';
@@ -424,6 +462,18 @@ export class GameScene extends Phaser.Scene {
     applyTheme(this.currentTheme);
 
     this.controls = createControls(this);
+    this.skillKeys = createSkillKeys(this);
+    this.input.keyboard?.addCapture('ONE,TWO,THREE,NUMPAD_ONE,NUMPAD_TWO,NUMPAD_THREE');
+    this.skillUntil = {};
+    this.skillCd = {};
+    this.assistId = null;
+    this.assistUntil = 0;
+    this.assistAi = null;
+    this.momentum = 0;
+    this.lastHitterSeen = -1;
+    this.scoreSeen = [0, 0];
+    this.chainUntil = 0;
+    this.chainUp = null;
     const spec = this.cfg.spectate;
     this.ai = new AIController(
       spec ? spec.right.stats ?? NEUTRAL_STATS : this.cfg.opponent?.stats ?? NEUTRAL_STATS,
@@ -763,7 +813,8 @@ export class GameScene extends Phaser.Scene {
       if (m.s.ev) for (const e of m.s.ev) this.world.events.push(e);
     } else if (m.t === 'hello') {
       this.remoteCosmetic = sanitizeCosmetic(m.cosmetic);
-      this.remoteAttrs = sanitizeAttrs(m.attrs);
+      // 在线归一化：忽略对方上报的属性，保持中性（对双方都公平）
+      this.remoteAttrs = this.normalizeOnlineAttrs ? { ...NEUTRAL_ATTRS } : sanitizeAttrs(m.attrs);
       this.syncSkins();
       const name = typeof m.name === 'string' ? m.name.trim() : '';
       if (name) this.remoteName = name.slice(0, 16);
@@ -1184,7 +1235,17 @@ export class GameScene extends Phaser.Scene {
       const net = [this.telemetry.transport, rtt > 0 ? `${Math.round(rtt)}ms` : '']
         .filter(Boolean)
         .join(' · ');
-      text = `你是${side}选手${net ? ` · ${net}` : ''}`;
+      text = `你是${side}选手${net ? ` · ${net}` : ''} · 属性已归一化`;
+    } else if (this.cfg.role === 'single' && this.cfg.skills && this.cfg.skills.length) {
+      const parts = this.cfg.skills.map((id, i) => {
+        const m = SKILL_BY_ID[id];
+        if (!m) return id;
+        return `${i + 1} ${m.name}`;
+      });
+      text = `招式 ${parts.join(' · ')}  ·  🔥气势 ${this.momentum}/${MOMENTUM_MAX}`;
+      if (this.assistId && performance.now() < this.assistUntil) {
+        text += `  ·  🤖 AI 接管：${SKILL_BY_ID[this.assistId]?.name ?? ''}`;
+      }
     }
     if (text !== this.infoLine.text) this.infoLine.setText(text);
   }
@@ -1218,9 +1279,158 @@ export class GameScene extends Phaser.Scene {
     ].join('\n');
   }
 
+  /**
+   * 🥋 招式（**只单机 / PvE**）：不改 simulation，只把**这一帧本地玩家的属性倍率**
+   * 按招式状态临时改写——`world.attrs` 本来就是物理层唯一加成入口，所以各类招式
+   * 都靠它生效，而**联机永远中性、天然不受影响**。
+   *
+   * 携带的招式按顺序映射到快捷键 **1 / 2 / 3**（最多 `SKILL_SLOTS` 个，见 `cfg.skills`）。
+   */
+  /** 触发条件是否满足（从 world 现成状态读） */
+  private condMet(c: SkillCond | undefined, idx: number): boolean {
+    if (!c) return true;
+    const p = this.world.players[idx];
+    switch (c) {
+      case 'staminaLow':
+        return p.stamina < STAMINA_MAX * 0.35;
+      case 'behind':
+        return this.world.score[idx] < this.world.score[1 - idx];
+      case 'ahead':
+        return this.world.score[idx] > this.world.score[1 - idx];
+      case 'netNear':
+        return Math.abs(p.x - NET_X) < 190;
+      case 'backCourt': {
+        const own = idx === 0 ? COURT_LEFT : COURT_RIGHT;
+        return Math.abs(p.x - own) < 240;
+      }
+      case 'rallyLong':
+        return this.world.rallyHits >= 6;
+      default:
+        return true;
+    }
+  }
+
+  private applySkills(dt: number): void {
+    void dt;
+    const idx = this.localIndex();
+    const a: PlayerAttrs = { ...this.localAttrs };
+    const eq = this.cfg.skills;
+    if (this.cfg.role !== 'single' || !eq || !eq.length) {
+      this.world.attrs[idx] = a;
+      // 联机 / 无招式：不能残留上一局的出球改造（默认恒 null）
+      this.world.shot[idx] = null;
+      return;
+    }
+    const now = performance.now();
+    // 🔥 气势：本局累积（打中 +1、赢下一分 +3）
+    const [sl, sr] = this.world.score;
+    if (sl !== this.scoreSeen[0] || sr !== this.scoreSeen[1]) {
+      if (this.world.score[idx] > this.scoreSeen[idx]) {
+        this.momentum = Math.min(MOMENTUM_MAX, this.momentum + MOMENTUM_PER_POINT);
+      }
+      this.scoreSeen = [sl, sr];
+    }
+    if (this.world.lastHitter === idx && this.lastHitterSeen !== idx) {
+      this.momentum = Math.min(MOMENTUM_MAX, this.momentum + MOMENTUM_PER_HIT);
+      // 🔁 连招：这一板是「接管中的招式」打出的 → 强化下一板
+      const as = this.assistId ? SKILL_BY_ID[this.assistId] : null;
+      if (as?.chain && now < this.assistUntil) {
+        this.chainUntil = now + as.chain.ms;
+        this.chainUp = as.chain.up;
+      }
+    }
+    this.lastHitterSeen = this.world.lastHitter;
+    // 主动招式的按键：触屏走 DOM 招式按钮，桌面走 1/2/3 键
+    const touch = !!this.touchControls;
+    const kb = this.skillKeys
+      ? readSkills(this.skillKeys)
+      : { charge: false, dive: false, dash: false };
+    const keyBySlot = touch
+      ? [skillInput.pressed[0], skillInput.pressed[1], skillInput.pressed[2]]
+      : [kb.charge, kb.dive, kb.dash];
+    /** 🎯 本帧生效的出球改造（多个招式窗口重叠时按槽位顺序合并，后一个覆盖同名字段） */
+    let shotStyle: ShotStyle | null = null;
+    for (let i = 0; i < eq.length && i < 3; i++) {
+      const id = eq[i];
+      const meta = SKILL_BY_ID[id];
+      if (!meta) continue;
+      const branchId = this.cfg.skillBranches?.[id];
+      const mod = branchModOf(meta, branchId);
+      const upMul = mod?.upMul ?? 1;
+      const downMul = mod?.downMul ?? 1;
+      // 🧬 质变：熟练度到 `awaken.at` 且选了分支 → 这一招「练熟了」：
+      // 冷却 -10%、发动窗口 +15%；质变加成**只在发动期间**生效（不再常驻）
+      const awaken = branchAwakenOf(meta, branchId, this.cfg.skillMastery?.[id] ?? 0);
+      const cdMul = (mod?.cdMul ?? 1) * (awaken ? 0.9 : 1);
+      const msMul = (mod?.msMul ?? 1) * (awaken ? 1.15 : 1);
+      // ⚡ 招式：按下 = **AI 接管**（窗口内自动跑位/起跳/挥拍）+ 施加效果；然后冷却
+      const pressed = keyBySlot[i];
+      const cost = meta.momentum ?? 0;
+      if (
+        pressed &&
+        this.condMet(meta.when, idx) &&
+        now >= (this.skillCd[id] ?? 0) &&
+        this.momentum >= cost
+      ) {
+        const baseMs = Math.max(meta.fx?.ms ?? 900, 900);
+        const win = baseMs * msMul;
+        const cd = Math.max(meta.fx?.cd ?? 0, 2000);
+        this.skillUntil[id] = now + win;
+        this.skillCd[id] = now + cd * cdMul;
+        this.assistId = id;
+        this.assistUntil = now + Math.min(win, 1600);
+        this.momentum -= cost;
+        if (meta.grantMomentum) {
+          this.momentum = Math.min(MOMENTUM_MAX, this.momentum + meta.grantMomentum);
+        }
+        this.cfg.onEvent({ type: 'skill', id });
+      }
+      if (now < (this.skillUntil[id] ?? 0)) {
+        if (meta.charge) {
+          // 蓄力型：接管期间按「满蓄」结算
+          a.power *= 1 + 0.7 * upMul;
+          a.reach *= 1 - 0.35;
+        } else if (meta.fx) {
+          const fx = meta.fx;
+          if (fx.up) for (const k of Object.keys(fx.up) as SkillAttr[]) a[k] *= (fx.up[k] ?? 1) * upMul;
+          if (fx.down)
+            for (const k of Object.keys(fx.down) as SkillAttr[]) a[k] *= (fx.down[k] ?? 1) * downMul;
+        }
+        // 🧬 质变加成只在这一招的发动窗口内生效
+        if (awaken?.up) for (const k of Object.keys(awaken.up) as SkillAttr[]) a[k] *= awaken.up[k] ?? 1;
+        if (awaken?.down) for (const k of Object.keys(awaken.down) as SkillAttr[]) a[k] *= awaken.down[k] ?? 1;
+        // 🎯 真·球路改造：这一招发动期间，出的球按它的 `shot` 参数走
+        if (meta.shot) shotStyle = { ...(shotStyle ?? {}), ...meta.shot };
+      }
+    }
+    // 🔁 连招加成（命中后的下一板）
+    if (this.chainUp && now < this.chainUntil) {
+      for (const k of Object.keys(this.chainUp) as SkillAttr[]) a[k] *= this.chainUp[k] ?? 1;
+    }
+    // 🔗 套装协同：凑齐即常驻生效
+    for (const syn of activeSynergies(eq)) {
+      if (syn.up) for (const k of Object.keys(syn.up) as SkillAttr[]) a[k] *= syn.up[k] ?? 1;
+      if (syn.down) for (const k of Object.keys(syn.down) as SkillAttr[]) a[k] *= syn.down[k] ?? 1;
+    }
+    this.world.attrs[idx] = a;
+    this.target.attrs[idx] = a;
+    // 🎯 出球改造写进世界（`releaseShuttle` 出球那一刻读；没有招式窗口时清 null）
+    this.world.shot[idx] = shotStyle;
+  }
+
+  /** 我方这一帧的输入：AI 接管窗口内交给 AI（自动跑位/起跳/挥拍），否则玩家自己操作 */
+  private localHumanInput(dt: number): PlayerInput {
+    if (this.assistId && performance.now() < this.assistUntil) {
+      if (!this.assistAi) this.assistAi = new AIController(NEUTRAL_STATS, this.localIndex());
+      return this.assistAi.update(this.world, this.localIndex(), dt);
+    }
+    return this.buildLocalInput(dt);
+  }
+
   private updateSimulated(dt: number, role: MatchRole): void {
+    if (role === 'single') this.applySkills(dt);
     if (role === 'host') {
-      const human = this.buildLocalInput(dt);
+      const human = this.localHumanInput(dt);
       this.netAccum += dt;
       const input: [PlayerInput, PlayerInput] = [human, this.remoteInput];
       this.stepFixed(dt, input, this.lagCompSamples());
@@ -1246,10 +1456,10 @@ export class GameScene extends Phaser.Scene {
       this.stepFixed(dt, [this.specLeftInput, this.specRightInput]);
     } else if (this.world.mode === 'machine') {
       // no opponent to run — the feeder owns slot 1
-      const human = this.buildLocalInput(dt);
+      const human = this.localHumanInput(dt);
       this.stepFixed(dt, [human, { ...EMPTY_INPUT }]);
     } else {
-      const human = this.buildLocalInput(dt);
+      const human = this.localHumanInput(dt);
       const aiInput = this.ai.update(this.world, 1, dt);
       this.stepFixed(dt, [human, aiInput]);
     }

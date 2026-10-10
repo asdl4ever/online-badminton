@@ -23,6 +23,7 @@ import { WEAPONS_21 } from './weapons21';
 import { WEAPONS_22 } from './weapons22';
 import { WEAPONS_23 } from './weapons23';
 import { WEAPONS_24 } from './weapons24';
+import { WEAPONS_25 } from './weapons25';
 
 
 /**
@@ -57,6 +58,7 @@ const WEAPONS: Record<string, (typeof WEAPONS_1)[string]> = {
   ...WEAPONS_21,
   ...WEAPONS_22,
   ...WEAPONS_23,
+  ...WEAPONS_25,
   ...WEAPONS_24,
 };
 

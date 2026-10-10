@@ -27,6 +27,7 @@ import { WINGS_25 } from './wings25';
 import { WINGS_26 } from './wings26';
 import { WINGS_27 } from './wings27';
 import { WINGS_28 } from './wings28';
+import { WINGS_29 } from './wings29';
 import { getBackTune } from '../../backTune';
 import { isSingleCape } from '../capes';
 
@@ -65,6 +66,7 @@ const WINGS: Record<string, (typeof WINGS_1)[string]> = {
   ...WINGS_25,
   ...WINGS_26,
   ...WINGS_27,
+  ...WINGS_29,
   ...WINGS_28,
 };
 

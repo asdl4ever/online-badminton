@@ -21,6 +21,7 @@ import { TRAILS_19 } from './trails19';
 import { TRAILS_20 } from './trails20';
 import { TRAILS_21 } from './trails21';
 import { TRAILS_22 } from './trails22';
+import { TRAILS_23 } from './trails23';
 
 /**
  * 涓婚鍑荤悆鎷栧熬鐨?*鏁存潯杞ㄨ抗**鐢绘硶鎬诲叆鍙ｏ紙鍒嗘枃浠惰 trails1~2.ts锛夈€?
@@ -52,6 +53,7 @@ const TRAILS: Record<string, (typeof TRAILS_1)[string]> = {
   ...TRAILS_19,
   ...TRAILS_20,
   ...TRAILS_21,
+  ...TRAILS_23,
   ...TRAILS_22,
 };
 

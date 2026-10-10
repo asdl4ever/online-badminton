@@ -6,7 +6,9 @@ import Joystick from '../components/ui/Joystick.vue';
 import { isTouchDevice } from '../game/device';
 import { useJoystickPrefs } from '../composables/useJoystick';
 import { clampZoom, createPinchZoom, zoom } from '../composables/useZoom';
+import { onboardingDone, onboardingForced } from '../composables/useOnboarding';
 import AppModal from '../components/ui/AppModal.vue';
+import OnboardingGuide from '../components/OnboardingGuide.vue';
 import ComboPanel from '../components/ComboPanel.vue';
 import TradePanel from '../components/TradePanel.vue';
 import TabletPanel from '../components/TabletPanel.vue';
@@ -21,6 +23,9 @@ import {
 import { waitForRoomCode } from '../composables/useInviteRoom';
 import { WORLD_NPCS, type WorldNpc } from '../game/world/npcs';
 import { PLAYER_H } from '../game/constants';
+import { RacketTracker } from '../game/racket';
+import { DEFAULT_CONFIG } from '../game/config';
+import { racketAim } from '../game/touch';
 import { GZ_DAILY_MAX } from '../game/godzilla';
 import { NAILONG_DAILY_MAX } from '../game/nailong';
 import { ALIEN_DAILY_MAX, ALIEN_MILESTONES } from '../game/alien';
@@ -208,22 +213,52 @@ const peerCanvas = ref<HTMLCanvasElement | null>(null);
 const HAND_UP = Math.round(PLAYER_H * 0.72 * AVATAR_SCALE);
 let facing: 1 | -1 = 1;
 
-/* --- 右摇杆：控球拍指向 --------------------------------------------------- */
+/**
+ * 新手引导：新号（0 积分）第一次进大世界自动弹三步 coach-mark；
+ * 已在「设置 → 重看新手引导」里点过的（`forced`）不管积分多少都弹。
+ */
+const guideVisible = computed(
+  () => onboardingForced.value || (!onboardingDone.value && progress.points === 0),
+);
+
+/* --- 右摇杆：控球拍指向（**比赛同一套手感**） ------------------------------- */
+/**
+ * 以前这里是自己手搓的「朝目标缓动 + 固定幅度」，手指推了球拍要慢慢跟过去，
+ * 玩家一看就觉得和比赛里不是一只手。现在整个换成比赛那条管线：
+ *
+ * - 摇杆方向经 `racketAim`（1.3 灵敏度增益）映射成拍头目标 → **即时跟手**；
+ * - 速度/轨迹由 `RacketTracker` 量（和比赛同一份平滑、瞬移保护、松手冻结速度），
+ *   于是大世界的角色挥拍也会画出**身上装备的挥拍拖尾**。
+ */
 /** 右摇杆的归一化向量（松手回零） */
 const racketJoy = ref({ x: 0, y: 0 });
-/** 球拍当前偏移：每帧朝目标靠拢一点，所以拨动摇杆是「跟过去」而不是瞬移 */
-const racketSt = { rx: REST_RACKET.rx, ry: REST_RACKET.ry };
+/** 球拍状态（比赛同款取样器出：位置 + 速度 + 真实轨迹） */
+const racket = new RacketTracker();
+const racketSt = { rx: REST_RACKET.rx, ry: REST_RACKET.ry, rvx: 0, rvy: 0 };
 /** 摇杆推到底时球拍相对斜举姿势能偏多远（角色单位） */
 const RACKET_RANGE = 52;
+/** 取样器配置：跟比赛一致，只把臂展放宽一点——大世界的待机位本来就偏在斜举位 */
+const RACKET_CFG = { ...DEFAULT_CONFIG, racketMax: 128 };
+/** 翻面时把取样器重置，免得斜举位镜像的跳变被当成一次挥拍 */
+let racketFacing: 1 | -1 = 1;
 
 function stepRacket(dt: number): void {
+  if (facing !== racketFacing) {
+    racketFacing = facing;
+    racket.reset();
+  }
   // 摇杆是屏幕方向：角色翻面时把 x 反过来（paintAvatar 内部还会再乘一次 facing），
   // 这样「往右推 = 球拍往右指」不看朝向。
-  const tx = REST_RACKET.rx + racketJoy.value.x * facing * RACKET_RANGE;
-  const ty = REST_RACKET.ry + racketJoy.value.y * RACKET_RANGE;
-  const k = Math.min(1, dt * 12);
-  racketSt.rx += (tx - racketSt.rx) * k;
-  racketSt.ry += (ty - racketSt.ry) * k;
+  const v = racketAim(racketJoy.value.x, racketJoy.value.y);
+  const tx = REST_RACKET.rx * facing + v.x * RACKET_RANGE;
+  const ty = REST_RACKET.ry + v.y * RACKET_RANGE;
+  const released = Math.hypot(racketJoy.value.x, racketJoy.value.y) < 0.02;
+  const st = racket.update(tx, ty, 0, 0, dt, released, RACKET_CFG);
+  // paintAvatar 的 racket 是「朝右坐标系」（内部再乘 facing），所以这里乘回去
+  racketSt.rx = st.rx * facing;
+  racketSt.ry = st.ry;
+  racketSt.rvx = st.rvx;
+  racketSt.rvy = st.rvy;
 }
 
 function paintMe(now: number): void {
@@ -232,7 +267,9 @@ function paintMe(now: number): void {
   paintAvatar(canvas, customize.cosmetic, now, {
     scale: AVATAR_SCALE,
     facing,
-    racket: racketSt,
+    racket: { rx: racketSt.rx, ry: racketSt.ry },
+    swingSpeed: Math.hypot(racketSt.rvx, racketSt.rvy),
+    swingPath: racket.path.pts,
   });
 }
 
@@ -934,7 +971,17 @@ onBeforeUnmount(() => {
 
         <!-- 左：走动；右：控球拍（松手回到斜举姿势） -->
         <Joystick v-if="showJoy" @move="(x, y) => (joy = { x, y })" />
-        <Joystick v-if="showJoy" side="right" @move="(x, y) => (racketJoy = { x, y })" />
+        <!-- 右摇杆死区和比赛里那颗一致（0.15），手感不再两套 -->
+        <Joystick v-if="showJoy" side="right" :dead-zone="0.15" @move="(x, y) => (racketJoy = { x, y })" />
+
+        <!-- 新手引导：三步 coach-mark（可跳过、不锁界面），设置里可重看 -->
+        <OnboardingGuide
+          v-if="guideVisible"
+          :get-me="() => me"
+          :get-near="() => nearZone"
+          :get-stage="() => stage"
+          :show-joy="showJoy"
+        />
 
         <!-- 视距：地图上**双指捏合**调（原来的右缘滑块已下线） -->
 

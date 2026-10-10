@@ -13,7 +13,11 @@
  * 跑完一圈…），没有节奏判定、没有评级、也没有每日额度。
  * 等级只是「加了多少」，真正的物理效果仍由 players.playerStats → attrsFromStats
  * 那条唯一换算决定（四维 → 倍率），所以练出来的东西在对局里是同一套。
+ *
+ * 另外每维练到 Lv5 / Lv8 会送一条**永久「功底」**（`TRAIN_MILESTONES`）——
+ * 原有「被动招式」的常驻加成全部收编到这里，永久成长只有锻炼这一个出处。
  */
+import type { PlayerAttrs } from './attrs';
 
 /** 能练的五维（= PlayerStats 的键，这里显式写死避免循环引用） */
 export type TrainKey = 'technique' | 'speed' | 'attack' | 'defense' | 'stamina';
@@ -73,6 +77,74 @@ export const TRAIN_MAX_LEVEL = 10;
  * 否则升到后面会被夹住、等级白练（现在是 140）。
  */
 export const TRAIN_PER_LEVEL = 6.25;
+
+// ---- 🏅 锻炼功底：每维练到一定等级送的永久加成 --------------------------------
+/**
+ * 这是全游戏「永久数值成长」的**唯一**来源。
+ *
+ * 以前这些加成挂在「被动招式」上（装上即常驻），和锻炼练级算的是同一笔账，
+ * 玩家感觉两套系统重复。2026-10 起全部收进这里：练到位就送，
+ * 不需要解锁 / 装备 / 携带；招式那边只剩局内发动期间才生效的临时效果。
+ */
+export interface TrainMilestone {
+  /** 练到这一级给 */
+  at: number;
+  name: string;
+  desc: string;
+  /** 属性倍率（键 = `PlayerAttrs` 的字段） */
+  up?: Partial<Record<keyof PlayerAttrs, number>>;
+}
+
+export const TRAIN_MILESTONES: Record<TrainKey, TrainMilestone[]> = {
+  attack: [
+    { at: 5, name: '发力根底', desc: '力量 +10%', up: { power: 1.1 } },
+    { at: 8, name: '千钧腕力', desc: '力量再 +12%', up: { power: 1.12 } },
+  ],
+  speed: [
+    { at: 5, name: '步法功底', desc: '移速 +10%', up: { speed: 1.1 } },
+    { at: 8, name: '疾风步', desc: '移速再 +12%', up: { speed: 1.12 } },
+  ],
+  stamina: [
+    { at: 5, name: '耐力代谢', desc: '体力 +20%', up: { stamina: 1.2 } },
+    { at: 8, name: '铁肺', desc: '体力再 +15%', up: { stamina: 1.15 } },
+  ],
+  technique: [
+    { at: 5, name: '细腻手感', desc: '容错 +12%', up: { skill: 1.12 } },
+    { at: 8, name: '院感', desc: '容错再 +15%', up: { skill: 1.15 } },
+  ],
+  defense: [
+    { at: 5, name: '根基防守', desc: '判定 +8%', up: { reach: 1.08 } },
+    { at: 8, name: '铁幕', desc: '判定再 +12%', up: { reach: 1.12 } },
+  ],
+};
+
+/** 已到等级的功底合成一份倍率表（没到的不在里面） */
+export function trainMilestoneMults(levels: TrainLevels): Partial<Record<keyof PlayerAttrs, number>> {
+  const out: Partial<Record<keyof PlayerAttrs, number>> = {};
+  for (const k of TRAIN_KEYS) {
+    const lv = levels[k] ?? 0;
+    for (const m of TRAIN_MILESTONES[k]) {
+      if (lv < m.at || !m.up) continue;
+      for (const [attr, mul] of Object.entries(m.up)) {
+        const key = attr as keyof PlayerAttrs;
+        out[key] = (out[key] ?? 1) * (mul ?? 1);
+      }
+    }
+  }
+  return out;
+}
+
+/** 把功底倍率乘到对局属性上（`progress.attrs` 用） */
+export function applyTrainMilestones(attrs: PlayerAttrs, levels: TrainLevels): PlayerAttrs {
+  const mult = trainMilestoneMults(levels);
+  return {
+    speed: attrs.speed * (mult.speed ?? 1),
+    power: attrs.power * (mult.power ?? 1),
+    reach: attrs.reach * (mult.reach ?? 1),
+    skill: attrs.skill * (mult.skill ?? 1),
+    stamina: attrs.stamina * (mult.stamina ?? 1),
+  };
+}
 
 /**
  * 各项「做一次动作 / 跑完一圈 / 接到一颗球」给多少经验（都是个位数）。

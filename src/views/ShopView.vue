@@ -68,29 +68,31 @@ function back(): void {
 
 <template>
   <div class="page page--playing">
-    <PageShell title="商城" back @back="back">
-      <template #icons>
-        <span class="icon-btn ui-num mall-wallet" title="金币">🪙 {{ progress.coins }}</span>
-        <span class="icon-btn ui-num mall-wallet" title="荣誉点">🏅 {{ progress.honor }}</span>
-        <span class="icon-btn ui-num mall-wallet" title="宝箱钥匙">🔑 {{ progress.chestKeys }}</span>
-        <span class="icon-btn ui-num mall-wallet" title="星尘碎片">🧩 {{ progress.shards }}</span>
-      </template>
-
+    <!-- 商城整页不显示右上角那排工具栏（那排太挤；钱包数字挪进内容里、放在页签右边） -->
+    <PageShell title="商城" back :icons="false" @back="back">
       <template #stage>
         <div class="mall">
           <div class="mall__inner">
-            <!-- 顶部：皮肤 / 宝箱 / 背包 -->
-            <div class="mall__tabs">
-              <button
-                v-for="t in TABS"
-                :key="t.id"
-                class="mall__tab"
-                :class="{ 'is-on': tab === t.id }"
-                type="button"
-                @click="go(t.to)"
-              >
-                {{ t.label }}
-              </button>
+            <!-- 顶部：左边是「皮肤 / 宝箱 / 背包」页签，右边是钱包 -->
+            <div class="mall__top">
+              <div class="mall__tabs">
+                <button
+                  v-for="t in TABS"
+                  :key="t.id"
+                  class="mall__tab"
+                  :class="{ 'is-on': tab === t.id }"
+                  type="button"
+                  @click="go(t.to)"
+                >
+                  {{ t.label }}
+                </button>
+              </div>
+              <div class="mall__wallet">
+                <span class="mall__w num" title="金币">🪙 {{ progress.coins }}</span>
+                <span class="mall__w num" title="荣誉点">🏅 {{ progress.honor }}</span>
+                <span class="mall__w num" title="宝箱钥匙">🔑 {{ progress.chestKeys }}</span>
+                <span class="mall__w num" title="星尘碎片">🧩 {{ progress.shards }}</span>
+              </div>
             </div>
 
             <div class="mall__body">
@@ -149,9 +151,34 @@ function back(): void {
   padding: calc(var(--ui-top-h) + 10px) var(--s4) var(--s4);
 }
 
+/* 页签 + 钱包一行：都挤不下时钱包换行到下面 */
+.mall__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
 .mall__tabs {
   display: flex;
   gap: 6px;
+}
+
+.mall__wallet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mall__w {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
 }
 
 .mall__tab {
@@ -228,12 +255,6 @@ function back(): void {
   min-width: 0;
   overflow-y: auto;
   padding-right: 4px;
-}
-
-.mall-wallet {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text);
 }
 
 /* 手机：左侧分类横过来，内容竖着排 */

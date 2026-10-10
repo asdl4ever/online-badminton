@@ -21,6 +21,7 @@ import { SWINGS_19 } from './swings19';
 import { SWINGS_20 } from './swings20';
 import { SWINGS_21 } from './swings21';
 import { SWINGS_22 } from './swings22';
+import { SWINGS_23 } from './swings23';
 import type { SwingKit } from './shared';
 
 /**
@@ -50,6 +51,7 @@ const SWINGS: Record<string, (typeof SWINGS_1)[string]> = {
   ...SWINGS_19,
   ...SWINGS_20,
   ...SWINGS_21,
+  ...SWINGS_23,
   ...SWINGS_22,
 };
 

@@ -23,6 +23,7 @@ import { MOUNTS_20 } from './mounts20';
 import { MOUNTS_21 } from './mounts21';
 import { MOUNTS_22 } from './mounts22';
 import { MOUNTS_23 } from './mounts23';
+import { MOUNTS_24 } from './mounts24';
 
 
 /** 涓婚鍧愰獞鏁翠綋鏀惧ぇ鍊嶇巼锛堢粫鑴氬簳閿氱偣缂╂斁锛岃鑹叉湰浣撲笌鐞冩媿涓嶅彈褰卞搷锛?*/
@@ -55,6 +56,7 @@ const MOUNTS: Record<string, (typeof MOUNTS_1)[string]> = {
   ...MOUNTS_20,
   ...MOUNTS_21,
   ...MOUNTS_22,
+  ...MOUNTS_24,
   ...MOUNTS_23,
 };
 

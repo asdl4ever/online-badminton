@@ -13,6 +13,7 @@ import {
   TRAIN_KEYS,
   TRAIN_META,
   TRAIN_MAX_LEVEL,
+  TRAIN_MILESTONES,
   trainProgress,
   type TrainKey,
 } from '../game/training';
@@ -132,23 +133,37 @@ const trainPct = (k: TrainKey): number =>
       <div class="pf__attrs-head">
         <span class="pf__attrs-title">锻炼</span>
         <span class="muted pf__attrs-sum">
-          练哪一维就长哪一维，经验满了自动 +1 级（最高 Lv.{{ TRAIN_MAX_LEVEL }}）
+          永久成长都在这里：练哪一维就长哪一维（最高 Lv.{{ TRAIN_MAX_LEVEL }}），
+          每维 Lv5 / Lv8 再送一条永久功底；招式只管局内打法。
         </span>
       </div>
 
-      <div v-for="k in TRAIN_KEYS" :key="k" class="pf__attr">
-        <span class="pf__attr-name" :style="{ color: TRAIN_META[k].color }">
-          {{ TRAIN_META[k].label }}
-        </span>
-        <span class="muted pf__attr-desc">{{ TRAIN_META[k].desc }} · {{ TRAIN_META[k].where }}</span>
-        <span class="num pf__attr-val">
-          {{ progress.trainLevels[k] }}/{{ TRAIN_MAX_LEVEL }}
-        </span>
-        <div class="pf__attr-bar">
+      <div v-for="k in TRAIN_KEYS" :key="k" class="pf__attrblock">
+        <div class="pf__attr">
+          <span class="pf__attr-name" :style="{ color: TRAIN_META[k].color }">
+            {{ TRAIN_META[k].label }}
+          </span>
+          <span class="muted pf__attr-desc">{{ TRAIN_META[k].desc }} · {{ TRAIN_META[k].where }}</span>
+          <span class="num pf__attr-val">
+            {{ progress.trainLevels[k] }}/{{ TRAIN_MAX_LEVEL }}
+          </span>
+          <div class="pf__attr-bar">
+            <span
+              class="pf__attr-fill"
+              :style="{ width: `${trainPct(k)}%`, background: TRAIN_META[k].color }"
+            />
+          </div>
+        </div>
+        <div class="pf__miles">
           <span
-            class="pf__attr-fill"
-            :style="{ width: `${trainPct(k)}%`, background: TRAIN_META[k].color }"
-          />
+            v-for="m in TRAIN_MILESTONES[k]"
+            :key="m.at"
+            class="pf__mile"
+            :class="{ 'is-on': (progress.trainLevels[k] ?? 0) >= m.at }"
+            :style="(progress.trainLevels[k] ?? 0) >= m.at ? { borderColor: TRAIN_META[k].color } : undefined"
+          >
+            Lv{{ m.at }}「{{ m.name }}」{{ m.desc }}
+          </span>
         </div>
       </div>
 
@@ -359,6 +374,34 @@ const trainPct = (k: TrainKey): number =>
   height: 100%;
   border-radius: 999px;
   transition: width 220ms var(--ease);
+}
+
+/* 每维下面的「功底」里程碑：练到就点亮 */
+.pf__attrblock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pf__miles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 44px;
+}
+
+.pf__mile {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--line);
+  color: var(--text-dim);
+}
+
+.pf__mile.is-on {
+  border-style: solid;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
 .pf__attrs-note {

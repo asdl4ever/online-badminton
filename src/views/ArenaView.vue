@@ -77,6 +77,13 @@ const cup = computed(() => (run.value ? arenaByTier(run.value.tier) : null));
 const me = computed(() => run.value?.entrants.find((e) => e.isMe) ?? null);
 const roundName = computed(() => (run.value ? ARENA_ROUNDS[run.value.round] : ''));
 
+/** 本局属性加成（五维倍率平均，%）：PvE 生效，结算里给玩家一个「练了有用」的确认 */
+const attrBonus = computed(() => {
+  const a = progress.attrs;
+  const v = [a.speed, a.power, a.reach, a.skill, a.stamina];
+  return Math.round((v.reduce((x, y) => x + y, 0) / v.length - 1) * 100);
+});
+
 /** 玩家本轮那一场 */
 const myMatch = computed(() => {
   const r = run.value;
@@ -248,6 +255,9 @@ function onEvent(e: SimEvent): void {
           role="single"
           :option-id="undefined"
           :opponent="opponentConfig"
+          :skills="progress.equippedSkills"
+          :skill-branches="progress.skillBranch"
+          :skill-mastery="progress.skillMastery"
           :session="null"
           :cosmetic="customize.cosmetic"
           :attrs="progress.attrs"
@@ -276,6 +286,7 @@ function onEvent(e: SimEvent): void {
                   </span>
                   <span class="muted">球场主题 · {{ evThemeLabel }}</span>
                 </div>
+                <div class="muted arena-head__sub">锻炼属性在此生效 · 档位越高对手越强、奖金也越高</div>
               </div>
               <span class="arena-season">赛季 {{ progress.seasonId }}</span>
             </div>
@@ -314,7 +325,14 @@ function onEvent(e: SimEvent): void {
 
         <!-- 报名：两步走（先选级别，再选该级别下的赛事），复用独立的报名组件 -->
         <div v-else class="arena-stage">
-          <ArenaSignup @signed="onSigned" />
+          <div class="arena-lobby-wrap">
+            <ArenaSignup @signed="onSigned" />
+            <div class="weekly-entry">
+              <Button variant="quiet" block @click="router.push('/weekly')">
+                🗓 本周周赛 · 5 关 AI 挑战（有周奖励）
+              </Button>
+            </div>
+          </div>
         </div>
       </template>
     </PageShell>
@@ -351,6 +369,9 @@ function onEvent(e: SimEvent): void {
         {{ lastEvent.label }} · {{ lastEvent.blurb }}
       </p>
       <p class="muted quit-note">奖励已结算，详情看画面上方的提示。该杯赛冷却 5 分钟。</p>
+      <p class="muted quit-note">
+        本局属性加成 <b>+{{ attrBonus }}%</b>（锻炼等级越高越明显；联机对局会归一化，不吃属性）
+      </p>
       <Button variant="primary" block @click="closeResult">回到选杯</Button>
     </AppModal>
 
@@ -386,6 +407,15 @@ function onEvent(e: SimEvent): void {
 .arena-card {
   width: min(680px, 100%);
   margin: auto 0;
+}
+
+.arena-lobby-wrap {
+  width: min(760px, 100%);
+  margin: auto 0;
+}
+
+.weekly-entry {
+  margin-top: var(--s3);
 }
 
 .arena-head {

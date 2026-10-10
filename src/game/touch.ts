@@ -6,6 +6,20 @@ export { isTouchDevice };
 const DEADZONE = 0.15;
 /** 右摇杆（瞄准/挥拍）的灵敏度加成：同样的拇指位移输出更大的向量 */
 const RACKET_GAIN = 1.3;
+
+/**
+ * 右摇杆原始向量 → 球拍瞄准向量：**比赛与各玩法共用同一套手感**——
+ * 1.3 灵敏度增益、长度封顶 1（推一半 ≈ 0.65，轻推就有反应）。
+ *
+ * 大世界 / 健身房的右摇杆以前各自手搓映射，手感与比赛对不上；
+ * 现在统一走这里（`TouchControls` 也用它），改灵敏度只改一处。
+ */
+export function racketAim(x: number, y: number): { x: number; y: number } {
+  const len = Math.hypot(x, y);
+  if (len < 0.001) return { x: 0, y: 0 };
+  const k = Math.min(1, len * RACKET_GAIN) / len;
+  return { x: x * k, y: y * k };
+}
 /**
  * Jumping lives in a wedge at the top of the move stick: push the knob at
  * least `JUMP_DEPTH` of the way out, and stay within `JUMP_HALF_ANGLE` of
@@ -33,6 +47,15 @@ export const stickInput = {
   racket: { x: 0, y: 0 },
   moveActive: false,
   racketActive: false,
+};
+
+/**
+ * **招式按钮的共享输入**：DOM 招式按钮（`components/ui/GameSticks.vue` 里那排）
+ * 写入，`GameScene.applySkills` 读取。下标 = 携带槽位（0/1/2 ↔ 快捷键 1/2/3）。
+ * 招式现在全是主动（永久数值成长归锻炼，见 `skills.ts` / `training.ts`）。
+ */
+export const skillInput = {
+  pressed: [false, false, false],
 };
 
 export interface TouchReadout {
@@ -124,10 +147,6 @@ export class TouchControls {
   }
 
   private racketVector(): { x: number; y: number } {
-    const v = stickInput.racket;
-    const len = Math.hypot(v.x, v.y);
-    if (len < 0.001) return { x: 0, y: 0 };
-    const k = Math.min(1, len * RACKET_GAIN) / len;
-    return { x: v.x * k, y: v.y * k };
+    return racketAim(stickInput.racket.x, stickInput.racket.y);
   }
 }

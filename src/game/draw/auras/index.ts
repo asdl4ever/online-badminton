@@ -25,6 +25,7 @@ import { AURAS_23 } from './auras23';
 import { AURAS_24 } from './auras24';
 import { AURAS_25 } from './auras25';
 import { AURAS_26 } from './auras26';
+import { AURAS_27 } from './auras27';
 
 /**
  * 涓婚鍏夌幆鐨?*鑳屾櫙鐗规晥鍖?*鎬诲叆鍙ｏ紙鍒嗘枃浠惰 auras1~4.ts锛夈€?
@@ -59,6 +60,7 @@ const AURAS: Record<string, (typeof AURAS_1)[string]> = {
   ...AURAS_23,
   ...AURAS_24,
   ...AURAS_25,
+  ...AURAS_27,
   ...AURAS_26,
 };
 

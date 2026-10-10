@@ -121,6 +121,12 @@ export const router = createRouter({
       name: 'news',
       component: () => import('../views/NewsView.vue'),
     },
+    // 🗓 本机周赛：每周 5 关 AI，首通给奖励，跨周重置（入口在晋级赛馆 / 平板）
+    {
+      path: '/weekly',
+      name: 'weekly',
+      component: () => import('../views/WeeklyView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 
   ],

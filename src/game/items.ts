@@ -12,6 +12,7 @@ import type { Cosmetic } from './cosmetics';
 // ⚠️ 从 `plusMeta` 引（纯数据），**不要**从 `effects/plus` 引 ——
 // 那边顶部是运行时 `import Phaser from 'phaser'`，会让整个 Phaser 被拖进入口 chunk
 import { PLUS_META } from './effects/plusMeta';
+import { generateBatch22Items } from './batch22';
 
 export type ItemSlot =
   | 'skin'
@@ -3023,6 +3024,9 @@ export const ITEMS: Item[] = [
   it('swingTrail', 'paintSplash', '泼彩斩', 'rare', 3, 'chest'),
   it('effect', 'paintSplashBurst', '泼墨爆', 'common', 1, 'chest'),
 ];
+
+// ---- 第二十批 10 个「SCP 恐怖怪物 / 巨兽」主题：件数 / 部位 / 星级由主题 id 种子摇定 ----
+ITEMS.push(...generateBatch22Items());
 
 export const GACHA_POOL = ITEMS.filter((i) => i.source === 'gacha' || i.source === 'chest');
 

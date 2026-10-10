@@ -22,6 +22,7 @@ import { nanoQueen, dataPrism, warpPilot, marsPioneer, forerGuardian } from './b
 import { glacLeviathan, fridAngler, walrKing, dimDevourer, hadalLurefish } from './batch19';
 import { cretTyrant, swampCroc, iceageSaber, yorShango, kalVain, banKing, memeFrog, officeSlacker, gnomeElder, trashKing } from './batch20';
 import { dreamTapir, microAmeba, alchMaster, yarnGolem, paintMuse } from './batch21';
+import { scpStatue, keterFlesh, shyGiant, rakeThing, wendiStag, mothmSeer, gbeastPrime, crawCrawler, mutoQueen, beheTitan } from './batch22';
 
 /**
  * 皮肤覆盖层总入口：�?ref 提供重绘后的 painter�?
@@ -72,5 +73,15 @@ export const SKIN_OVERRIDES: Record<string, import('./shared').SkinPainter> = {
   // 恐龙 / 史前 / 神话 / 恶搞（第九批）
   cretTyrant, swampCroc, iceageSaber, yorShango, kalVain, banKing, memeFrog, officeSlacker, gnomeElder, trashKing,
   // 梦境 / 微观 / 炼金 / 毛线 / 画中世界（第十批）
+  scpStatue,
+  keterFlesh,
+  shyGiant,
+  rakeThing,
+  wendiStag,
+  mothmSeer,
+  gbeastPrime,
+  crawCrawler,
+  mutoQueen,
+  beheTitan,
   dreamTapir, microAmeba, alchMaster, yarnGolem, paintMuse,
 };

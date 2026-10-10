@@ -82,6 +82,17 @@ export const PET_BONUS: Record<PetId, PetBonus> = {
   yarnMouse: { coin: 3, xp: 1 },
   paintBird: { coin: 3, xp: 1 },
   paintBlob: { coin: 3, xp: 1 },
+  // --- 第二十批 SCP / 巨兽 主题宝箱专属宠物 ---
+  scpRoach: { coin: 3, xp: 2 },
+  keterLarva: { coin: 2, xp: 4 },
+  shyPup: { coin: 3, xp: 3 },
+  rakeCrawler: { coin: 4, xp: 2 },
+  wendiCalf: { coin: 3, xp: 3 },
+  mothmMoth: { coin: 2, xp: 5 },
+  gbeastCub: { coin: 5, xp: 3 },
+  crawHatch: { coin: 4, xp: 3 },
+  mutoGrub: { coin: 4, xp: 2 },
+  beheCalf: { coin: 5, xp: 4 },
 };
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;

@@ -32,7 +32,7 @@ import {
   type WorldMode,
 } from './config';
 import { NEUTRAL_ATTRS, type PlayerAttrs } from './attrs';
-import { clamp, classifyShot, minReleaseFor, simulateTrajectory } from './physics';
+import { clamp, classifyShot, minReleaseFor, netClearFloor, simulateTrajectory } from './physics';
 import type {
   JuggleState,
   MachineState,
@@ -127,6 +127,8 @@ export function createWorld(optionId: string = DEFAULT_OPTION_ID): World {
     // 装扮 / 属性由场景写进来（`GameScene` 按本地/对方的 cosmetic 与 attrs 同步）
     skins: ['none', 'none'],
     attrs: [{ ...NEUTRAL_ATTRS }, { ...NEUTRAL_ATTRS }],
+    // 出球改造：只有单机/PvE 的招式会写它（见 ShotStyle），默认无
+    shot: [null, null],
     juggle: freshJuggle(),
     machine,
   };
@@ -144,6 +146,8 @@ export function setWorldOption(world: World, optionId: string): void {
   world.winner = -1;
   world.rallyHits = 0;
   world.lastHitter = -1;
+  world.shot[0] = null;
+  world.shot[1] = null;
   world.shuttle.live = false;
   world.phase = world.mode === 'machine' ? 'rally' : 'serve';
   world.phaseTimer =
@@ -331,6 +335,13 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   let elevation: number;
   if (forward <= 0.05) elevation = up >= 0 ? Math.PI / 2 : -Math.PI / 2;
   else elevation = Math.atan2(up, forward);
+  // 🎯 招式出球改造：先强改仰角，再兜一条「至少要能过网」的下限——
+  // 后场强行压平重杀 / 贴地搓球时不会被自己的网挡下来
+  const style = world.shot[index];
+  if (style?.elevation != null) {
+    elevation = style.elevation;
+    if (world.mode !== 'juggle') elevation = Math.max(elevation, netClearFloor(shuttle.x, shuttle.y, cfg));
+  }
   elevation = clamp(elevation, cfg.aimMin, cfg.aimMax);
   // juggling is played straight up against no net, so skip the net-clear clamp
   if (world.mode !== 'juggle') {
@@ -343,11 +354,13 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   const attrs = world.attrs[index];
   const stam = clamp(p.stamina / STAMINA_MAX, 0, 1);
   const powerFactor = STAMINA_POWER_FLOOR + (1 - STAMINA_POWER_FLOOR) * stam;
-  const speed = clamp(
+  let speed = clamp(
     raw * cfg.shotSpeedGain * attrs.power * powerFactor,
     cfg.shotSpeedMin * attrs.skill,
     cfg.shotSpeedMax * attrs.power * powerFactor,
   );
+  // 🎯 招式出球改造：速度倍率叠在属性倍率之后（贴网小球调慢、扑杀调快）
+  if (style?.speedMul) speed *= style.speedMul;
   if (world.mode === 'match') {
     p.stamina = Math.max(0, p.stamina - STAMINA_HIT_DRAIN / Math.max(0.4, attrs.stamina));
   }
@@ -360,11 +373,30 @@ function releaseShuttle(world: World, index: 0 | 1): void {
   // velocity in its snapshot, so guests stay in sync automatically.
   if (world.mode !== 'juggle') {
     const towardRight = p.facing > 0;
-    const limit =
-      (towardRight ? COURT_RIGHT : COURT_LEFT) + (towardRight ? cfg.shotLandSlack : -cfg.shotLandSlack);
+    // 🎯 招式可以改「落点上限」：搓球收在网前、扑杀压在中前场
+    let limit =
+      style?.landWithin != null
+        ? NET_X + p.facing * style.landWithin
+        : (towardRight ? COURT_RIGHT : COURT_LEFT) + (towardRight ? cfg.shotLandSlack : -cfg.shotLandSlack);
+    // 落点目标必须还在球的飞行方向前方，否则退回默认后场线，免得被裁成原地掉球
+    if (towardRight ? limit <= shuttle.x + 30 : limit >= shuttle.x - 30) {
+      limit = (towardRight ? COURT_RIGHT : COURT_LEFT) + (towardRight ? cfg.shotLandSlack : -cfg.shotLandSlack);
+    }
     const predicted = predictLandingX(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy, cfg);
     if (towardRight ? predicted > limit : predicted < limit) {
       trimShotToLand(shuttle.x, shuttle.y, shuttle, limit, towardRight, cfg);
+    }
+  }
+
+  // 🎯 招式强改过仰角 / 收过落点之后，用**真实积分**复核过网（直线近似会低估重力下坠，
+  // 裁速也会把过网点压低）：低于网顶 10px 就抬高仰角重试，最多 8 次。
+  if (style?.elevation != null && world.mode !== 'juggle') {
+    for (let i = 0; i < 8; i++) {
+      const probe = simulateTrajectory(shuttle.x, shuttle.y, shuttle.vx, shuttle.vy, p.facing, cfg);
+      if (probe.netY == null || probe.netY <= NET_TOP - 10) break;
+      elevation = Math.min(cfg.aimMax, elevation + 0.06);
+      shuttle.vx = p.facing * speed * Math.cos(elevation);
+      shuttle.vy = -speed * Math.sin(elevation);
     }
   }
 

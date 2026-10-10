@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { GameScene, type HudState, type MatchConfig, type MatchOpponent } from '../game/scenes/GameScene';
+import type { SkillId } from '../game/skills';
 import { VIEW_H, VIEW_W } from '../game/constants';
 import { bindCanvasSize, renderConfig, sceneScaleConfig } from '../game/zoom';
 import GameSticks from './ui/GameSticks.vue';
@@ -14,8 +15,10 @@ import { DEFAULT_THEME, type ThemeId } from '../game/theme';
 import type { TierId } from '../game/ranks';
 import type { PartyState } from '../game/config';
 import { useLobbyStore } from '../stores/lobby';
+import { useProgressStore } from '../stores/progress';
 
 const lobby = useLobbyStore();
+const progress = useProgressStore();
 
 const props = defineProps<{
   role: MatchRole;
@@ -35,6 +38,12 @@ const props = defineProps<{
   optionId?: string;
   /** 单机 / 晋级赛的 AI 对手（名字、风格、外观） */
   opponent?: MatchOpponent;
+  /** 已解锁的招式（**只单机 / PvE 生效**；联机归一化不启用） */
+  skills?: SkillId[];
+  /** 招式选的分支强化（id → branchId） */
+  skillBranches?: Partial<Record<SkillId, string>>;
+  /** 招式熟练度点（判断「质变」是否觉醒） */
+  skillMastery?: Partial<Record<SkillId, number>>;
   /** 观战：两侧都由 AI 控制，玩家不参与 */
   spectate?: { left: MatchOpponent; right: MatchOpponent };
   /** 关掉画面内的「再来一局」（重开要扣门票的玩法用，交给页面自己的按钮） */
@@ -106,7 +115,11 @@ function buildCfg(): MatchConfig {
       emit('hud', s);
     },
     onDisconnect: (m) => emit('disconnect', m),
-    onEvent: (e) => emit('sim', e),
+    onEvent: (e) => {
+      // 「用一次招式 +1 熟练度」（只有单机 / PvE 会发这个事件）
+      if (e.type === 'skill' && e.id) progress.addSkillMastery(e.id as SkillId, 1);
+      emit('sim', e);
+    },
     onMetrics: (m) => emit('metrics', m),
     cosmetic: props.cosmetic,
     attrs: props.attrs,
@@ -120,6 +133,9 @@ function buildCfg(): MatchConfig {
     onParty: (s) => emit('party', s),
     optionId: props.optionId,
     opponent: props.opponent,
+    skills: props.skills,
+    skillBranches: props.skillBranches,
+    skillMastery: props.skillMastery,
     spectate: props.spectate,
     noRematch: props.noRematch,
     hall: props.hall,
@@ -225,7 +241,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="container" class="game-canvas" :class="{ 'is-hall': hall }">
     <!-- 虚拟摇杆：和大地图同一颗 DOM 摇杆（观战 / 球馆里由页面摆时不显示） -->
-    <GameSticks v-if="!spectate && !noSticks" />
+    <GameSticks v-if="!spectate && !noSticks" :skills="props.skills" />
     <!-- 双方体力条：跑动/击球扣体力，低了跑得慢、击球软、AI 更容易失误 -->
     <div v-if="hud && !noHud" class="stam-row">
       <div class="stam" :class="{ 'is-me': hud.localIndex === 0 }">

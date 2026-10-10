@@ -90,6 +90,20 @@ export function minReleaseFor(x: number, y: number, cfg: WorldConfig): number {
   return Math.min(cfg.aimMax, Math.max(cfg.aimMin, geom * 1.06 + 0.05));
 }
 
+/**
+ * 出球至少要达到的仰角，才能从 (x, y) **越过网顶**（带一点余量）。
+ *
+ * 和 `minReleaseFor` 是同一条直线近似，区别是**不论击球点高低都给下限**：
+ * 招式强改仰角时（比如在后场强行把球压平重杀、或贴地搓球）用它兜底，
+ * 免得球直接扎进网里。过网余量按高度差取 10px + 6%。
+ */
+export function netClearFloor(x: number, y: number, cfg: WorldConfig): number {
+  if (!cfg.netEnabled) return cfg.aimMin;
+  const dxNet = Math.max(Math.abs(NET_X - x), 6);
+  const geom = Math.atan2(y - (NET_TOP - 10), dxNet);
+  return clamp(geom * 1.06 + 0.05, cfg.aimMin, cfg.aimMax);
+}
+
 export function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }

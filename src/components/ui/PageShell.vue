@@ -10,6 +10,7 @@ import SettingsPanel from '../SettingsPanel.vue';
 import ProfilePanel from '../ProfilePanel.vue';
 import RankPanel from '../RankPanel.vue';
 import BackpackPanel from '../BackpackPanel.vue';
+import SkillPanel from '../SkillPanel.vue';
 import FriendsPanel from '../FriendsPanel.vue';
 import AchievementsPanel from '../AchievementsPanel.vue';
 
@@ -92,6 +93,7 @@ const profileOpen = ref(false);
 const showAch = ref(false);
 const showRank = ref(false);
 const showBag = ref(false);
+const showSkill = ref(false);
 const showFriends = ref(false);
 
 /**
@@ -170,6 +172,9 @@ defineExpose({
           <button class="icon-btn jelly" type="button" title="背包与收藏" @click="showBag = true">
             背包
           </button>
+          <button class="icon-btn jelly" type="button" title="招式装配（携带 / 快捷键）" @click="showSkill = true">
+            招式
+          </button>
           <!-- 商店统一成商城（/shop）：宝箱那一栏直接由这个按钮落进去 -->
           <button class="icon-btn jelly" type="button" title="商城 · 宝箱" @click="shellRouter.push('/shop/chest')">
             宝箱
@@ -215,6 +220,9 @@ defineExpose({
     </AppModal>
     <AppModal v-model="showBag" title="背包" max-width="760px">
       <BackpackPanel />
+    </AppModal>
+    <AppModal v-model="showSkill" title="招式装配" max-width="560px">
+      <SkillPanel />
     </AppModal>
     <AppModal v-model="showFriends" title="好友" max-width="720px">
       <FriendsPanel

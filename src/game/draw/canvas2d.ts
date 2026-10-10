@@ -269,6 +269,10 @@ export interface AvatarPaintOptions {
   noRacket?: boolean;
   /** 在手上画一副哑铃（举重） */
   dumbbell?: boolean;
+  /** 挥拍速度（比赛同款量纲，`RacketTracker` 的 rvx/rvy 合成）——>0 时沿轨迹画挥拍拖尾 */
+  swingSpeed?: number;
+  /** 拍头最近的真实轨迹（`RacketTracker.path.pts`，肩部相对坐标） */
+  swingPath?: readonly SwingSample[];
 }
 
 /** 哑铃：一根横杆 + 两端配重片（举重时画在手上） */
@@ -326,11 +330,11 @@ export function paintAvatar(
     { x: PAD_X, feetY: PLAYER_H + PAD_TOP, facing, color: opts.color ?? P.player0 },
     racket.rx * facing,
     racket.ry,
-    0,
+    opts.swingSpeed ?? 0,
     0,
     face,
     null,
-    undefined,
+    opts.swingPath,
     opts.noRacket,
   );
   // 举重：哑铃画在刚才那只手的位置上

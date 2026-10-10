@@ -21,6 +21,7 @@ import { RINGS_19 } from './rings19';
 import { RINGS_20 } from './rings20';
 import { RINGS_21 } from './rings21';
 import { RINGS_22 } from './rings22';
+import { RINGS_23 } from './rings23';
 
 
 /**
@@ -50,6 +51,7 @@ const RINGS: Record<string, (typeof RINGS_1)[string]> = {
   ...RINGS_19,
   ...RINGS_20,
   ...RINGS_21,
+  ...RINGS_23,
   ...RINGS_22,
 };
 
